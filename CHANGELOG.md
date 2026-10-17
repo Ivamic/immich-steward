@@ -34,6 +34,8 @@ between releases.
   pick the location and the suggestions scroll on their own, the photo and its details are on
   the right. On medium screens the two side columns become tabs; on small screens everything is
   stacked. Compact suggestion rows; hovering a row highlights its marker and the other way round.
+  A click on a suggestion row shows it on the map without picking it; hovering a neighbor's
+  thumbnail shows it enlarged.
 
 ## [0.1.0] - 2026-10-17
 

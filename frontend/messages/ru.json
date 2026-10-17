@@ -185,5 +185,6 @@
 	"asset_geoclip_confident": "Уверенное предположение GeoCLIP",
 	"photo_tab_place": "Выбор места",
 	"photo_tab_info": "Фото и сведения",
-	"photo_keys": "Клавиши"
+	"photo_keys": "Клавиши",
+	"candidate_locate": "Показать на карте"
 }

@@ -418,6 +418,8 @@
 				(unfolded = unfolded.includes(module)
 					? unfolded.filter((m) => m !== module)
 					: [...unfolded, module])}
+			onlocate={(c) =>
+				mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
 		/>
 	</section>
 

@@ -185,5 +185,6 @@
 	"asset_geoclip_confident": "Confident GeoCLIP guess",
 	"photo_tab_place": "Location",
 	"photo_tab_info": "Photo and details",
-	"photo_keys": "Keyboard shortcuts"
+	"photo_keys": "Keyboard shortcuts",
+	"candidate_locate": "Show on the map"
 }

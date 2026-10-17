@@ -4,10 +4,17 @@
   within the module (as on the map); the key 1–9 picks one of the first nine. Cameras that a
   module looked at can be excluded (e.g. someone else's phone with a wrong clock). Modules run by
   workers show the state of their latest run and can be started from here. Hovering a row
-  highlights its marker on the map, and the other way round.
+  highlights its marker on the map, and the other way round. A click on a row shows the
+  suggestion on the map without picking it; hovering a neighbor's thumbnail enlarges it.
 -->
 <script lang="ts">
-	import { isPending, thumbnailUrl, type Candidate, type ModuleSuggestions } from '#lib/api.js';
+	import {
+		isPending,
+		thumbnailUrl,
+		type Candidate,
+		type ModuleSuggestions,
+		type NeighborEvidence
+	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import { setCameraExcluded } from './cameraFilter.svelte.js';
@@ -32,7 +39,8 @@
 		unfolded,
 		ontoggle,
 		highlight,
-		onhighlight
+		onhighlight,
+		onlocate
 	}: {
 		modules: ModuleSuggestions[];
 		loading: boolean;
@@ -43,7 +51,40 @@
 		ontoggle: (module: string) => void;
 		highlight: Highlight | null;
 		onhighlight: (highlight: Highlight | null) => void;
+		/** Show the suggestion on the map (does not pick it). */
+		onlocate: (candidate: Candidate) => void;
 	} = $props();
+
+	// Enlarged thumbnail of a neighbor photo, next to the hovered one.
+	let peek = $state<{
+		id: string;
+		name: string;
+		meta: string;
+		left: number;
+		top: number;
+	} | null>(null);
+	const PEEK_WIDTH = 240;
+	const PEEK_HEIGHT = 230;
+
+	function showPeek(event: MouseEvent, module: ModuleSuggestions, neighbor: NeighborEvidence) {
+		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const camera = module.track.find((p) => p.asset_id === neighbor.asset_id)?.camera;
+		// Below the thumbnail, or above it near the bottom of the window; never off screen.
+		const below = box.bottom + 6 + PEEK_HEIGHT < innerHeight;
+		peek = {
+			id: neighbor.asset_id,
+			name: neighbor.file_name,
+			meta: [formatDelta(neighbor.delta_s), camera || m.device_unknown()].join(' · '),
+			left: Math.max(8, Math.min(box.left, innerWidth - PEEK_WIDTH - 8)),
+			top: below ? box.bottom + 6 : Math.max(8, box.top - PEEK_HEIGHT - 6)
+		};
+	}
+
+	/** A click anywhere on a row, except on its controls, shows the suggestion on the map. */
+	function rowClick(event: MouseEvent, candidate: Candidate) {
+		if ((event.target as HTMLElement).closest('button, a')) return;
+		onlocate(candidate);
+	}
 
 	let list = $state<HTMLElement>();
 
@@ -136,7 +177,10 @@
 			<ol>
 				{#each module.candidates as candidate (candidate.rank)}
 					{@const key = keys.get(candidate)}
+					<!-- The row is a shortcut for the mouse; keyboard users have the label button. -->
+					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 					<li
+						onclick={(e) => rowClick(e, candidate)}
 						class:weak={candidate.tier === 'weak'}
 						class:highlight={isHighlighted(module.module, candidate.rank)}
 						data-candidate="{module.module}:{candidate.rank}"
@@ -148,9 +192,14 @@
 							>{candidate.rank}</span
 						>
 						<div class="body">
-							<div class="label" title={candidateDetails(candidate)}>
+							<button
+								type="button"
+								class="label"
+								title={candidateDetails(candidate) ?? m.candidate_locate()}
+								onclick={() => onlocate(candidate)}
+							>
 								{candidateLabel(candidate)}
-							</div>
+							</button>
 							<div class="meta">
 								<span
 									class="score"
@@ -174,9 +223,9 @@
 										href={resolve('/photo/[id]', { id: neighbor.asset_id })}
 										target="_blank"
 										rel="noopener"
-										title="{neighbor.file_name} ({formatDelta(
-											neighbor.delta_s
-										)}) — {m.photo_open_new_tab()}"
+										aria-label="{neighbor.file_name} — {m.photo_open_new_tab()}"
+										onmouseenter={(e) => showPeek(e, module, neighbor)}
+										onmouseleave={() => (peek = null)}
 									>
 										<img
 											src={thumbnailUrl(neighbor.asset_id)}
@@ -204,6 +253,15 @@
 		</div>
 	{/each}
 </section>
+
+{#if peek}
+	<div class="peek" style:left="{peek.left}px" style:top="{peek.top}px" aria-hidden="true">
+		<img src={thumbnailUrl(peek.id)} alt="" />
+		<div class="name">{peek.name}</div>
+		<div>{peek.meta}</div>
+		<div class="muted">{m.photo_open_new_tab()}</div>
+	</div>
+{/if}
 
 <style>
 	h2 {
@@ -273,7 +331,17 @@
 		font-weight: 700;
 		font-size: 0.85rem;
 	}
+	li {
+		cursor: pointer;
+	}
 	.label {
+		padding: 0;
+		border: none;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
 		word-break: break-word;
 		/* Two lines at most; the full text is in the title. */
 		display: -webkit-box;
@@ -281,6 +349,30 @@
 		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+	}
+	.peek {
+		position: fixed;
+		z-index: 20;
+		width: 240px;
+		padding: 0.4rem;
+		border-radius: 0.4rem;
+		background: #fff;
+		color: #24292f;
+		box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
+		font-size: 0.8rem;
+		pointer-events: none;
+	}
+	.peek img {
+		display: block;
+		width: 100%;
+		max-height: 160px;
+		object-fit: cover;
+		border-radius: 0.25rem;
+		margin-bottom: 0.3rem;
+	}
+	.peek .name {
+		font-weight: 600;
+		word-break: break-all;
 	}
 	.choose {
 		font-size: 0.8rem;

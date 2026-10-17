@@ -1156,7 +1156,7 @@ wheels = [
 
 [[package]]
 name = "steward"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "core" }
 dependencies = [
     { name = "alembic" },

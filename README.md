@@ -1,8 +1,8 @@
 # immich-steward
 
-> **Status: under active development.** An early version: manual review of photos without
-> location, suggestions from photos taken close in time and GeoCLIP already work; the other
-> modules are still to come. Expect bugs and changes between versions, and keep a backup of your Immich
+> **Status: under active development.** An early version: reviewing photos without a location,
+> suggestions from photos taken close in time and GeoCLIP already work; the other modules are
+> still to come. Expect bugs and changes between versions, and keep a backup of your Immich
 > library before writing locations to it.
 
 A self-hosted companion app for [Immich](https://immich.app) that helps you restore
@@ -20,13 +20,14 @@ proposes one or more candidate locations, and all candidates are shown together 
 map, color-coded by module and numbered by rank. You review them, pick one, or place a
 point manually.
 
-Modules:
+Available modules:
 
-- **Time neighbors** *(available)* — photos taken shortly before/after that already have a
-  location; the route between them is drawn on the map.
-
-- **GeoCLIP** *(available, optional worker)* — worldwide image geolocation by a neural network,
-  running locally on the CPU or on a GPU of another computer.
+- **Time neighbors** — photos taken shortly before and after that already have a location. The
+  route between them is drawn on the map, colored by time; cameras with a wrong clock can be
+  excluded.
+- **GeoCLIP** *(optional worker)* — worldwide image geolocation by a neural network, running
+  locally on the server CPU or on a GPU of another computer. Shown by confidence, with a gallery
+  filter for its confident guesses.
 
 Planned:
 
@@ -46,8 +47,8 @@ New modules can be added later as plugins.
 - **Local first.** Default modules run on your own hardware. Modules that send images
   to third-party services are never run automatically — only on an explicit request,
   with a clear warning about what is sent and where.
-- **Region-based search.** If the whole picture is misleading (for example, a crowd in
-  front of a monument), select a part of the image and run detection on that region only.
+- **Region-based search** *(planned)*. If the whole picture is misleading (for example, a crowd
+  in front of a monument), select a part of the image and run detection on that region only.
 - **"Not applicable" flag.** Mark photos where a location makes no sense, so they never
   show up in your to-do list again.
 
@@ -63,14 +64,20 @@ docker compose up -d --build
 ```
 
 Then open `http://<your-server>:8780` and sign in with your Immich account.
-See [docs/install.md](docs/install.md) for the details: configuration, Immich on the same
-machine, updating, backup and troubleshooting.
+
+GeoCLIP runs in an optional worker container (about 1 GB of RAM, up to 3 GB at its peak):
+set `STEWARD_WORKER_TOKEN` in `.env` and start with `docker compose --profile worker up -d --build`.
+
+See [docs/install.md](docs/install.md) for the details: configuration, the GeoCLIP worker, Immich
+on the same machine, updating, backup and troubleshooting.
 
 ## Architecture
 
 - Backend: Python (FastAPI), PostgreSQL with pgvector.
 - Runs with Docker Compose next to your Immich server.
-- ML modules will run in workers: on the server CPU, or on a separate machine with a GPU.
+- ML modules run in workers: separate processes that take jobs from the core over HTTP, on the
+  server CPU or on another computer with a GPU. Workers never see an Immich API key: the core
+  gives them the photos.
 - Web UI: timeline gallery with filters, photo view with a map, keyboard-driven review.
 - English UI with translations (Russian from the start).
 
@@ -81,9 +88,10 @@ Repository layout:
 | Path | Contents |
 |---|---|
 | `core/` | Core service: Python package `steward` (FastAPI), Alembic migrations, tests |
+| `worker/` | Worker: Python package `steward_worker` that runs ML location modules (GeoCLIP) |
 | `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
-| `docker/` | Dockerfile of the core image (it also contains the built web UI) |
-| `compose.yaml` | Core service + PostgreSQL with pgvector |
+| `docker/` | Dockerfiles of the core image (with the built web UI) and of the worker image (CPU) |
+| `compose.yaml` | Core service, PostgreSQL with pgvector, optional worker (profile `worker`) |
 | `docs/` | User documentation (installation) |
 
 Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 24 with pnpm, Docker.
@@ -102,6 +110,11 @@ uv run python -m steward --reload
 
 # Web UI dev server on http://localhost:5173 (proxies /api to the core)
 cd frontend && pnpm install && pnpm dev
+
+# Optional: a worker with GeoCLIP (PyTorch for the CPU; --extra cuda for an NVIDIA GPU).
+# The core needs the same STEWARD_WORKER_TOKEN in .env.
+uv sync --all-packages --extra geoclip --extra cpu
+STEWARD_WORKER_TOKEN=... uv run python -m steward_worker --core http://127.0.0.1:8080 --modules geoclip
 ```
 
 Checks (the same as in CI):

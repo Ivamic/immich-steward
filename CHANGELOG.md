@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-18
+
+GeoCLIP suggests locations by the look of a photo, in a worker on the server or on another
+computer; a photo card where the map always stays in view.
+
 ### Added
 
 - Workers: separate processes that run heavy location modules for the core, on the same server
@@ -36,6 +41,8 @@ between releases.
   stacked. Compact suggestion rows; hovering a row highlights its marker and the other way round.
   A click on a suggestion row shows it on the map without picking it; hovering a neighbor's
   thumbnail shows it enlarged.
+- The main actions (Save, Skip, Not applicable) are at the top of the panel and bigger; Save turns
+  green as soon as a point is picked, so that it is not forgotten.
 
 ## [0.1.0] - 2026-10-17
 
@@ -63,5 +70,6 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Ivamic/immich-steward/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Ivamic/immich-steward/releases/tag/v0.1.0

@@ -5,8 +5,9 @@
 > keep a backup of your Immich library anyway.
 
 immich-steward runs as two Docker containers: the app itself (API and web UI) and a
-PostgreSQL database with pgvector. Ready-made images are not published yet, so the app image is
-built from source on your server. It takes a few minutes the first time.
+PostgreSQL database with pgvector, plus an optional third one, the
+[GeoCLIP worker](#geoclip-worker-optional). Ready-made images are not published yet, so the
+images are built from source on your server. It takes a few minutes the first time.
 
 ## Requirements
 
@@ -83,12 +84,15 @@ GeoCLIP suggests where a photo was taken by its look: landmarks, cities, landsca
 neural network, so it runs in a separate container, the *worker*, which takes photos without a
 location one by one in the background. Results appear in the photo card as orange squares.
 
-What it needs:
+What it needs (measured on an Intel Core i3-13100 next to Immich):
 
-- about 3 GB of RAM at its peak (the container is limited to 4 GB) and a 1.4 GB image;
+- about 1 GB of RAM while working, up to 3 GB at its peak (the container is limited to 4 GB),
+  and a 1.4 GB image;
 - on its first start, the CLIP model (1.7 GB) is downloaded from Hugging Face into the volume
-  `immich-steward_model-cache`;
-- roughly 1–1.5 seconds per photo with 2 CPU threads, so a few thousand photos take a few hours.
+  `immich-steward_model-cache`, then loaded for a minute or two;
+- about 0.8 seconds per photo with 2 CPU threads: some 4,000 photos an hour, in the background.
+
+When several family members use the app, their photos are processed in turns.
 
 To start it:
 
@@ -109,7 +113,7 @@ Settings in `.env` (see `.env.example`):
 | `STEWARD_WORKER_THREADS` | `2` | CPU threads for the model. More is faster but leaves less for Immich. |
 | `STEWARD_WORKER_MAX_LOAD` | empty | E.g. `0.8`: the worker waits while the machine is busy (load average per CPU above 0.8), for instance while Immich transcodes videos. |
 | `STEWARD_WORKER_MEMORY_LIMIT` | `4g` | Memory limit of the worker container. |
-| `STEWARD_GEOCLIP_MIN_CONFIDENCE` | `0.25` | GeoCLIP suggestions below this confidence are hidden; up to `STEWARD_GEOCLIP_WEAK_BELOW` (`0.5`) they are folded as weak. |
+| `STEWARD_GEOCLIP_MIN_CONFIDENCE` | `0.25` | GeoCLIP suggestions below this confidence are hidden; up to `STEWARD_GEOCLIP_WEAK_BELOW` (`0.5`) they are folded as weak; from `STEWARD_GEOCLIP_CONFIDENT_FROM` (`0.75`) they are marked as confident and counted by the gallery filter. |
 | `STEWARD_AUTO_MODULES` | `geoclip` | Modules that run automatically on photos without a location. Empty: only when started with **Run** in a photo card. |
 
 The model is unloaded from memory after 10 minutes without work. Photos never leave your server:
@@ -210,6 +214,11 @@ If this fails while Immich opens fine in your browser:
 **`core` is `unhealthy` or restarting.** See `docker compose logs core`. A missing
 `STEWARD_IMMICH_URL`, `STEWARD_SECRET_KEY` or `DB_PASSWORD` is reported when the containers
 start.
+
+**The GeoCLIP queue grows, but nothing is done.** On its first start the worker downloads and
+loads the model, which takes a few minutes. Look at `docker compose logs --tail 40 worker`:
+`GeoCLIP loaded` and then `done in … s` lines mean it works. An error there (out of memory, no
+access to `huggingface.co`) tells what is wrong.
 
 **Password sign-in is refused although the password is right.** Password login may be turned
 off on your Immich server (OAuth only). Sign in with an API key instead.

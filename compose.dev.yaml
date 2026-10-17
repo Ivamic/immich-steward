@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Development override: exposes the database on localhost so that the core can run from a venv.
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d db
+
+services:
+  db:
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"

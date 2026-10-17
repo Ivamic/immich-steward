@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# immich-steward: core service (API + web UI) and its database.
+# Copy .env.example to .env, set DB_PASSWORD, then run: docker compose up -d
+
+name: immich-steward
+
+services:
+  core:
+    build:
+      context: .
+      dockerfile: docker/core.Dockerfile
+    image: immich-steward-core:local
+    restart: unless-stopped
+    ports:
+      - "${STEWARD_PORT:-8780}:8080"
+    environment:
+      STEWARD_DATABASE_URL: "postgresql+asyncpg://${DB_USER:-steward}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/${DB_NAME:-steward}"
+      STEWARD_LOG_LEVEL: "${STEWARD_LOG_LEVEL:-info}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: "${DB_USER:-steward}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?set DB_PASSWORD in .env}"
+      POSTGRES_DB: "${DB_NAME:-steward}"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db-data:

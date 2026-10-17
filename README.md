@@ -51,9 +51,61 @@ New modules can be added later as plugins.
 - Web UI: timeline gallery with filters, photo view with a map, keyboard-driven review.
 - English UI with translations (Russian from the start).
 
+## Development
+
+Repository layout:
+
+| Path | Contents |
+|---|---|
+| `core/` | Core service: Python package `steward` (FastAPI), Alembic migrations, tests |
+| `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
+| `docker/` | Dockerfile of the core image (it also contains the built web UI) |
+| `compose.yaml` | Core service + PostgreSQL with pgvector |
+
+Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 24 with pnpm, Docker.
+Run all commands from the repository root unless stated otherwise.
+
+```sh
+cp .env.example .env            # then set DB_PASSWORD and STEWARD_DATABASE_URL
+
+# Database only, exposed on localhost
+docker compose -f compose.yaml -f compose.dev.yaml up -d db
+
+# Core service on http://127.0.0.1:8080
+uv sync
+uv run alembic -c core/alembic.ini upgrade head
+uv run python -m steward --reload
+
+# Web UI dev server on http://localhost:5173 (proxies /api to the core)
+cd frontend && pnpm install && pnpm dev
+```
+
+Checks (the same as in CI):
+
+```sh
+uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
+cd frontend && pnpm check && pnpm lint && pnpm test && pnpm check:licenses
+```
+
+Database integration tests run when `STEWARD_TEST_DATABASE_URL` is set.
+
+Full stack in Docker (UI on http://localhost:8780 by default):
+
+```sh
+docker compose up -d --build
+```
+
+### Translations
+
+UI strings live in `frontend/messages/<locale>.json`; English (`en.json`) is the source.
+A new string must be added to every locale file at once — a test checks that all locales
+have the same keys and placeholders.
+
 ## License
 
-[GNU Affero General Public License v3.0](LICENSE).
+Copyright (C) 2026 Ivamic.
+
+[GNU Affero General Public License v3.0 or later](LICENSE) (`AGPL-3.0-or-later`).
 
 ## AI assistance
 

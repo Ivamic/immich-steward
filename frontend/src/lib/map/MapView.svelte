@@ -24,7 +24,12 @@
 	import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 	import { untrack } from 'svelte';
 	import 'maplibre-gl/dist/maplibre-gl.css';
-	import { thumbnailUrl, type ModuleSuggestions, type TrackPoint } from '#lib/api.js';
+	import {
+		thumbnailUrl,
+		type Candidate,
+		type ModuleSuggestions,
+		type TrackPoint
+	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatDelta } from '#lib/suggestions/format.js';
@@ -113,7 +118,8 @@
 		instance.on('click', (event: MapMouseEvent) => onclick(instance, event));
 		instance.on('mousemove', 'steward-track-points', (event) => {
 			instance.getCanvas().style.cursor = 'pointer';
-			if (!popupPinned && event.features?.length) showPreview(instance, event.features[0], false);
+			if (!popupPinned && event.features?.length)
+				showFeaturePreview(instance, event.features[0], false);
 		});
 		instance.on('mouseleave', 'steward-track-points', () => {
 			instance.getCanvas().style.cursor = '';
@@ -268,7 +274,10 @@
 			const tag = document.createElement('div');
 			tag.className = 'steward-tag';
 			tag.textContent = `${p.role === 'before' ? m.map_before() : m.map_after()} · ${formatDelta(p.delta_s)}`;
-			tag.title = p.file_name;
+			tag.title = `${p.file_name} — ${m.photo_open_new_tab()}`;
+			tag.addEventListener('click', () =>
+				showPreview(instance, { lat: p.latitude, lon: p.longitude }, [p], true)
+			);
 			overlayMarkers.push(
 				new Marker({ element: tag, anchor: 'top', offset: [0, 14] })
 					.setLngLat([p.longitude, p.latitude])
@@ -284,6 +293,16 @@
 				pin.textContent = String(c.rank);
 				pin.dataset.lat = String(c.latitude);
 				pin.dataset.lon = String(c.longitude);
+				// Hover shows the photos the suggestion comes from; a click still picks it.
+				const photos = candidatePhotos(c, module.track);
+				pin.addEventListener('mouseenter', () => {
+					if (!popupPinned && photos.length) {
+						showPreview(instance, { lat: c.latitude, lon: c.longitude }, photos, false);
+					}
+				});
+				pin.addEventListener('mouseleave', () => {
+					if (!popupPinned) closePreview();
+				});
 				overlayMarkers.push(
 					new Marker({ element: pin }).setLngLat([c.longitude, c.latitude]).addTo(instance)
 				);
@@ -296,6 +315,8 @@
 	}
 
 	function onclick(instance: MapLibreMap, event: MapMouseEvent) {
+		// A click on a "before"/"after" label pins its photo (handled by the label itself).
+		if ((event.originalEvent.target as HTMLElement | null)?.closest?.('.steward-tag')) return;
 		// The first click after a pinned preview only closes it.
 		if (popupPinned) {
 			closePreview();
@@ -314,17 +335,35 @@
 					],
 					{ layers: ['steward-track-points'] }
 				);
-		if (photo.length) showPreview(instance, photo[0], true);
+		if (photo.length) showFeaturePreview(instance, photo[0], true);
 		else onpick(snap(instance, event));
 	}
 
-	function showPreview(instance: MapLibreMap, feature: MapGeoJSONFeature, pinned: boolean) {
-		const props = feature.properties as Record<string, string | number | boolean>;
+	interface PreviewPhoto {
+		asset_id: string;
+		file_name: string;
+		delta_s: number;
+		camera: string;
+		estimated: boolean;
+	}
+
+	function showFeaturePreview(instance: MapLibreMap, feature: MapGeoJSONFeature, pinned: boolean) {
+		const props = feature.properties as PreviewPhoto;
 		const [lon, lat] = (feature.geometry as { coordinates: [number, number] }).coordinates;
+		showPreview(instance, { lat, lon }, [props], pinned);
+	}
+
+	function showPreview(instance: MapLibreMap, at: LatLon, photos: PreviewPhoto[], pinned: boolean) {
 		closePreview();
-		popup = new Popup({ closeButton: pinned, closeOnClick: false, offset: 10, maxWidth: '15rem' })
-			.setLngLat([lon, lat])
-			.setDOMContent(previewContent(props, pinned))
+		popup = new Popup({
+			closeButton: pinned,
+			closeOnClick: false,
+			focusAfterOpen: false,
+			offset: 16,
+			maxWidth: '15rem'
+		})
+			.setLngLat([at.lon, at.lat])
+			.setDOMContent(previewContent(photos, pinned))
 			.addTo(instance);
 		popupPinned = pinned;
 		popup.on('close', () => (popupPinned = false));
@@ -336,35 +375,45 @@
 		popupPinned = false;
 	}
 
+	/** Photos a suggestion is based on, with their camera taken from the route. */
+	function candidatePhotos(candidate: Candidate, track: TrackPoint[]): PreviewPhoto[] {
+		return (candidate.evidence.neighbors ?? []).map((n) => ({
+			...n,
+			camera: track.find((p) => p.asset_id === n.asset_id)?.camera ?? ''
+		}));
+	}
+
 	// Built with textContent: file names come from the library and must not be parsed as HTML.
-	function previewContent(
-		props: Record<string, string | number | boolean>,
-		pinned: boolean
-	): HTMLElement {
+	function previewContent(photos: PreviewPhoto[], pinned: boolean): HTMLElement {
 		const box = document.createElement('div');
 		box.className = 'steward-preview';
-		const image = document.createElement('img');
-		image.src = thumbnailUrl(String(props.asset_id));
-		image.alt = String(props.file_name);
-		const name = document.createElement('div');
-		name.className = 'name';
-		name.textContent = String(props.file_name);
-		const meta = document.createElement('div');
-		meta.textContent = [
-			formatDelta(Number(props.delta_s)),
-			String(props.camera || '') || m.device_unknown(),
-			props.estimated ? m.candidate_estimated() : ''
-		]
-			.filter(Boolean)
-			.join(' · ');
-		box.append(image, name, meta);
-		if (pinned) {
-			const link = document.createElement('a');
-			link.href = resolve('/photo/[id]', { id: String(props.asset_id) });
-			link.target = '_blank';
-			link.rel = 'noopener';
-			link.textContent = m.photo_open_new_tab();
-			box.append(link);
+		for (const photo of photos) {
+			const item = document.createElement('div');
+			item.className = 'item';
+			const image = document.createElement('img');
+			image.src = thumbnailUrl(photo.asset_id);
+			image.alt = photo.file_name;
+			const name = document.createElement('div');
+			name.className = 'name';
+			name.textContent = photo.file_name;
+			const meta = document.createElement('div');
+			meta.textContent = [
+				formatDelta(Number(photo.delta_s)),
+				photo.camera || m.device_unknown(),
+				photo.estimated ? m.candidate_estimated() : ''
+			]
+				.filter(Boolean)
+				.join(' · ');
+			item.append(image, name, meta);
+			if (pinned) {
+				const link = document.createElement('a');
+				link.href = resolve('/photo/[id]', { id: photo.asset_id });
+				link.target = '_blank';
+				link.rel = 'noopener';
+				link.textContent = m.photo_open_new_tab();
+				item.append(link);
+			}
+			box.append(item);
 		}
 		return box;
 	}
@@ -499,6 +548,16 @@
 			0.8rem/1.3 system-ui,
 			sans-serif;
 	}
+	:global(.steward-preview .item) {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	:global(.steward-preview .item + .item) {
+		margin-top: 0.4rem;
+		padding-top: 0.4rem;
+		border-top: 1px solid #d0d7de;
+	}
 	:global(.steward-preview img) {
 		width: 100%;
 		max-height: 9rem;
@@ -518,6 +577,6 @@
 			0.75rem/1.3 system-ui,
 			sans-serif;
 		white-space: nowrap;
-		pointer-events: none;
+		cursor: pointer;
 	}
 </style>

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Health endpoint: application version and database status."""
+"""Health endpoint: application version, database and Immich status."""
 
 from typing import Literal
 
@@ -8,8 +8,13 @@ from pydantic import BaseModel
 
 from steward import __version__
 from steward.db import check_database
+from steward.deps import ImmichFactoryDep, SettingsDep
+from steward.immich import ImmichError
+from steward.immich.compat import is_supported
 
 router = APIRouter()
+
+IMMICH_TIMEOUT_S = 3.0
 
 
 class DatabaseHealth(BaseModel):
@@ -20,17 +25,42 @@ class DatabaseHealth(BaseModel):
     error: str | None
 
 
+class ImmichHealth(BaseModel):
+    configured: bool
+    reachable: bool
+    version: str | None
+    supported: bool | None
+
+
 class Health(BaseModel):
     status: Literal["ok", "degraded"]
     version: str
     database: DatabaseHealth
+    immich: ImmichHealth
+
+
+async def check_immich(settings: SettingsDep, immich_factory: ImmichFactoryDep) -> ImmichHealth:
+    if settings.immich_url is None:
+        return ImmichHealth(configured=False, reachable=False, version=None, supported=None)
+    try:
+        async with immich_factory(settings.immich_url, None) as client:
+            version = await client.server_version()
+    except ImmichError:
+        return ImmichHealth(configured=True, reachable=False, version=None, supported=None)
+    return ImmichHealth(
+        configured=True, reachable=True, version=str(version), supported=is_supported(version)
+    )
 
 
 @router.get("/health")
-async def health(request: Request) -> Health:
+async def health(
+    request: Request, settings: SettingsDep, immich_factory: ImmichFactoryDep
+) -> Health:
     db = await check_database(request.app.state.engine)
+    immich = await check_immich(settings, immich_factory)
+    healthy = db.ok and bool(db.pgvector_version) and immich.reachable and bool(immich.supported)
     return Health(
-        status="ok" if db.ok and db.pgvector_version else "degraded",
+        status="ok" if healthy else "degraded",
         version=__version__,
         database=DatabaseHealth(
             ok=db.ok,
@@ -38,4 +68,5 @@ async def health(request: Request) -> Health:
             pgvector_version=db.pgvector_version,
             error=db.error,
         ),
+        immich=immich,
     )

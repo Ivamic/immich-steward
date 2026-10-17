@@ -37,6 +37,19 @@
 		</dd>
 
 		{#if health}
+			<dt>{m.status_immich()}</dt>
+			<dd class:bad={!health.immich.reachable || !health.immich.supported}>
+				{#if !health.immich.configured}
+					{m.status_immich_not_configured()}
+				{:else if !health.immich.reachable}
+					{m.status_immich_unreachable()}
+				{:else if !health.immich.supported}
+					{m.status_immich_unsupported({ version: health.immich.version ?? '?' })}
+				{:else}
+					{m.status_immich_ok({ version: health.immich.version ?? '?' })}
+				{/if}
+			</dd>
+
 			<dt>{m.status_database()}</dt>
 			<dd class:bad={!health.database.ok}>
 				{health.database.ok

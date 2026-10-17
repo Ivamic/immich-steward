@@ -4,7 +4,10 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+MIN_SECRET_KEY_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -14,6 +17,15 @@ class Settings(BaseSettings):
     # Directory with the built web UI. When unset or missing, only the API is served.
     static_dir: Path | None = None
     log_level: str = "info"
+
+    # Immich server shared by all users of this installation, e.g. http://192.168.1.10:2283
+    immich_url: str | None = None
+    # Encrypts stored Immich API keys. Changing it invalidates all stored keys.
+    secret_key: SecretStr | None = Field(default=None, min_length=MIN_SECRET_KEY_LENGTH)
+
+    session_ttl_days: int = 30
+    # Set to true when the UI is served over HTTPS (e.g. behind a reverse proxy).
+    cookie_secure: bool = False
 
 
 @lru_cache

@@ -9,18 +9,23 @@ from sqlalchemy.engine import Connection
 
 from steward.config import get_settings
 from steward.db import create_engine
+from steward.models import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# No ORM models yet; autogenerate will use this once they exist.
-target_metadata = None
+target_metadata = Base.metadata
+
+
+def database_url() -> str:
+    # Tests pass the URL explicitly; otherwise it comes from STEWARD_DATABASE_URL.
+    return config.get_main_option("sqlalchemy.url") or get_settings().database_url
 
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=get_settings().database_url,
+        url=database_url(),
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -36,7 +41,7 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
-    engine = create_engine(get_settings().database_url)
+    engine = create_engine(database_url())
     async with engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await engine.dispose()

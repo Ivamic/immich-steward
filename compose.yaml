@@ -16,6 +16,9 @@ services:
     environment:
       STEWARD_DATABASE_URL: "postgresql+asyncpg://${DB_USER:-steward}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/${DB_NAME:-steward}"
       STEWARD_LOG_LEVEL: "${STEWARD_LOG_LEVEL:-info}"
+      STEWARD_IMMICH_URL: "${STEWARD_IMMICH_URL:?set STEWARD_IMMICH_URL in .env}"
+      STEWARD_SECRET_KEY: "${STEWARD_SECRET_KEY:?set STEWARD_SECRET_KEY in .env}"
+      STEWARD_COOKIE_SECURE: "${STEWARD_COOKIE_SECURE:-false}"
     depends_on:
       db:
         condition: service_healthy

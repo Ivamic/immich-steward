@@ -27,7 +27,7 @@ TEST_DATABASE_URL = os.environ.get("STEWARD_TEST_DATABASE_URL")
 UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://nobody:x@127.0.0.1:1/none"
 FAKE_IMMICH_URL = "http://immich.test"
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
-TABLES = "account, auth_session, asset, album, asset_album, job"
+TABLES = "account, auth_session, asset, album, asset_album, job, location_change"
 
 
 def make_settings(**overrides: Any) -> Settings:
@@ -57,6 +57,13 @@ class FakeImmich:
     album_assets: dict[str, list[str]] = field(default_factory=dict)
     search_requests: list[dict[str, Any]] = field(default_factory=list)
     thumbnail_requests: int = 0
+    # Tag id -> full value, and asset id -> ids of its tags.
+    tags: dict[str, str] = field(default_factory=dict)
+    asset_tags: dict[str, set[str]] = field(default_factory=dict)
+    location_writes: int = 0
+    fail_tagging: bool = False
+    # Immich's metadata job turns exactly (0, 0) into "no location".
+    clears_null_island: bool = True
 
     def add_asset(self, **fields: Any) -> str:
         """Adds an asset in the Immich API shape; returns its id."""
@@ -109,6 +116,47 @@ class FakeImmich:
         next_page = str(page + 1) if page * size < len(items) else None
         return _json({"assets": {"items": chunk, "nextPage": next_page}})
 
+    def tag_values(self, asset_id: str) -> set[str]:
+        return {self.tags[tag_id] for tag_id in self.asset_tags.get(asset_id, set())}
+
+    def _asset(self, request: httpx2.Request, asset_id: str) -> httpx2.Response:
+        asset = self.assets.get(asset_id)
+        if asset is None:
+            return _json({"message": "Not found"}, 400)
+        if request.method == "PUT":
+            body = json.loads(request.content)
+            if not all(isinstance(body.get(k), (int, float)) for k in ("latitude", "longitude")):
+                return _json({"message": "Validation failed"}, 400)
+            self.location_writes += 1
+            point = {"latitude": body["latitude"], "longitude": body["longitude"]}
+            if self.clears_null_island and point == {"latitude": 0, "longitude": 0}:
+                point = {"latitude": None, "longitude": None}
+            asset["exifInfo"] |= point
+        return _json(asset)
+
+    def _upsert_tags(self, values: list[str]) -> httpx2.Response:
+        by_value = {value: tag_id for tag_id, value in self.tags.items()}
+        for value in values:
+            by_value.setdefault(value, str(uuid.uuid4()))
+            self.tags[by_value[value]] = value
+        return _json([{"id": by_value[value], "value": value} for value in values])
+
+    def _tag_assets(self, request: httpx2.Request, tag_id: str) -> httpx2.Response:
+        if self.fail_tagging:
+            return _json({"message": "Missing required permission: tag.asset"}, 403)
+        results = []
+        for asset_id in json.loads(request.content)["ids"]:
+            tags = self.asset_tags.setdefault(asset_id, set())
+            present = tag_id in tags
+            if request.method == "PUT":
+                tags.add(tag_id)
+                ok = not present
+            else:
+                tags.discard(tag_id)
+                ok = present
+            results.append({"id": asset_id, "success": ok} | ({} if ok else {"error": "duplicate"}))
+        return _json(results)
+
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         path = request.url.path
         if path == "/api/server/version":
@@ -135,6 +183,13 @@ class FakeImmich:
                 content=f"image:{asset_id}:{size}".encode(),
                 headers={"content-type": "image/webp"},
             )
+        parts = path.split("/")
+        if len(parts) == 4 and parts[2] == "assets" and request.method in ("GET", "PUT"):
+            return self._asset(request, parts[3])
+        if path == "/api/tags" and request.method == "PUT":
+            return self._upsert_tags(json.loads(request.content)["tags"])
+        if len(parts) == 5 and parts[2] == "tags" and parts[4] == "assets":
+            return self._tag_assets(request, parts[3])
         if path == "/api/search/metadata":
             return self._search(json.loads(request.content))
         if path == "/api/albums":
@@ -177,9 +232,7 @@ def database(migrated_database: str) -> str:
     async def truncate() -> None:
         engine = create_engine(migrated_database)
         async with engine.begin() as conn:
-            await conn.execute(
-                text("TRUNCATE account, auth_session, asset, album, asset_album, job CASCADE")
-            )
+            await conn.execute(text(f"TRUNCATE {TABLES} CASCADE"))
         await engine.dispose()
 
     asyncio.run(truncate())

@@ -25,6 +25,16 @@ export function errorMessage(error: unknown): string {
 		}
 		case 'immich_unsupported_version':
 			return m.error_immich_unsupported_version({ version: String(p.version ?? '?') });
+		case 'immich_error':
+			return m.error_immich_error();
+		case 'location_null_island':
+			return m.error_location_null_island();
+		case 'location_clear_failed':
+			return m.error_location_clear_failed();
+		case 'location_changed_in_immich':
+			return m.error_location_changed_in_immich();
+		case 'location_nothing_to_undo':
+			return m.error_location_nothing_to_undo();
 		default:
 			return m.error_unexpected();
 	}

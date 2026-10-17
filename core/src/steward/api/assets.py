@@ -1,15 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Gallery API: month buckets, assets, filter options and images proxied from Immich."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import date, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward.deps import CurrentAccount, DbDep, SecretBoxDep
+from steward import locations
+from steward.deps import (
+    CurrentAccount,
+    DbDep,
+    ImmichFactoryDep,
+    SecretBoxDep,
+    SettingsDep,
+)
 from steward.errors import ApiError
 from steward.gallery import (
     GalleryFilter,
@@ -21,9 +30,15 @@ from steward.gallery import (
     month_buckets,
     neighbors,
 )
-from steward.immich import ImmichAuthError, ImmichError, ImmichUnreachableError
+from steward.immich import (
+    ImmichAuthError,
+    ImmichClient,
+    ImmichError,
+    ImmichPermissionError,
+    ImmichUnreachableError,
+)
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
-from steward.models import Album, Asset, AssetAlbum
+from steward.models import Account, Album, Asset, AssetAlbum, LocationChange
 
 router = APIRouter(prefix="/assets")
 
@@ -81,6 +96,30 @@ class AssetItem(BaseModel):
         )
 
 
+class LocationChangeItem(BaseModel):
+    id: UUID
+    created_at: datetime
+    latitude: float
+    longitude: float
+    prev_latitude: float | None
+    prev_longitude: float | None
+    source: str
+    status: Literal["applied", "undone"]
+
+    @classmethod
+    def of(cls, change: LocationChange) -> "LocationChangeItem":
+        return cls(
+            id=change.id,
+            created_at=change.created_at,
+            latitude=change.latitude,
+            longitude=change.longitude,
+            prev_latitude=change.prev_latitude,
+            prev_longitude=change.prev_longitude,
+            source=change.source,
+            status=change.status,
+        )
+
+
 class AssetDetail(BaseModel):
     id: UUID
     type: str
@@ -100,6 +139,10 @@ class AssetDetail(BaseModel):
     country: str | None
     review_status: str
     albums: list[str]
+    # Newest first.
+    location_history: list[LocationChangeItem]
+    # There is an applied change to undo.
+    can_undo: bool
     # Neighbors in the gallery order under the filter passed with the request.
     previous_id: UUID | None
     next_id: UUID | None
@@ -107,6 +150,11 @@ class AssetDetail(BaseModel):
 
 class ReviewUpdate(BaseModel):
     status: Literal["new", "skipped", "not_applicable"]
+
+
+class LocationUpdate(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
 
 
 class CameraOption(BaseModel):
@@ -170,6 +218,8 @@ async def _detail(
         .order_by(Album.name)
     )
     previous_id, next_id = await neighbors(db, account, filters, asset)
+    history = await locations.history(db, asset)
+    last_applied = next((c for c in history if c.status == "applied"), None)
     return AssetDetail(
         id=asset.id,
         type=asset.type,
@@ -189,6 +239,8 @@ async def _detail(
         country=asset.country,
         review_status=asset.review_status,
         albums=list(albums),
+        location_history=[LocationChangeItem.of(change) for change in history],
+        can_undo=last_applied is not None,
         previous_id=previous_id,
         next_id=next_id,
     )
@@ -212,6 +264,72 @@ async def set_review(
     return await _detail(db, account, asset, filters)
 
 
+@asynccontextmanager
+async def _immich(
+    settings: SettingsDep, factory: ImmichFactoryDep, box: SecretBoxDep, account: Account
+) -> AsyncIterator[ImmichClient]:
+    """An Immich client for the account; Immich failures become API errors."""
+    assert settings.immich_url is not None  # guaranteed by SecretBoxDep
+    try:
+        async with factory(settings.immich_url, box.decrypt(account.api_key_encrypted)) as client:
+            yield client
+    except ImmichError as exc:
+        raise _api_error(exc) from exc
+
+
+def _api_error(exc: ImmichError) -> ApiError:
+    if isinstance(exc, ImmichUnreachableError):
+        return ApiError(502, "immich_unreachable")
+    if isinstance(exc, ImmichAuthError):
+        return ApiError(502, "immich_invalid_api_key")
+    if isinstance(exc, ImmichPermissionError):
+        return ApiError(403, "immich_missing_permissions", permissions=[])
+    return ApiError(502, "immich_error")
+
+
+@router.put("/{asset_id}/location")
+async def set_location(
+    asset_id: UUID,
+    body: LocationUpdate,
+    account: CurrentAccount,
+    db: DbDep,
+    filters: FilterDep,
+    settings: SettingsDep,
+    factory: ImmichFactoryDep,
+    box: SecretBoxDep,
+) -> AssetDetail:
+    """Writes the location the user picked to Immich (FR-50)."""
+    asset = await _own_asset(db, account, asset_id)
+    async with _immich(settings, factory, box, account) as client:
+        await locations.write_location(
+            db,
+            client,
+            asset,
+            body.latitude,
+            body.longitude,
+            source="manual",
+            tag=settings.estimated_tag,
+        )
+    return await _detail(db, account, asset, filters)
+
+
+@router.post("/{asset_id}/location/undo")
+async def undo_location(
+    asset_id: UUID,
+    account: CurrentAccount,
+    db: DbDep,
+    filters: FilterDep,
+    settings: SettingsDep,
+    factory: ImmichFactoryDep,
+    box: SecretBoxDep,
+) -> AssetDetail:
+    """Restores the coordinates replaced by the last write (FR-51)."""
+    asset = await _own_asset(db, account, asset_id)
+    async with _immich(settings, factory, box, account) as client:
+        await locations.undo_last(db, client, asset, tag=settings.estimated_tag)
+    return await _detail(db, account, asset, filters)
+
+
 @router.get("/{asset_id}/thumbnail")
 async def thumbnail(
     asset_id: UUID,
@@ -231,10 +349,6 @@ async def thumbnail(
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
     try:
         image = await fetcher.fetch(box.decrypt(account.api_key_encrypted), asset.immich_id, size)
-    except ImmichUnreachableError as exc:
-        raise ApiError(502, "immich_unreachable") from exc
-    except ImmichAuthError as exc:
-        raise ApiError(502, "immich_invalid_api_key") from exc
     except ImmichError as exc:
-        raise ApiError(502, "immich_error") from exc
+        raise _api_error(exc) from exc
     return Response(content=image.content, media_type=image.media_type, headers=headers)

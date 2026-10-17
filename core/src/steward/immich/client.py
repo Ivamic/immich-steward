@@ -117,6 +117,30 @@ class ImmichClient:
         by_id = {album["id"]: album for album in [*owned, *shared]}
         return [ImmichAlbum.model_validate(album) for album in by_id.values()]
 
+    async def asset(self, asset_id: UUID) -> ImmichAsset:
+        return await self._get(f"/assets/{asset_id}", ImmichAsset)
+
+    async def set_location(self, asset_id: UUID, latitude: float, longitude: float) -> None:
+        """Writes coordinates. Immich 3.3 cannot clear them: null is rejected."""
+        body = {"latitude": latitude, "longitude": longitude}
+        await self._request("PUT", f"/assets/{asset_id}", json=body)
+
+    async def upsert_tag(self, value: str) -> UUID:
+        """Id of the tag with this full path ("a/b" is nested); creates the tag if needed."""
+        tags = await self._request("PUT", "/tags", json={"tags": [value]})
+        return next(UUID(tag["id"]) for tag in tags if tag["value"] == value)
+
+    async def tag_asset(self, tag_id: UUID, asset_id: UUID) -> bool:
+        """Adds the tag; False when the asset already had it."""
+        return await self._bulk_ids("PUT", f"/tags/{tag_id}/assets", asset_id)
+
+    async def untag_asset(self, tag_id: UUID, asset_id: UUID) -> bool:
+        return await self._bulk_ids("DELETE", f"/tags/{tag_id}/assets", asset_id)
+
+    async def _bulk_ids(self, method: str, path: str, asset_id: UUID) -> bool:
+        results = await self._request(method, path, json={"ids": [str(asset_id)]})
+        return any(r["id"] == str(asset_id) and r["success"] for r in results)
+
     async def _get[M: BaseModel](self, path: str, model: type[M]) -> M:
         return model.model_validate(await self._request("GET", path))
 

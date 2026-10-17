@@ -12,13 +12,20 @@ export class ApiError extends Error {
 	}
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(
+	method: string,
+	path: string,
+	body?: unknown,
+	// Lets the request outlive the page (used when the tab is closed during a pending save).
+	keepalive = false
+): Promise<T> {
 	let response: Response;
 	try {
 		response = await fetch(path, {
 			method,
 			headers: body === undefined ? {} : { 'content-type': 'application/json' },
-			body: body === undefined ? undefined : JSON.stringify(body)
+			body: body === undefined ? undefined : JSON.stringify(body),
+			keepalive
 		});
 	} catch {
 		throw new ApiError(0, 'core_unreachable');
@@ -141,6 +148,18 @@ export const getMonthAssets = (month: string, filter: GalleryFilter) =>
 	request<AssetItem[]>('GET', `/api/assets${filterQuery(filter, { month })}`);
 export const getFilterOptions = () => request<FilterOptions>('GET', '/api/assets/filter-options');
 
+export interface LocationChange {
+	id: string;
+	created_at: string;
+	latitude: number;
+	longitude: number;
+	prev_latitude: number | null;
+	prev_longitude: number | null;
+	/** "manual" or the id of a location module. */
+	source: string;
+	status: 'applied' | 'undone';
+}
+
 export interface AssetDetail {
 	id: string;
 	type: string;
@@ -160,6 +179,10 @@ export interface AssetDetail {
 	country: string | null;
 	review_status: ReviewStatus;
 	albums: string[];
+	/** Newest first. */
+	location_history: LocationChange[];
+	/** The last write replaced earlier coordinates, so it can be undone. */
+	can_undo: boolean;
 	previous_id: string | null;
 	next_id: string | null;
 }
@@ -181,6 +204,23 @@ export const getAsset = (id: string, filter: GalleryFilter) =>
 	request<AssetDetail>('GET', `/api/assets/${id}${filterQuery(filter)}`);
 export const setReview = (id: string, status: ReviewStatus, filter: GalleryFilter) =>
 	request<AssetDetail>('PUT', `/api/assets/${id}/review${filterQuery(filter)}`, { status });
+export const setLocation = (
+	id: string,
+	point: { lat: number; lon: number },
+	filter: GalleryFilter | null = null,
+	keepalive = false
+) =>
+	request<AssetDetail>(
+		'PUT',
+		`/api/assets/${id}/location${filter ? filterQuery(filter) : ''}`,
+		{ latitude: point.lat, longitude: point.lon },
+		keepalive
+	);
+export const undoLocation = (id: string, filter: GalleryFilter | null = null) =>
+	request<AssetDetail>(
+		'POST',
+		`/api/assets/${id}/location/undo${filter ? filterQuery(filter) : ''}`
+	);
 export const getMapConfig = () => request<MapConfig>('GET', '/api/config/map');
 export function geocode(q: string, lang: string, near: { lat: number; lon: number } | null) {
 	const params = new URLSearchParams({ q, lang });

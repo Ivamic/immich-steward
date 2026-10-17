@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-  Photo card: preview, details, map with the location picker, review actions and keyboard
-  navigation. Writing the picked location to Immich comes with the next step.
+  Photo card: preview, details, map with the location picker, saving the location to Immich,
+  its history with undo, review actions and keyboard navigation.
 -->
 <script lang="ts">
 	import {
@@ -9,7 +9,9 @@
 		getMapConfig,
 		setReview,
 		thumbnailUrl,
+		undoLocation,
 		type AssetDetail,
+		type GalleryFilter,
 		type MapConfig,
 		type ReviewStatus
 	} from '#lib/api.js';
@@ -20,6 +22,8 @@
 	import MapView from '#lib/map/MapView.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import { saves } from '#lib/saves.svelte.js';
+	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -55,6 +59,11 @@
 	const camera = $derived(
 		[asset?.camera_make, asset?.camera_model].filter(Boolean).join(' ') || m.photo_no_camera()
 	);
+	const pending = $derived(asset ? saves.pendingFor(asset.id) : undefined);
+	const changedAt = new Intl.DateTimeFormat(getLocale(), {
+		dateStyle: 'medium',
+		timeStyle: 'short'
+	});
 	const place = $derived([asset?.city, asset?.state, asset?.country].filter(Boolean).join(', '));
 
 	$effect(() => {
@@ -64,8 +73,18 @@
 	});
 
 	$effect(() => {
-		const assetId = id;
-		const currentFilter = filter;
+		load(id, filter);
+	});
+
+	// A save sent from the notices (after the card moved on) may concern the photo shown now.
+	$effect(() => {
+		const changed = saves.changed;
+		if (changed && changed.assetId === untrack(() => asset?.id)) {
+			untrack(() => load(id, filter));
+		}
+	});
+
+	function load(assetId: string, currentFilter: GalleryFilter) {
 		error = null;
 		picked = null;
 		coordinatesText = '';
@@ -79,7 +98,7 @@
 				}
 			})
 			.catch((e) => (error = errorMessage(e)));
-	});
+	}
 
 	function pick(point: LatLon) {
 		picked = point;
@@ -120,10 +139,38 @@
 		}
 	}
 
+	/** Queues the write (it can be cancelled for a few seconds) and moves on (FR-39). */
+	function save() {
+		if (!asset || !picked) return;
+		if (picked.lat === 0 && picked.lon === 0) {
+			error = m.error_location_null_island();
+			return;
+		}
+		saves.schedule(asset.id, asset.file_name, picked);
+		if (asset.next_id) open(asset.next_id);
+		else clearPicked();
+	}
+
+	async function undo() {
+		if (!asset || busy) return;
+		busy = true;
+		try {
+			asset = await undoLocation(asset.id, filter);
+			if (asset.latitude != null && asset.longitude != null) {
+				mapView?.flyTo({ lat: asset.latitude, lon: asset.longitude });
+			}
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	function onkeydown(event: KeyboardEvent) {
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if ((event.target as HTMLElement).closest('input, textarea, select')) return;
 		const actions: Record<string, () => void> = {
+			enter: save,
 			arrowleft: () => open(asset?.previous_id),
 			arrowright: () => open(asset?.next_id),
 			escape: () => goto(resolve(`/${query}`)),
@@ -131,7 +178,10 @@
 			s: () => review('skipped'),
 			u: () => review('new')
 		};
-		const action = actions[event.key.toLowerCase()];
+		const key = event.key.toLowerCase();
+		// Enter on a focused button or link belongs to that control.
+		if (key === 'enter' && (event.target as HTMLElement).closest('button, a')) return;
+		const action = actions[key];
 		if (action) {
 			event.preventDefault();
 			action();
@@ -240,7 +290,18 @@
 				{m.photo_picked({ coordinates: formatCoordinates(picked) })}
 				<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
 			</p>
-			<p class="muted">{m.photo_save_next_step()}</p>
+			<div class="actions">
+				<button type="button" class="primary" onclick={save}>
+					{m.photo_save()} <kbd>Enter</kbd>
+				</button>
+			</div>
+			<p class="muted hint">{m.photo_save_note()}</p>
+		{/if}
+		{#if pending}
+			<p class="pending">
+				{m.photo_pending()}
+				<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
+			</p>
 		{/if}
 
 		{#if asset}
@@ -259,6 +320,38 @@
 				{/if}
 			</div>
 			<p class="muted hint">{m.photo_keys_hint()}</p>
+
+			{#if asset.location_history.length}
+				<section class="history">
+					<h2>{m.photo_history()}</h2>
+					<ol>
+						{#each asset.location_history as change (change.id)}
+							<li class:undone={change.status === 'undone'}>
+								<span>{changedAt.format(new Date(change.created_at))}</span>
+								<strong>
+									{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
+								</strong>
+								<span class="muted">
+									{change.source === 'manual' ? m.photo_history_manual() : change.source}
+									·
+									{change.prev_latitude != null && change.prev_longitude != null
+										? m.photo_history_was({
+												coordinates: formatCoordinates({
+													lat: change.prev_latitude,
+													lon: change.prev_longitude
+												})
+											})
+										: m.photo_history_was_empty()}
+									{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
+								</span>
+							</li>
+						{/each}
+					</ol>
+					{#if asset.can_undo}
+						<button type="button" disabled={busy} onclick={undo}>{m.photo_undo()}</button>
+					{/if}
+				</section>
+			{/if}
 		{/if}
 	</aside>
 </div>
@@ -333,6 +426,33 @@
 	}
 	.muted {
 		opacity: 0.65;
+	}
+	.primary {
+		font-weight: 600;
+	}
+	.pending {
+		padding: 0.5rem 0.75rem;
+		border-left: 3px solid #bf8700;
+		background: rgb(191 135 0 / 0.1);
+	}
+	.history h2 {
+		font-size: 1rem;
+		margin: 0.5rem 0;
+	}
+	.history ol {
+		list-style: none;
+		padding: 0;
+		margin: 0 0 0.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.history li {
+		display: flex;
+		flex-direction: column;
+	}
+	.history li.undone strong {
+		text-decoration: line-through;
 	}
 	.hint {
 		font-size: 0.85rem;

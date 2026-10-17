@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # an empty value disables address search.
     geocoder_url: str = "https://photon.komoot.io"
 
+    # Immich tag for coordinates written by the app (they are not from the camera GPS);
+    # "a/b" is a nested tag. An empty value disables tagging.
+    estimated_tag: str = "steward/estimated"
+
     # Set to true when the UI is served over HTTPS (e.g. behind a reverse proxy).
     cookie_secure: bool = False
 

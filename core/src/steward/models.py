@@ -106,6 +106,30 @@ class Asset(Base):
 REVIEW_STATUSES = ("new", "skipped", "not_applicable")
 
 
+class LocationChange(Base):
+    """A location written to Immich by the app; the history behind undo (FR-51)."""
+
+    __tablename__ = "location_change"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), index=True
+    )
+    # Coordinates in Immich right before the write; None when there were none.
+    prev_latitude: Mapped[float | None] = mapped_column(Float)
+    prev_longitude: Mapped[float | None] = mapped_column(Float)
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
+    # manual, or the id of the module whose suggestion was accepted.
+    source: Mapped[str] = mapped_column(String(32))
+    # This write added the "estimated" tag, so undoing it removes the tag.
+    tag_added: Mapped[bool] = mapped_column(Boolean, default=False)
+    # applied | undone
+    status: Mapped[str] = mapped_column(String(16), default="applied")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    undone_at: Mapped[datetime | None]
+
+
 class Album(Base):
     __tablename__ = "album"
     __table_args__ = (UniqueConstraint("account_id", "immich_id"),)

@@ -6,6 +6,7 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { session } from '#lib/session.svelte.js';
 	import LanguageSwitcher from '#lib/LanguageSwitcher.svelte';
+	import SaveNotices from '#lib/SaveNotices.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -80,6 +81,8 @@
 		{@render children()}
 	{/if}
 </main>
+
+<SaveNotices />
 
 <style>
 	:global(body) {

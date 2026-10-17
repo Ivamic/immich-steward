@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import asyncio
+import time
 from pathlib import Path
 
+import httpx2
+import pytest
 from conftest import FAKE_IMMICH_URL, FakeImmich, make_settings
 from fastapi.testclient import TestClient
 
 from steward import __version__
+from steward.api import health
 from steward.app import create_app
+from steward.immich import ImmichClient
 
 
 def test_health_reports_unreachable_database() -> None:
@@ -59,3 +65,23 @@ def test_serves_ui_with_spa_fallback(tmp_path: Path) -> None:
         assert "ui" in client.get("/some/client/route").text
         assert client.get("/api/health").status_code == 200
         assert client.get("/api/does-not-exist").status_code == 404
+
+
+def test_health_does_not_wait_for_a_hanging_immich(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def hang(request: httpx2.Request) -> httpx2.Response:
+        await asyncio.sleep(5)
+        return httpx2.Response(200, json={})
+
+    def factory(base_url: str, api_key: str | None) -> ImmichClient:
+        return ImmichClient(base_url, api_key, transport=httpx2.MockTransport(hang))
+
+    monkeypatch.setattr(health, "IMMICH_TIMEOUT_S", 0.2)
+    app = create_app(make_settings(database_url=database, immich_url=FAKE_IMMICH_URL), factory)
+    with TestClient(app) as client:
+        started = time.monotonic()
+        body = client.get("/api/health").json()
+    assert time.monotonic() - started < 1.5
+    assert body["immich"]["configured"] is True
+    assert body["immich"]["reachable"] is False

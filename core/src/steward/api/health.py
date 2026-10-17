@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Health endpoint: application version, database and Immich status."""
 
+import asyncio
 from typing import Literal
 
 from fastapi import APIRouter, Request
@@ -14,7 +15,8 @@ from steward.immich.compat import is_supported
 
 router = APIRouter()
 
-IMMICH_TIMEOUT_S = 3.0
+# Keeps the endpoint fast when Immich does not answer: the Docker healthcheck gives it 4 s.
+IMMICH_TIMEOUT_S = 2.0
 
 
 class DatabaseHealth(BaseModel):
@@ -43,9 +45,10 @@ async def check_immich(settings: SettingsDep, immich_factory: ImmichFactoryDep) 
     if settings.immich_url is None:
         return ImmichHealth(configured=False, reachable=False, version=None, supported=None)
     try:
-        async with immich_factory(settings.immich_url, None) as client:
-            version = await client.server_version()
-    except ImmichError:
+        async with asyncio.timeout(IMMICH_TIMEOUT_S):
+            async with immich_factory(settings.immich_url, None) as client:
+                version = await client.server_version()
+    except (ImmichError, TimeoutError):
         return ImmichHealth(configured=True, reachable=False, version=None, supported=None)
     return ImmichHealth(
         configured=True, reachable=True, version=str(version), supported=is_supported(version)

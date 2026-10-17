@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Worker modules seen from the web UI: results in the suggestions, manual and automatic runs."""
 
+import uuid
+from datetime import datetime
+from itertools import pairwise
 from typing import Any
 
 import pytest
@@ -9,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from steward import worker_queue
 from steward.api.worker import PROTOCOL_VERSION
+from steward.models import Account, Asset
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
 GPS = {"latitude": 42.4, "longitude": 19.26}
@@ -246,3 +250,49 @@ def test_gallery_filter_for_confident_geoclip_guesses(
     assert marked["todo1.jpg"] is True
     assert marked["todo2.jpg"] is False  # not confident enough
     assert marked["gps.jpg"] is False  # already located
+
+
+def test_automatic_runs_take_accounts_in_turns(
+    library: dict[str, str], signed_in: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another family member's newer photos must not hold back this library."""
+
+    async def add_other_account() -> None:
+        async with signed_in.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            other = Account(
+                immich_user_id=uuid.uuid4(),
+                name="Other",
+                email="o@example.com",
+                api_key_encrypted="x",
+            )
+            db.add(other)
+            await db.flush()
+            for day in (10, 11, 12):  # all newer than this library's photos
+                taken = datetime(2025, 1, day, 12)
+                db.add(
+                    Asset(
+                        account_id=other.id,
+                        immich_id=uuid.uuid4(),
+                        type="IMAGE",
+                        visibility="timeline",
+                        original_file_name=f"other{day}.jpg",
+                        file_created_at=taken,
+                        local_taken_at=taken,
+                        immich_updated_at=taken,
+                        synced_at=taken,
+                    )
+                )
+            await db.commit()
+
+    signed_in.portal.call(add_other_account)  # type: ignore[union-attr]
+    monkeypatch.setattr(worker_queue, "AUTO_QUEUE_SIZE", 4)
+    worker = start_worker(signed_in)
+    schedule(signed_in)
+
+    taken = []
+    for _ in range(4):
+        job = signed_in.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker)
+        taken.append(job.json()["asset_id"] in library.values())
+    # Mine, the other's, mine, the other's (or the other way round): never two in a row.
+    assert taken.count(True) == 2
+    assert all(a != b for a, b in pairwise(taken))

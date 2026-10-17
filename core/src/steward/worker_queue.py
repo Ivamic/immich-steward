@@ -136,8 +136,9 @@ async def say_goodbye(db: AsyncSession, worker: Worker) -> None:
 async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     """Tops up the background queue of the module with photos that still need a location.
 
-    Photos only (videos later, D-040), newest first, never twice: a photo that already has a run
-    of the module (whatever its result) is not queued again automatically.
+    Photos only (videos later, D-040), never twice: a photo that already has a run of the module
+    (whatever its result) is not queued again automatically. Accounts take turns, newest photos
+    first within each, so that every user sees progress on their own library.
     """
     queued = await db.scalar(
         select(func.count())
@@ -152,8 +153,14 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     room = AUTO_QUEUE_SIZE - (queued or 0)
     if room <= 0:
         return 0
-    assets = await db.scalars(
-        select(Asset)
+    # 1st newest photo of every account, then the 2nd of every account, and so on.
+    turn = (
+        func.row_number()
+        .over(partition_by=Asset.account_id, order_by=Asset.local_taken_at.desc())
+        .label("turn")
+    )
+    candidates = (
+        select(Asset.id, Asset.local_taken_at, turn)
         .where(
             Asset.latitude.is_(None),
             Asset.review_status == "new",
@@ -162,17 +169,27 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
             Asset.visibility == "timeline",
             ~exists().where(ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id),
         )
-        .order_by(Asset.local_taken_at.desc())
-        .limit(room)
+        .subquery()
     )
+    ids = list(
+        await db.scalars(
+            select(candidates.c.id)
+            .order_by(candidates.c.turn, candidates.c.local_taken_at.desc())
+            .limit(room)
+        )
+    )
+    assets = {a.id: a for a in await db.scalars(select(Asset).where(Asset.id.in_(ids)))}
+    # Workers take jobs of equal priority by creation time: keep the turns in that order.
+    start = datetime.now(UTC)
     count = 0
-    for asset in assets:
+    for asset in (assets[i] for i in ids):
         job = Job(
             kind=MODULE_JOB,
             account_id=asset.account_id,
             module_id=module_id,
             priority=PRIORITY_BACKGROUND,
             payload={"asset_id": str(asset.id)},
+            created_at=start + timedelta(microseconds=count),
         )
         db.add(job)
         await db.flush()

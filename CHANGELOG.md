@@ -14,7 +14,8 @@ between releases.
   token `STEWARD_WORKER_TOKEN`, job queue with priorities, retries and leases.
 - **GeoCLIP** location module: suggests up to five areas by the look of a photo. Runs
   automatically on photos without a location while a worker is connected
-  (`STEWARD_AUTO_MODULES`), or on request with **Run** in the photo card.
+  (`STEWARD_AUTO_MODULES`; accounts take turns, newest photos first), or on request with **Run**
+  in the photo card.
 - Optional `worker` service in Docker Compose (CPU), with a model cache, a memory limit and an
   option to wait while the machine is busy (`STEWARD_WORKER_MAX_LOAD`).
 - GeoCLIP suggestions are shown by confidence: below 25 % they are hidden as noise, 25–50 % are

@@ -343,6 +343,41 @@
 	</div>
 
 	<section class="panel">
+		{#if asset}
+			<div class="actions">
+				<!-- Re-created for every new point, so that it catches the eye each time. -->
+				{#key picked}
+					<button type="button" class="save" class:ready={picked} disabled={!picked} onclick={save}>
+						{m.photo_save()} <kbd>Enter</kbd>
+					</button>
+				{/key}
+				{#if asset.review_status === 'new'}
+					<button type="button" disabled={busy} onclick={() => review('skipped')}>
+						{m.photo_skip()} <kbd>S</kbd>
+					</button>
+					<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
+						{m.photo_not_applicable()} <kbd>N</kbd>
+					</button>
+				{:else}
+					<button type="button" disabled={busy} onclick={() => review('new')}>
+						{m.photo_back_to_todo()} <kbd>U</kbd>
+					</button>
+				{/if}
+			</div>
+		{/if}
+		{#if picked}
+			<p class="picked">
+				{m.photo_picked({ coordinates: formatCoordinates(picked) })}
+				<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
+			</p>
+		{/if}
+		{#if pending}
+			<p class="pending">
+				{m.photo_pending()}
+				<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
+			</p>
+		{/if}
+
 		<div class="picker">
 			{#if mapConfig?.geocoder_enabled}
 				<GeocoderSearch
@@ -369,37 +404,7 @@
 			<p class="error">{m.photo_coordinates_invalid()}</p>
 		{/if}
 
-		{#if picked}
-			<p class="picked">
-				{m.photo_picked({ coordinates: formatCoordinates(picked) })}
-				<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
-			</p>
-		{/if}
-		{#if pending}
-			<p class="pending">
-				{m.photo_pending()}
-				<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
-			</p>
-		{/if}
-
 		{#if asset}
-			<div class="actions">
-				<button type="button" class="primary" disabled={!picked} onclick={save}>
-					{m.photo_save()} <kbd>Enter</kbd>
-				</button>
-				{#if asset.review_status === 'new'}
-					<button type="button" disabled={busy} onclick={() => review('skipped')}>
-						{m.photo_skip()} <kbd>S</kbd>
-					</button>
-					<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
-						{m.photo_not_applicable()} <kbd>N</kbd>
-					</button>
-				{:else}
-					<button type="button" disabled={busy} onclick={() => review('new')}>
-						{m.photo_back_to_todo()} <kbd>U</kbd>
-					</button>
-				{/if}
-			</div>
 			<details class="keys">
 				<summary>{m.photo_keys()}</summary>
 				<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
@@ -692,8 +697,31 @@
 		font-size: 0.75em;
 		opacity: 0.7;
 	}
-	.primary {
+	/* The main actions, at the top of the panel and bigger than other buttons. */
+	.actions button {
+		padding: 0.45rem 0.8rem;
+		font-size: 0.95rem;
+	}
+	.save {
 		font-weight: 600;
+	}
+	/* A point is picked: saving is the next step, do not forget it. */
+	.save.ready {
+		border-color: #1a7f37;
+		background: #1f883d;
+		color: #fff;
+		animation: attention 1.2s ease-out 1;
+	}
+	.save.ready kbd {
+		opacity: 0.85;
+	}
+	@keyframes attention {
+		0% {
+			box-shadow: 0 0 0 0 rgb(31 136 61 / 0.6);
+		}
+		100% {
+			box-shadow: 0 0 0 12px rgb(31 136 61 / 0);
+		}
 	}
 	.pending {
 		margin: 0;

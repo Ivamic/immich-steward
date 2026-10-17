@@ -22,14 +22,16 @@
 
 <form class="filters" onsubmit={(e) => e.preventDefault()}>
 	<label>
-		{m.filter_location()}
+		{m.filter_view()}
 		<select
-			value={filter.location}
-			onchange={(e) => set({ location: e.currentTarget.value as GalleryFilter['location'] })}
+			value={filter.view}
+			onchange={(e) => set({ view: e.currentTarget.value as GalleryFilter['view'] })}
 		>
-			<option value="without">{m.filter_location_without()}</option>
-			<option value="with">{m.filter_location_with()}</option>
-			<option value="all">{m.filter_location_all()}</option>
+			<option value="todo">{m.filter_view_todo()}</option>
+			<option value="skipped">{m.filter_view_skipped()}</option>
+			<option value="not_applicable">{m.filter_view_not_applicable()}</option>
+			<option value="with">{m.filter_view_with()}</option>
+			<option value="all">{m.filter_view_all()}</option>
 		</select>
 	</label>
 

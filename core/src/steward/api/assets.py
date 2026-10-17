@@ -2,26 +2,28 @@
 """Gallery API: month buckets, assets, filter options and images proxied from Immich."""
 
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from steward.deps import CurrentAccount, DbDep, SecretBoxDep
 from steward.errors import ApiError
 from steward.gallery import (
     GalleryFilter,
-    LocationFilter,
     TypeFilter,
+    ViewFilter,
     album_options,
     camera_options,
     month_assets_query,
     month_buckets,
+    neighbors,
 )
 from steward.immich import ImmichAuthError, ImmichError, ImmichUnreachableError
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
-from steward.models import Asset
+from steward.models import Album, Asset, AssetAlbum
 
 router = APIRouter(prefix="/assets")
 
@@ -30,7 +32,7 @@ IMAGE_CACHE_CONTROL = "private, max-age=604800"
 
 
 def gallery_filter(
-    location: LocationFilter = "all",
+    view: ViewFilter = "all",
     type: TypeFilter = "all",
     camera: str | None = None,
     album: UUID | None = None,
@@ -39,7 +41,7 @@ def gallery_filter(
     archived: bool = False,
 ) -> GalleryFilter:
     return GalleryFilter(
-        location=location,
+        view=view,
         type=type,
         camera=camera,
         album_id=album,
@@ -77,6 +79,34 @@ class AssetItem(BaseModel):
             width=asset.width,
             height=asset.height,
         )
+
+
+class AssetDetail(BaseModel):
+    id: UUID
+    type: str
+    file_name: str
+    local_taken_at: datetime
+    taken_at: datetime | None
+    time_zone: str | None
+    camera_make: str | None
+    camera_model: str | None
+    lens_model: str | None
+    width: int | None
+    height: int | None
+    latitude: float | None
+    longitude: float | None
+    city: str | None
+    state: str | None
+    country: str | None
+    review_status: str
+    albums: list[str]
+    # Neighbors in the gallery order under the filter passed with the request.
+    previous_id: UUID | None
+    next_id: UUID | None
+
+
+class ReviewUpdate(BaseModel):
+    status: Literal["new", "skipped", "not_applicable"]
 
 
 class CameraOption(BaseModel):
@@ -123,6 +153,65 @@ async def filter_options(account: CurrentAccount, db: DbDep) -> FilterOptions:
     )
 
 
+async def _own_asset(db: DbDep, account: CurrentAccount, asset_id: UUID) -> Asset:
+    asset = await db.get(Asset, asset_id)
+    if asset is None or asset.account_id != account.id:
+        raise ApiError(404, "asset_not_found")
+    return asset
+
+
+async def _detail(
+    db: DbDep, account: CurrentAccount, asset: Asset, filters: GalleryFilter
+) -> AssetDetail:
+    albums = await db.scalars(
+        select(Album.name)
+        .join(AssetAlbum, AssetAlbum.album_id == Album.id)
+        .where(AssetAlbum.asset_id == asset.id)
+        .order_by(Album.name)
+    )
+    previous_id, next_id = await neighbors(db, account, filters, asset)
+    return AssetDetail(
+        id=asset.id,
+        type=asset.type,
+        file_name=asset.original_file_name,
+        local_taken_at=asset.local_taken_at,
+        taken_at=asset.taken_at,
+        time_zone=asset.time_zone,
+        camera_make=asset.camera_make,
+        camera_model=asset.camera_model,
+        lens_model=asset.lens_model,
+        width=asset.width,
+        height=asset.height,
+        latitude=asset.latitude,
+        longitude=asset.longitude,
+        city=asset.city,
+        state=asset.state,
+        country=asset.country,
+        review_status=asset.review_status,
+        albums=list(albums),
+        previous_id=previous_id,
+        next_id=next_id,
+    )
+
+
+@router.get("/{asset_id}")
+async def get_asset(
+    asset_id: UUID, account: CurrentAccount, db: DbDep, filters: FilterDep
+) -> AssetDetail:
+    return await _detail(db, account, await _own_asset(db, account, asset_id), filters)
+
+
+@router.put("/{asset_id}/review")
+async def set_review(
+    asset_id: UUID, body: ReviewUpdate, account: CurrentAccount, db: DbDep, filters: FilterDep
+) -> AssetDetail:
+    """Marks the photo as skipped / not applicable, or returns it to the to-do list."""
+    asset = await _own_asset(db, account, asset_id)
+    asset.review_status = body.status
+    await db.commit()
+    return await _detail(db, account, asset, filters)
+
+
 @router.get("/{asset_id}/thumbnail")
 async def thumbnail(
     asset_id: UUID,
@@ -133,10 +222,7 @@ async def thumbnail(
     size: ThumbnailSize = "thumbnail",
     if_none_match: Annotated[str | None, Header()] = None,
 ) -> Response:
-    asset = await db.get(Asset, asset_id)
-    if asset is None or asset.account_id != account.id:
-        raise ApiError(404, "asset_not_found")
-
+    asset = await _own_asset(db, account, asset_id)
     etag = f'"{asset.immich_id}-{asset.immich_updated_at.timestamp():.0f}-{size}"'
     headers = {"ETag": etag, "Cache-Control": IMAGE_CACHE_CONTROL}
     if if_none_match == etag:

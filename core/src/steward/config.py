@@ -31,6 +31,13 @@ class Settings(BaseSettings):
     sync_interval_minutes: int = 15
     # Automatic syncs become full (also detecting deleted assets) this often.
     full_sync_interval_hours: int = 24
+
+    # MapLibre style for the base map. OpenFreeMap needs no API key; data © OpenStreetMap.
+    map_style_url: str = "https://tiles.openfreemap.org/styles/liberty"
+    # Photon geocoder for address search (https://photon.komoot.io or a self-hosted one);
+    # an empty value disables address search.
+    geocoder_url: str = "https://photon.komoot.io"
+
     # Set to true when the UI is served over HTTPS (e.g. behind a reverse proxy).
     cookie_secure: bool = False
 

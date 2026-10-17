@@ -97,6 +97,13 @@ class Asset(Base):
     immich_updated_at: Mapped[datetime]
     # Start time of the sync run that last saw this asset; a full sync removes older rows.
     synced_at: Mapped[datetime]
+    # The user's decision about this asset; not touched by sync. See REVIEW_STATUSES.
+    review_status: Mapped[str] = mapped_column(String(16), default="new", server_default="new")
+
+
+# new: waiting for a location; skipped: "come back later"; not_applicable: a location makes no
+# sense (screenshot, document scan) and the photo never shows up in the to-do list again.
+REVIEW_STATUSES = ("new", "skipped", "not_applicable")
 
 
 class Album(Base):

@@ -3,6 +3,7 @@
 
 import asyncio
 import contextlib
+import mimetypes
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,7 +17,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from steward import __version__
-from steward.api import assets, auth, health, library
+from steward.api import assets, auth, health, library, maps
 from steward.config import Settings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
@@ -24,6 +25,10 @@ from steward.errors import ApiError, api_error_handler
 from steward.immich import ImmichClient
 from steward.immich.thumbnails import ThumbnailFetcher
 from steward.jobs import JobRunner
+
+# Module workers (the map) are refused by browsers unless served with a JavaScript type;
+# some systems do not know the .mjs extension.
+mimetypes.add_type("text/javascript", ".mjs")
 
 
 class SPAStaticFiles(StaticFiles):
@@ -82,6 +87,7 @@ def create_app(
     app.include_router(auth.router, prefix="/api")
     app.include_router(library.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
+    app.include_router(maps.router, prefix="/api")
 
     static_dir = settings.static_dir
     if static_dir is not None and Path(static_dir, "index.html").is_file():

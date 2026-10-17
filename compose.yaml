@@ -19,6 +19,8 @@ services:
       STEWARD_IMMICH_URL: "${STEWARD_IMMICH_URL:?set STEWARD_IMMICH_URL in .env}"
       STEWARD_SECRET_KEY: "${STEWARD_SECRET_KEY:?set STEWARD_SECRET_KEY in .env}"
       STEWARD_COOKIE_SECURE: "${STEWARD_COOKIE_SECURE:-false}"
+      STEWARD_MAP_STYLE_URL: "${STEWARD_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}"
+      STEWARD_GEOCODER_URL: "${STEWARD_GEOCODER_URL-https://photon.komoot.io}"
     depends_on:
       db:
         condition: service_healthy

@@ -4,7 +4,7 @@
 import type { GalleryFilter } from '#lib/api.js';
 
 export const defaultFilter: GalleryFilter = {
-	location: 'without',
+	view: 'todo',
 	type: 'all',
 	camera: null,
 	album: null,
@@ -18,10 +18,10 @@ const oneOf = <T extends string>(value: string | null, allowed: readonly T[], fa
 
 export function filterFromUrl(params: Pick<URLSearchParams, 'get'>): GalleryFilter {
 	return {
-		location: oneOf(
-			params.get('location'),
-			['all', 'without', 'with'] as const,
-			defaultFilter.location
+		view: oneOf(
+			params.get('view'),
+			['todo', 'with', 'skipped', 'not_applicable', 'all'] as const,
+			defaultFilter.view
 		),
 		type: oneOf(params.get('type'), ['all', 'image', 'video'] as const, defaultFilter.type),
 		camera: params.get('camera'),
@@ -34,10 +34,10 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get'>): GalleryFilt
 
 export type FilterQuery = `?${string}`;
 
-/** URL query for the page: like the API query, but `location` is always explicit. */
+/** URL query for the page: like the API query, but `view` is always explicit. */
 export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	const params = new URLSearchParams();
-	params.set('location', filter.location);
+	params.set('view', filter.view);
 	if (filter.type !== 'all') params.set('type', filter.type);
 	if (filter.camera !== null) params.set('camera', filter.camera);
 	if (filter.album) params.set('album', filter.album);

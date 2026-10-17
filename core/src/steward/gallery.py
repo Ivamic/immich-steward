@@ -6,12 +6,14 @@ from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, func, select
+from sqlalchemy import ColumnElement, Select, and_, func, literal, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.models import Account, Album, Asset, AssetAlbum
 
-LocationFilter = Literal["all", "without", "with"]
+# todo: no location yet and not marked; with: has a location; skipped / not_applicable: marked
+# by the user; all: everything.
+ViewFilter = Literal["todo", "with", "skipped", "not_applicable", "all"]
 TypeFilter = Literal["all", "image", "video"]
 
 # Separates make and model in the camera filter value.
@@ -20,7 +22,7 @@ CAMERA_SEPARATOR = "\x1f"
 
 @dataclass(frozen=True)
 class GalleryFilter:
-    location: LocationFilter = "all"
+    view: ViewFilter = "all"
     type: TypeFilter = "all"
     # make + CAMERA_SEPARATOR + model, as returned by camera_options(); "" means unknown camera.
     camera: str | None = None
@@ -36,10 +38,13 @@ class GalleryFilter:
         ]
         if not self.include_archived:
             result.append(Asset.visibility == "timeline")
-        if self.location == "without":
+        if self.view == "todo":
             result.append(Asset.latitude.is_(None))
-        elif self.location == "with":
+            result.append(Asset.review_status == "new")
+        elif self.view == "with":
             result.append(Asset.latitude.is_not(None))
+        elif self.view in ("skipped", "not_applicable"):
+            result.append(Asset.review_status == self.view)
         if self.type != "all":
             result.append(Asset.type == self.type.upper())
         if self.camera is not None:
@@ -83,6 +88,11 @@ async def month_buckets(
     return [(row[0].date(), row[1]) for row in rows]
 
 
+def gallery_order() -> tuple[Any, ...]:
+    """Newest first; the file name breaks ties between photos taken in the same second."""
+    return (Asset.local_taken_at.desc(), Asset.original_file_name.desc(), Asset.id.desc())
+
+
 def month_assets_query(
     account: Account, gallery_filter: GalleryFilter, month: date
 ) -> Select[Asset]:
@@ -95,8 +105,29 @@ def month_assets_query(
                 Asset.local_taken_at < _next_month(month),
             ),
         )
-        .order_by(Asset.local_taken_at.desc(), Asset.original_file_name.desc())
+        .order_by(*gallery_order())
     )
+
+
+async def neighbors(
+    db: AsyncSession, account: Account, gallery_filter: GalleryFilter, asset: Asset
+) -> tuple[UUID | None, UUID | None]:
+    """Previous (newer) and next (older) asset in the gallery order under the filter."""
+    key = tuple_(Asset.local_taken_at, Asset.original_file_name, Asset.id)
+    current = tuple_(
+        literal(asset.local_taken_at), literal(asset.original_file_name), literal(asset.id)
+    )
+    conditions = gallery_filter.conditions(account)
+    previous = await db.scalar(
+        select(Asset.id)
+        .where(*conditions, key > current)
+        .order_by(Asset.local_taken_at, Asset.original_file_name, Asset.id)
+        .limit(1)
+    )
+    following = await db.scalar(
+        select(Asset.id).where(*conditions, key < current).order_by(*gallery_order()).limit(1)
+    )
+    return previous, following
 
 
 async def camera_options(db: AsyncSession, account: Account) -> list[dict[str, Any]]:

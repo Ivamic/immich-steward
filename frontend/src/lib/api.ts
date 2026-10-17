@@ -85,8 +85,11 @@ export interface Library {
 export const isActive = (job: Job | null) =>
 	job !== null && (job.status === 'queued' || job.status === 'running');
 
+export type View = 'todo' | 'with' | 'skipped' | 'not_applicable' | 'all';
+export type ReviewStatus = 'new' | 'skipped' | 'not_applicable';
+
 export interface GalleryFilter {
-	location: 'all' | 'without' | 'with';
+	view: View;
 	type: 'all' | 'image' | 'video';
 	camera: string | null;
 	album: string | null;
@@ -118,7 +121,7 @@ export interface FilterOptions {
 /** Query string for the gallery filter; default values are left out. */
 export function filterQuery(filter: GalleryFilter, extra: Record<string, string> = {}): string {
 	const params = new URLSearchParams(extra);
-	if (filter.location !== 'all') params.set('location', filter.location);
+	if (filter.view !== 'all') params.set('view', filter.view);
 	if (filter.type !== 'all') params.set('type', filter.type);
 	if (filter.camera !== null) params.set('camera', filter.camera);
 	if (filter.album) params.set('album', filter.album);
@@ -137,6 +140,56 @@ export const getMonths = (filter: GalleryFilter) =>
 export const getMonthAssets = (month: string, filter: GalleryFilter) =>
 	request<AssetItem[]>('GET', `/api/assets${filterQuery(filter, { month })}`);
 export const getFilterOptions = () => request<FilterOptions>('GET', '/api/assets/filter-options');
+
+export interface AssetDetail {
+	id: string;
+	type: string;
+	file_name: string;
+	local_taken_at: string;
+	taken_at: string | null;
+	time_zone: string | null;
+	camera_make: string | null;
+	camera_model: string | null;
+	lens_model: string | null;
+	width: number | null;
+	height: number | null;
+	latitude: number | null;
+	longitude: number | null;
+	city: string | null;
+	state: string | null;
+	country: string | null;
+	review_status: ReviewStatus;
+	albums: string[];
+	previous_id: string | null;
+	next_id: string | null;
+}
+
+export interface MapConfig {
+	style_url: string;
+	geocoder_enabled: boolean;
+}
+
+export interface Place {
+	name: string;
+	label: string;
+	latitude: number;
+	longitude: number;
+	kind: string | null;
+}
+
+export const getAsset = (id: string, filter: GalleryFilter) =>
+	request<AssetDetail>('GET', `/api/assets/${id}${filterQuery(filter)}`);
+export const setReview = (id: string, status: ReviewStatus, filter: GalleryFilter) =>
+	request<AssetDetail>('PUT', `/api/assets/${id}/review${filterQuery(filter)}`, { status });
+export const getMapConfig = () => request<MapConfig>('GET', '/api/config/map');
+export function geocode(q: string, lang: string, near: { lat: number; lon: number } | null) {
+	const params = new URLSearchParams({ q, lang });
+	if (near) {
+		params.set('lat', String(near.lat));
+		params.set('lon', String(near.lon));
+	}
+	return request<Place[]>('GET', `/api/geocode?${params}`);
+}
 
 export const getHealth = () => request<Health>('GET', '/api/health');
 export const getLibrary = () => request<Library>('GET', '/api/library');

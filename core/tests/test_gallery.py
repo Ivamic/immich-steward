@@ -44,8 +44,8 @@ def test_month_buckets_and_filters(signed_in: TestClient) -> None:
     # Newest first; archived and trashed assets are hidden by default.
     assert list(months(signed_in).items()) == [("2024-06", 2), ("2024-05", 2), ("2009-08", 1)]
     assert months(signed_in, archived=True)["2024-06"] == 3
-    assert months(signed_in, location="with") == {"2024-05": 1}
-    assert sum(months(signed_in, location="without").values()) == 4
+    assert months(signed_in, view="with") == {"2024-05": 1}
+    assert sum(months(signed_in, view="todo").values()) == 4
     assert months(signed_in, type="video") == {"2024-06": 1}
     assert months(signed_in, date_from="2024-05-31", date_to="2024-06-01") == {
         "2024-06": 1,
@@ -106,3 +106,58 @@ def test_other_accounts_assets_are_invisible(
 
     assert months(signed_in) == {}
     assert signed_in.get(f"/api/assets/{asset_id}/thumbnail").status_code == 404
+
+
+def asset_id_of(client: TestClient, month_value: str, index: int = 0) -> str:
+    return str(month(client, month_value)[index]["id"])
+
+
+@pytest.mark.usefixtures("library")
+def test_detail_and_neighbors_follow_the_filter(signed_in: TestClient) -> None:
+    newest_june = asset_id_of(signed_in, "2024-06")
+    detail = signed_in.get(f"/api/assets/{newest_june}").json()
+    assert detail["type"] == "VIDEO"
+    assert detail["albums"] == ["Summer"]
+    assert detail["review_status"] == "new"
+    assert detail["previous_id"] is None  # newest photo of the library
+
+    # Walk the whole gallery with "next": newest to oldest, archived and trashed excluded.
+    seen, current = [], newest_june
+    while current:
+        seen.append(current)
+        current = signed_in.get(f"/api/assets/{current}").json()["next_id"]
+    assert len(seen) == 5
+
+    # Under a filter, neighbors skip photos that do not match it.
+    with_location = signed_in.get(f"/api/assets/{newest_june}", params={"view": "with"}).json()
+    may_gps = signed_in.get(f"/api/assets/{with_location['next_id']}").json()
+    assert may_gps["latitude"] == pytest.approx(42.4)
+
+
+@pytest.mark.usefixtures("library")
+def test_review_status_moves_photo_between_views(signed_in: TestClient) -> None:
+    june = asset_id_of(signed_in, "2024-06", 1)
+    todo_before = sum(months(signed_in, view="todo").values())
+
+    response = signed_in.put(f"/api/assets/{june}/review", json={"status": "not_applicable"})
+    assert response.json()["review_status"] == "not_applicable"
+    assert sum(months(signed_in, view="todo").values()) == todo_before - 1
+    assert months(signed_in, view="not_applicable") == {"2024-06": 1}
+
+    signed_in.put(f"/api/assets/{june}/review", json={"status": "skipped"})
+    assert months(signed_in, view="skipped") == {"2024-06": 1}
+    assert months(signed_in, view="not_applicable") == {}
+
+    signed_in.put(f"/api/assets/{june}/review", json={"status": "new"})
+    assert sum(months(signed_in, view="todo").values()) == todo_before
+    bad = signed_in.put(f"/api/assets/{june}/review", json={"status": "confirmed"})
+    assert bad.status_code == 422
+
+
+def test_review_status_survives_sync(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    june = asset_id_of(signed_in, "2024-06", 1)
+    signed_in.put(f"/api/assets/{june}/review", json={"status": "skipped"})
+    sync(signed_in, full=True)
+    assert signed_in.get(f"/api/assets/{june}").json()["review_status"] == "skipped"

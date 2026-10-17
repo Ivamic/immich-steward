@@ -217,3 +217,32 @@ def test_display_thresholds_are_settings(library: dict[str, str], signed_in: Tes
     signed_in.app.state.settings.geoclip_min_confidence = 0.05  # type: ignore[attr-defined]
     [weak] = geoclip(signed_in, asset)["candidates"]
     assert weak["tier"] == "weak"
+
+
+def test_gallery_filter_for_confident_geoclip_guesses(
+    library: dict[str, str], signed_in: TestClient
+) -> None:
+    worker = start_worker(signed_in)
+    point = {"latitude": 41.9, "longitude": 12.5, "kind": "area"}
+    scores = {"todo1.jpg": 0.8, "todo2.jpg": 0.6, "gps.jpg": 0.9}
+    for name in scores:
+        signed_in.post(f"/api/assets/{library[name]}/modules/geoclip/run")
+    for _ in scores:
+        job = signed_in.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker)
+        asset_id = job.json()["asset_id"]
+        name = next(n for n, i in library.items() if i == asset_id)
+        body = {"module_version": "1", "candidates": [point | {"score": scores[name]}]}
+        signed_in.post(f"/api/worker/jobs/{job.json()['job_id']}/result", json=body, headers=worker)
+
+    params = {"month": "2024-05", "geoclip_confident": True}
+    items = signed_in.get("/api/assets", params=params).json()
+    # Confident enough and still without a location: the photo with GPS is not listed.
+    assert [item["file_name"] for item in items] == ["todo1.jpg"]
+    months = signed_in.get("/api/assets/months", params={"geoclip_confident": True}).json()
+    assert months == [{"month": "2024-05", "count": 1}]
+    # Without the filter, the gallery marks the same photo.
+    everything = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    marked = {item["file_name"]: item["geoclip_confident"] for item in everything}
+    assert marked["todo1.jpg"] is True
+    assert marked["todo2.jpg"] is False  # not confident enough
+    assert marked["gps.jpg"] is False  # already located

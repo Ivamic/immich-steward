@@ -114,6 +114,15 @@
 		/>
 	</label>
 
+	<label class="checkbox" title={m.filter_geoclip_confident_hint()}>
+		<input
+			type="checkbox"
+			checked={filter.geoclip_confident}
+			onchange={(e) => set({ geoclip_confident: e.currentTarget.checked })}
+		/>
+		{m.filter_geoclip_confident()}
+	</label>
+
 	<label class="checkbox">
 		<input
 			type="checkbox"

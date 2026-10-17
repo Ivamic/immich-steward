@@ -111,6 +111,8 @@ export interface GalleryFilter {
 	date_from: string | null;
 	date_to: string | null;
 	archived: boolean;
+	/** Only photos without a location that GeoCLIP places confidently. */
+	geoclip_confident: boolean;
 }
 
 export interface MonthBucket {
@@ -124,6 +126,8 @@ export interface AssetItem {
 	type: 'IMAGE' | 'VIDEO' | string;
 	file_name: string;
 	has_location: boolean;
+	/** No location yet, but GeoCLIP places the photo confidently. */
+	geoclip_confident: boolean;
 	width: number | null;
 	height: number | null;
 }
@@ -143,6 +147,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.date_from) params.set('date_from', filter.date_from);
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
+	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	const query = params.toString();
 	return query ? `?${query}` : '';
 }

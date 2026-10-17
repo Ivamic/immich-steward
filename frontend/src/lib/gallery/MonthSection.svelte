@@ -72,7 +72,33 @@
 						<span class="badge video" aria-label={m.asset_video()}>▶</span>
 					{/if}
 					{#if item.has_location}
-						<span class="badge location" aria-label={m.asset_has_location()}>●</span>
+						<span
+							class="marker location"
+							role="img"
+							aria-label={m.asset_has_location()}
+							title={m.asset_has_location()}
+						>
+							<!-- Map pin -->
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<path
+									d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"
+								/>
+							</svg>
+						</span>
+					{:else if item.geoclip_confident}
+						<span
+							class="marker geoclip"
+							role="img"
+							aria-label={m.asset_geoclip_confident()}
+							title={m.asset_geoclip_confident()}
+						>
+							<!-- Crosshair: a guess to check -->
+							<svg viewBox="0 0 24 24" aria-hidden="true">
+								<circle cx="12" cy="12" r="6.5" fill="none" stroke-width="2.4" />
+								<circle cx="12" cy="12" r="2.2" />
+								<path d="M12 2v4.5M12 17.5V22M2 12h4.5M17.5 12H22" fill="none" stroke-width="2.4" />
+							</svg>
+						</span>
 					{/if}
 				</a>
 			{/each}
@@ -130,10 +156,34 @@
 		top: 6px;
 		right: 6px;
 	}
-	.location {
+	/* White disc with a shadow: visible on snow and sky as well as on dark photos. */
+	.marker {
+		position: absolute;
 		bottom: 6px;
 		right: 6px;
-		color: #3fb950;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: #fff;
+		box-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+	}
+	.marker svg {
+		width: 16px;
+		height: 16px;
+	}
+	.location svg {
+		fill: #1a7f37;
+	}
+	/* GeoCLIP's color, as on the map. */
+	.geoclip {
+		background: #bc4c00;
+	}
+	.geoclip svg {
+		fill: #fff;
+		stroke: #fff;
 	}
 	.placeholder {
 		background: color-mix(in srgb, currentColor 4%, transparent);

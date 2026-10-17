@@ -21,6 +21,10 @@ between releases.
   folded as weak ("probably only the region is right"), from 75 % they are marked as confident
   (`STEWARD_GEOCLIP_*`). The thresholds come from a check on photos with known locations.
 - Confidence of every suggestion as a percentage next to its bar.
+- Gallery filter "Confident GeoCLIP guess": photos without a location that GeoCLIP places
+  confidently, ready to be checked and saved one after another.
+- Gallery markers: a pin on a white disc for photos with a location (instead of a hard to see
+  green dot), an orange crosshair for confident GeoCLIP guesses.
 - Workers and the progress of module runs on the Library page.
 
 ## [0.1.0] - 2026-10-17

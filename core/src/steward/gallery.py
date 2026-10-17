@@ -6,10 +6,11 @@ from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, func, literal, or_, select, tuple_
+from sqlalchemy import ColumnElement, Select, and_, exists, func, literal, or_, select, tuple_
+from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward.models import Account, Album, Asset, AssetAlbum
+from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun
 
 # Disjoint groups the gallery can show in any combination. with: has a location (whatever its
 # review status); todo: no location and not marked; skipped / not_applicable: no location and
@@ -32,6 +33,8 @@ class GalleryFilter:
     date_from: date | None = None
     date_to: date | None = None
     include_archived: bool = False
+    # Only photos without a location that GeoCLIP places with at least this confidence.
+    geoclip_confidence: float | None = None
 
     def conditions(self, account: Account) -> list[ColumnElement[bool]]:
         result: list[ColumnElement[bool]] = [
@@ -58,6 +61,9 @@ class GalleryFilter:
             result.append(
                 Asset.local_taken_at >= datetime.combine(self.date_from, datetime.min.time())
             )
+        if self.geoclip_confidence is not None:
+            result.append(Asset.latitude.is_(None))
+            result.append(geoclip_confident(self.geoclip_confidence))
         if self.date_to is not None:
             end = datetime.combine(self.date_to + timedelta(days=1), datetime.min.time())
             result.append(Asset.local_taken_at < end)
@@ -69,6 +75,34 @@ def _show_condition(category: ShowCategory) -> ColumnElement[bool]:
         return Asset.latitude.is_not(None)
     status = "new" if category == "todo" else category
     return and_(Asset.latitude.is_(None), Asset.review_status == status)
+
+
+def geoclip_confident(min_score: float) -> ColumnElement[bool]:
+    """The asset has a GeoCLIP result with a candidate at least this confident."""
+    return exists().where(
+        ModuleRun.asset_id == Asset.id,
+        ModuleRun.module_id == "geoclip",
+        ModuleRun.status == "done",
+        func.jsonb_path_exists(
+            ModuleRun.candidates,
+            literal("$[*] ? (@.score >= $min)", JSONPATH),
+            func.jsonb_build_object("min", min_score),
+        ),
+    )
+
+
+async def geoclip_confident_ids(
+    db: AsyncSession, asset_ids: list[UUID], min_score: float
+) -> set[UUID]:
+    """Of the given assets, those without a location that GeoCLIP places confidently."""
+    if not asset_ids:
+        return set()
+    rows = await db.scalars(
+        select(Asset.id).where(
+            Asset.id.in_(asset_ids), Asset.latitude.is_(None), geoclip_confident(min_score)
+        )
+    )
+    return set(rows)
 
 
 def _month_start(month: date) -> datetime:

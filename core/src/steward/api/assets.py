@@ -27,6 +27,7 @@ from steward.gallery import (
     TypeFilter,
     album_options,
     camera_options,
+    geoclip_confident_ids,
     month_assets_query,
     month_buckets,
     neighbors,
@@ -49,6 +50,7 @@ IMAGE_CACHE_CONTROL = "private, max-age=604800"
 
 
 def gallery_filter(
+    settings: SettingsDep,
     show: Annotated[list[ShowCategory] | None, Query()] = None,
     type: TypeFilter = "all",
     camera: str | None = None,
@@ -56,6 +58,7 @@ def gallery_filter(
     date_from: date | None = None,
     date_to: date | None = None,
     archived: bool = False,
+    geoclip_confident: bool = False,
 ) -> GalleryFilter:
     return GalleryFilter(
         show=frozenset(show or ()),
@@ -65,6 +68,7 @@ def gallery_filter(
         date_from=date_from,
         date_to=date_to,
         include_archived=archived,
+        geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
     )
 
 
@@ -82,12 +86,15 @@ class AssetItem(BaseModel):
     type: str
     file_name: str
     has_location: bool
+    # No location yet, but GeoCLIP places the photo confidently.
+    geoclip_confident: bool = False
     width: int | None
     height: int | None
 
     @classmethod
-    def of(cls, asset: Asset) -> "AssetItem":
+    def of(cls, asset: Asset, geoclip_confident: bool = False) -> "AssetItem":
         return cls(
+            geoclip_confident=geoclip_confident,
             id=asset.id,
             local_taken_at=asset.local_taken_at,
             type=asset.type,
@@ -250,11 +257,15 @@ async def list_month(
     account: CurrentAccount,
     db: DbDep,
     filters: FilterDep,
+    settings: SettingsDep,
     month: Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")],
 ) -> list[AssetItem]:
     first_day = date.fromisoformat(f"{month}-01")
-    assets = await db.scalars(month_assets_query(account, filters, first_day))
-    return [AssetItem.of(asset) for asset in assets]
+    assets = list(await db.scalars(month_assets_query(account, filters, first_day)))
+    confident = await geoclip_confident_ids(
+        db, [a.id for a in assets], settings.geoclip_confident_from
+    )
+    return [AssetItem.of(asset, asset.id in confident) for asset in assets]
 
 
 @router.get("/filter-options")

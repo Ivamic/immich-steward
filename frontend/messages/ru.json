@@ -179,5 +179,8 @@
 	"candidate_area_details": "GeoCLIP сравнивает фото со 100 000 опорных точек по всему миру; из 200 самых вероятных в этот район попало {points}. Уверенность — их суммарная вероятность.",
 	"suggestions_weak_more": "Ещё слабых подсказок: {count} (вероятно, верен только регион)",
 	"suggestions_weak_hide": "Скрыть слабые подсказки",
-	"candidate_confident": "уверенно"
+	"candidate_confident": "уверенно",
+	"filter_geoclip_confident": "Уверенное предположение GeoCLIP",
+	"filter_geoclip_confident_hint": "Фото без места, для которых у GeoCLIP есть подсказка с меткой «уверенно» (по умолчанию от 75 %)",
+	"asset_geoclip_confident": "Уверенное предположение GeoCLIP"
 }

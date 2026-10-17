@@ -10,7 +10,8 @@ export const defaultFilter: GalleryFilter = {
 	album: null,
 	date_from: null,
 	date_to: null,
-	archived: false
+	archived: false,
+	geoclip_confident: false
 };
 
 const oneOf = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -26,7 +27,8 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		album: params.get('album'),
 		date_from: params.get('date_from'),
 		date_to: params.get('date_to'),
-		archived: params.get('archived') === 'true'
+		archived: params.get('archived') === 'true',
+		geoclip_confident: params.get('geoclip_confident') === 'true'
 	};
 }
 
@@ -42,5 +44,6 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	if (filter.date_from) params.set('date_from', filter.date_from);
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
+	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	return `?${params}`;
 }

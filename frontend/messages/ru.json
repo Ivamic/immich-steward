@@ -1,0 +1,18 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"app_title": "immich-steward",
+	"app_tagline": "Восстановление недостающих сведений в библиотеке Immich",
+	"language": "Язык",
+	"status_heading": "Состояние системы",
+	"status_loading": "Проверка…",
+	"status_core": "Ядро",
+	"status_core_ok": "работает, версия {version}",
+	"status_core_unreachable": "недоступно",
+	"status_database": "База данных",
+	"status_database_ok": "PostgreSQL {version}",
+	"status_database_unreachable": "недоступна ({code})",
+	"status_pgvector": "Расширение pgvector",
+	"status_pgvector_ok": "версия {version}",
+	"status_pgvector_missing": "не установлено",
+	"status_refresh": "Обновить"
+}

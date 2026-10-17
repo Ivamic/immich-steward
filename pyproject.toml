@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Workspace root. Members are listed below; the root itself is not a package.
+
+[tool.uv.workspace]
+members = ["core"]
+
+[tool.uv.sources]
+steward = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "steward",
+    "httpx2>=2.13",
+    "mypy>=1.15",
+    "pip-licenses>=5.0",
+    "pytest>=8.3",
+    "ruff>=0.11",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["steward"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "core/src"
+packages = ["steward"]
+
+[tool.pytest.ini_options]
+testpaths = ["core/tests"]

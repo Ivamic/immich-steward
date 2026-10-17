@@ -1,0 +1,74 @@
+# ------------------------------------------------------------------
+# Private development notes — NEVER commit
+# ------------------------------------------------------------------
+_dev/
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+*.private.md
+
+# ------------------------------------------------------------------
+# Secrets and local configuration
+# ------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ------------------------------------------------------------------
+# Runtime data: databases, model weights, caches, photos
+# ------------------------------------------------------------------
+/data/
+/volumes/
+/models/
+/model-cache/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.faiss
+*.sqlite
+*.sqlite3
+*.db
+/photos/
+
+# ------------------------------------------------------------------
+# Python
+# ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ------------------------------------------------------------------
+# Node / frontend
+# ------------------------------------------------------------------
+node_modules/
+.svelte-kit/
+.vite/
+frontend/build/
+frontend/dist/
+npm-debug.log*
+pnpm-debug.log*
+
+# ------------------------------------------------------------------
+# Editors and OS
+# ------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

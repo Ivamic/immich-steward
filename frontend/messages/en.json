@@ -1,0 +1,18 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"app_title": "immich-steward",
+	"app_tagline": "Restore missing information in your Immich library",
+	"language": "Language",
+	"status_heading": "System status",
+	"status_loading": "Checking…",
+	"status_core": "Core service",
+	"status_core_ok": "running, version {version}",
+	"status_core_unreachable": "unreachable",
+	"status_database": "Database",
+	"status_database_ok": "PostgreSQL {version}",
+	"status_database_unreachable": "unreachable ({code})",
+	"status_pgvector": "pgvector extension",
+	"status_pgvector_ok": "version {version}",
+	"status_pgvector_missing": "not installed",
+	"status_refresh": "Refresh"
+}

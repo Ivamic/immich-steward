@@ -27,6 +27,13 @@ between releases.
   green dot), an orange crosshair for confident GeoCLIP guesses.
 - Workers and the progress of module runs on the Library page.
 
+### Changed
+
+- Photo card in three columns that fill the window: the map always stays in view, the panel to
+  pick the location and the suggestions scroll on their own, the photo and its details are on
+  the right. On medium screens the two side columns become tabs; on small screens everything is
+  stacked. Compact suggestion rows; hovering a row highlights its marker and the other way round.
+
 ## [0.1.0] - 2026-10-17
 
 First usable version: review photos without location by hand, with suggestions from photos

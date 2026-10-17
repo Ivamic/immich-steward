@@ -1,15 +1,17 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-  Suggestions under the map, grouped by module. The number in the colored circle is the rank
+  Suggestions next to the map, grouped by module, one compact row each. The number in the colored circle is the rank
   within the module (as on the map); the key 1–9 picks one of the first nine. Cameras that a
   module looked at can be excluded (e.g. someone else's phone with a wrong clock). Modules run by
-  workers show the state of their latest run and can be started from here.
+  workers show the state of their latest run and can be started from here. Hovering a row
+  highlights its marker on the map, and the other way round.
 -->
 <script lang="ts">
 	import { isPending, thumbnailUrl, type Candidate, type ModuleSuggestions } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
 	import { setCameraExcluded } from './cameraFilter.svelte.js';
+	import type { Highlight } from './highlight.js';
 	import {
 		candidateDetails,
 		candidateLabel,
@@ -28,7 +30,9 @@
 		onchoose,
 		onrun,
 		unfolded,
-		ontoggle
+		ontoggle,
+		highlight,
+		onhighlight
 	}: {
 		modules: ModuleSuggestions[];
 		loading: boolean;
@@ -37,7 +41,22 @@
 		/** Modules whose weak suggestions are shown. */
 		unfolded: string[];
 		ontoggle: (module: string) => void;
+		highlight: Highlight | null;
+		onhighlight: (highlight: Highlight | null) => void;
 	} = $props();
+
+	let list = $state<HTMLElement>();
+
+	// A marker hovered on the map brings its row into view.
+	$effect(() => {
+		if (highlight?.from !== 'map' || !list) return;
+		list
+			.querySelector(`[data-candidate="${highlight.module}:${highlight.rank}"]`)
+			?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+	});
+
+	const isHighlighted = (module: string, rank: number) =>
+		highlight?.module === module && highlight.rank === rank;
 
 	const weakCount = (module: ModuleSuggestions) =>
 		module.candidates.filter((c) => c.tier === 'weak').length;
@@ -65,7 +84,7 @@
 	const keys = $derived(new Map(numberCandidates(shown).map((item) => [item.candidate, item.key])));
 </script>
 
-<section class="suggestions" aria-busy={loading}>
+<section class="suggestions" aria-busy={loading} bind:this={list}>
 	<h2>{m.suggestions_heading()}</h2>
 	{#if loading && !modules.length}
 		<p class="muted">{m.suggestions_loading()}</p>
@@ -117,7 +136,14 @@
 			<ol>
 				{#each module.candidates as candidate (candidate.rank)}
 					{@const key = keys.get(candidate)}
-					<li class:weak={candidate.tier === 'weak'}>
+					<li
+						class:weak={candidate.tier === 'weak'}
+						class:highlight={isHighlighted(module.module, candidate.rank)}
+						data-candidate="{module.module}:{candidate.rank}"
+						onmouseenter={() =>
+							onhighlight({ module: module.module, rank: candidate.rank, from: 'list' })}
+						onmouseleave={() => onhighlight(null)}
+					>
 						<span class="rank shape-{module.shape}" style:background={module.color}
 							>{candidate.rank}</span
 						>
@@ -142,28 +168,26 @@
 								{#each candidateRemarks(candidate) as remark (remark)}
 									<span class="remark">{remark}</span>
 								{/each}
-							</div>
-							<div class="neighbors">
 								{#each candidate.evidence.neighbors ?? [] as neighbor (neighbor.asset_id)}
 									<a
+										class="neighbor"
 										href={resolve('/photo/[id]', { id: neighbor.asset_id })}
 										target="_blank"
 										rel="noopener"
-										title="{neighbor.file_name} — {m.photo_open_new_tab()}"
+										title="{neighbor.file_name} ({formatDelta(
+											neighbor.delta_s
+										)}) — {m.photo_open_new_tab()}"
 									>
-										<figure>
-											<img
-												src={thumbnailUrl(neighbor.asset_id)}
-												alt={neighbor.file_name}
-												loading="lazy"
-											/>
-											<figcaption>{formatDelta(neighbor.delta_s)}</figcaption>
-										</figure>
+										<img
+											src={thumbnailUrl(neighbor.asset_id)}
+											alt={neighbor.file_name}
+											loading="lazy"
+										/>
 									</a>
 								{/each}
 							</div>
 						</div>
-						<button type="button" onclick={() => onchoose(candidate)}>
+						<button type="button" class="choose" onclick={() => onchoose(candidate)}>
 							{m.candidate_choose()}
 							{#if key}<kbd>{key}</kbd>{/if}
 						</button>
@@ -219,16 +243,21 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.3rem;
 	}
 	li {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr) auto;
-		gap: 0.6rem;
-		align-items: start;
-		padding: 0.4rem 0.5rem;
+		gap: 0.5rem;
+		align-items: center;
+		padding: 0.3rem 0.4rem;
 		border: 1px solid rgb(127 127 127 / 0.25);
 		border-radius: 0.4rem;
+		font-size: 0.9rem;
+	}
+	li.highlight {
+		border-color: #0969da;
+		box-shadow: 0 0 0 2px rgb(9 105 218 / 0.25);
 	}
 	.rank.shape-square {
 		border-radius: 0.3rem;
@@ -246,18 +275,27 @@
 	}
 	.label {
 		word-break: break-word;
+		/* Two lines at most; the full text is in the title. */
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.choose {
+		font-size: 0.8rem;
+		white-space: nowrap;
 	}
 	.meta {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.3rem 0.75rem;
-		font-size: 0.85rem;
-		opacity: 0.8;
+		gap: 0.2rem 0.6rem;
+		font-size: 0.8rem;
 	}
 	.score {
 		display: inline-block;
-		width: 4rem;
+		width: 3rem;
 		height: 0.4rem;
 		border-radius: 0.2rem;
 		background: rgb(127 127 127 / 0.25);
@@ -280,6 +318,8 @@
 		font-weight: 600;
 	}
 	.fold {
+		display: block;
+		text-align: left;
 		margin-top: 0.4rem;
 		border: none;
 		background: none;
@@ -291,11 +331,6 @@
 	}
 	.remark {
 		color: #9a6700;
-	}
-	.neighbors {
-		display: flex;
-		gap: 0.4rem;
-		margin-top: 0.3rem;
 	}
 	.devices {
 		display: flex;
@@ -311,21 +346,12 @@
 		margin-right: 0.5rem;
 		font-weight: 600;
 	}
-	.neighbors a {
-		color: inherit;
-		text-decoration: none;
-	}
-	figure {
-		margin: 0;
-		font-size: 0.75rem;
-		text-align: center;
-	}
-	figure img {
+	.neighbor img {
 		display: block;
-		width: 4rem;
-		height: 4rem;
+		width: 1.75rem;
+		height: 1.75rem;
 		object-fit: cover;
-		border-radius: 0.25rem;
+		border-radius: 0.2rem;
 	}
 	.muted {
 		opacity: 0.65;

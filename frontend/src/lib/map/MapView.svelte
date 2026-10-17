@@ -16,6 +16,7 @@
 		Popup,
 		setWorkerUrl,
 		type MapGeoJSONFeature,
+		type ExpressionSpecification,
 		type GeoJSONSource,
 		type MapMouseEvent
 	} from 'maplibre-gl';
@@ -33,6 +34,7 @@
 	import type { LatLon } from '#lib/coords.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatDelta } from '#lib/suggestions/format.js';
+	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { resolve } from '$app/paths';
 	import {
 		AFTER_RGB,
@@ -48,13 +50,18 @@
 		current,
 		picked,
 		suggestions = [],
-		onpick
+		onpick,
+		highlight = null,
+		onhighlight = () => {}
 	}: {
 		styleUrl: string;
 		current: LatLon | null;
 		picked: LatLon | null;
 		suggestions?: ModuleSuggestions[];
 		onpick: (point: LatLon) => void;
+		/** The suggestion hovered in the list or on the map (FR-32). */
+		highlight?: Highlight | null;
+		onhighlight?: (highlight: Highlight | null) => void;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -78,6 +85,8 @@
 	let currentMarker: Marker | undefined;
 	let pickedMarker: Marker | undefined;
 	let overlayMarkers: Marker[] = [];
+	// Bumped when the markers are recreated, so that the highlight is applied to the new ones.
+	let overlayVersion = $state(0);
 	// Preview of a photo of the route: follows the pointer, or stays after a click (pinned).
 	let popup: Popup | undefined;
 	let popupPinned = false;
@@ -97,11 +106,17 @@
 	}
 
 	/** Shows all the points, e.g. the suggestions of a photo without a location. */
-	export function fitTo(points: LatLon[]) {
+	export function fitTo(points: (LatLon & { radius_m?: number | null })[]) {
 		if (!map || !points.length) return;
 		const bounds = new LngLatBounds();
-		for (const p of points) bounds.extend([p.lon, p.lat]);
-		map.fitBounds(bounds, { padding: 80, maxZoom: 16, duration: 600 });
+		for (const p of points) {
+			// Areas with an error radius are shown whole, not just their center.
+			const dLat = (p.radius_m ?? 0) / 111_320;
+			const dLon = dLat / Math.max(Math.cos((p.lat * Math.PI) / 180), 0.01);
+			bounds.extend([p.lon - dLon, p.lat - dLat]);
+			bounds.extend([p.lon + dLon, p.lat + dLat]);
+		}
+		map.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 600 });
 	}
 
 	$effect(() => {
@@ -151,17 +166,13 @@
 			id: 'steward-radius-fill',
 			type: 'fill',
 			source: 'steward-radius',
-			paint: {
-				'fill-color': ['get', 'color'],
-				// A wide circle says little and would tint the whole map: the wider, the paler.
-				'fill-opacity': ['interpolate', ['linear'], ['get', 'radius'], 300, 0.15, 5000, 0.03]
-			}
+			paint: { 'fill-color': ['get', 'color'], 'fill-opacity': radiusOpacity(null) }
 		});
 		instance.addLayer({
 			id: 'steward-radius-line',
 			type: 'line',
 			source: 'steward-radius',
-			paint: { 'line-color': ['get', 'color'], 'line-opacity': 0.5, 'line-width': 1 }
+			paint: { 'line-color': ['get', 'color'], 'line-opacity': 0.85, 'line-width': 2 }
 		});
 		instance.addLayer({
 			id: 'steward-track-line',
@@ -235,7 +246,15 @@
 			features: suggestions.flatMap((module) =>
 				module.candidates
 					.filter((c) => c.radius_m)
-					.map((c) => circle(c.latitude, c.longitude, c.radius_m ?? 0, module.color))
+					.map((c) =>
+						circle(
+							c.latitude,
+							c.longitude,
+							c.radius_m ?? 0,
+							module.color,
+							`${module.module}:${c.rank}`
+						)
+					)
 			)
 		});
 		const track = route?.track ?? [];
@@ -294,14 +313,17 @@
 				pin.textContent = String(c.rank);
 				pin.dataset.lat = String(c.latitude);
 				pin.dataset.lon = String(c.longitude);
+				pin.dataset.candidate = `${module.module}:${c.rank}`;
 				// Hover shows the photos the suggestion comes from; a click still picks it.
 				const photos = candidatePhotos(c, module.track);
 				pin.addEventListener('mouseenter', () => {
+					onhighlight({ module: module.module, rank: c.rank, from: 'map' });
 					if (!popupPinned && photos.length) {
 						showPreview(instance, { lat: c.latitude, lon: c.longitude }, photos, false);
 					}
 				});
 				pin.addEventListener('mouseleave', () => {
+					onhighlight(null);
 					if (!popupPinned) closePreview();
 				});
 				overlayMarkers.push(
@@ -309,7 +331,41 @@
 				);
 			}
 		}
+		untrack(() => overlayVersion++);
 	});
+
+	// Outline the highlighted marker; the markers themselves are not recreated.
+	$effect(() => {
+		void overlayVersion;
+		const key = highlight ? `${highlight.module}:${highlight.rank}` : null;
+		if (map && ready)
+			map.setPaintProperty('steward-radius-fill', 'fill-opacity', radiusOpacity(key));
+		for (const marker of overlayMarkers) {
+			const element = marker.getElement();
+			if (element.dataset.candidate) {
+				element.classList.toggle('steward-highlight', element.dataset.candidate === key);
+			}
+		}
+	});
+
+	/**
+	 * Fill of the error circles: clearly visible for areas up to a city, paler for very wide ones
+	 * (which would tint the whole map), strong for the highlighted suggestion.
+	 */
+	function radiusOpacity(highlightKey: string | null): ExpressionSpecification {
+		const byRadius: ExpressionSpecification = [
+			'interpolate',
+			['linear'],
+			['get', 'radius'],
+			1000,
+			0.2,
+			10_000,
+			0.12,
+			50_000,
+			0.05
+		];
+		return highlightKey ? ['case', ['==', ['get', 'key'], highlightKey], 0.3, byRadius] : byRadius;
+	}
 
 	function source(instance: MapLibreMap, id: string): GeoJSONSource {
 		return instance.getSource(id) as GeoJSONSource;
@@ -462,7 +518,7 @@
 		};
 	}
 
-	function circle(lat: number, lon: number, radius: number, color: string): Feature {
+	function circle(lat: number, lon: number, radius: number, color: string, key: string): Feature {
 		const steps = 64;
 		const dLat = radius / 111_320;
 		const dLon = radius / (111_320 * Math.cos((lat * Math.PI) / 180));
@@ -472,7 +528,7 @@
 		});
 		return {
 			type: 'Feature',
-			properties: { color, radius },
+			properties: { color, radius, key },
 			geometry: { type: 'Polygon', coordinates: [ring] }
 		};
 	}
@@ -568,6 +624,13 @@
 	:global(.steward-preview .name) {
 		font-weight: 600;
 		word-break: break-all;
+	}
+	/* The marker of the suggestion hovered in the list. Not a transform: MapLibre positions
+	   markers with it. */
+	:global(.steward-candidate.steward-highlight) {
+		z-index: 5;
+		outline: 3px solid #0969da;
+		outline-offset: 2px;
 	}
 	:global(.steward-candidate.steward-shape-square) {
 		border-radius: 0.3rem;

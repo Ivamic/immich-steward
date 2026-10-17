@@ -182,5 +182,8 @@
 	"candidate_confident": "confident",
 	"filter_geoclip_confident": "Confident GeoCLIP guess",
 	"filter_geoclip_confident_hint": "Photos without a location that GeoCLIP marks as confident (75 % and above by default)",
-	"asset_geoclip_confident": "Confident GeoCLIP guess"
+	"asset_geoclip_confident": "Confident GeoCLIP guess",
+	"photo_tab_place": "Location",
+	"photo_tab_info": "Photo and details",
+	"photo_keys": "Keyboard shortcuts"
 }

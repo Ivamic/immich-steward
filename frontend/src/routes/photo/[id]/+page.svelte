@@ -1,7 +1,9 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-  Photo card. Wide column: the map with everything for picking a new location, the actions and
-  the module suggestions. Narrow column: reference information as it is now (photo, details, current location, history).
+  Photo card in three columns that fill the window: the map (always in view), a panel to pick
+  the location with the actions and the suggestions, and the reference column. Only the panels
+  scroll. On medium screens the panel and the reference column share one column with tabs; on
+  small ones everything is stacked. Narrow column: reference information as it is now (photo, details, current location, history).
 -->
 <script lang="ts">
 	import {
@@ -32,6 +34,7 @@
 	import { cameraFilter } from '#lib/suggestions/cameraFilter.svelte.js';
 	import { numberCandidates, visibleSuggestions } from '#lib/suggestions/format.js';
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
+	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -73,6 +76,10 @@
 	);
 	// Modules whose weak suggestions the user unfolded; kept while moving between photos.
 	let unfolded = $state<string[]>([]);
+	// The suggestion under the pointer, in the list or on the map.
+	let highlight = $state<Highlight | null>(null);
+	// Medium screens: which of the two side panels is shown.
+	let tab = $state<'place' | 'info'>('place');
 	const shown = $derived(visibleSuggestions(suggestions, unfolded));
 	const numbered = $derived(numberCandidates(shown));
 	const pending = $derived(asset ? saves.pendingFor(asset.id) : undefined);
@@ -178,9 +185,14 @@
 			.catch((e) => (error = errorMessage(e)));
 	}
 
-	function suggestionPoints(modules: ModuleSuggestions[]): LatLon[] {
-		return modules.flatMap((module) => [
-			...module.candidates.map((c) => ({ lat: c.latitude, lon: c.longitude })),
+	/** What to fit the map to: the suggestions as shown (with their circles) and the neighbors. */
+	function suggestionPoints(modules: ModuleSuggestions[]) {
+		return visibleSuggestions(modules, unfolded).flatMap((module) => [
+			...module.candidates.map((c) => ({
+				lat: c.latitude,
+				lon: c.longitude,
+				radius_m: c.radius_m
+			})),
 			...module.track.filter((p) => p.role).map((p) => ({ lat: p.latitude, lon: p.longitude }))
 		]);
 	}
@@ -305,21 +317,32 @@
 	<p class="error" role="alert">{error}</p>
 {/if}
 
-<div class="card">
-	<section class="work">
-		<div class="map">
-			{#if mapConfig}
-				<MapView
-					bind:this={mapView}
-					styleUrl={mapConfig.style_url}
-					{current}
-					{picked}
-					suggestions={shown}
-					onpick={pick}
-				/>
-			{/if}
-		</div>
+<div class="card" class:show-info={tab === 'info'}>
+	<div class="map">
+		{#if mapConfig}
+			<MapView
+				bind:this={mapView}
+				styleUrl={mapConfig.style_url}
+				{current}
+				{picked}
+				suggestions={shown}
+				onpick={pick}
+				{highlight}
+				onhighlight={(h) => (highlight = h)}
+			/>
+		{/if}
+	</div>
 
+	<div class="tabs" role="tablist">
+		<button type="button" role="tab" aria-selected={tab === 'place'} onclick={() => (tab = 'place')}
+			>{m.photo_tab_place()}</button
+		>
+		<button type="button" role="tab" aria-selected={tab === 'info'} onclick={() => (tab = 'info')}
+			>{m.photo_tab_info()}</button
+		>
+	</div>
+
+	<section class="panel">
 		<div class="picker">
 			{#if mapConfig?.geocoder_enabled}
 				<GeocoderSearch
@@ -377,7 +400,10 @@
 					</button>
 				{/if}
 			</div>
-			<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
+			<details class="keys">
+				<summary>{m.photo_keys()}</summary>
+				<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
+			</details>
 		{/if}
 
 		<SuggestionList
@@ -385,6 +411,8 @@
 			loading={suggestionsLoading}
 			onchoose={choose}
 			onrun={run}
+			{highlight}
+			onhighlight={(h) => (highlight = h)}
 			{unfolded}
 			ontoggle={(module) =>
 				(unfolded = unfolded.includes(module)
@@ -497,38 +525,94 @@
 	.spacer {
 		flex: 1;
 	}
+	/* The page fits the window: only the panels scroll, the map stays in view. */
 	.card {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
-		gap: 1.5rem;
-		align-items: start;
+		grid-template-columns: minmax(0, 1fr) 23rem 19rem;
+		grid-template-areas: 'map panel info';
+		gap: 1rem;
+		height: calc(100dvh - 9rem);
+		min-height: 30rem;
 	}
-	@media (max-width: 60rem) {
-		.card {
-			grid-template-columns: 1fr;
-		}
+	.map {
+		grid-area: map;
+		min-height: 0;
 	}
-	.work,
+	.tabs {
+		grid-area: tabs;
+		display: none;
+		gap: 0.25rem;
+	}
+	.tabs button[aria-selected='true'] {
+		font-weight: 600;
+		border-bottom: 2px solid #0969da;
+	}
+	.panel {
+		grid-area: panel;
+	}
+	.info {
+		grid-area: info;
+	}
+	.panel,
 	.info {
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 0.6rem;
 		min-width: 0;
+		min-height: 0;
+		overflow-y: auto;
+		padding-right: 0.25rem;
 	}
-	.map {
-		/* The main tool of the page: as tall as the screen allows, leaving room for the picker. */
-		height: max(24rem, calc(100vh - 19rem));
+	/* Medium screens: one side column, with tabs. */
+	@media (max-width: 80rem) {
+		.card {
+			grid-template-columns: minmax(0, 1fr) 24rem;
+			grid-template-rows: auto minmax(0, 1fr);
+			grid-template-areas: 'map tabs' 'map side';
+		}
+		.tabs {
+			display: flex;
+		}
+		.panel,
+		.info {
+			grid-area: side;
+		}
+		.card:not(.show-info) .info,
+		.card.show-info .panel {
+			display: none;
+		}
+	}
+	/* Small screens: everything stacked, the page scrolls. */
+	@media (max-width: 50rem) {
+		.card {
+			display: flex;
+			flex-direction: column;
+			height: auto;
+		}
+		.map {
+			height: 55vh;
+		}
+		.tabs {
+			display: none;
+		}
+		.card:not(.show-info) .info,
+		.card.show-info .panel {
+			display: flex;
+		}
+		.panel,
+		.info {
+			overflow: visible;
+		}
 	}
 	.picker {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: 0.75rem;
-		align-items: end;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
-	@media (max-width: 40rem) {
-		.picker {
-			grid-template-columns: 1fr;
-		}
+	.keys summary {
+		cursor: pointer;
+		font-size: 0.85rem;
+		opacity: 0.75;
 	}
 	.preview {
 		margin: 0;
@@ -545,7 +629,7 @@
 	.zoom img {
 		display: block;
 		max-width: 100%;
-		max-height: 22rem;
+		max-height: 16rem;
 		margin: 0 auto;
 	}
 	.zoom-label {

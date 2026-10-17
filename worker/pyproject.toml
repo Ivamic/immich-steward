@@ -11,6 +11,36 @@ dependencies = [
     "httpx2>=2.13",
 ]
 
+[project.optional-dependencies]
+# M2 GeoCLIP. Pick one PyTorch build as well: "cpu" (servers, the Docker image) or "cuda"
+# (NVIDIA GPUs), e.g. `uv sync --package steward-worker --extra geoclip --extra cpu`.
+geoclip = ["geoclip>=1.2.3", "pillow>=10"]
+cpu = ["torch>=2.5", "torchvision>=0.20"]
+cuda = ["torch>=2.5", "torchvision>=0.20"]
+
+[tool.uv]
+conflicts = [[{ extra = "cpu" }, { extra = "cuda" }]]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu130", extra = "cuda" },
+]
+torchvision = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu130", extra = "cuda" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
 [project.scripts]
 steward-worker = "steward_worker.__main__:main"
 

@@ -15,7 +15,8 @@ import socket
 import sys
 
 from steward_worker.client import CoreClient
-from steward_worker.modules import AVAILABLE
+from steward_worker.modules import AVAILABLE, ModuleOptions
+from steward_worker.modules.geoclip import resolve_device
 from steward_worker.runner import Worker, WorkerConfig
 
 
@@ -56,6 +57,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=float(env("STEWARD_WORKER_UNLOAD_AFTER_MINUTES", "10")),
         help="free model memory after this many idle minutes (STEWARD_WORKER_UNLOAD_AFTER_MINUTES)",
     )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=int(env("STEWARD_WORKER_THREADS", "2")),
+        help="CPU threads for the models (STEWARD_WORKER_THREADS); keep it low on a server "
+        "shared with Immich",
+    )
+    parser.add_argument(
+        "--device",
+        default=env("STEWARD_WORKER_DEVICE", "auto"),
+        choices=["auto", "cpu", "cuda"],
+        help="where models run (STEWARD_WORKER_DEVICE); auto picks an NVIDIA GPU when available",
+    )
     parser.add_argument("--log-level", default=env("STEWARD_LOG_LEVEL", "info"))
     return parser.parse_args(argv)
 
@@ -65,6 +79,9 @@ def main(argv: list[str] | None = None) -> None:
     logging.basicConfig(
         level=args.log_level.upper(), format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
+    # Every HTTP request would be logged at the info level otherwise.
+    for noisy in ("httpx", "httpx2", "huggingface_hub"):
+        logging.getLogger(noisy).setLevel(max(logging.WARNING, logging.getLogger().level))
     token = os.environ.get("STEWARD_WORKER_TOKEN", "")
     modules = [m.strip() for m in args.modules.split(",") if m.strip()]
     unknown = [m for m in modules if m not in AVAILABLE]
@@ -74,15 +91,21 @@ def main(argv: list[str] | None = None) -> None:
             f"one module. Unknown modules: {', '.join(unknown) or 'none'}; "
             f"available: {', '.join(AVAILABLE) or 'none yet'}."
         )
+    options = ModuleOptions(threads=args.threads, device=resolve_device(args.device))
     config = WorkerConfig(
-        name=args.name, max_load=args.max_load, unload_after_s=args.unload_after * 60
+        name=args.name,
+        device=options.device,
+        max_load=args.max_load,
+        unload_after_s=args.unload_after * 60,
     )
-    asyncio.run(_run(args.core, token, modules, config))
+    asyncio.run(_run(args.core, token, modules, options, config))
 
 
-async def _run(core: str, token: str, module_ids: list[str], config: WorkerConfig) -> None:
+async def _run(
+    core: str, token: str, module_ids: list[str], options: ModuleOptions, config: WorkerConfig
+) -> None:
     async with CoreClient(core, token) as client:
-        worker = Worker(client, {m: AVAILABLE[m]() for m in module_ids}, config)
+        worker = Worker(client, {m: AVAILABLE[m](options) for m in module_ids}, config)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):
             # Windows has no signal handlers in asyncio: Ctrl+C raises KeyboardInterrupt instead.

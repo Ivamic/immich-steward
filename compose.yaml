@@ -28,6 +28,32 @@ services:
       db:
         condition: service_healthy
 
+  # Runs ML location modules (GeoCLIP) on the CPU. Optional: start it with
+  #   docker compose --profile worker up -d
+  # after setting STEWARD_WORKER_TOKEN in .env.
+  worker:
+    profiles: [worker]
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: immich-steward-worker:local
+    restart: unless-stopped
+    environment:
+      STEWARD_CORE_URL: "http://core:8080"
+      STEWARD_WORKER_TOKEN: "${STEWARD_WORKER_TOKEN:-}"
+      STEWARD_WORKER_NAME: "${STEWARD_WORKER_NAME:-server}"
+      STEWARD_WORKER_MODULES: "${STEWARD_WORKER_MODULES:-geoclip}"
+      STEWARD_WORKER_THREADS: "${STEWARD_WORKER_THREADS:-2}"
+      STEWARD_WORKER_MAX_LOAD: "${STEWARD_WORKER_MAX_LOAD:-}"
+      STEWARD_LOG_LEVEL: "${STEWARD_LOG_LEVEL:-info}"
+    volumes:
+      - model-cache:/models
+    # GeoCLIP needs about 3 GB at its peak.
+    mem_limit: "${STEWARD_WORKER_MEMORY_LIMIT:-4g}"
+    depends_on:
+      core:
+        condition: service_healthy
+
   db:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
@@ -45,3 +71,4 @@ services:
 
 volumes:
   db-data:
+  model-cache:

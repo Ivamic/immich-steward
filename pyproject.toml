@@ -36,5 +36,10 @@ plugins = ["pydantic.mypy"]
 mypy_path = ["core/src", "worker/src"]
 packages = ["steward", "steward_worker"]
 
+# Heavy optional dependencies of the worker modules (extras), not installed for checks.
+[[tool.mypy.overrides]]
+module = ["torch", "torch.*", "geoclip", "geoclip.*", "PIL", "PIL.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["core/tests", "worker/tests"]

@@ -1,19 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Queries behind the gallery: filters, month buckets, assets of a month, filter options."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, func, literal, select, tuple_
+from sqlalchemy import ColumnElement, Select, and_, func, literal, or_, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.models import Account, Album, Asset, AssetAlbum
 
-# todo: no location yet and not marked; with: has a location; skipped / not_applicable: marked
-# by the user; all: everything.
-ViewFilter = Literal["todo", "with", "skipped", "not_applicable", "all"]
+# Disjoint groups the gallery can show in any combination. with: has a location (whatever its
+# review status); todo: no location and not marked; skipped / not_applicable: no location and
+# marked so by the user.
+ShowCategory = Literal["todo", "with", "skipped", "not_applicable"]
 TypeFilter = Literal["all", "image", "video"]
 
 # Separates make and model in the camera filter value.
@@ -22,7 +23,8 @@ CAMERA_SEPARATOR = "\x1f"
 
 @dataclass(frozen=True)
 class GalleryFilter:
-    view: ViewFilter = "all"
+    # Empty means every group.
+    show: frozenset[ShowCategory] = field(default_factory=frozenset)
     type: TypeFilter = "all"
     # make + CAMERA_SEPARATOR + model, as returned by camera_options(); "" means unknown camera.
     camera: str | None = None
@@ -38,13 +40,8 @@ class GalleryFilter:
         ]
         if not self.include_archived:
             result.append(Asset.visibility == "timeline")
-        if self.view == "todo":
-            result.append(Asset.latitude.is_(None))
-            result.append(Asset.review_status == "new")
-        elif self.view == "with":
-            result.append(Asset.latitude.is_not(None))
-        elif self.view in ("skipped", "not_applicable"):
-            result.append(Asset.review_status == self.view)
+        if self.show:
+            result.append(or_(*(_show_condition(category) for category in sorted(self.show))))
         if self.type != "all":
             result.append(Asset.type == self.type.upper())
         if self.camera is not None:
@@ -65,6 +62,13 @@ class GalleryFilter:
             end = datetime.combine(self.date_to + timedelta(days=1), datetime.min.time())
             result.append(Asset.local_taken_at < end)
         return result
+
+
+def _show_condition(category: ShowCategory) -> ColumnElement[bool]:
+    if category == "with":
+        return Asset.latitude.is_not(None)
+    status = "new" if category == "todo" else category
+    return and_(Asset.latitude.is_(None), Asset.review_status == status)
 
 
 def _month_start(month: date) -> datetime:

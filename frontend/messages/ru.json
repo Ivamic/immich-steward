@@ -71,11 +71,10 @@
 	"photo_back": "Назад к галерее",
 	"gallery_scrubber": "Шкала времени: перейти к месяцу",
 	"filter_view": "Показать",
-	"filter_view_todo": "К разбору: без места",
+	"filter_view_todo": "Без места",
 	"filter_view_skipped": "Пропущенные",
 	"filter_view_not_applicable": "Место неприменимо",
 	"filter_view_with": "С местом",
-	"filter_view_all": "Все",
 	"photo_previous": "Предыдущее",
 	"photo_next": "Следующее",
 	"photo_taken_at": "Снято",
@@ -98,7 +97,7 @@
 	"photo_skip": "Пропустить",
 	"photo_not_applicable": "Место неприменимо",
 	"photo_back_to_todo": "Вернуть к разбору",
-	"photo_keys_hint": "Клавиши: Enter сохранить место, ← → предыдущее / следующее, S пропустить, N место неприменимо, U вернуть к разбору, Esc галерея. Щёлкните по карте, чтобы выбрать точку.",
+	"photo_keys_hint": "Клавиши: Enter сохранить место, ← → предыдущее / следующее, S пропустить, N место неприменимо, U вернуть к разбору, Z увеличить фото, Esc галерея. Щёлкните по карте, чтобы выбрать точку.",
 	"error_immich_error": "Immich вернул ошибку. Попробуйте ещё раз.",
 	"error_location_changed_in_immich": "Место изменили в Immich после записи из этого приложения. Отмена не выполнена, чтобы не затереть изменение.",
 	"error_location_nothing_to_undo": "Отменять нечего.",
@@ -121,5 +120,9 @@
 	"save_retry": "Повторить",
 	"save_dismiss": "Закрыть",
 	"error_location_null_island": "Ровно 0, 0 сохранить нельзя: Immich считает это «нет координат».",
-	"error_location_clear_failed": "Immich не удалил координаты, поэтому сохранённая точка осталась."
+	"error_location_clear_failed": "Immich не удалил координаты, поэтому сохранённая точка осталась.",
+	"photo_zoom": "Увеличить",
+	"photo_viewer_loading": "Загрузка…",
+	"photo_viewer_fit": "Вписать в экран",
+	"photo_viewer_actual": "Реальный размер"
 }

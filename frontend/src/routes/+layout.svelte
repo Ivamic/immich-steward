@@ -76,7 +76,7 @@
 	</div>
 </header>
 
-<main class:wide={page.route.id === '/'}>
+<main class:wide={page.route.id === '/' || page.route.id === '/photo/[id]'}>
 	{#if session.checked}
 		{@render children()}
 	{/if}

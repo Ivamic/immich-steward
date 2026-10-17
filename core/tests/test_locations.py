@@ -47,7 +47,7 @@ def test_write_location_tags_and_records_history(
     signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
 ) -> None:
     local_id, immich_id = photos["empty"]
-    response = put_location(signed_in, local_id, KOTOR, view="todo")
+    response = put_location(signed_in, local_id, KOTOR, show="todo")
     assert response.status_code == 200
     detail = response.json()
 
@@ -60,7 +60,7 @@ def test_write_location_tags_and_records_history(
     assert change["status"] == "applied"
     assert detail["can_undo"] is True
     # The photo has left the to-do list.
-    todo = signed_in.get("/api/assets", params={"month": "2024-05", "view": "todo"}).json()
+    todo = signed_in.get("/api/assets", params={"month": "2024-05", "show": "todo"}).json()
     assert local_id not in [item["id"] for item in todo]
 
 
@@ -74,7 +74,7 @@ def test_undo_over_empty_location_clears_it(
     assert immich_point(fake_immich, immich_id) == (None, None)
     assert fake_immich.tag_values(immich_id) == set()
     assert response.json()["latitude"] is None
-    todo = signed_in.get("/api/assets", params={"month": "2024-05", "view": "todo"}).json()
+    todo = signed_in.get("/api/assets", params={"month": "2024-05", "show": "todo"}).json()
     assert local_id in [item["id"] for item in todo]
 
 

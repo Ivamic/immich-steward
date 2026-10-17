@@ -18,6 +18,9 @@ REQUIRED_PERMISSIONS = frozenset(
     }
 )
 
+# Used when granted: asset.download shows originals in full size in the photo viewer.
+OPTIONAL_PERMISSIONS = frozenset({"asset.download"})
+
 # Immich lets a key be created with every permission at once.
 ALL_PERMISSIONS = "all"
 

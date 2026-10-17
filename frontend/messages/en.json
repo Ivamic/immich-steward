@@ -71,11 +71,10 @@
 	"photo_back": "Back to gallery",
 	"gallery_scrubber": "Timeline: scroll to a month",
 	"filter_view": "Show",
-	"filter_view_todo": "To do: no location",
+	"filter_view_todo": "Without location",
 	"filter_view_skipped": "Skipped",
 	"filter_view_not_applicable": "Not applicable",
 	"filter_view_with": "With location",
-	"filter_view_all": "All",
 	"photo_previous": "Previous",
 	"photo_next": "Next",
 	"photo_taken_at": "Taken",
@@ -98,7 +97,7 @@
 	"photo_skip": "Skip for now",
 	"photo_not_applicable": "Location not applicable",
 	"photo_back_to_todo": "Back to the to-do list",
-	"photo_keys_hint": "Keys: Enter save the location, ← → previous / next, S skip, N not applicable, U back to the to-do list, Esc gallery. Click the map to pick a point.",
+	"photo_keys_hint": "Keys: Enter save the location, ← → previous / next, S skip, N not applicable, U back to the to-do list, Z enlarge the photo, Esc gallery. Click the map to pick a point.",
 	"error_immich_error": "Immich returned an error. Please try again.",
 	"error_location_changed_in_immich": "The location was changed in Immich after this app wrote it. Undo was cancelled so as not to overwrite it.",
 	"error_location_nothing_to_undo": "There is nothing to undo.",
@@ -121,5 +120,9 @@
 	"save_retry": "Retry",
 	"save_dismiss": "Close",
 	"error_location_null_island": "Exactly 0, 0 cannot be saved: Immich treats it as \"no location\".",
-	"error_location_clear_failed": "Immich did not remove the coordinates, so the saved point was kept."
+	"error_location_clear_failed": "Immich did not remove the coordinates, so the saved point was kept.",
+	"photo_zoom": "Enlarge",
+	"photo_viewer_loading": "Loading…",
+	"photo_viewer_fit": "Fit to screen",
+	"photo_viewer_actual": "Actual size"
 }

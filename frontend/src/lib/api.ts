@@ -92,11 +92,19 @@ export interface Library {
 export const isActive = (job: Job | null) =>
 	job !== null && (job.status === 'queued' || job.status === 'running');
 
-export type View = 'todo' | 'with' | 'skipped' | 'not_applicable' | 'all';
+/** Disjoint groups of photos; the gallery shows any combination of them. */
+export type ShowCategory = 'todo' | 'with' | 'skipped' | 'not_applicable';
+export const SHOW_CATEGORIES: readonly ShowCategory[] = [
+	'todo',
+	'with',
+	'skipped',
+	'not_applicable'
+];
 export type ReviewStatus = 'new' | 'skipped' | 'not_applicable';
 
 export interface GalleryFilter {
-	view: View;
+	/** Groups to show; empty means all of them. */
+	show: ShowCategory[];
 	type: 'all' | 'image' | 'video';
 	camera: string | null;
 	album: string | null;
@@ -128,7 +136,7 @@ export interface FilterOptions {
 /** Query string for the gallery filter; default values are left out. */
 export function filterQuery(filter: GalleryFilter, extra: Record<string, string> = {}): string {
 	const params = new URLSearchParams(extra);
-	if (filter.view !== 'all') params.set('view', filter.view);
+	for (const category of filter.show) params.append('show', category);
 	if (filter.type !== 'all') params.set('type', filter.type);
 	if (filter.camera !== null) params.set('camera', filter.camera);
 	if (filter.album) params.set('album', filter.album);
@@ -139,8 +147,10 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	return query ? `?${query}` : '';
 }
 
-export const thumbnailUrl = (id: string, size: 'thumbnail' | 'preview' = 'thumbnail') =>
-	`/api/assets/${id}/thumbnail?size=${size}`;
+export const thumbnailUrl = (
+	id: string,
+	size: 'thumbnail' | 'preview' | 'fullsize' = 'thumbnail'
+) => `/api/assets/${id}/thumbnail?size=${size}`;
 
 export const getMonths = (filter: GalleryFilter) =>
 	request<MonthBucket[]>('GET', `/api/assets/months${filterQuery(filter)}`);

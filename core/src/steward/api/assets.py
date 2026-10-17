@@ -22,8 +22,8 @@ from steward.deps import (
 from steward.errors import ApiError
 from steward.gallery import (
     GalleryFilter,
+    ShowCategory,
     TypeFilter,
-    ViewFilter,
     album_options,
     camera_options,
     month_assets_query,
@@ -47,7 +47,7 @@ IMAGE_CACHE_CONTROL = "private, max-age=604800"
 
 
 def gallery_filter(
-    view: ViewFilter = "all",
+    show: Annotated[list[ShowCategory] | None, Query()] = None,
     type: TypeFilter = "all",
     camera: str | None = None,
     album: UUID | None = None,
@@ -56,7 +56,7 @@ def gallery_filter(
     archived: bool = False,
 ) -> GalleryFilter:
     return GalleryFilter(
-        view=view,
+        show=frozenset(show or ()),
         type=type,
         camera=camera,
         album_id=album,

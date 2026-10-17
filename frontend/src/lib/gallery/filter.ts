@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The gallery filter lives in the page URL, so that a filtered view can be bookmarked and
 // survives going to a photo and back.
-import type { GalleryFilter } from '#lib/api.js';
+import { SHOW_CATEGORIES, type GalleryFilter } from '#lib/api.js';
 
 export const defaultFilter: GalleryFilter = {
-	view: 'todo',
+	show: ['todo'],
 	type: 'all',
 	camera: null,
 	album: null,
@@ -16,13 +16,11 @@ export const defaultFilter: GalleryFilter = {
 const oneOf = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
 	allowed.includes(value as T) ? (value as T) : fallback;
 
-export function filterFromUrl(params: Pick<URLSearchParams, 'get'>): GalleryFilter {
+export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): GalleryFilter {
+	// Kept in a fixed order, so that equal filters give equal URLs.
+	const show = SHOW_CATEGORIES.filter((category) => params.getAll('show').includes(category));
 	return {
-		view: oneOf(
-			params.get('view'),
-			['todo', 'with', 'skipped', 'not_applicable', 'all'] as const,
-			defaultFilter.view
-		),
+		show: show.length ? show : defaultFilter.show,
 		type: oneOf(params.get('type'), ['all', 'image', 'video'] as const, defaultFilter.type),
 		camera: params.get('camera'),
 		album: params.get('album'),
@@ -34,10 +32,10 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get'>): GalleryFilt
 
 export type FilterQuery = `?${string}`;
 
-/** URL query for the page: like the API query, but `view` is always explicit. */
+/** URL query for the page: like the API query, but `show` is always explicit. */
 export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	const params = new URLSearchParams();
-	params.set('view', filter.view);
+	for (const category of filter.show) params.append('show', category);
 	if (filter.type !== 'all') params.set('type', filter.type);
 	if (filter.camera !== null) params.set('camera', filter.camera);
 	if (filter.album) params.set('album', filter.album);

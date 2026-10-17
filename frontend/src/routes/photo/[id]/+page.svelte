@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-  Photo card: preview, details, map with the location picker, saving the location to Immich,
-  its history with undo, review actions and keyboard navigation.
+  Photo card. Wide column: the map with everything for picking a new location and the actions.
+  Narrow column: reference information as it is now (photo, details, current location, history).
 -->
 <script lang="ts">
 	import {
@@ -20,6 +20,7 @@
 	import { filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
+	import PhotoViewer from '#lib/PhotoViewer.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { saves } from '#lib/saves.svelte.js';
@@ -40,6 +41,7 @@
 	let coordinatesText = $state('');
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
+	let viewerOpen = $state(false);
 
 	const current = $derived<LatLon | null>(
 		asset?.latitude != null && asset.longitude != null
@@ -167,6 +169,8 @@
 	}
 
 	function onkeydown(event: KeyboardEvent) {
+		// The viewer handles its own keys (Esc closes it).
+		if (viewerOpen) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if ((event.target as HTMLElement).closest('input, textarea, select')) return;
 		const actions: Record<string, () => void> = {
@@ -176,7 +180,8 @@
 			escape: () => goto(resolve(`/${query}`)),
 			n: () => review('not_applicable'),
 			s: () => review('skipped'),
-			u: () => review('new')
+			u: () => review('new'),
+			z: () => (viewerOpen = true)
 		};
 		const key = event.key.toLowerCase();
 		// Enter on a focused button or link belongs to that control.
@@ -207,14 +212,97 @@
 {/if}
 
 <div class="card">
-	<figure class="preview">
-		<img src={thumbnailUrl(id, 'preview')} alt={asset?.file_name ?? ''} />
-		{#if asset?.type === 'VIDEO'}
-			<figcaption class="muted">{m.photo_video_note()}</figcaption>
-		{/if}
-	</figure>
+	<section class="work">
+		<div class="map">
+			{#if mapConfig}
+				<MapView
+					bind:this={mapView}
+					styleUrl={mapConfig.style_url}
+					{current}
+					{picked}
+					onpick={pick}
+				/>
+			{/if}
+		</div>
 
-	<aside class="side">
+		<div class="picker">
+			{#if mapConfig?.geocoder_enabled}
+				<GeocoderSearch
+					near={picked ?? current}
+					onselect={(point) => {
+						pick(point);
+						mapView?.flyTo(point);
+					}}
+				/>
+			{/if}
+			<label class="coordinates">
+				{m.photo_coordinates()}
+				<input
+					type="text"
+					bind:value={coordinatesText}
+					placeholder="42.4249, 18.7713"
+					aria-invalid={coordinatesInvalid}
+					onchange={applyCoordinatesText}
+					onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
+				/>
+			</label>
+		</div>
+		{#if coordinatesInvalid}
+			<p class="error">{m.photo_coordinates_invalid()}</p>
+		{/if}
+
+		{#if picked}
+			<p class="picked">
+				{m.photo_picked({ coordinates: formatCoordinates(picked) })}
+				<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
+			</p>
+		{/if}
+		{#if pending}
+			<p class="pending">
+				{m.photo_pending()}
+				<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
+			</p>
+		{/if}
+
+		{#if asset}
+			<div class="actions">
+				<button type="button" class="primary" disabled={!picked} onclick={save}>
+					{m.photo_save()} <kbd>Enter</kbd>
+				</button>
+				{#if asset.review_status === 'new'}
+					<button type="button" disabled={busy} onclick={() => review('skipped')}>
+						{m.photo_skip()} <kbd>S</kbd>
+					</button>
+					<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
+						{m.photo_not_applicable()} <kbd>N</kbd>
+					</button>
+				{:else}
+					<button type="button" disabled={busy} onclick={() => review('new')}>
+						{m.photo_back_to_todo()} <kbd>U</kbd>
+					</button>
+				{/if}
+			</div>
+			<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
+		{/if}
+	</section>
+
+	<aside class="info">
+		<figure class="preview">
+			<button
+				type="button"
+				class="zoom"
+				title={m.photo_zoom()}
+				aria-label={m.photo_zoom()}
+				onclick={() => (viewerOpen = true)}
+			>
+				<img src={thumbnailUrl(id, 'preview')} alt={asset?.file_name ?? ''} />
+				<span class="zoom-label">⤢ {m.photo_zoom()} <kbd>Z</kbd></span>
+			</button>
+			{#if asset?.type === 'VIDEO'}
+				<figcaption class="muted">{m.photo_video_note()}</figcaption>
+			{/if}
+		</figure>
+
 		{#if asset}
 			<dl class="details">
 				<dt>{m.photo_taken_at()}</dt>
@@ -233,7 +321,8 @@
 				<dt>{m.photo_location()}</dt>
 				<dd>
 					{#if current}
-						{place || formatCoordinates(current)}
+						{#if place}{place}<br />{/if}
+						<span class="coords">{formatCoordinates(current)}</span>
 					{:else}
 						<span class="muted">{m.photo_no_location()}</span>
 					{/if}
@@ -247,79 +336,6 @@
 					</dd>
 				{/if}
 			</dl>
-		{/if}
-
-		<div class="map">
-			{#if mapConfig}
-				<MapView
-					bind:this={mapView}
-					styleUrl={mapConfig.style_url}
-					{current}
-					{picked}
-					onpick={pick}
-				/>
-			{/if}
-		</div>
-
-		{#if mapConfig?.geocoder_enabled}
-			<GeocoderSearch
-				near={picked ?? current}
-				onselect={(point) => {
-					pick(point);
-					mapView?.flyTo(point);
-				}}
-			/>
-		{/if}
-
-		<label class="coordinates">
-			{m.photo_coordinates()}
-			<input
-				type="text"
-				bind:value={coordinatesText}
-				placeholder="42.4249, 18.7713"
-				aria-invalid={coordinatesInvalid}
-				onchange={applyCoordinatesText}
-				onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
-			/>
-		</label>
-		{#if coordinatesInvalid}
-			<p class="error">{m.photo_coordinates_invalid()}</p>
-		{/if}
-		{#if picked}
-			<p class="picked">
-				{m.photo_picked({ coordinates: formatCoordinates(picked) })}
-				<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
-			</p>
-			<div class="actions">
-				<button type="button" class="primary" onclick={save}>
-					{m.photo_save()} <kbd>Enter</kbd>
-				</button>
-			</div>
-			<p class="muted hint">{m.photo_save_note()}</p>
-		{/if}
-		{#if pending}
-			<p class="pending">
-				{m.photo_pending()}
-				<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
-			</p>
-		{/if}
-
-		{#if asset}
-			<div class="actions">
-				{#if asset.review_status === 'new'}
-					<button type="button" disabled={busy} onclick={() => review('skipped')}>
-						{m.photo_skip()} <kbd>S</kbd>
-					</button>
-					<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
-						{m.photo_not_applicable()} <kbd>N</kbd>
-					</button>
-				{:else}
-					<button type="button" disabled={busy} onclick={() => review('new')}>
-						{m.photo_back_to_todo()} <kbd>U</kbd>
-					</button>
-				{/if}
-			</div>
-			<p class="muted hint">{m.photo_keys_hint()}</p>
 
 			{#if asset.location_history.length}
 				<section class="history">
@@ -356,6 +372,14 @@
 	</aside>
 </div>
 
+{#if viewerOpen}
+	<PhotoViewer
+		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize')}
+		alt={asset?.file_name ?? ''}
+		onclose={() => (viewerOpen = false)}
+	/>
+{/if}
+
 <style>
 	.toolbar {
 		display: flex;
@@ -368,7 +392,7 @@
 	}
 	.card {
 		display: grid;
-		grid-template-columns: minmax(0, 3fr) minmax(20rem, 2fr);
+		grid-template-columns: minmax(0, 1fr) minmax(18rem, 26rem);
 		gap: 1.5rem;
 		align-items: start;
 	}
@@ -377,21 +401,55 @@
 			grid-template-columns: 1fr;
 		}
 	}
-	.preview {
-		margin: 0;
-		position: sticky;
-		top: 1rem;
-	}
-	.preview img {
-		display: block;
-		max-width: 100%;
-		max-height: calc(100vh - 8rem);
-		margin: 0 auto;
-	}
-	.side {
+	.work,
+	.info {
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		min-width: 0;
+	}
+	.map {
+		/* The main tool of the page: as tall as the screen allows, leaving room for the picker. */
+		height: max(24rem, calc(100vh - 19rem));
+	}
+	.picker {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: 0.75rem;
+		align-items: end;
+	}
+	@media (max-width: 40rem) {
+		.picker {
+			grid-template-columns: 1fr;
+		}
+	}
+	.preview {
+		margin: 0;
+	}
+	.zoom {
+		position: relative;
+		display: block;
+		width: 100%;
+		padding: 0;
+		border: none;
+		background: none;
+		cursor: zoom-in;
+	}
+	.zoom img {
+		display: block;
+		max-width: 100%;
+		max-height: 22rem;
+		margin: 0 auto;
+	}
+	.zoom-label {
+		position: absolute;
+		right: 0.4rem;
+		bottom: 0.4rem;
+		padding: 0.15rem 0.45rem;
+		border-radius: 0.3rem;
+		background: rgb(0 0 0 / 0.6);
+		color: #fff;
+		font-size: 0.8rem;
 	}
 	.details {
 		display: grid;
@@ -408,8 +466,8 @@
 	.file {
 		word-break: break-all;
 	}
-	.map {
-		height: 24rem;
+	.coords {
+		font-variant-numeric: tabular-nums;
 	}
 	.coordinates {
 		display: flex;
@@ -419,6 +477,9 @@
 	.coordinates input[aria-invalid='true'] {
 		outline: 2px solid #cf222e;
 	}
+	.picked {
+		margin: 0;
+	}
 	.actions {
 		display: flex;
 		gap: 0.75rem;
@@ -427,10 +488,22 @@
 	.muted {
 		opacity: 0.65;
 	}
+	.hint {
+		font-size: 0.85rem;
+		margin: 0;
+	}
+	.error {
+		color: #cf222e;
+	}
+	kbd {
+		font-size: 0.75em;
+		opacity: 0.7;
+	}
 	.primary {
 		font-weight: 600;
 	}
 	.pending {
+		margin: 0;
 		padding: 0.5rem 0.75rem;
 		border-left: 3px solid #bf8700;
 		background: rgb(191 135 0 / 0.1);
@@ -453,15 +526,5 @@
 	}
 	.history li.undone strong {
 		text-decoration: line-through;
-	}
-	.hint {
-		font-size: 0.85rem;
-	}
-	.error {
-		color: #cf222e;
-	}
-	kbd {
-		font-size: 0.75em;
-		opacity: 0.7;
 	}
 </style>

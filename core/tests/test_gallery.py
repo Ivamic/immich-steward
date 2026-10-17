@@ -44,8 +44,9 @@ def test_month_buckets_and_filters(signed_in: TestClient) -> None:
     # Newest first; archived and trashed assets are hidden by default.
     assert list(months(signed_in).items()) == [("2024-06", 2), ("2024-05", 2), ("2009-08", 1)]
     assert months(signed_in, archived=True)["2024-06"] == 3
-    assert months(signed_in, view="with") == {"2024-05": 1}
-    assert sum(months(signed_in, view="todo").values()) == 4
+    assert months(signed_in, show="with") == {"2024-05": 1}
+    assert sum(months(signed_in, show="todo").values()) == 4
+    assert sum(months(signed_in, show=["todo", "with"]).values()) == 5
     assert months(signed_in, type="video") == {"2024-06": 1}
     assert months(signed_in, date_from="2024-05-31", date_to="2024-06-01") == {
         "2024-06": 1,
@@ -74,6 +75,20 @@ def test_filter_options_and_camera_album_filters(signed_in: TestClient) -> None:
 
     assert months(signed_in, camera=cameras["K800i"]["value"]) == {"2009-08": 1}
     assert months(signed_in, album=options["albums"][0]["id"]) == {"2024-06": 2}
+
+
+def test_fullsize_falls_back_to_preview_without_download_permission(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    asset_id = month(signed_in, "2024-05")[0]["id"]
+    url = f"/api/assets/{asset_id}/thumbnail"
+    response = signed_in.get(url, params={"size": "fullsize"})
+    assert response.status_code == 200
+    assert response.content.endswith(b":preview")
+
+    fake_immich.permissions.append("asset.download")
+    response = signed_in.get(url, params={"size": "fullsize"}, headers={"if-none-match": "x"})
+    assert response.content == b"original"
 
 
 def test_thumbnail_proxy_with_etag(
@@ -129,7 +144,7 @@ def test_detail_and_neighbors_follow_the_filter(signed_in: TestClient) -> None:
     assert len(seen) == 5
 
     # Under a filter, neighbors skip photos that do not match it.
-    with_location = signed_in.get(f"/api/assets/{newest_june}", params={"view": "with"}).json()
+    with_location = signed_in.get(f"/api/assets/{newest_june}", params={"show": "with"}).json()
     may_gps = signed_in.get(f"/api/assets/{with_location['next_id']}").json()
     assert may_gps["latitude"] == pytest.approx(42.4)
 
@@ -137,19 +152,19 @@ def test_detail_and_neighbors_follow_the_filter(signed_in: TestClient) -> None:
 @pytest.mark.usefixtures("library")
 def test_review_status_moves_photo_between_views(signed_in: TestClient) -> None:
     june = asset_id_of(signed_in, "2024-06", 1)
-    todo_before = sum(months(signed_in, view="todo").values())
+    todo_before = sum(months(signed_in, show="todo").values())
 
     response = signed_in.put(f"/api/assets/{june}/review", json={"status": "not_applicable"})
     assert response.json()["review_status"] == "not_applicable"
-    assert sum(months(signed_in, view="todo").values()) == todo_before - 1
-    assert months(signed_in, view="not_applicable") == {"2024-06": 1}
+    assert sum(months(signed_in, show="todo").values()) == todo_before - 1
+    assert months(signed_in, show="not_applicable") == {"2024-06": 1}
 
     signed_in.put(f"/api/assets/{june}/review", json={"status": "skipped"})
-    assert months(signed_in, view="skipped") == {"2024-06": 1}
-    assert months(signed_in, view="not_applicable") == {}
+    assert months(signed_in, show="skipped") == {"2024-06": 1}
+    assert months(signed_in, show="not_applicable") == {}
 
     signed_in.put(f"/api/assets/{june}/review", json={"status": "new"})
-    assert sum(months(signed_in, view="todo").values()) == todo_before
+    assert sum(months(signed_in, show="todo").values()) == todo_before
     bad = signed_in.put(f"/api/assets/{june}/review", json={"status": "confirmed"})
     assert bad.status_code == 422
 

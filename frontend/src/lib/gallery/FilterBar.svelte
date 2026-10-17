@@ -1,6 +1,12 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-	import { getFilterOptions, type FilterOptions, type GalleryFilter } from '#lib/api.js';
+	import {
+		getFilterOptions,
+		SHOW_CATEGORIES,
+		type FilterOptions,
+		type GalleryFilter,
+		type ShowCategory
+	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { defaultFilter } from './filter.js';
 
@@ -16,24 +22,36 @@
 	});
 
 	const set = (patch: Partial<GalleryFilter>) => onchange({ ...filter, ...patch });
+	const showLabels: Record<ShowCategory, () => string> = {
+		todo: m.filter_view_todo,
+		with: m.filter_view_with,
+		skipped: m.filter_view_skipped,
+		not_applicable: m.filter_view_not_applicable
+	};
+	function toggleShow(category: ShowCategory, checked: boolean) {
+		const chosen = checked ? [...filter.show, category] : filter.show.filter((c) => c !== category);
+		set({ show: SHOW_CATEGORIES.filter((c) => chosen.includes(c)) });
+	}
 	const cameraLabel = (make: string, model: string) =>
 		[make, model].filter(Boolean).join(' ') || m.filter_camera_unknown();
 </script>
 
 <form class="filters" onsubmit={(e) => e.preventDefault()}>
-	<label>
-		{m.filter_view()}
-		<select
-			value={filter.view}
-			onchange={(e) => set({ view: e.currentTarget.value as GalleryFilter['view'] })}
-		>
-			<option value="todo">{m.filter_view_todo()}</option>
-			<option value="skipped">{m.filter_view_skipped()}</option>
-			<option value="not_applicable">{m.filter_view_not_applicable()}</option>
-			<option value="with">{m.filter_view_with()}</option>
-			<option value="all">{m.filter_view_all()}</option>
-		</select>
-	</label>
+	<fieldset class="show">
+		<legend>{m.filter_view()}</legend>
+		{#each SHOW_CATEGORIES as category (category)}
+			{@const checked = filter.show.includes(category)}
+			<label class="checkbox">
+				<input
+					type="checkbox"
+					{checked}
+					disabled={checked && filter.show.length === 1}
+					onchange={(e) => toggleShow(category, e.currentTarget.checked)}
+				/>
+				{showLabels[category]()}
+			</label>
+		{/each}
+	</fieldset>
 
 	<label>
 		{m.filter_type()}
@@ -127,5 +145,18 @@
 	}
 	select {
 		max-width: 16rem;
+	}
+	.show {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 0.9rem;
+		margin: 0;
+		padding: 0;
+		border: none;
+		font-size: 0.85rem;
+	}
+	.show legend {
+		padding: 0;
+		margin-bottom: 0.2rem;
 	}
 </style>

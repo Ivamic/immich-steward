@@ -178,6 +178,8 @@ class FakeImmich:
                 return _json({"message": "Not found"}, 400)
             self.thumbnail_requests += 1
             size = request.url.params.get("size")
+            if size == "fullsize":
+                return httpx2.Response(302, headers={"location": "original?"})
             return httpx2.Response(
                 200,
                 content=f"image:{asset_id}:{size}".encode(),
@@ -190,6 +192,10 @@ class FakeImmich:
             return self._upsert_tags(json.loads(request.content)["tags"])
         if len(parts) == 5 and parts[2] == "tags" and parts[4] == "assets":
             return self._tag_assets(request, parts[3])
+        if path.startswith("/api/assets/") and path.endswith("/original"):
+            if "asset.download" not in self.permissions:
+                return _json({"message": "Missing required permission: asset.download"}, 403)
+            return httpx2.Response(200, content=b"original", headers={"content-type": "image/jpeg"})
         if path == "/api/search/metadata":
             return self._search(json.loads(request.content))
         if path == "/api/albums":

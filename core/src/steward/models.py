@@ -167,6 +167,8 @@ class Worker(Base):
     version: Mapped[str] = mapped_column(String(32))
     registered_at: Mapped[datetime] = mapped_column(default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # False after the worker said goodbye; any later request brings it back.
+    online: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
 
 class Job(Base):

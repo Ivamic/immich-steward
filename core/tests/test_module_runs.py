@@ -1,0 +1,219 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Worker modules seen from the web UI: results in the suggestions, manual and automatic runs."""
+
+from typing import Any
+
+import pytest
+from conftest import WORKER_TOKEN, FakeImmich, sync
+from fastapi.testclient import TestClient
+
+from steward import worker_queue
+from steward.api.worker import PROTOCOL_VERSION
+
+AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
+GPS = {"latitude": 42.4, "longitude": 19.26}
+
+
+@pytest.fixture
+def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
+    """File name -> local id."""
+    fake_immich.add_asset(taken="2024-05-01T10:00:00", originalFileName="todo1.jpg")
+    fake_immich.add_asset(taken="2024-05-01T11:00:00", originalFileName="todo2.jpg")
+    fake_immich.add_asset(taken="2024-05-01T12:00:00", originalFileName="gps.jpg", exif=GPS)
+    fake_immich.add_asset(taken="2024-05-01T13:00:00", originalFileName="clip.mp4", type="VIDEO")
+    fake_immich.add_asset(taken="2024-05-01T14:00:00", originalFileName="skipped.jpg")
+    fake_immich.add_asset(
+        taken="2024-05-01T15:00:00", originalFileName="archived.jpg", visibility="archive"
+    )
+    sync(signed_in)
+    items = signed_in.get("/api/assets", params={"month": "2024-05", "archived": True}).json()
+    ids = {item["file_name"]: item["id"] for item in items}
+    signed_in.put(f"/api/assets/{ids['skipped.jpg']}/review", json={"status": "skipped"})
+    return ids
+
+
+def geoclip(client: TestClient, asset_id: str) -> dict[str, Any]:
+    response = client.get(f"/api/assets/{asset_id}/suggestions")
+    assert response.status_code == 200
+    module: dict[str, Any] = next(m for m in response.json() if m["module"] == "geoclip")
+    return module
+
+
+def start_worker(client: TestClient, name: str = "gpu") -> dict[str, str]:
+    body = {
+        "name": name,
+        "modules": ["geoclip"],
+        "device": "cuda",
+        "version": "0.1.0",
+        "protocol_version": PROTOCOL_VERSION,
+    }
+    worker_id = client.post("/api/worker/register", json=body, headers=AUTH).json()["worker_id"]
+    return AUTH | {"X-Worker-Id": worker_id}
+
+
+def schedule(client: TestClient) -> None:
+    runner = client.app.state.job_runner  # type: ignore[attr-defined]
+    client.portal.call(runner.schedule_modules)  # type: ignore[union-attr]
+
+
+def finish(client: TestClient, worker: dict[str, str], candidates: list[dict[str, Any]]) -> str:
+    job = client.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker).json()
+    body = {"module_version": "1", "candidates": candidates}
+    client.post(f"/api/worker/jobs/{job['job_id']}/result", json=body, headers=worker)
+    return str(job["asset_id"])
+
+
+def test_not_run_without_a_worker(library: dict[str, str], signed_in: TestClient) -> None:
+    module = geoclip(signed_in, library["todo1.jpg"])
+    assert module["status"] == "not_run"
+    assert module["runnable"] is True
+    assert module["worker_available"] is False
+    assert module["candidates"] == []
+    # M1 is computed on the spot and comes first.
+    first = signed_in.get(f"/api/assets/{library['todo1.jpg']}/suggestions").json()[0]
+    assert (first["module"], first["status"], first["runnable"]) == (
+        "time_neighbors",
+        "ready",
+        False,
+    )
+
+
+def test_manual_run_goes_first_and_shows_its_result(
+    library: dict[str, str], signed_in: TestClient
+) -> None:
+    worker = start_worker(signed_in)
+    schedule(signed_in)  # background runs for all photos to do
+    asset = library["todo1.jpg"]
+    response = signed_in.post(f"/api/assets/{asset}/modules/geoclip/run")
+    assert next(m for m in response.json() if m["module"] == "geoclip")["status"] == "queued"
+
+    area = {"latitude": 41.9, "longitude": 12.5, "score": 0.8, "radius_m": 8000, "kind": "area"}
+    others = [
+        area | {"latitude": 45.4, "score": 0.6},  # normal
+        area | {"latitude": 48.8, "score": 0.3},  # weak: folded in the UI
+        area | {"latitude": 50.0, "score": 0.1},  # noise: hidden
+    ]
+    assert finish(signed_in, worker, [area, *others]) == asset
+    module = geoclip(signed_in, asset)
+    assert module["status"] == "done"
+    assert module["worker_available"] is True
+    assert [(c["rank"], c["tier"]) for c in module["candidates"]] == [
+        (1, "confident"),
+        (2, "normal"),
+        (3, "weak"),
+    ]
+    assert module["candidates"][0]["latitude"] == 41.9
+    assert module["finished_at"] is not None
+
+    # Running again replaces the result once the new run is done.
+    signed_in.post(f"/api/assets/{asset}/modules/geoclip/run")
+    assert geoclip(signed_in, asset)["status"] == "queued"
+
+
+def test_unknown_module_and_foreign_asset(library: dict[str, str], signed_in: TestClient) -> None:
+    asset = library["todo1.jpg"]
+    assert signed_in.post(f"/api/assets/{asset}/modules/nope/run").status_code == 404
+    missing = "00000000-0000-4000-8000-000000000000"
+    assert signed_in.post(f"/api/assets/{missing}/modules/geoclip/run").status_code == 404
+
+
+def test_automatic_runs_only_with_an_active_worker(
+    library: dict[str, str], signed_in: TestClient
+) -> None:
+    schedule(signed_in)
+    assert geoclip(signed_in, library["todo1.jpg"])["status"] == "not_run"
+
+    start_worker(signed_in)
+    schedule(signed_in)
+    statuses = {name: geoclip(signed_in, i)["status"] for name, i in library.items()}
+    # Only photos still to do: not located, not marked, not videos, not archived.
+    assert statuses == {
+        "todo1.jpg": "queued",
+        "todo2.jpg": "queued",
+        "gps.jpg": "not_run",
+        "clip.mp4": "not_run",
+        "skipped.jpg": "not_run",
+        "archived.jpg": "not_run",
+    }
+
+
+def test_automatic_runs_never_repeat_and_keep_the_queue_small(
+    library: dict[str, str], signed_in: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(worker_queue, "AUTO_QUEUE_SIZE", 1)
+    worker = start_worker(signed_in)
+    schedule(signed_in)
+    schedule(signed_in)  # the queue is full: nothing more
+    queued = [n for n, i in library.items() if geoclip(signed_in, i)["status"] == "queued"]
+    assert queued == ["todo2.jpg"]  # newest first
+
+    finish(signed_in, worker, [])
+    schedule(signed_in)
+    assert geoclip(signed_in, library["todo1.jpg"])["status"] == "queued"
+    finish(signed_in, worker, [])
+    schedule(signed_in)  # both photos have a run: nothing to queue
+    assert {geoclip(signed_in, library[n])["status"] for n in ("todo1.jpg", "todo2.jpg")} == {
+        "done"
+    }
+
+
+def test_automatic_runs_can_be_turned_off(library: dict[str, str], signed_in: TestClient) -> None:
+    signed_in.app.state.settings.auto_modules = ""  # type: ignore[attr-defined]
+    start_worker(signed_in)
+    schedule(signed_in)
+    assert geoclip(signed_in, library["todo1.jpg"])["status"] == "not_run"
+
+
+def test_workers_overview(library: dict[str, str], signed_in: TestClient) -> None:
+    worker = start_worker(signed_in, "laptop")
+    schedule(signed_in)
+    finish(signed_in, worker, [])
+    overview = signed_in.get("/api/library/workers").json()
+    [seen] = overview["workers"]
+    assert (seen["name"], seen["device"], seen["active"]) == ("laptop", "cuda", True)
+    assert overview["runs"] == {"geoclip": {"done": 1, "queued": 1}}
+    assert overview["auto_modules"] == ["geoclip"]
+
+
+def test_goodbye_makes_the_worker_unavailable_and_returns_its_job(
+    library: dict[str, str], signed_in: TestClient
+) -> None:
+    worker = start_worker(signed_in)
+    asset = library["todo1.jpg"]
+    signed_in.post(f"/api/assets/{asset}/modules/geoclip/run")
+    job = signed_in.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker).json()
+    assert geoclip(signed_in, asset)["status"] == "running"
+
+    assert signed_in.post("/api/worker/bye", headers=worker).status_code == 204
+    module = geoclip(signed_in, asset)
+    assert (module["status"], module["worker_available"]) == ("queued", False)
+    assert signed_in.get("/api/library/workers").json()["workers"][0]["active"] is False
+
+    # Back again: the job is taken anew, and stopping did not count as a failed attempt.
+    start_worker(signed_in)
+    again = signed_in.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker)
+    assert again.json()["job_id"] == job["job_id"]
+    assert again.json()["attempt"] == 1
+
+
+def test_queue_position(library: dict[str, str], signed_in: TestClient) -> None:
+    start_worker(signed_in)
+    schedule(signed_in)  # todo2 (newer) and todo1 queued in the background
+    assert geoclip(signed_in, library["todo2.jpg"])["queue_position"] == 0
+    assert geoclip(signed_in, library["todo1.jpg"])["queue_position"] == 1
+    # Started by hand: ahead of the background runs.
+    signed_in.post(f"/api/assets/{library['todo1.jpg']}/modules/geoclip/run")
+    assert geoclip(signed_in, library["todo1.jpg"])["queue_position"] == 0
+    assert geoclip(signed_in, library["todo2.jpg"])["queue_position"] == 1
+
+
+def test_display_thresholds_are_settings(library: dict[str, str], signed_in: TestClient) -> None:
+    worker = start_worker(signed_in)
+    asset = library["todo1.jpg"]
+    signed_in.post(f"/api/assets/{asset}/modules/geoclip/run")
+    finish(signed_in, worker, [{"latitude": 41.9, "longitude": 12.5, "score": 0.1}])
+    assert geoclip(signed_in, asset)["candidates"] == []
+    # Stored in full: a lower threshold shows it without running GeoCLIP again.
+    signed_in.app.state.settings.geoclip_min_confidence = 0.05  # type: ignore[attr-defined]
+    [weak] = geoclip(signed_in, asset)["candidates"]
+    assert weak["tier"] == "weak"

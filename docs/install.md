@@ -77,6 +77,44 @@ for changes every 15 minutes.
 Nothing is written to Immich until you save a location for a photo. Saved locations get the tag
 `steward/estimated` in Immich, so you can always find them there.
 
+## GeoCLIP worker (optional)
+
+GeoCLIP suggests where a photo was taken by its look: landmarks, cities, landscapes. It is a
+neural network, so it runs in a separate container, the *worker*, which takes photos without a
+location one by one in the background. Results appear in the photo card as orange squares.
+
+What it needs:
+
+- about 3 GB of RAM at its peak (the container is limited to 4 GB) and a 1.4 GB image;
+- on its first start, the CLIP model (1.7 GB) is downloaded from Hugging Face into the volume
+  `immich-steward_model-cache`;
+- roughly 1–1.5 seconds per photo with 2 CPU threads, so a few thousand photos take a few hours.
+
+To start it:
+
+1. Set a shared secret for the worker in `.env`, e.g. `STEWARD_WORKER_TOKEN=` followed by the
+   output of `openssl rand -hex 32`.
+2. Build and start everything, including the worker:
+
+   ```sh
+   docker compose --profile worker up -d --build
+   ```
+
+3. Open the **Library** page: the worker is listed under *Workers*, with the progress of the runs.
+
+Settings in `.env` (see `.env.example`):
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `STEWARD_WORKER_THREADS` | `2` | CPU threads for the model. More is faster but leaves less for Immich. |
+| `STEWARD_WORKER_MAX_LOAD` | empty | E.g. `0.8`: the worker waits while the machine is busy (load average per CPU above 0.8), for instance while Immich transcodes videos. |
+| `STEWARD_WORKER_MEMORY_LIMIT` | `4g` | Memory limit of the worker container. |
+| `STEWARD_GEOCLIP_MIN_CONFIDENCE` | `0.25` | GeoCLIP suggestions below this confidence are hidden; up to `STEWARD_GEOCLIP_WEAK_BELOW` (`0.5`) they are folded as weak. |
+| `STEWARD_AUTO_MODULES` | `geoclip` | Modules that run automatically on photos without a location. Empty: only when started with **Run** in a photo card. |
+
+The model is unloaded from memory after 10 minutes without work. Photos never leave your server:
+the worker gets them from the app, not from the internet.
+
 ## Immich on the same machine
 
 If Immich runs on the same machine, the simplest choice is the machine's LAN address in
@@ -112,15 +150,17 @@ passes through the app when you sign in), and set `STEWARD_COOKIE_SECURE=true` i
 - **Address search** sends the typed text and the approximate map position from the app server
   to the public Photon geocoder (`photon.komoot.io`). Set `STEWARD_GEOCODER_URL=` (empty) to turn
   address search off, or point it to your own Photon.
-- **Photos never leave your server.** The current location suggestions (photos taken close in
-  time) are computed from your own library.
+- **The GeoCLIP model** is downloaded from Hugging Face (`huggingface.co`) when the worker loads
+  it for the first time; later loads only check for updates there.
+- **Photos never leave your server.** Location suggestions are computed from your own library and
+  by the local GeoCLIP model.
 
 ## Updating
 
 ```sh
 cd immich-steward
 git pull
-docker compose up -d --build
+docker compose up -d --build                      # or: docker compose --profile worker up -d --build
 ```
 
 Old image layers can be removed afterwards with `docker image prune`.
@@ -142,8 +182,8 @@ would simply sign in again).
 ## Uninstalling
 
 ```sh
-docker compose down       # stops the app, keeps the data
-docker compose down -v    # also deletes the database volume
+docker compose --profile worker down       # stops the app, keeps the data
+docker compose --profile worker down -v    # also deletes the database and the model cache
 ```
 
 The app's API key stays in your Immich account: delete `immich-steward …` under Account

@@ -3,6 +3,7 @@
 	import { getHealth, type Health } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import LibraryPanel from '#lib/LibraryPanel.svelte';
+	import WorkersPanel from '#lib/WorkersPanel.svelte';
 
 	let health = $state<Health | null>(null);
 	let coreReachable = $state(true);
@@ -27,6 +28,8 @@
 </script>
 
 <LibraryPanel />
+
+<WorkersPanel />
 
 <h2>{m.status_heading()}</h2>
 

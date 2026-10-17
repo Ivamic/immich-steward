@@ -1,8 +1,8 @@
 # immich-steward
 
 > **Status: under active development.** An early version: manual review of photos without
-> location and suggestions from photos taken close in time already work; the other modules are
-> still to come. Expect bugs and changes between versions, and keep a backup of your Immich
+> location, suggestions from photos taken close in time and GeoCLIP already work; the other
+> modules are still to come. Expect bugs and changes between versions, and keep a backup of your Immich
 > library before writing locations to it.
 
 A self-hosted companion app for [Immich](https://immich.app) that helps you restore
@@ -25,9 +25,11 @@ Modules:
 - **Time neighbors** *(available)* — photos taken shortly before/after that already have a
   location; the route between them is drawn on the map.
 
+- **GeoCLIP** *(available, optional worker)* — worldwide image geolocation by a neural network,
+  running locally on the CPU or on a GPU of another computer.
+
 Planned:
 
-- **GeoCLIP** — worldwide image geolocation by a neural network, running locally.
 - **Similar photos in your library** — visual similarity to your own geotagged photos.
 - **Landmarks** — your own library of recognizable places: mark a landmark once on a
   geotagged photo, and the app looks for it in photos without location.

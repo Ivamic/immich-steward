@@ -7,6 +7,22 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- Workers: separate processes that run heavy location modules for the core, on the same server
+  or on another computer (they only connect to the core, which gives them the photos). Shared
+  token `STEWARD_WORKER_TOKEN`, job queue with priorities, retries and leases.
+- **GeoCLIP** location module: suggests up to five areas by the look of a photo. Runs
+  automatically on photos without a location while a worker is connected
+  (`STEWARD_AUTO_MODULES`), or on request with **Run** in the photo card.
+- Optional `worker` service in Docker Compose (CPU), with a model cache, a memory limit and an
+  option to wait while the machine is busy (`STEWARD_WORKER_MAX_LOAD`).
+- GeoCLIP suggestions are shown by confidence: below 25 % they are hidden as noise, 25–50 % are
+  folded as weak ("probably only the region is right"), from 75 % they are marked as confident
+  (`STEWARD_GEOCLIP_*`). The thresholds come from a check on photos with known locations.
+- Confidence of every suggestion as a percentage next to its bar.
+- Workers and the progress of module runs on the Library page.
+
 ## [0.1.0] - 2026-10-17
 
 First usable version: review photos without location by hand, with suggestions from photos

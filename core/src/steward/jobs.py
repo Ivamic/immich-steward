@@ -17,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from steward import worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -130,6 +131,24 @@ class JobRunner:
             for account_id in list(accounts):
                 await enqueue(db, SYNC, account_id, {"full": None})
 
+    async def schedule_modules(self) -> None:
+        """Feeds photos without a location to worker modules that run automatically.
+
+        Only while a worker of the module is active: without one the queue would just grow.
+        """
+        modules = self._settings.auto_module_ids
+        if not modules:
+            return
+        within = timedelta(minutes=self._settings.worker_active_minutes)
+        async with self._sessionmaker() as db:
+            workers = await worker_queue.active_workers(db, within)
+            active = {module for worker in workers for module in worker.modules}
+            for module_id in modules:
+                if module_id in active:
+                    added = await worker_queue.auto_enqueue(db, module_id)
+                    if added:
+                        log.info("queued %d photos for %s", added, module_id)
+
     async def run_once(self) -> bool:
         """Claims and runs the oldest queued job. Returns False when the queue is empty."""
         async with self._sessionmaker() as db:
@@ -188,6 +207,7 @@ class JobRunner:
                     recovered = True
                 if loop.time() >= next_schedule:
                     await self.schedule_syncs()
+                    await self.schedule_modules()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S
                 if await self.run_once():
                     continue

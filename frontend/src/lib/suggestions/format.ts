@@ -28,7 +28,14 @@ export function formatDistance(meters: number): string {
 }
 
 export function moduleName(id: string): string {
-	return id === 'time_neighbors' ? m.module_time_neighbors() : id;
+	switch (id) {
+		case 'time_neighbors':
+			return m.module_time_neighbors();
+		case 'geoclip':
+			return m.module_geoclip();
+		default:
+			return id;
+	}
 }
 
 export function moduleNote(note: string): string {
@@ -56,7 +63,16 @@ export function candidateLabel(candidate: Candidate): string {
 	if ((candidate.kind === 'before' || candidate.kind === 'after') && neighbors.length === 1) {
 		return m.candidate_same_place({ photo: neighborRef(neighbors[0]) });
 	}
+	if (candidate.kind === 'area') return m.candidate_area();
 	return candidate.kind;
+}
+
+/** Longer explanation shown on hover, if the candidate has one. */
+export function candidateDetails(candidate: Candidate): string | undefined {
+	if (candidate.kind === 'area' && typeof candidate.evidence.points === 'number') {
+		return m.candidate_area_details({ points: String(candidate.evidence.points) });
+	}
+	return undefined;
 }
 
 /** Remarks that lower trust in a candidate. */
@@ -66,6 +82,18 @@ export function candidateRemarks(candidate: Candidate): string[] {
 	if (neighbors.some((n) => !n.same_camera)) remarks.push(m.candidate_other_camera());
 	if (neighbors.some((n) => n.estimated)) remarks.push(m.candidate_estimated());
 	return remarks;
+}
+
+/** Suggestions as shown: weak candidates only for the modules the user unfolded. */
+export function visibleSuggestions(
+	modules: ModuleSuggestions[],
+	unfolded: string[]
+): ModuleSuggestions[] {
+	return modules.map((module) =>
+		unfolded.includes(module.module)
+			? module
+			: { ...module, candidates: module.candidates.filter((c) => c.tier !== 'weak') }
+	);
 }
 
 export interface Numbered {

@@ -94,6 +94,10 @@ class CoreClient:
         body = {"module_version": version, "candidates": [asdict(c) for c in candidates]}
         await self._call("POST", f"/jobs/{job_id}/result", json=body)
 
+    async def bye(self) -> None:
+        """Tells the core this worker stops, so that it is not shown as available."""
+        await self._call("POST", "/bye")
+
     async def fail(self, job_id: UUID, error: str, retry: bool) -> None:
         await self._call("POST", f"/jobs/{job_id}/fail", json={"error": error, "retry": retry})
 

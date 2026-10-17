@@ -73,6 +73,10 @@ class Worker:
                 await self._sleep(self._idle_wait)
                 self._idle_wait = min(self._idle_wait * 2, IDLE_WAIT_S[1])
         self._unload_idle(force=True)
+        if self._registered:
+            with contextlib.suppress(CoreError):
+                await self._client.bye()
+            log.info("stopped")
 
     async def run_once(self) -> bool:
         """Takes and processes one job; False when there was nothing to do (or no capacity)."""

@@ -230,6 +230,8 @@ export interface Candidate {
 	radius_m: number | null;
 	kind: string;
 	evidence: { neighbors?: NeighborEvidence[]; share?: number } & Record<string, unknown>;
+	/** weak: shown folded ("probably only the region is right"); confident: marked as such. */
+	tier: 'weak' | 'normal' | 'confident';
 }
 
 export interface TrackPoint extends NeighborEvidence {
@@ -261,13 +263,58 @@ export interface ModuleSuggestions {
 	cameras: CameraCount[];
 	/** Why there are no candidates (e.g. "scanner"). */
 	note: string | null;
+	/** ready: computed now (core modules); the others describe the latest run of a worker module. */
+	status: ModuleStatus;
+	/** Run by workers: can be started (again) from the card. */
+	runnable: boolean;
+	/** A worker running this module has contacted the core recently. */
+	worker_available: boolean;
+	error: string | null;
+	finished_at: string | null;
+	/** Queued runs: jobs of the module a worker takes before this one. */
+	queue_position: number | null;
 }
 
-export function getSuggestions(id: string, excludeCameras: string[] = []) {
-	const params = new URLSearchParams(excludeCameras.map((value) => ['exclude_camera', value]));
-	const query = params.size ? `?${params}` : '';
-	return request<ModuleSuggestions[]>('GET', `/api/assets/${id}/suggestions${query}`);
+export type ModuleStatus = 'ready' | 'not_run' | 'queued' | 'running' | 'done' | 'failed';
+
+export const isPending = (module: ModuleSuggestions) =>
+	module.status === 'queued' || module.status === 'running';
+
+export interface WorkerInfo {
+	name: string;
+	device: string;
+	modules: string[];
+	version: string;
+	last_seen_at: string;
+	active: boolean;
 }
+
+export interface WorkersOverview {
+	workers: WorkerInfo[];
+	/** Module -> status of the latest run -> number of photos. */
+	runs: Record<string, Partial<Record<ModuleStatus, number>>>;
+	auto_modules: string[];
+}
+
+export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
+
+function cameraQuery(excludeCameras: string[]): string {
+	const params = new URLSearchParams(excludeCameras.map((value) => ['exclude_camera', value]));
+	return params.size ? `?${params}` : '';
+}
+
+export const getSuggestions = (id: string, excludeCameras: string[] = []) =>
+	request<ModuleSuggestions[]>(
+		'GET',
+		`/api/assets/${id}/suggestions${cameraQuery(excludeCameras)}`
+	);
+
+/** Queues a worker module for the photo ahead of the background runs. */
+export const runModule = (id: string, module: string, excludeCameras: string[] = []) =>
+	request<ModuleSuggestions[]>(
+		'POST',
+		`/api/assets/${id}/modules/${module}/run${cameraQuery(excludeCameras)}`
+	);
 export const getAsset = (id: string, filter: GalleryFilter) =>
 	request<AssetDetail>('GET', `/api/assets/${id}${filterQuery(filter)}`);
 export const setReview = (id: string, status: ReviewStatus, filter: GalleryFilter) =>

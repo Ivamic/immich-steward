@@ -14,7 +14,7 @@ import signal
 import socket
 import sys
 
-from steward_worker.client import CoreClient
+from steward_worker.client import CoreClient, CoreError
 from steward_worker.modules import AVAILABLE, ModuleOptions
 from steward_worker.modules.geoclip import resolve_device
 from steward_worker.runner import Worker, WorkerConfig
@@ -114,7 +114,11 @@ async def _run(
         try:
             await worker.run_forever()
         except asyncio.CancelledError:
+            # Ctrl+C on Windows cancels the task instead of calling stop(): say goodbye here.
             worker.stop()
+            with contextlib.suppress(CoreError):
+                await client.bye()
+            raise
 
 
 if __name__ == "__main__":

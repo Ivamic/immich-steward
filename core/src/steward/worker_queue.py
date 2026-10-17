@@ -11,11 +11,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.errors import ApiError
-from steward.models import Asset, Job, ModuleRun, Worker
+from steward.models import Account, Asset, Job, ModuleRun, Worker
 
 MODULE_JOB = "module"
 ACTIVE = ("queued", "running")
@@ -23,6 +24,11 @@ ACTIVE = ("queued", "running")
 # Priorities: the user waits for a run started from the photo card.
 PRIORITY_BACKGROUND = 0
 PRIORITY_USER = 100
+
+# Automatic runs keep at most this many background jobs per module queued: enough for a GPU
+# worker (~5 photos/s) between two scheduler ticks (1 min), without queuing the whole library.
+# Runs started by hand have a higher priority and never wait behind them.
+AUTO_QUEUE_SIZE = 500
 
 
 @dataclass(frozen=True)
@@ -63,6 +69,140 @@ async def enqueue_module(
     return run
 
 
+async def latest_runs(db: AsyncSession, asset_id: UUID) -> dict[str, ModuleRun]:
+    """The newest run of every module for the asset."""
+    runs = await db.scalars(
+        select(ModuleRun)
+        .where(ModuleRun.asset_id == asset_id)
+        .order_by(ModuleRun.created_at.desc())
+    )
+    latest: dict[str, ModuleRun] = {}
+    for run in runs:
+        latest.setdefault(run.module_id, run)
+    return latest
+
+
+async def active_workers(db: AsyncSession, within: timedelta) -> list[Worker]:
+    since = datetime.now(UTC) - within
+    return list(
+        await db.scalars(
+            select(Worker)
+            .where(Worker.online.is_(True), Worker.last_seen_at >= since)
+            .order_by(Worker.name)
+        )
+    )
+
+
+async def queue_position(db: AsyncSession, run: ModuleRun) -> int | None:
+    """How many jobs of the module a worker takes before this queued run (None if not queued)."""
+    if run.status != "queued" or run.job_id is None:
+        return None
+    job = await db.get(Job, run.job_id)
+    if job is None:
+        return None
+    ahead = await db.scalar(
+        select(func.count())
+        .select_from(Job)
+        .where(
+            Job.kind == MODULE_JOB,
+            Job.module_id == job.module_id,
+            Job.status.in_(ACTIVE),
+            or_(
+                Job.priority > job.priority,
+                and_(Job.priority == job.priority, Job.created_at < job.created_at),
+            ),
+        )
+    )
+    return int(ahead or 0)
+
+
+async def say_goodbye(db: AsyncSession, worker: Worker) -> None:
+    """The worker stops: it is no longer counted as available, and a job it was running goes
+    back to the queue at once (stopping is not a failure of the job)."""
+    worker.online = False
+    jobs = await db.scalars(
+        select(Job).where(Job.worker_id == worker.id, Job.status == "running").with_for_update()
+    )
+    for job in jobs:
+        job.status = "queued"
+        job.worker_id = None
+        job.lease_until = None
+        job.attempts = max(job.attempts - 1, 0)
+        run = await _run_of(db, job)
+        run.status = "queued"
+    await db.commit()
+
+
+async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
+    """Tops up the background queue of the module with photos that still need a location.
+
+    Photos only (videos later, D-040), newest first, never twice: a photo that already has a run
+    of the module (whatever its result) is not queued again automatically.
+    """
+    queued = await db.scalar(
+        select(func.count())
+        .select_from(Job)
+        .where(
+            Job.kind == MODULE_JOB,
+            Job.module_id == module_id,
+            Job.status == "queued",
+            Job.priority == PRIORITY_BACKGROUND,
+        )
+    )
+    room = AUTO_QUEUE_SIZE - (queued or 0)
+    if room <= 0:
+        return 0
+    assets = await db.scalars(
+        select(Asset)
+        .where(
+            Asset.latitude.is_(None),
+            Asset.review_status == "new",
+            Asset.type == "IMAGE",
+            Asset.is_trashed.is_(False),
+            Asset.visibility == "timeline",
+            ~exists().where(ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id),
+        )
+        .order_by(Asset.local_taken_at.desc())
+        .limit(room)
+    )
+    count = 0
+    for asset in assets:
+        job = Job(
+            kind=MODULE_JOB,
+            account_id=asset.account_id,
+            module_id=module_id,
+            priority=PRIORITY_BACKGROUND,
+            payload={"asset_id": str(asset.id)},
+        )
+        db.add(job)
+        await db.flush()
+        db.add(ModuleRun(asset_id=asset.id, module_id=module_id, job_id=job.id, status="queued"))
+        count += 1
+    await db.commit()
+    return count
+
+
+async def run_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, int]]:
+    """Module -> status -> number of photos of the account, by their latest run."""
+    latest = (
+        select(ModuleRun.module_id, ModuleRun.status)
+        .join(Asset, Asset.id == ModuleRun.asset_id)
+        .where(Asset.account_id == account.id)
+        .ext(distinct_on(ModuleRun.asset_id, ModuleRun.module_id))
+        .order_by(ModuleRun.asset_id, ModuleRun.module_id, ModuleRun.created_at.desc())
+        .subquery()
+    )
+    rows = await db.execute(
+        select(latest.c.module_id, latest.c.status, func.count()).group_by(
+            latest.c.module_id, latest.c.status
+        )
+    )
+    counts: dict[str, dict[str, int]] = {}
+    for module_id, status, count in rows:
+        counts.setdefault(module_id, {})[status] = count
+    return counts
+
+
 async def register(
     db: AsyncSession, name: str, modules: list[str], device: str, version: str
 ) -> Worker:
@@ -75,6 +215,7 @@ async def register(
     worker.device = device
     worker.version = version
     worker.last_seen_at = now
+    worker.online = True
     await db.commit()
     return worker
 
@@ -83,6 +224,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
     """Takes the most urgent job of the given modules, including ones whose lease ran out."""
     now = datetime.now(UTC)
     worker.last_seen_at = now
+    worker.online = True
     while True:
         job = await db.scalar(
             select(Job)

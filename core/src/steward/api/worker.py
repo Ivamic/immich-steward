@@ -106,6 +106,12 @@ async def register(body: RegisterRequest, db: DbDep, settings: SettingsDep) -> R
     return RegisterResponse(worker_id=worker.id, lease_seconds=settings.worker_lease_seconds)
 
 
+@router.post("/bye", status_code=204)
+async def bye(worker: WorkerDep, db: DbDep) -> None:
+    """The worker stops; a job it was running goes back to the queue right away."""
+    await worker_queue.say_goodbye(db, worker)
+
+
 @router.post("/lease", response_model=None)
 async def lease(
     body: LeaseRequest, worker: WorkerDep, db: DbDep, settings: SettingsDep

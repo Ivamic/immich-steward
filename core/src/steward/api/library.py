@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Library overview and synchronization with Immich."""
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -9,9 +9,10 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from steward.deps import CurrentAccount, DbDep
+from steward import worker_queue
+from steward.deps import CurrentAccount, DbDep, SettingsDep
 from steward.jobs import SYNC, enqueue
-from steward.models import Job
+from steward.models import Job, Worker
 from steward.sync import library_counts
 
 router = APIRouter(prefix="/library")
@@ -52,6 +53,22 @@ class Library(BaseModel):
     sync_job: JobOut | None
 
 
+class WorkerOut(BaseModel):
+    name: str
+    device: str
+    modules: list[str]
+    version: str
+    last_seen_at: datetime
+    active: bool
+
+
+class Workers(BaseModel):
+    workers: list[WorkerOut]
+    # Module -> status of the latest run -> number of photos of this account.
+    runs: dict[str, dict[str, int]]
+    auto_modules: list[str]
+
+
 class SyncRequest(BaseModel):
     # None: decided automatically (full once a day, otherwise incremental).
     full: bool | None = None
@@ -77,3 +94,25 @@ async def get_library(account: CurrentAccount, db: DbDep) -> Library:
 async def start_sync(body: SyncRequest, account: CurrentAccount, db: DbDep) -> JobOut:
     job = await enqueue(db, SYNC, account.id, {"full": body.full})
     return JobOut.of(job)
+
+
+@router.get("/workers")
+async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep) -> Workers:
+    """Workers known to this installation and the progress of module runs on this library."""
+    since = datetime.now(UTC) - timedelta(minutes=settings.worker_active_minutes)
+    workers = await db.scalars(select(Worker).order_by(Worker.last_seen_at.desc()))
+    return Workers(
+        workers=[
+            WorkerOut(
+                name=w.name,
+                device=w.device,
+                modules=w.modules,
+                version=w.version,
+                last_seen_at=w.last_seen_at,
+                active=w.online and w.last_seen_at >= since,
+            )
+            for w in workers
+        ],
+        runs=await worker_queue.run_counts(db, account),
+        auto_modules=settings.auto_module_ids,
+    )

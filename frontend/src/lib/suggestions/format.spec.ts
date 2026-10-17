@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import type { Candidate, ModuleSuggestions } from '#lib/api.js';
-import { formatDelta, formatDistance, formatDuration, numberCandidates } from './format.js';
+import {
+	formatDelta,
+	formatDistance,
+	formatDuration,
+	numberCandidates,
+	visibleSuggestions
+} from './format.js';
 
 const candidate = (rank: number): Candidate => ({
 	rank,
@@ -10,7 +16,8 @@ const candidate = (rank: number): Candidate => ({
 	score: 1,
 	radius_m: null,
 	kind: 'before',
-	evidence: {}
+	evidence: {},
+	tier: 'normal'
 });
 
 const module = (id: string, count: number): ModuleSuggestions => ({
@@ -21,6 +28,12 @@ const module = (id: string, count: number): ModuleSuggestions => ({
 	candidates: Array.from({ length: count }, (_, i) => candidate(i + 1)),
 	track: [],
 	cameras: [],
+	status: 'ready',
+	runnable: false,
+	worker_available: true,
+	error: null,
+	finished_at: null,
+	queue_position: null,
 	note: null
 });
 
@@ -45,5 +58,14 @@ describe('suggestion formatting', () => {
 		expect(numbered.map((item) => item.key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, null, null]);
 		expect(numbered[5].module.module).toBe('b');
 		expect(numbered[5].candidate.rank).toBe(1);
+	});
+
+	it('folds weak candidates unless their module is unfolded', () => {
+		const geoclip = module('geoclip', 3);
+		geoclip.candidates[2] = { ...geoclip.candidates[2], tier: 'weak' };
+		const folded = visibleSuggestions([geoclip], []);
+		expect(folded[0].candidates.map((c) => c.rank)).toEqual([1, 2]);
+		expect(numberCandidates(folded).map((item) => item.key)).toEqual([1, 2]);
+		expect(visibleSuggestions([geoclip], ['geoclip'])[0].candidates).toHaveLength(3);
 	});
 });

@@ -51,6 +51,24 @@ class Settings(BaseSettings):
     worker_token: SecretStr | None = None
     # A leased job returns to the queue when its worker stays silent this long.
     worker_lease_seconds: int = Field(default=300, ge=30)
+    # Worker modules run automatically on photos without a location (FR-10, FR-11),
+    # comma-separated; empty turns automatic runs off. Runs started by hand are always allowed.
+    auto_modules: str = "geoclip"
+    # How GeoCLIP results are shown (they are stored in full, so changing these needs no rerun).
+    # Measured on 506 photos with GPS: below 25 % a suggestion is rarely right (noise, hidden);
+    # 25-50 % often hits the region only (weak, folded); from 75 % it is right about 95 % of the
+    # time (marked as confident).
+    geoclip_min_confidence: float = Field(default=0.25, ge=0, le=1)
+    geoclip_weak_below: float = Field(default=0.5, ge=0, le=1)
+    geoclip_confident_from: float = Field(default=0.75, ge=0, le=1)
+
+    # A worker counts as active this long after it last contacted the core. Idle workers ask for
+    # jobs every 30 s at most, busy ones send a heartbeat every third of the lease.
+    worker_active_minutes: int = Field(default=3, ge=1)
+
+    @property
+    def auto_module_ids(self) -> list[str]:
+        return [m.strip() for m in self.auto_modules.split(",") if m.strip()]
 
     # Set to true when the UI is served over HTTPS (e.g. behind a reverse proxy).
     cookie_secure: bool = False

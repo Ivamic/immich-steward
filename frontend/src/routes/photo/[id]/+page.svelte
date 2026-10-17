@@ -8,6 +8,8 @@
 		getAsset,
 		getMapConfig,
 		getSuggestions,
+		isPending,
+		runModule,
 		setReview,
 		thumbnailUrl,
 		undoLocation,
@@ -28,7 +30,7 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { saves } from '#lib/saves.svelte.js';
 	import { cameraFilter } from '#lib/suggestions/cameraFilter.svelte.js';
-	import { numberCandidates } from '#lib/suggestions/format.js';
+	import { numberCandidates, visibleSuggestions } from '#lib/suggestions/format.js';
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -69,7 +71,10 @@
 	const camera = $derived(
 		[asset?.camera_make, asset?.camera_model].filter(Boolean).join(' ') || m.photo_no_camera()
 	);
-	const numbered = $derived(numberCandidates(suggestions));
+	// Modules whose weak suggestions the user unfolded; kept while moving between photos.
+	let unfolded = $state<string[]>([]);
+	const shown = $derived(visibleSuggestions(suggestions, unfolded));
+	const numbered = $derived(numberCandidates(shown));
 	const pending = $derived(asset ? saves.pendingFor(asset.id) : undefined);
 	const changedAt = new Intl.DateTimeFormat(getLocale(), {
 		dateStyle: 'medium',
@@ -110,11 +115,36 @@
 		fetchSuggestions(id);
 	}
 
+	// While a worker module is queued or running, look for its result every few seconds.
+	$effect(() => {
+		if (!suggestions.some(isPending)) return;
+		const assetId = id;
+		const timer = setTimeout(() => fetchSuggestions(assetId), 2000);
+		return () => clearTimeout(timer);
+	});
+
+	function setSuggestions(assetId: string, result: ModuleSuggestions[]) {
+		// The user may have moved on to another photo meanwhile. Unchanged results are kept as they
+		// are, so that polling does not redraw the map (and close an open preview).
+		if (assetId === id && JSON.stringify(result) !== JSON.stringify(suggestions)) {
+			suggestions = result;
+		}
+	}
+
+	async function run(module: string) {
+		if (!asset) return;
+		const assetId = asset.id;
+		try {
+			setSuggestions(assetId, await runModule(assetId, module, cameraFilter.excluded));
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
 	function fetchSuggestions(assetId: string): Promise<ModuleSuggestions[]> {
 		suggestionsLoading = true;
 		const found = getSuggestions(assetId, cameraFilter.excluded).then((result) => {
-			// The user may have moved on to another photo meanwhile.
-			if (assetId === id) suggestions = result;
+			setSuggestions(assetId, result);
 			return result;
 		});
 		found.catch((e) => (error = errorMessage(e))).finally(() => (suggestionsLoading = false));
@@ -284,7 +314,7 @@
 					styleUrl={mapConfig.style_url}
 					{current}
 					{picked}
-					{suggestions}
+					suggestions={shown}
 					onpick={pick}
 				/>
 			{/if}
@@ -350,7 +380,17 @@
 			<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
 		{/if}
 
-		<SuggestionList modules={suggestions} loading={suggestionsLoading} onchoose={choose} />
+		<SuggestionList
+			modules={suggestions}
+			loading={suggestionsLoading}
+			onchoose={choose}
+			onrun={run}
+			{unfolded}
+			ontoggle={(module) =>
+				(unfolded = unfolded.includes(module)
+					? unfolded.filter((m) => m !== module)
+					: [...unfolded, module])}
+		/>
 	</section>
 
 	<aside class="info">

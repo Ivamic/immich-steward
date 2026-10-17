@@ -27,10 +27,13 @@ def m1(client: TestClient, fake: FakeImmich, immich_id: str) -> dict[str, Any]:
     sync(client)
     response = client.get(f"/api/assets/{local_id(client, fake, immich_id)}/suggestions")
     assert response.status_code == 200
-    [module] = response.json()
-    assert module["module"] == "time_neighbors"
-    result: dict[str, Any] = module
-    return result
+    return time_neighbors(response.json())
+
+
+def time_neighbors(modules: list[dict[str, Any]]) -> dict[str, Any]:
+    """The M1 block of a suggestions response (worker modules follow it)."""
+    assert modules[0]["module"] == "time_neighbors"
+    return modules[0]
 
 
 def test_between_before_and_after(signed_in: TestClient, fake_immich: FakeImmich) -> None:
@@ -150,10 +153,14 @@ def test_cameras_are_listed_and_can_be_excluded(
 
     sync(signed_in)
     url = f"/api/assets/{local_id(signed_in, fake_immich, target)}/suggestions"
-    [without_phone] = signed_in.get(url, params={"exclude_camera": cameras[1]["value"]}).json()
+    without_phone = time_neighbors(
+        signed_in.get(url, params={"exclude_camera": cameras[1]["value"]}).json()
+    )
     assert [p["camera"] for p in without_phone["track"]] == ["Canon EOS 300D"]
     assert [c["excluded"] for c in without_phone["cameras"]] == [False, True]
 
-    [nothing] = signed_in.get(url, params={"exclude_camera": [c["value"] for c in cameras]}).json()
+    nothing = time_neighbors(
+        signed_in.get(url, params={"exclude_camera": [c["value"] for c in cameras]}).json()
+    )
     assert nothing["note"] == "no_neighbors"
     assert len(nothing["cameras"]) == 2

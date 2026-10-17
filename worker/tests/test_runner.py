@@ -25,6 +25,7 @@ class FakeCore:
     registrations: int = 0
     known_workers: set[str] = field(default_factory=set)
     lose_lease: bool = False
+    goodbyes: int = 0
 
     def add_job(self, module: str = "stub") -> str:
         job_id = str(uuid.uuid4())
@@ -35,6 +36,9 @@ class FakeCore:
         if request.headers.get("authorization") != f"Bearer {TOKEN}":
             return httpx2.Response(401, json={"code": "worker_unauthorized"})
         path = request.url.path.removeprefix("/api/worker")
+        if path == "/bye":
+            self.goodbyes += 1
+            return httpx2.Response(204)
         if path == "/register":
             self.registrations += 1
             worker_id = str(uuid.uuid4())
@@ -201,6 +205,7 @@ def test_run_forever_stops_cleanly() -> None:
         await asyncio.wait_for(task, timeout=2)
 
     asyncio.run(scenario())
+    assert core.goodbyes == 1  # the core stops counting it as available
 
 
 @pytest.mark.parametrize("value", [None, 1e9])

@@ -3,7 +3,7 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import locations
+from steward import locations, worker_queue
+from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
     DbDep,
@@ -39,7 +40,7 @@ from steward.immich import (
 )
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
 from steward.models import Account, Album, Asset, AssetAlbum, LocationChange
-from steward.modules import MODULES, ModuleContext
+from steward.modules import MODULES, REMOTE_MODULES, ModuleContext
 
 router = APIRouter(prefix="/assets")
 
@@ -166,6 +167,16 @@ class CandidateItem(BaseModel):
     radius_m: float | None
     kind: str
     evidence: dict[str, Any]
+    # weak: shown folded ("probably only the region is right"); confident: marked in the list.
+    tier: Literal["weak", "normal", "confident"] = "normal"
+
+
+def _tier(score: float, settings: Settings) -> Literal["weak", "normal", "confident"]:
+    if score < settings.geoclip_weak_below:
+        return "weak"
+    if score >= settings.geoclip_confident_from:
+        return "confident"
+    return "normal"
 
 
 class TrackPointItem(BaseModel):
@@ -198,6 +209,16 @@ class ModuleSuggestions(BaseModel):
     track: list[TrackPointItem]
     cameras: list[CameraCountItem]
     note: str | None
+    # ready: computed now (core modules) or a finished run; not_run: never run on this photo.
+    status: Literal["ready", "not_run", "queued", "running", "done", "failed"] = "ready"
+    # Run by workers: can be started (again) from the card.
+    runnable: bool = False
+    # A worker that runs the module has contacted the core recently.
+    worker_available: bool = True
+    error: str | None = None
+    finished_at: datetime | None = None
+    # Queued runs: jobs of the module a worker takes before this one.
+    queue_position: int | None = None
 
 
 class CameraOption(BaseModel):
@@ -315,14 +336,41 @@ async def suggestions(
     settings: SettingsDep,
     exclude_camera: Annotated[list[str] | None, Query()] = None,
 ) -> list[ModuleSuggestions]:
-    """Candidate locations from the modules that run in the core, computed on request."""
+    """Candidates of the core modules (computed now) and the latest results of worker modules."""
     asset = await _own_asset(db, account, asset_id)
+    return await _suggestions(db, account, asset, settings, frozenset(exclude_camera or ()))
+
+
+@router.post("/{asset_id}/modules/{module_id}/run")
+async def run_module(
+    asset_id: UUID,
+    module_id: str,
+    account: CurrentAccount,
+    db: DbDep,
+    settings: SettingsDep,
+    exclude_camera: Annotated[list[str] | None, Query()] = None,
+) -> list[ModuleSuggestions]:
+    """Queues a worker module for the photo ahead of the background runs (FR-34)."""
+    if module_id not in REMOTE_MODULES:
+        raise ApiError(404, "module_not_found")
+    asset = await _own_asset(db, account, asset_id)
+    await worker_queue.enqueue_module(db, asset, module_id, worker_queue.PRIORITY_USER)
+    return await _suggestions(db, account, asset, settings, frozenset(exclude_camera or ()))
+
+
+async def _suggestions(
+    db: DbDep,
+    account: Account,
+    asset: Asset,
+    settings: SettingsDep,
+    exclude_cameras: frozenset[str],
+) -> list[ModuleSuggestions]:
     ctx = ModuleContext(
         db=db,
         account=account,
         asset=asset,
         settings=settings,
-        exclude_cameras=frozenset(exclude_camera or ()),
+        exclude_cameras=exclude_cameras,
     )
     result = []
     for module in MODULES:
@@ -340,6 +388,42 @@ async def suggestions(
                 track=[TrackPointItem(**vars(point)) for point in found.track],
                 cameras=[CameraCountItem(**vars(camera)) for camera in found.cameras],
                 note=found.note,
+            )
+        )
+
+    runs = await worker_queue.latest_runs(db, asset.id)
+    workers = await worker_queue.active_workers(
+        db, timedelta(minutes=settings.worker_active_minutes)
+    )
+    available = {module for worker in workers for module in worker.modules}
+    for remote in REMOTE_MODULES.values():
+        run = runs.get(remote.id)
+        result.append(
+            ModuleSuggestions(
+                module=remote.id,
+                version=(run.module_version if run else None) or "",
+                color=remote.color,
+                shape=remote.shape,
+                candidates=[
+                    CandidateItem(rank=rank, tier=_tier(candidate["score"], settings), **candidate)
+                    for rank, candidate in enumerate(
+                        [
+                            c
+                            for c in (run.candidates if run and run.status == "done" else [])
+                            if c["score"] >= settings.geoclip_min_confidence
+                        ],
+                        start=1,
+                    )
+                ],
+                track=[],
+                cameras=[],
+                note=None,
+                status=run.status if run else "not_run",
+                runnable=True,
+                worker_available=remote.id in available,
+                error=run.error if run else None,
+                finished_at=run.finished_at if run else None,
+                queue_position=await worker_queue.queue_position(db, run) if run else None,
             )
         )
     return result

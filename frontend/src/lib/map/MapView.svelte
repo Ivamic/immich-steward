@@ -288,7 +288,8 @@
 			// Lowest rank on top.
 			for (const c of [...module.candidates].reverse()) {
 				const pin = document.createElement('div');
-				pin.className = 'steward-candidate';
+				// Shape tells modules apart without relying on color (FR-31).
+				pin.className = `steward-candidate steward-shape-${module.shape}`;
 				pin.style.background = module.color;
 				pin.textContent = String(c.rank);
 				pin.dataset.lat = String(c.latitude);
@@ -567,6 +568,9 @@
 	:global(.steward-preview .name) {
 		font-weight: 600;
 		word-break: break-all;
+	}
+	:global(.steward-candidate.steward-shape-square) {
+		border-radius: 0.3rem;
 	}
 	:global(.steward-tag) {
 		padding: 0.1rem 0.35rem;

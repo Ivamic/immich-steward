@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import asyncio
+import json
 import os
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,11 +27,19 @@ TEST_DATABASE_URL = os.environ.get("STEWARD_TEST_DATABASE_URL")
 UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://nobody:x@127.0.0.1:1/none"
 FAKE_IMMICH_URL = "http://immich.test"
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
+TABLES = "account, auth_session, asset, album, asset_album, job"
 
 
 def make_settings(**overrides: Any) -> Settings:
-    """Settings isolated from the developer's .env file."""
-    values: dict[str, Any] = {"database_url": UNREACHABLE_DATABASE_URL} | overrides
+    """Settings isolated from the developer's .env file and STEWARD_* environment variables."""
+    values: dict[str, Any] = {
+        "database_url": UNREACHABLE_DATABASE_URL,
+        "immich_url": None,
+        "secret_key": None,
+        "static_dir": None,
+        "run_jobs": False,
+    }
+    values |= overrides
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 
@@ -42,6 +52,61 @@ class FakeImmich:
     permissions: list[str] = field(default_factory=lambda: sorted(REQUIRED_PERMISSIONS))
     user_id: uuid.UUID = field(default_factory=uuid.uuid4)
     user_name: str = "Test User"
+    assets: dict[str, dict[str, Any]] = field(default_factory=dict)
+    albums: dict[str, dict[str, Any]] = field(default_factory=dict)
+    album_assets: dict[str, list[str]] = field(default_factory=dict)
+    search_requests: list[dict[str, Any]] = field(default_factory=list)
+
+    def add_asset(self, **fields: Any) -> str:
+        """Adds an asset in the Immich API shape; returns its id."""
+        asset_id = str(uuid.uuid4())
+        taken = fields.pop("taken", "2024-05-01T10:00:00")
+        exif = {"dateTimeOriginal": taken + "+00:00", "make": "Canon", "model": "EOS 300D"}
+        exif |= fields.pop("exif", {})
+        self.assets[asset_id] = {
+            "id": asset_id,
+            "ownerId": str(self.user_id),
+            "type": "IMAGE",
+            "visibility": "timeline",
+            "originalFileName": f"IMG_{len(self.assets):04}.JPG",
+            "fileCreatedAt": taken + "Z",
+            "localDateTime": taken + "Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "isTrashed": False,
+            "exifInfo": exif,
+        } | fields
+        return asset_id
+
+    def add_album(self, name: str, asset_ids: list[str], **fields: Any) -> str:
+        album_id = str(uuid.uuid4())
+        self.albums[album_id] = {
+            "id": album_id,
+            "albumName": name,
+            "assetCount": len(asset_ids),
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "shared": False,
+        } | fields
+        self.album_assets[album_id] = list(asset_ids)
+        return album_id
+
+    def _search(self, body: dict[str, Any]) -> httpx2.Response:
+        self.search_requests.append(body)
+        items = list(self.assets.values())
+        if "albumIds" in body:
+            members = set(self.album_assets.get(body["albumIds"][0], []))
+            items = [a for a in items if a["id"] in members]
+        items = [a for a in items if a["visibility"] == body.get("visibility", "timeline")]
+        if not body.get("withDeleted"):
+            items = [a for a in items if not a["isTrashed"]]
+        if "updatedAfter" in body:
+            after = datetime.fromisoformat(body["updatedAfter"])
+            items = [a for a in items if datetime.fromisoformat(a["updatedAt"]) > after]
+        if not body.get("withExif"):
+            items = [{k: v for k, v in a.items() if k != "exifInfo"} for a in items]
+        page, size = body.get("page", 1), body.get("size", 250)
+        chunk = items[(page - 1) * size : page * size]
+        next_page = str(page + 1) if page * size < len(items) else None
+        return _json({"assets": {"items": chunk, "nextPage": next_page}})
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         path = request.url.path
@@ -58,6 +123,11 @@ class FakeImmich:
             return _json(
                 {"id": str(self.user_id), "name": self.user_name, "email": "test@example.com"}
             )
+        if path == "/api/search/metadata":
+            return self._search(json.loads(request.content))
+        if path == "/api/albums":
+            shared = request.url.params.get("shared") == "true"
+            return _json([a for a in self.albums.values() if a["shared"] == shared])
         return _json({"message": "Not found"}, 404)
 
     def factory(self, base_url: str, api_key: str | None) -> ImmichClient:
@@ -91,7 +161,9 @@ def database(migrated_database: str) -> str:
     async def truncate() -> None:
         engine = create_engine(migrated_database)
         async with engine.begin() as conn:
-            await conn.execute(text("TRUNCATE account, auth_session CASCADE"))
+            await conn.execute(
+                text("TRUNCATE account, auth_session, asset, album, asset_album, job CASCADE")
+            )
         await engine.dispose()
 
     asyncio.run(truncate())

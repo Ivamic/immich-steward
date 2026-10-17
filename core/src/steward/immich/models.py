@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Response models for the subset of the Immich API we use. Unknown fields are ignored."""
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -31,3 +32,46 @@ class ImmichUser(ImmichModel):
     name: str
     email: str
     is_admin: bool = False
+
+
+class ExifInfo(ImmichModel):
+    date_time_original: datetime | None = None
+    time_zone: str | None = None
+    make: str | None = None
+    model: str | None = None
+    lens_model: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+
+
+class ImmichAsset(ImmichModel):
+    id: UUID
+    owner_id: UUID
+    type: str  # IMAGE | VIDEO | AUDIO | OTHER
+    visibility: str  # timeline | archive | hidden | locked
+    original_file_name: str
+    file_created_at: datetime
+    # Local wall-clock time of capture, serialized by Immich with a meaningless "Z".
+    local_date_time: datetime
+    updated_at: datetime
+    is_trashed: bool = False
+    width: int | None = None
+    height: int | None = None
+    checksum: str | None = None
+    exif_info: ExifInfo | None = None
+
+
+class SearchPage(BaseModel):
+    items: list[ImmichAsset]
+    next_page: int | None
+
+
+class ImmichAlbum(ImmichModel):
+    id: UUID
+    album_name: str
+    asset_count: int
+    updated_at: datetime
+    shared: bool = False

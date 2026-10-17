@@ -1,15 +1,25 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Async HTTP client for Immich."""
 
+from datetime import datetime
 from types import TracebackType
 from typing import Any, Self
+from uuid import UUID
 
 import httpx2
 from pydantic import BaseModel
 
-from steward.immich.models import ApiKeyInfo, ImmichUser, ServerVersion
+from steward.immich.models import (
+    ApiKeyInfo,
+    ImmichAlbum,
+    ImmichAsset,
+    ImmichUser,
+    SearchPage,
+    ServerVersion,
+)
 
-DEFAULT_TIMEOUT_S = 10.0
+DEFAULT_TIMEOUT_S = 30.0
+SEARCH_PAGE_SIZE = 1000
 
 
 class ImmichError(Exception):
@@ -69,6 +79,43 @@ class ImmichClient:
 
     async def current_user(self) -> ImmichUser:
         return await self._get("/users/me", ImmichUser)
+
+    async def search_assets(
+        self,
+        *,
+        page: int = 1,
+        size: int = SEARCH_PAGE_SIZE,
+        visibility: str | None = None,
+        updated_after: datetime | None = None,
+        album_id: UUID | None = None,
+        with_exif: bool = True,
+        with_deleted: bool = False,
+    ) -> SearchPage:
+        body: dict[str, Any] = {
+            "page": page,
+            "size": size,
+            "withExif": with_exif,
+            "withDeleted": with_deleted,
+        }
+        if visibility is not None:
+            body["visibility"] = visibility
+        if updated_after is not None:
+            body["updatedAfter"] = updated_after.isoformat()
+        if album_id is not None:
+            body["albumIds"] = [str(album_id)]
+        data = (await self._request("POST", "/search/metadata", json=body))["assets"]
+        next_page = data.get("nextPage")
+        return SearchPage(
+            items=[ImmichAsset.model_validate(item) for item in data["items"]],
+            next_page=int(next_page) if next_page else None,
+        )
+
+    async def albums(self) -> list[ImmichAlbum]:
+        """Albums owned by the user and albums shared with them."""
+        owned = await self._request("GET", "/albums")
+        shared = await self._request("GET", "/albums", params={"shared": "true"})
+        by_id = {album["id"]: album for album in [*owned, *shared]}
+        return [ImmichAlbum.model_validate(album) for album in by_id.values()]
 
     async def _get[M: BaseModel](self, path: str, model: type[M]) -> M:
         return model.model_validate(await self._request("GET", path))

@@ -37,5 +37,17 @@
 	"error_immich_invalid_api_key": "Immich не принял этот API-ключ.",
 	"error_immich_missing_permissions": "У API-ключа не хватает прав: {permissions}. Измените ключ в Immich и попробуйте снова.",
 	"error_immich_permission_denied": "Immich отклонил запрос: у API-ключа не хватает прав.",
-	"error_immich_unsupported_version": "Версия Immich {version} не поддерживается."
+	"error_immich_unsupported_version": "Версия Immich {version} не поддерживается.",
+	"library_heading": "Библиотека",
+	"library_assets": "Фото и видео",
+	"library_videos": "из них видео: {count}",
+	"library_without_gps": "Без места съёмки",
+	"library_with_gps": "С местом съёмки",
+	"library_albums": "Альбомы",
+	"library_synced_at": "Последняя синхронизация с Immich",
+	"library_never_synced": "ещё не было",
+	"library_sync": "Синхронизировать",
+	"library_sync_full": "Полная синхронизация",
+	"library_syncing": "Синхронизация… обработано ассетов: {count}",
+	"library_sync_failed": "Синхронизация не удалась: {reason}"
 }

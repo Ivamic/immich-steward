@@ -59,7 +59,36 @@ export interface Me {
 	email: string;
 }
 
+export interface Job {
+	id: string;
+	kind: string;
+	status: 'queued' | 'running' | 'done' | 'failed';
+	progress: Record<string, unknown>;
+	/** Error code, translated by the UI. */
+	error: string | null;
+	created_at: string;
+	started_at: string | null;
+	finished_at: string | null;
+}
+
+export interface Library {
+	assets: number;
+	videos: number;
+	with_gps: number;
+	without_gps: number;
+	albums: number;
+	synced_at: string | null;
+	full_synced_at: string | null;
+	sync_job: Job | null;
+}
+
+export const isActive = (job: Job | null) =>
+	job !== null && (job.status === 'queued' || job.status === 'running');
+
 export const getHealth = () => request<Health>('GET', '/api/health');
+export const getLibrary = () => request<Library>('GET', '/api/library');
+export const startSync = (full: boolean | null = null) =>
+	request<Job>('POST', '/api/library/sync', { full });
 export const login = (apiKey: string) =>
 	request<Me>('POST', '/api/auth/login', { api_key: apiKey });
 export const logout = () => request<void>('POST', '/api/auth/logout');

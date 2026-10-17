@@ -2,6 +2,7 @@
 <script lang="ts">
 	import { getHealth, type Health } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import LibraryPanel from '#lib/LibraryPanel.svelte';
 
 	let health = $state<Health | null>(null);
 	let coreReachable = $state(true);
@@ -25,7 +26,9 @@
 	});
 </script>
 
-<h1>{m.status_heading()}</h1>
+<LibraryPanel />
+
+<h2>{m.status_heading()}</h2>
 
 {#if loading && !health}
 	<p>{m.status_loading()}</p>

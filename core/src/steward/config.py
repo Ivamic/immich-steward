@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     secret_key: SecretStr | None = Field(default=None, min_length=MIN_SECRET_KEY_LENGTH)
 
     session_ttl_days: int = 30
+
+    # Background jobs run inside the core process; tests switch this off.
+    run_jobs: bool = True
+    # Automatic incremental sync with Immich; 0 disables it.
+    sync_interval_minutes: int = 15
+    # Automatic syncs become full (also detecting deleted assets) this often.
+    full_sync_interval_hours: int = 24
     # Set to true when the UI is served over HTTPS (e.g. behind a reverse proxy).
     cookie_secure: bool = False
 

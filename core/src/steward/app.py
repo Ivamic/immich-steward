@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """FastAPI application factory."""
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,12 +15,13 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from steward import __version__
-from steward.api import auth, health
+from steward.api import auth, health, library
 from steward.config import Settings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
 from steward.errors import ApiError, api_error_handler
 from steward.immich import ImmichClient
+from steward.jobs import JobRunner
 
 
 class SPAStaticFiles(StaticFiles):
@@ -46,9 +49,20 @@ def create_app(
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = create_engine(settings.database_url)
         app.state.sessionmaker = async_sessionmaker(app.state.engine, expire_on_commit=False)
+        app.state.job_runner = JobRunner(app.state.sessionmaker, settings, immich_factory)
+        stop = asyncio.Event()
+        runner_task = (
+            asyncio.create_task(app.state.job_runner.run_forever(stop))
+            if settings.run_jobs
+            else None
+        )
         try:
             yield
         finally:
+            stop.set()
+            if runner_task is not None:
+                with contextlib.suppress(asyncio.CancelledError):
+                    await runner_task
             await app.state.engine.dispose()
 
     app = FastAPI(title="immich-steward", version=__version__, lifespan=lifespan)
@@ -57,6 +71,7 @@ def create_app(
     app.add_exception_handler(ApiError, api_error_handler)
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
+    app.include_router(library.router, prefix="/api")
 
     static_dir = settings.static_dir
     if static_dir is not None and Path(static_dir, "index.html").is_file():

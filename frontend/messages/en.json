@@ -37,5 +37,17 @@
 	"error_immich_invalid_api_key": "Immich rejected this API key.",
 	"error_immich_missing_permissions": "The API key lacks permissions: {permissions}. Edit the key in Immich and try again.",
 	"error_immich_permission_denied": "Immich refused the request: the API key lacks a permission.",
-	"error_immich_unsupported_version": "Immich version {version} is not supported."
+	"error_immich_unsupported_version": "Immich version {version} is not supported.",
+	"library_heading": "Library",
+	"library_assets": "Photos and videos",
+	"library_videos": "{count} videos",
+	"library_without_gps": "Without location",
+	"library_with_gps": "With location",
+	"library_albums": "Albums",
+	"library_synced_at": "Last sync with Immich",
+	"library_never_synced": "never",
+	"library_sync": "Sync now",
+	"library_sync_full": "Full sync",
+	"library_syncing": "Syncing… {count} assets processed",
+	"library_sync_failed": "Sync failed: {reason}"
 }

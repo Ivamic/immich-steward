@@ -1,6 +1,9 @@
 # immich-steward
 
-> **Status: early design stage.** Nothing is ready to install yet.
+> **Status: under active development.** An early version: manual review of photos without
+> location and suggestions from photos taken close in time already work; the other modules are
+> still to come. Expect bugs and changes between versions, and keep a backup of your Immich
+> library before writing locations to it.
 
 A self-hosted companion app for [Immich](https://immich.app) that helps you restore
 missing information in your photo library — and lets *you* decide what is written back.
@@ -17,10 +20,13 @@ proposes one or more candidate locations, and all candidates are shown together 
 map, color-coded by module and numbered by rank. You review them, pick one, or place a
 point manually.
 
-Planned modules:
+Modules:
 
-- **Time neighbors** — photos taken shortly before/after with the same camera that
-  already have GPS (capture time, file name sequence, device model).
+- **Time neighbors** *(available)* — photos taken shortly before/after that already have a
+  location; the route between them is drawn on the map.
+
+Planned:
+
 - **GeoCLIP** — worldwide image geolocation by a neural network, running locally.
 - **Similar photos in your library** — visual similarity to your own geotagged photos.
 - **Landmarks** — your own library of recognizable places: mark a landmark once on a
@@ -43,11 +49,26 @@ New modules can be added later as plugins.
 - **"Not applicable" flag.** Mark photos where a location makes no sense, so they never
   show up in your to-do list again.
 
-## Planned architecture
+## Installation
+
+immich-steward runs with Docker Compose next to your Immich server (Immich v3.x):
+
+```sh
+git clone https://github.com/Ivamic/immich-steward.git
+cd immich-steward
+cp .env.example .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
+docker compose up -d --build
+```
+
+Then open `http://<your-server>:8780` and sign in with your Immich account.
+See [docs/install.md](docs/install.md) for the details: configuration, Immich on the same
+machine, updating, backup and troubleshooting.
+
+## Architecture
 
 - Backend: Python (FastAPI), PostgreSQL with pgvector.
 - Runs with Docker Compose next to your Immich server.
-- ML modules run in workers: on the server CPU, or on a separate machine with a GPU.
+- ML modules will run in workers: on the server CPU, or on a separate machine with a GPU.
 - Web UI: timeline gallery with filters, photo view with a map, keyboard-driven review.
 - English UI with translations (Russian from the start).
 
@@ -61,6 +82,7 @@ Repository layout:
 | `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
 | `docker/` | Dockerfile of the core image (it also contains the built web UI) |
 | `compose.yaml` | Core service + PostgreSQL with pgvector |
+| `docs/` | User documentation (installation) |
 
 Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 24 with pnpm, Docker.
 Run all commands from the repository root unless stated otherwise.

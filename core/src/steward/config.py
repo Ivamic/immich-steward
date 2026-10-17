@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # "a/b" is a nested tag. An empty value disables tagging.
     estimated_tag: str = "steward/estimated"
 
+    # Shared secret of the workers that run ML modules (sent as a bearer token). Empty: the
+    # worker API is off.
+    worker_token: SecretStr | None = None
+    # A leased job returns to the queue when its worker stays silent this long.
+    worker_lease_seconds: int = Field(default=300, ge=30)
+
     # Set to true when the UI is served over HTTPS (e.g. behind a reverse proxy).
     cookie_secure: bool = False
 

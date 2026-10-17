@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Background jobs stored in PostgreSQL and executed inside the core process.
 
-Workers on other machines (stage 2) will lease jobs through the HTTP API instead.
+Jobs of workers (ML modules) live in the same table but are leased through the worker API
+(steward.worker_queue); the runner here only takes the kinds it has handlers for.
 """
 
 import asyncio
@@ -110,7 +111,9 @@ class JobRunner:
         """Jobs left running by a crashed or restarted process are queued again."""
         async with self._sessionmaker() as db:
             await db.execute(
-                update(Job).where(Job.status == "running").values(status="queued", started_at=None)
+                update(Job)
+                .where(Job.status == "running", Job.kind.in_(self._handlers))
+                .values(status="queued", started_at=None)
             )
             await db.commit()
 
@@ -132,8 +135,8 @@ class JobRunner:
         async with self._sessionmaker() as db:
             job = await db.scalar(
                 select(Job)
-                .where(Job.status == "queued")
-                .order_by(Job.created_at)
+                .where(Job.status == "queued", Job.kind.in_(self._handlers))
+                .order_by(Job.priority.desc(), Job.created_at)
                 .limit(1)
                 .with_for_update(skip_locked=True)
             )

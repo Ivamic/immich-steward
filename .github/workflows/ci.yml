@@ -51,7 +51,7 @@ jobs:
       - name: Licenses
         # Only licenses compatible with AGPL-3.0-or-later are allowed.
         run: >-
-          uv run pip-licenses --partial-match --ignore-packages steward
+          uv run pip-licenses --partial-match --ignore-packages steward steward-worker
           --allow-only "MIT;BSD;Apache;ISC;MPL;PSF;Python Software Foundation;HPND;LGPL;PostgreSQL"
 
   frontend:

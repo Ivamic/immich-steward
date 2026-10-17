@@ -27,7 +27,10 @@ TEST_DATABASE_URL = os.environ.get("STEWARD_TEST_DATABASE_URL")
 UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://nobody:x@127.0.0.1:1/none"
 FAKE_IMMICH_URL = "http://immich.test"
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
-TABLES = "account, auth_session, asset, album, asset_album, job, location_change"
+TABLES = (
+    "account, auth_session, asset, album, asset_album, job, location_change, worker, module_run"
+)
+WORKER_TOKEN = "test-worker-token"
 
 
 def make_settings(**overrides: Any) -> Settings:
@@ -298,7 +301,12 @@ def database(migrated_database: str) -> str:
 
 @pytest.fixture
 def client(database: str, fake_immich: FakeImmich) -> Iterator[TestClient]:
-    settings = make_settings(database_url=database, immich_url=FAKE_IMMICH_URL, secret_key="s" * 32)
+    settings = make_settings(
+        database_url=database,
+        immich_url=FAKE_IMMICH_URL,
+        secret_key="s" * 32,
+        worker_token=WORKER_TOKEN,
+    )
     app = create_app(settings, fake_immich.factory, fake_immich.transport)
     with TestClient(app) as test_client:
         yield test_client

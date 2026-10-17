@@ -17,7 +17,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from steward import __version__
-from steward.api import assets, auth, health, library, maps
+from steward.api import assets, auth, health, library, maps, worker
 from steward.config import Settings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
@@ -88,6 +88,7 @@ def create_app(
     app.include_router(library.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
     app.include_router(maps.router, prefix="/api")
+    app.include_router(worker.router, prefix="/api")
 
     static_dir = settings.static_dir
     if static_dir is not None and Path(static_dir, "index.html").is_file():

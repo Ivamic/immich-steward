@@ -2,14 +2,16 @@
 # Workspace root. Members are listed below; the root itself is not a package.
 
 [tool.uv.workspace]
-members = ["core"]
+members = ["core", "worker"]
 
 [tool.uv.sources]
 steward = { workspace = true }
+steward-worker = { workspace = true }
 
 [dependency-groups]
 dev = [
     "steward",
+    "steward-worker",
     "httpx2>=2.13",
     "mypy>=1.15",
     "pip-licenses>=5.0",
@@ -25,14 +27,14 @@ target-version = "py312"
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["steward"]
+known-first-party = ["steward", "steward_worker"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
-mypy_path = "core/src"
-packages = ["steward"]
+mypy_path = ["core/src", "worker/src"]
+packages = ["steward", "steward_worker"]
 
 [tool.pytest.ini_options]
-testpaths = ["core/tests"]
+testpaths = ["core/tests", "worker/tests"]

@@ -154,8 +154,23 @@ class AssetAlbum(Base):
     )
 
 
+class Worker(Base):
+    """A process that runs ML modules for the core, possibly on another machine."""
+
+    __tablename__ = "worker"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # Chosen by the worker (host name by default); registering again under it reuses the row.
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    modules: Mapped[list[str]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    device: Mapped[str] = mapped_column(String(100))
+    version: Mapped[str] = mapped_column(String(32))
+    registered_at: Mapped[datetime] = mapped_column(default=utcnow)
+    last_seen_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class Job(Base):
-    """Background task; executed by steward.jobs.JobRunner."""
+    """Background task: run inside the core (steward.jobs.JobRunner) or leased by a worker."""
 
     __tablename__ = "job"
 
@@ -171,4 +186,39 @@ class Job(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
+    # Higher first. Jobs the user waits for are above background ones.
+    priority: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3, server_default="3")
+    # Worker jobs: the module to run and the lease of the worker that took the job.
+    module_id: Mapped[str | None] = mapped_column(String(32))
+    worker_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("worker.id", ondelete="SET NULL")
+    )
+    lease_until: Mapped[datetime | None]
+
+
+class ModuleRun(Base):
+    """One run of a location module on an asset, and its result."""
+
+    __tablename__ = "module_run"
+    __table_args__ = (Index("ix_module_run_asset_module", "asset_id", "module_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset.id", ondelete="CASCADE"))
+    module_id: Mapped[str] = mapped_column(String(32))
+    job_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("job.id", ondelete="SET NULL"))
+    # queued | running | done | failed
+    status: Mapped[str] = mapped_column(String(16), default="queued")
+    # Reported by the module with the result.
+    module_version: Mapped[str | None] = mapped_column(String(32))
+    candidates: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=list
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+    worker_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("worker.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
     finished_at: Mapped[datetime | None]

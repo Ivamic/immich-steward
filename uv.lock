@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "steward",
+    "steward-worker",
 ]
 
 [manifest.dependency-groups]
@@ -19,6 +20,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "ruff", specifier = ">=0.11" },
     { name = "steward", editable = "core" },
+    { name = "steward-worker", editable = "worker" },
 ]
 
 [[package]]
@@ -1180,6 +1182,17 @@ requires-dist = [
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.40" },
     { name = "uvicorn", specifier = ">=0.34" },
 ]
+
+[[package]]
+name = "steward-worker"
+version = "0.1.0"
+source = { editable = "worker" }
+dependencies = [
+    { name = "httpx2" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx2", specifier = ">=2.13" }]
 
 [[package]]
 name = "truststore"

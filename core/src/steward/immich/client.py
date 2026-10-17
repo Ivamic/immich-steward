@@ -10,10 +10,12 @@ import httpx2
 from pydantic import BaseModel
 
 from steward.immich.models import (
+    ApiKey,
     ApiKeyInfo,
     ImmichAlbum,
     ImmichAsset,
     ImmichUser,
+    LoginResult,
     SearchPage,
     ServerVersion,
 )
@@ -117,6 +119,28 @@ class ImmichClient:
         by_id = {album["id"]: album for album in [*owned, *shared]}
         return [ImmichAlbum.model_validate(album) for album in by_id.values()]
 
+    # Password sign-in. The session token is passed explicitly and only lives for one request.
+
+    async def login(self, email: str, password: str) -> LoginResult:
+        body = {"email": email, "password": password}
+        return LoginResult.model_validate(await self._request("POST", "/auth/login", json=body))
+
+    async def logout(self, access_token: str) -> None:
+        await self._request("POST", "/auth/logout", headers=_bearer(access_token))
+
+    async def api_keys(self, access_token: str) -> list[ApiKey]:
+        keys = await self._request("GET", "/api-keys", headers=_bearer(access_token))
+        return [ApiKey.model_validate(key) for key in keys]
+
+    async def create_api_key(self, access_token: str, name: str, permissions: list[str]) -> str:
+        """Returns the secret of the new key; Immich never shows it again."""
+        body = {"name": name, "permissions": permissions}
+        created = await self._request("POST", "/api-keys", json=body, headers=_bearer(access_token))
+        return str(created["secret"])
+
+    async def delete_api_key(self, access_token: str, key_id: UUID) -> None:
+        await self._request("DELETE", f"/api-keys/{key_id}", headers=_bearer(access_token))
+
     async def asset(self, asset_id: UUID) -> ImmichAsset:
         return await self._get(f"/assets/{asset_id}", ImmichAsset)
 
@@ -150,7 +174,13 @@ class ImmichClient:
         except httpx2.HTTPError as exc:
             raise ImmichUnreachableError(f"{method} {path}: {type(exc).__name__}") from exc
         raise_for_status(response, f"{method} {path}")
+        if not response.content:
+            return None
         return response.json()
+
+
+def _bearer(access_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {access_token}"}
 
 
 def api_base_url(server_url: str) -> str:

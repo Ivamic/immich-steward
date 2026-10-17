@@ -5,11 +5,13 @@
 -->
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
+	import { tick } from 'svelte';
 
 	let { src, alt, onclose }: { src: string; alt: string; onclose: () => void } = $props();
 
 	let dialog: HTMLDialogElement;
 	let closeButton: HTMLButtonElement;
+	let frame: HTMLDivElement;
 	let actualSize = $state(false);
 	let loaded = $state(false);
 
@@ -19,6 +21,20 @@
 		closeButton.focus();
 		return () => dialog.close();
 	});
+
+	/** Switches the size; on zooming in, the clicked spot stays under the pointer. */
+	async function toggle(event: MouseEvent) {
+		const image = event.currentTarget as HTMLElement;
+		const box = image.getBoundingClientRect();
+		const x = (event.clientX - box.left) / box.width;
+		const y = (event.clientY - box.top) / box.height;
+		actualSize = !actualSize;
+		if (!actualSize) return;
+		await tick();
+		const zoomed = image.getBoundingClientRect();
+		frame.scrollLeft += zoomed.left + x * zoomed.width - event.clientX;
+		frame.scrollTop += zoomed.top + y * zoomed.height - event.clientY;
+	}
 </script>
 
 <dialog
@@ -31,6 +47,7 @@
 	onclick={(e) => e.target === e.currentTarget && onclose()}
 >
 	<div
+		bind:this={frame}
 		class="frame"
 		class:actual={actualSize}
 		role="presentation"
@@ -41,7 +58,7 @@
 			type="button"
 			class="image"
 			title={actualSize ? m.photo_viewer_fit() : m.photo_viewer_actual()}
-			onclick={() => (actualSize = !actualSize)}
+			onclick={toggle}
 		>
 			<img {src} {alt} onload={() => (loaded = true)} />
 		</button>
@@ -73,30 +90,28 @@
 		width: 100%;
 		height: 100%;
 		display: flex;
-		align-items: center;
-		justify-content: center;
-	}
-	.frame.actual {
-		display: block;
 		overflow: auto;
 	}
 	.image {
+		/* Centers a photo smaller than the screen; a bigger one scrolls from its edge. */
+		margin: auto;
 		padding: 0;
 		border: none;
 		background: none;
 		cursor: zoom-in;
+	}
+	.frame.actual .image {
+		cursor: zoom-out;
 	}
 	.frame:not(.actual) img {
 		display: block;
 		max-width: 100vw;
 		max-height: 100vh;
 	}
-	.frame.actual .image {
-		cursor: zoom-out;
-	}
 	.frame.actual img {
 		display: block;
 		max-width: none;
+		max-height: none;
 	}
 	.loading {
 		position: absolute;

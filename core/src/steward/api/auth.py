@@ -8,7 +8,14 @@ from uuid import UUID
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel, Field
 
-from steward.auth import sign_in, sign_out, verify_api_key
+from steward.auth import (
+    api_key_name,
+    extend_session,
+    password_login,
+    sign_in,
+    sign_out,
+    verify_api_key,
+)
 from steward.deps import (
     SESSION_COOKIE,
     CurrentAccount,
@@ -16,6 +23,7 @@ from steward.deps import (
     ImmichFactoryDep,
     SecretBoxDep,
     SettingsDep,
+    set_session_cookie,
 )
 from steward.models import Account
 
@@ -24,6 +32,11 @@ router = APIRouter(prefix="/auth")
 
 class LoginRequest(BaseModel):
     api_key: str = Field(min_length=1, max_length=200)
+
+
+class PasswordLoginRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=320)
+    password: str = Field(min_length=1, max_length=1000)
 
 
 class Me(BaseModel):
@@ -51,15 +64,35 @@ async def login(
         user = await verify_api_key(client)
     ttl = timedelta(days=settings.session_ttl_days)
     account, token = await sign_in(db, box, user, api_key, ttl)
-    response.set_cookie(
-        SESSION_COOKIE,
-        token,
-        max_age=int(ttl.total_seconds()),
-        httponly=True,
-        samesite="strict",
-        secure=settings.cookie_secure,
-        path="/",
-    )
+    set_session_cookie(response, token, settings)
+    return Me.of(account)
+
+
+@router.post("/login/password")
+async def login_with_password(
+    body: PasswordLoginRequest,
+    response: Response,
+    settings: SettingsDep,
+    db: DbDep,
+    box: SecretBoxDep,
+    immich_factory: ImmichFactoryDep,
+) -> Me:
+    """Signs in with the Immich email and password; the app keeps an API key, not the password."""
+    url = settings.immich_url
+    assert url is not None and settings.secret_key is not None  # guaranteed by SecretBoxDep
+    async with immich_factory(url, None) as client:
+        user, api_key = await password_login(
+            db,
+            box,
+            client,
+            lambda key: immich_factory(url, key),
+            body.email.strip(),
+            body.password,
+            api_key_name(settings.secret_key.get_secret_value()),
+        )
+    ttl = timedelta(days=settings.session_ttl_days)
+    account, token = await sign_in(db, box, user, api_key, ttl)
+    set_session_cookie(response, token, settings)
     return Me.of(account)
 
 
@@ -75,5 +108,15 @@ async def logout(
 
 
 @router.get("/me")
-async def me(account: CurrentAccount) -> Me:
+async def me(
+    account: CurrentAccount,
+    response: Response,
+    settings: SettingsDep,
+    db: DbDep,
+    token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
+) -> Me:
+    """The UI asks this on every start, which also keeps the session alive."""
+    assert token is not None  # guaranteed by CurrentAccount
+    if await extend_session(db, token, timedelta(days=settings.session_ttl_days)):
+        set_session_cookie(response, token, settings)
     return Me.of(account)

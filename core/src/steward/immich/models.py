@@ -34,6 +34,18 @@ class ImmichUser(ImmichModel):
     is_admin: bool = False
 
 
+class LoginResult(ImmichModel):
+    """A short-lived Immich session; the app only uses it to manage API keys."""
+
+    access_token: str
+    user_id: UUID
+
+
+class ApiKey(ImmichModel):
+    id: UUID
+    name: str
+
+
 class ExifInfo(ImmichModel):
     date_time_original: datetime | None = None
     time_zone: str | None = None

@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Cookie, Depends, Request
+from fastapi import Cookie, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,6 +57,18 @@ async def get_current_account(
     if account is None:
         raise ApiError(401, "not_authenticated")
     return account
+
+
+def set_session_cookie(response: Response, token: str, settings: Settings) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=settings.session_ttl_days * 86400,
+        httponly=True,
+        samesite="strict",
+        secure=settings.cookie_secure,
+        path="/",
+    )
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings)]

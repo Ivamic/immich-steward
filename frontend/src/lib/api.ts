@@ -247,5 +247,7 @@ export const startSync = (full: boolean | null = null) =>
 	request<Job>('POST', '/api/library/sync', { full });
 export const login = (apiKey: string) =>
 	request<Me>('POST', '/api/auth/login', { api_key: apiKey });
+export const loginWithPassword = (email: string, password: string) =>
+	request<Me>('POST', '/api/auth/login/password', { email, password });
 export const logout = () => request<void>('POST', '/api/auth/logout');
 export const getMe = () => request<Me>('GET', '/api/auth/me');

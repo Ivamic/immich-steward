@@ -21,11 +21,10 @@
 	"status_pgvector_missing": "not installed",
 	"status_refresh": "Refresh",
 	"auth_heading": "Sign in",
-	"auth_intro": "Sign in with an API key of your Immich account. You will see and change only your own library.",
+	"auth_intro": "Sign in with your Immich account. You will see and change only your own library.",
 	"auth_api_key": "Immich API key",
 	"auth_sign_in": "Sign in",
 	"auth_sign_out": "Sign out",
-	"auth_help_summary": "How to get an API key",
 	"auth_help_steps": "In Immich, open Account Settings → API Keys → New API Key.",
 	"auth_help_permissions": "Grant these permissions:",
 	"auth_help_storage": "The key is stored encrypted on the server of this app and is never sent back to the browser.",
@@ -124,5 +123,13 @@
 	"photo_zoom": "Enlarge",
 	"photo_viewer_loading": "Loading…",
 	"photo_viewer_fit": "Fit to screen",
-	"photo_viewer_actual": "Actual size"
+	"photo_viewer_actual": "Actual size",
+	"auth_email": "Immich email",
+	"auth_password": "Password",
+	"auth_password_note": "The password is checked by Immich and is not stored. On the first sign-in the app creates its own API key in your Immich account (named “immich-steward …”) and keeps it encrypted on its server.",
+	"auth_key_summary": "Sign in with an API key instead",
+	"auth_key_intro": "For example, if you sign in to Immich through OAuth and have no password.",
+	"auth_help_optional_download": "optional: shows originals in full size",
+	"error_immich_invalid_credentials": "Immich did not accept this email and password.",
+	"error_immich_password_login_failed": "Immich refused password sign-in (it may be turned off on the server). Sign in with an API key instead."
 }

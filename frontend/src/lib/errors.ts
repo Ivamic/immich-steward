@@ -25,6 +25,10 @@ export function errorMessage(error: unknown): string {
 		}
 		case 'immich_unsupported_version':
 			return m.error_immich_unsupported_version({ version: String(p.version ?? '?') });
+		case 'immich_invalid_credentials':
+			return m.error_immich_invalid_credentials();
+		case 'immich_password_login_failed':
+			return m.error_immich_password_login_failed();
 		case 'immich_error':
 			return m.error_immich_error();
 		case 'location_null_island':

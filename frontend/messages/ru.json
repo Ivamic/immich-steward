@@ -21,11 +21,10 @@
 	"status_pgvector_missing": "не установлено",
 	"status_refresh": "Обновить",
 	"auth_heading": "Вход",
-	"auth_intro": "Войдите с API-ключом своей учётной записи Immich. Вы будете видеть и менять только свою библиотеку.",
+	"auth_intro": "Войдите с учётной записью Immich. Вы будете видеть и менять только свою библиотеку.",
 	"auth_api_key": "API-ключ Immich",
 	"auth_sign_in": "Войти",
 	"auth_sign_out": "Выйти",
-	"auth_help_summary": "Как получить API-ключ",
 	"auth_help_steps": "В Immich откройте Account Settings → API Keys → New API Key.",
 	"auth_help_permissions": "Выдайте ключу права:",
 	"auth_help_storage": "Ключ хранится в зашифрованном виде на сервере приложения и никогда не возвращается в браузер.",
@@ -124,5 +123,13 @@
 	"photo_zoom": "Увеличить",
 	"photo_viewer_loading": "Загрузка…",
 	"photo_viewer_fit": "Вписать в экран",
-	"photo_viewer_actual": "Реальный размер"
+	"photo_viewer_actual": "Реальный размер",
+	"auth_email": "Email в Immich",
+	"auth_password": "Пароль",
+	"auth_password_note": "Пароль проверяет Immich, приложение его не хранит. При первом входе приложение создаёт в вашей учётной записи Immich свой API-ключ (с именем «immich-steward …») и хранит его в зашифрованном виде на своём сервере.",
+	"auth_key_summary": "Войти с API-ключом",
+	"auth_key_intro": "Например, если вы входите в Immich через OAuth и пароля у вас нет.",
+	"auth_help_optional_download": "необязательно: показ оригиналов в полном размере",
+	"error_immich_invalid_credentials": "Immich не принял этот email и пароль.",
+	"error_immich_password_login_failed": "Immich отказал во входе по паролю (возможно, он выключен на сервере). Войдите с API-ключом."
 }

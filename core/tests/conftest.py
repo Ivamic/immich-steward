@@ -61,6 +61,12 @@ class FakeImmich:
     tags: dict[str, str] = field(default_factory=dict)
     asset_tags: dict[str, set[str]] = field(default_factory=dict)
     location_writes: int = 0
+    # Password sign-in: open sessions and API keys created through them (secret -> key).
+    email: str = "test@example.com"
+    password: str = "secret-password"
+    password_login_enabled: bool = True
+    sessions: set[str] = field(default_factory=set)
+    created_keys: dict[str, dict[str, Any]] = field(default_factory=dict)
     fail_tagging: bool = False
     # Immich's metadata job turns exactly (0, 0) into "no location".
     clears_null_island: bool = True
@@ -157,15 +163,60 @@ class FakeImmich:
             results.append({"id": asset_id, "success": ok} | ({} if ok else {"error": "duplicate"}))
         return _json(results)
 
+    def _login(self, body: dict[str, Any]) -> httpx2.Response:
+        if not self.password_login_enabled:
+            return _json({"message": "Password login has been disabled"}, 400)
+        if (body.get("email"), body.get("password")) != (self.email, self.password):
+            return _json({"message": "Incorrect email or password"}, 401)
+        token = str(uuid.uuid4())
+        self.sessions.add(token)
+        return _json({"accessToken": token, "userId": str(self.user_id), "name": self.user_name})
+
+    def _session_request(self, request: httpx2.Request, token: str) -> httpx2.Response:
+        if token not in self.sessions:
+            return _json({"message": "Invalid user token"}, 401)
+        path, method = request.url.path, request.method
+        if path == "/api/auth/logout":
+            self.sessions.discard(token)
+            return _json({"successful": True})
+        if path == "/api/api-keys" and method == "GET":
+            return _json([{"id": k["id"], "name": k["name"]} for k in self.created_keys.values()])
+        if path == "/api/api-keys" and method == "POST":
+            body = json.loads(request.content)
+            secret = f"created-{len(self.created_keys)}-{uuid.uuid4()}"
+            key = {
+                "id": str(uuid.uuid4()),
+                "name": body["name"],
+                "permissions": body["permissions"],
+            }
+            self.created_keys[secret] = key
+            return _json({"secret": secret, "apiKey": key} | key)
+        if path.startswith("/api/api-keys/") and method == "DELETE":
+            key_id = path.rsplit("/", 1)[1]
+            self.created_keys = {s: k for s, k in self.created_keys.items() if k["id"] != key_id}
+            return httpx2.Response(204)
+        return _json({"message": "Not found"}, 404)
+
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         path = request.url.path
         if path == "/api/server/version":
             major, minor, patch = self.version
             return _json({"major": major, "minor": minor, "patch": patch})
-        if request.headers.get("x-api-key") != self.valid_key:
+        if path == "/api/auth/login":
+            return self._login(json.loads(request.content))
+        bearer = request.headers.get("authorization", "")
+        if bearer.startswith("Bearer "):
+            return self._session_request(request, bearer.removeprefix("Bearer "))
+        key = request.headers.get("x-api-key")
+        if key != self.valid_key and key not in self.created_keys:
             return _json({"message": "Invalid API key"}, 401)
         if path == "/api/api-keys/me":
-            return _json({"id": str(uuid.uuid4()), "name": "k", "permissions": self.permissions})
+            permissions = (
+                self.created_keys[key]["permissions"]
+                if key in self.created_keys
+                else self.permissions
+            )
+            return _json({"id": str(uuid.uuid4()), "name": "k", "permissions": permissions})
         if path == "/api/users/me":
             if "user.read" not in self.permissions and "all" not in self.permissions:
                 return _json({"message": "Missing required permission: user.read"}, 403)

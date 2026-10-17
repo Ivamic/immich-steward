@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     # Encrypts stored Immich API keys. Changing it invalidates all stored keys.
     secret_key: SecretStr | None = Field(default=None, min_length=MIN_SECRET_KEY_LENGTH)
 
-    session_ttl_days: int = 30
+    # Sessions are extended on use, so only this long without opening the app signs a user out.
+    session_ttl_days: int = 90
 
     # Background jobs run inside the core process; tests switch this off.
     run_jobs: bool = True

@@ -1,18 +1,21 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-  Photo card. Wide column: the map with everything for picking a new location and the actions.
-  Narrow column: reference information as it is now (photo, details, current location, history).
+  Photo card. Wide column: the map with everything for picking a new location, the actions and
+  the module suggestions. Narrow column: reference information as it is now (photo, details, current location, history).
 -->
 <script lang="ts">
 	import {
 		getAsset,
 		getMapConfig,
+		getSuggestions,
 		setReview,
 		thumbnailUrl,
 		undoLocation,
 		type AssetDetail,
+		type Candidate,
 		type GalleryFilter,
 		type MapConfig,
+		type ModuleSuggestions,
 		type ReviewStatus
 	} from '#lib/api.js';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
@@ -24,6 +27,9 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { saves } from '#lib/saves.svelte.js';
+	import { cameraFilter } from '#lib/suggestions/cameraFilter.svelte.js';
+	import { numberCandidates } from '#lib/suggestions/format.js';
+	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -42,6 +48,8 @@
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let viewerOpen = $state(false);
+	let suggestions = $state<ModuleSuggestions[]>([]);
+	let suggestionsLoading = $state(false);
 
 	const current = $derived<LatLon | null>(
 		asset?.latitude != null && asset.longitude != null
@@ -61,6 +69,7 @@
 	const camera = $derived(
 		[asset?.camera_make, asset?.camera_model].filter(Boolean).join(' ') || m.photo_no_camera()
 	);
+	const numbered = $derived(numberCandidates(suggestions));
 	const pending = $derived(asset ? saves.pendingFor(asset.id) : undefined);
 	const changedAt = new Intl.DateTimeFormat(getLocale(), {
 		dateStyle: 'medium',
@@ -86,20 +95,68 @@
 		}
 	});
 
+	// Cameras excluded or included again: recompute the suggestions of this photo.
+	$effect(() => {
+		void cameraFilter.excluded;
+		if (untrack(() => asset)) untrack(() => fetchSuggestions(id));
+	});
+
+	/** Back in this tab (e.g. after fixing a neighbor in another one): bring the data up to date. */
+	function onvisibilitychange() {
+		if (document.visibilityState !== 'visible' || !asset) return;
+		getAsset(id, filter)
+			.then((result) => (asset = result))
+			.catch((e) => (error = errorMessage(e)));
+		fetchSuggestions(id);
+	}
+
+	function fetchSuggestions(assetId: string): Promise<ModuleSuggestions[]> {
+		suggestionsLoading = true;
+		const found = getSuggestions(assetId, cameraFilter.excluded).then((result) => {
+			// The user may have moved on to another photo meanwhile.
+			if (assetId === id) suggestions = result;
+			return result;
+		});
+		found.catch((e) => (error = errorMessage(e))).finally(() => (suggestionsLoading = false));
+		return found;
+	}
+
 	function load(assetId: string, currentFilter: GalleryFilter) {
 		error = null;
 		picked = null;
 		coordinatesText = '';
 		coordinatesInvalid = false;
-		getAsset(assetId, currentFilter)
-			.then((result) => {
-				asset = result;
-				// Without a location the map stays where it was: neighbors are usually close.
-				if (result.latitude != null && result.longitude != null) {
-					mapView?.flyTo({ lat: result.latitude, lon: result.longitude });
+		suggestions = [];
+		const located = getAsset(assetId, currentFilter).then((result) => {
+			asset = result;
+			return result.latitude != null && result.longitude != null
+				? { lat: result.latitude, lon: result.longitude }
+				: null;
+		});
+		const suggested = fetchSuggestions(assetId);
+		located
+			.then(async (point) => {
+				if (point) {
+					mapView?.flyTo(point);
+					return;
 				}
+				// No location yet: show the suggestions and the photos around them; without any,
+				// the map stays where it was (neighbors are usually close).
+				const found = await suggested;
+				if (assetId === id) mapView?.fitTo(suggestionPoints(found));
 			})
 			.catch((e) => (error = errorMessage(e)));
+	}
+
+	function suggestionPoints(modules: ModuleSuggestions[]): LatLon[] {
+		return modules.flatMap((module) => [
+			...module.candidates.map((c) => ({ lat: c.latitude, lon: c.longitude })),
+			...module.track.filter((p) => p.role).map((p) => ({ lat: p.latitude, lon: p.longitude }))
+		]);
+	}
+
+	function choose(candidate: Candidate) {
+		pick({ lat: candidate.latitude, lon: candidate.longitude });
 	}
 
 	function pick(point: LatLon) {
@@ -184,6 +241,12 @@
 			z: () => (viewerOpen = true)
 		};
 		const key = event.key.toLowerCase();
+		const suggestion = numbered.find((item) => String(item.key) === key);
+		if (suggestion) {
+			event.preventDefault();
+			choose(suggestion.candidate);
+			return;
+		}
 		// Enter on a focused button or link belongs to that control.
 		if (key === 'enter' && (event.target as HTMLElement).closest('button, a')) return;
 		const action = actions[key];
@@ -195,6 +258,7 @@
 </script>
 
 <svelte:window {onkeydown} />
+<svelte:document {onvisibilitychange} />
 
 <nav class="toolbar">
 	<a href={resolve(`/${query}`)}>← {m.photo_back()}</a>
@@ -220,6 +284,7 @@
 					styleUrl={mapConfig.style_url}
 					{current}
 					{picked}
+					{suggestions}
 					onpick={pick}
 				/>
 			{/if}
@@ -284,6 +349,8 @@
 			</div>
 			<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
 		{/if}
+
+		<SuggestionList modules={suggestions} loading={suggestionsLoading} onchoose={choose} />
 	</section>
 
 	<aside class="info">

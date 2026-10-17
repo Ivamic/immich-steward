@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # an empty value disables address search.
     geocoder_url: str = "https://photon.komoot.io"
 
+    # M1 "time neighbors": located photos up to this many hours before or after count.
+    time_neighbors_window_hours: float = Field(default=3.0, gt=0, le=48)
+
     # Immich tag for coordinates written by the app (they are not from the camera GPS);
     # "a/b" is a nested tag. An empty value disables tagging.
     estimated_tag: str = "steward/estimated"

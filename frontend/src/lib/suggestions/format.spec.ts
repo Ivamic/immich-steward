@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { describe, expect, it } from 'vitest';
+import type { Candidate, ModuleSuggestions } from '#lib/api.js';
+import { formatDelta, formatDistance, formatDuration, numberCandidates } from './format.js';
+
+const candidate = (rank: number): Candidate => ({
+	rank,
+	latitude: 0,
+	longitude: 0,
+	score: 1,
+	radius_m: null,
+	kind: 'before',
+	evidence: {}
+});
+
+const module = (id: string, count: number): ModuleSuggestions => ({
+	module: id,
+	version: '1',
+	color: '#000',
+	shape: 'circle',
+	candidates: Array.from({ length: count }, (_, i) => candidate(i + 1)),
+	track: [],
+	cameras: [],
+	note: null
+});
+
+describe('suggestion formatting', () => {
+	it('formats durations and deltas', () => {
+		expect(formatDuration(45)).toBe('45 s');
+		expect(formatDuration(-720)).toBe('12 min');
+		expect(formatDuration(7500)).toBe('2 h 5 min');
+		expect(formatDuration(-10_800)).toBe('3 h');
+		expect(formatDelta(-240)).toBe('−4 min');
+		expect(formatDelta(420)).toBe('+7 min');
+	});
+
+	it('formats distances', () => {
+		expect(formatDistance(654)).toBe('650 m');
+		expect(formatDistance(2345)).toBe('2.3 km');
+		expect(formatDistance(20_000)).toBe('20 km');
+	});
+
+	it('gives keys 1–9 to the first nine candidates across modules', () => {
+		const numbered = numberCandidates([module('a', 5), module('b', 6)]);
+		expect(numbered.map((item) => item.key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, null, null]);
+		expect(numbered[5].module.module).toBe('b');
+		expect(numbered[5].candidate.rank).toBe(1);
+	});
+});

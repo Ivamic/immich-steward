@@ -210,6 +210,64 @@ export interface Place {
 	kind: string | null;
 }
 
+export interface NeighborEvidence {
+	asset_id: string;
+	file_name: string;
+	/** Seconds from the photo; negative means before it. */
+	delta_s: number;
+	same_camera: boolean;
+	/** The neighbor's location was written by this app, not recorded by a camera. */
+	estimated: boolean;
+}
+
+export interface Candidate {
+	/** 1-based rank within the module. */
+	rank: number;
+	latitude: number;
+	longitude: number;
+	/** 0..1, comparable only within one module. */
+	score: number;
+	radius_m: number | null;
+	kind: string;
+	evidence: { neighbors?: NeighborEvidence[]; share?: number } & Record<string, unknown>;
+}
+
+export interface TrackPoint extends NeighborEvidence {
+	latitude: number;
+	longitude: number;
+	local_taken_at: string;
+	/** Camera as shown to the user ("" when unknown). */
+	camera: string;
+	role: 'before' | 'after' | null;
+}
+
+export interface CameraCount {
+	/** Camera filter value (make + separator + model). */
+	value: string;
+	label: string;
+	count: number;
+	same_camera: boolean;
+	excluded: boolean;
+}
+
+export interface ModuleSuggestions {
+	module: string;
+	version: string;
+	color: string;
+	shape: string;
+	candidates: Candidate[];
+	track: TrackPoint[];
+	/** Cameras of the photos the module looked at; the user may exclude some. */
+	cameras: CameraCount[];
+	/** Why there are no candidates (e.g. "scanner"). */
+	note: string | null;
+}
+
+export function getSuggestions(id: string, excludeCameras: string[] = []) {
+	const params = new URLSearchParams(excludeCameras.map((value) => ['exclude_camera', value]));
+	const query = params.size ? `?${params}` : '';
+	return request<ModuleSuggestions[]>('GET', `/api/assets/${id}/suggestions${query}`);
+}
 export const getAsset = (id: string, filter: GalleryFilter) =>
 	request<AssetDetail>('GET', `/api/assets/${id}${filterQuery(filter)}`);
 export const setReview = (id: string, status: ReviewStatus, filter: GalleryFilter) =>

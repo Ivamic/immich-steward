@@ -22,6 +22,7 @@ services:
       STEWARD_MAP_STYLE_URL: "${STEWARD_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}"
       STEWARD_GEOCODER_URL: "${STEWARD_GEOCODER_URL-https://photon.komoot.io}"
       STEWARD_ESTIMATED_TAG: "${STEWARD_ESTIMATED_TAG-steward/estimated}"
+      STEWARD_TIME_NEIGHBORS_WINDOW_HOURS: "${STEWARD_TIME_NEIGHBORS_WINDOW_HOURS:-3}"
     depends_on:
       db:
         condition: service_healthy

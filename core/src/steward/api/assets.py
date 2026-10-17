@@ -4,7 +4,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -39,6 +39,7 @@ from steward.immich import (
 )
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
 from steward.models import Account, Album, Asset, AssetAlbum, LocationChange
+from steward.modules import MODULES, ModuleContext
 
 router = APIRouter(prefix="/assets")
 
@@ -157,6 +158,48 @@ class LocationUpdate(BaseModel):
     longitude: float = Field(ge=-180, le=180)
 
 
+class CandidateItem(BaseModel):
+    rank: int  # 1-based, within the module
+    latitude: float
+    longitude: float
+    score: float
+    radius_m: float | None
+    kind: str
+    evidence: dict[str, Any]
+
+
+class TrackPointItem(BaseModel):
+    asset_id: UUID
+    latitude: float
+    longitude: float
+    local_taken_at: datetime
+    delta_s: float
+    file_name: str
+    camera: str
+    same_camera: bool
+    estimated: bool
+    role: Literal["before", "after"] | None
+
+
+class CameraCountItem(BaseModel):
+    value: str
+    label: str
+    count: int
+    same_camera: bool
+    excluded: bool
+
+
+class ModuleSuggestions(BaseModel):
+    module: str
+    version: str
+    color: str
+    shape: str
+    candidates: list[CandidateItem]
+    track: list[TrackPointItem]
+    cameras: list[CameraCountItem]
+    note: str | None
+
+
 class CameraOption(BaseModel):
     value: str
     make: str
@@ -262,6 +305,44 @@ async def set_review(
     asset.review_status = body.status
     await db.commit()
     return await _detail(db, account, asset, filters)
+
+
+@router.get("/{asset_id}/suggestions")
+async def suggestions(
+    asset_id: UUID,
+    account: CurrentAccount,
+    db: DbDep,
+    settings: SettingsDep,
+    exclude_camera: Annotated[list[str] | None, Query()] = None,
+) -> list[ModuleSuggestions]:
+    """Candidate locations from the modules that run in the core, computed on request."""
+    asset = await _own_asset(db, account, asset_id)
+    ctx = ModuleContext(
+        db=db,
+        account=account,
+        asset=asset,
+        settings=settings,
+        exclude_cameras=frozenset(exclude_camera or ()),
+    )
+    result = []
+    for module in MODULES:
+        found = await module.run(ctx)
+        result.append(
+            ModuleSuggestions(
+                module=module.id,
+                version=module.version,
+                color=module.color,
+                shape=module.shape,
+                candidates=[
+                    CandidateItem(rank=rank, **vars(candidate))
+                    for rank, candidate in enumerate(found.candidates, start=1)
+                ],
+                track=[TrackPointItem(**vars(point)) for point in found.track],
+                cameras=[CameraCountItem(**vars(camera)) for camera in found.cameras],
+                note=found.note,
+            )
+        )
+    return result
 
 
 @asynccontextmanager

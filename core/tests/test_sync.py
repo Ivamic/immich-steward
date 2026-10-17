@@ -1,33 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import uuid
-from typing import Any
 
-import pytest
-from conftest import FakeImmich
+from conftest import FakeImmich, sync
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from steward.models import Asset
-
-
-@pytest.fixture
-def signed_in(client: TestClient) -> TestClient:
-    assert client.post("/api/auth/login", json={"api_key": "valid-key"}).status_code == 200
-    return client
-
-
-def run_jobs(client: TestClient) -> None:
-    runner = client.app.state.job_runner  # type: ignore[attr-defined]
-    while client.portal.call(runner.run_once):  # type: ignore[union-attr]
-        pass
-
-
-def sync(client: TestClient, full: bool | None = None) -> dict[str, Any]:
-    job = client.post("/api/library/sync", json={"full": full})
-    assert job.status_code == 202
-    run_jobs(client)
-    library: dict[str, Any] = client.get("/api/library").json()
-    return library
 
 
 def local_assets(client: TestClient) -> list[Asset]:

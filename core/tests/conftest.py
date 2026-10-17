@@ -56,6 +56,7 @@ class FakeImmich:
     albums: dict[str, dict[str, Any]] = field(default_factory=dict)
     album_assets: dict[str, list[str]] = field(default_factory=dict)
     search_requests: list[dict[str, Any]] = field(default_factory=list)
+    thumbnail_requests: int = 0
 
     def add_asset(self, **fields: Any) -> str:
         """Adds an asset in the Immich API shape; returns its id."""
@@ -123,6 +124,17 @@ class FakeImmich:
             return _json(
                 {"id": str(self.user_id), "name": self.user_name, "email": "test@example.com"}
             )
+        if path.startswith("/api/assets/") and path.endswith("/thumbnail"):
+            asset_id = path.split("/")[3]
+            if asset_id not in self.assets:
+                return _json({"message": "Not found"}, 400)
+            self.thumbnail_requests += 1
+            size = request.url.params.get("size")
+            return httpx2.Response(
+                200,
+                content=f"image:{asset_id}:{size}".encode(),
+                headers={"content-type": "image/webp"},
+            )
         if path == "/api/search/metadata":
             return self._search(json.loads(request.content))
         if path == "/api/albums":
@@ -130,8 +142,12 @@ class FakeImmich:
             return _json([a for a in self.albums.values() if a["shared"] == shared])
         return _json({"message": "Not found"}, 404)
 
+    @property
+    def transport(self) -> httpx2.MockTransport:
+        return httpx2.MockTransport(self.handler)
+
     def factory(self, base_url: str, api_key: str | None) -> ImmichClient:
-        return ImmichClient(base_url, api_key, transport=httpx2.MockTransport(self.handler))
+        return ImmichClient(base_url, api_key, transport=self.transport)
 
 
 def _json(body: Any, status: int = 200) -> httpx2.Response:
@@ -173,5 +189,26 @@ def database(migrated_database: str) -> str:
 @pytest.fixture
 def client(database: str, fake_immich: FakeImmich) -> Iterator[TestClient]:
     settings = make_settings(database_url=database, immich_url=FAKE_IMMICH_URL, secret_key="s" * 32)
-    with TestClient(create_app(settings, fake_immich.factory)) as test_client:
+    app = create_app(settings, fake_immich.factory, fake_immich.transport)
+    with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def signed_in(client: TestClient) -> TestClient:
+    assert client.post("/api/auth/login", json={"api_key": "valid-key"}).status_code == 200
+    return client
+
+
+def run_jobs(client: TestClient) -> None:
+    runner = client.app.state.job_runner  # type: ignore[attr-defined]
+    while client.portal.call(runner.run_once):  # type: ignore[union-attr]
+        pass
+
+
+def sync(client: TestClient, full: bool | None = None) -> dict[str, Any]:
+    job = client.post("/api/library/sync", json={"full": full})
+    assert job.status_code == 202
+    run_jobs(client)
+    library: dict[str, Any] = client.get("/api/library").json()
+    return library

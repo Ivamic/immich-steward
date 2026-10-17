@@ -48,9 +48,23 @@
 </svelte:head>
 
 <header>
-	<div>
+	<div class="brand">
 		<strong>{m.app_title()}</strong>
-		<span class="tagline">{m.app_tagline()}</span>
+		{#if session.user}
+			<nav>
+				<a href={resolve('/')} aria-current={page.route.id === '/' ? 'page' : undefined}>
+					{m.nav_gallery()}
+				</a>
+				<a
+					href={resolve('/library')}
+					aria-current={page.route.id === '/library' ? 'page' : undefined}
+				>
+					{m.nav_library()}
+				</a>
+			</nav>
+		{:else}
+			<span class="tagline">{m.app_tagline()}</span>
+		{/if}
 	</div>
 	<div class="actions">
 		{#if session.user}
@@ -61,7 +75,7 @@
 	</div>
 </header>
 
-<main>
+<main class:wide={page.route.id === '/'}>
 	{#if session.checked}
 		{@render children()}
 	{/if}
@@ -97,9 +111,31 @@
 		align-items: center;
 		gap: 1rem;
 	}
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+	}
+	nav {
+		display: flex;
+		gap: 1rem;
+	}
+	nav a {
+		color: inherit;
+		text-decoration: none;
+		opacity: 0.75;
+	}
+	nav a[aria-current='page'] {
+		opacity: 1;
+		font-weight: 600;
+		text-decoration: underline;
+	}
 	main {
 		max-width: 48rem;
 		margin: 0 auto;
 		padding: 1.5rem;
+	}
+	main.wide {
+		max-width: none;
 	}
 </style>

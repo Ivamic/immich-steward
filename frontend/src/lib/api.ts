@@ -85,6 +85,59 @@ export interface Library {
 export const isActive = (job: Job | null) =>
 	job !== null && (job.status === 'queued' || job.status === 'running');
 
+export interface GalleryFilter {
+	location: 'all' | 'without' | 'with';
+	type: 'all' | 'image' | 'video';
+	camera: string | null;
+	album: string | null;
+	date_from: string | null;
+	date_to: string | null;
+	archived: boolean;
+}
+
+export interface MonthBucket {
+	month: string; // YYYY-MM
+	count: number;
+}
+
+export interface AssetItem {
+	id: string;
+	local_taken_at: string;
+	type: 'IMAGE' | 'VIDEO' | string;
+	file_name: string;
+	has_location: boolean;
+	width: number | null;
+	height: number | null;
+}
+
+export interface FilterOptions {
+	cameras: { value: string; make: string; model: string; count: number }[];
+	albums: { id: string; name: string; count: number }[];
+}
+
+/** Query string for the gallery filter; default values are left out. */
+export function filterQuery(filter: GalleryFilter, extra: Record<string, string> = {}): string {
+	const params = new URLSearchParams(extra);
+	if (filter.location !== 'all') params.set('location', filter.location);
+	if (filter.type !== 'all') params.set('type', filter.type);
+	if (filter.camera !== null) params.set('camera', filter.camera);
+	if (filter.album) params.set('album', filter.album);
+	if (filter.date_from) params.set('date_from', filter.date_from);
+	if (filter.date_to) params.set('date_to', filter.date_to);
+	if (filter.archived) params.set('archived', 'true');
+	const query = params.toString();
+	return query ? `?${query}` : '';
+}
+
+export const thumbnailUrl = (id: string, size: 'thumbnail' | 'preview' = 'thumbnail') =>
+	`/api/assets/${id}/thumbnail?size=${size}`;
+
+export const getMonths = (filter: GalleryFilter) =>
+	request<MonthBucket[]>('GET', `/api/assets/months${filterQuery(filter)}`);
+export const getMonthAssets = (month: string, filter: GalleryFilter) =>
+	request<AssetItem[]>('GET', `/api/assets${filterQuery(filter, { month })}`);
+export const getFilterOptions = () => request<FilterOptions>('GET', '/api/assets/filter-options');
+
 export const getHealth = () => request<Health>('GET', '/api/health');
 export const getLibrary = () => request<Library>('GET', '/api/library');
 export const startSync = (full: boolean | null = null) =>

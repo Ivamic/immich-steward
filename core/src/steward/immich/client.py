@@ -51,7 +51,7 @@ class ImmichClient:
     ) -> None:
         headers = {"x-api-key": api_key} if api_key else {}
         self._http = httpx2.AsyncClient(
-            base_url=base_url.rstrip("/") + "/api",
+            base_url=api_base_url(base_url),
             headers=headers,
             timeout=timeout,
             transport=transport,
@@ -125,13 +125,21 @@ class ImmichClient:
             response = await self._http.request(method, path, **kwargs)
         except httpx2.HTTPError as exc:
             raise ImmichUnreachableError(f"{method} {path}: {type(exc).__name__}") from exc
-        if response.status_code == 401:
-            raise ImmichAuthError(f"{method} {path}: API key rejected")
-        if response.status_code == 403:
-            raise ImmichPermissionError(f"{method} {path}: {_message(response)}")
-        if response.is_error:
-            raise ImmichError(f"{method} {path}: HTTP {response.status_code} {_message(response)}")
+        raise_for_status(response, f"{method} {path}")
         return response.json()
+
+
+def api_base_url(server_url: str) -> str:
+    return server_url.rstrip("/") + "/api"
+
+
+def raise_for_status(response: httpx2.Response, what: str) -> None:
+    if response.status_code == 401:
+        raise ImmichAuthError(f"{what}: API key rejected")
+    if response.status_code == 403:
+        raise ImmichPermissionError(f"{what}: {_message(response)}")
+    if response.is_error:
+        raise ImmichError(f"{what}: HTTP {response.status_code} {_message(response)}")
 
 
 def _message(response: httpx2.Response) -> str:

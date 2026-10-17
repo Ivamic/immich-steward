@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Queries behind the gallery: filters, month buckets, assets of a month, filter options."""
+
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from typing import Any, Literal
+from uuid import UUID
+
+from sqlalchemy import ColumnElement, Select, and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from steward.models import Account, Album, Asset, AssetAlbum
+
+LocationFilter = Literal["all", "without", "with"]
+TypeFilter = Literal["all", "image", "video"]
+
+# Separates make and model in the camera filter value.
+CAMERA_SEPARATOR = "\x1f"
+
+
+@dataclass(frozen=True)
+class GalleryFilter:
+    location: LocationFilter = "all"
+    type: TypeFilter = "all"
+    # make + CAMERA_SEPARATOR + model, as returned by camera_options(); "" means unknown camera.
+    camera: str | None = None
+    album_id: UUID | None = None
+    date_from: date | None = None
+    date_to: date | None = None
+    include_archived: bool = False
+
+    def conditions(self, account: Account) -> list[ColumnElement[bool]]:
+        result: list[ColumnElement[bool]] = [
+            Asset.account_id == account.id,
+            Asset.is_trashed.is_(False),
+        ]
+        if not self.include_archived:
+            result.append(Asset.visibility == "timeline")
+        if self.location == "without":
+            result.append(Asset.latitude.is_(None))
+        elif self.location == "with":
+            result.append(Asset.latitude.is_not(None))
+        if self.type != "all":
+            result.append(Asset.type == self.type.upper())
+        if self.camera is not None:
+            make, _, model = self.camera.partition(CAMERA_SEPARATOR)
+            result.append(func.coalesce(Asset.camera_make, "") == make)
+            result.append(func.coalesce(Asset.camera_model, "") == model)
+        if self.album_id is not None:
+            result.append(
+                Asset.id.in_(
+                    select(AssetAlbum.asset_id).where(AssetAlbum.album_id == self.album_id)
+                )
+            )
+        if self.date_from is not None:
+            result.append(
+                Asset.local_taken_at >= datetime.combine(self.date_from, datetime.min.time())
+            )
+        if self.date_to is not None:
+            end = datetime.combine(self.date_to + timedelta(days=1), datetime.min.time())
+            result.append(Asset.local_taken_at < end)
+        return result
+
+
+def _month_start(month: date) -> datetime:
+    return datetime(month.year, month.month, 1)
+
+
+def _next_month(month: date) -> datetime:
+    return datetime(month.year + month.month // 12, month.month % 12 + 1, 1)
+
+
+async def month_buckets(
+    db: AsyncSession, account: Account, gallery_filter: GalleryFilter
+) -> list[tuple[date, int]]:
+    month = func.date_trunc("month", Asset.local_taken_at).label("month")
+    rows = await db.execute(
+        select(month, func.count())
+        .where(*gallery_filter.conditions(account))
+        .group_by(month)
+        .order_by(month.desc())
+    )
+    return [(row[0].date(), row[1]) for row in rows]
+
+
+def month_assets_query(
+    account: Account, gallery_filter: GalleryFilter, month: date
+) -> Select[Asset]:
+    return (
+        select(Asset)
+        .where(
+            *gallery_filter.conditions(account),
+            and_(
+                Asset.local_taken_at >= _month_start(month),
+                Asset.local_taken_at < _next_month(month),
+            ),
+        )
+        .order_by(Asset.local_taken_at.desc(), Asset.original_file_name.desc())
+    )
+
+
+async def camera_options(db: AsyncSession, account: Account) -> list[dict[str, Any]]:
+    make = func.coalesce(Asset.camera_make, "")
+    model = func.coalesce(Asset.camera_model, "")
+    rows = await db.execute(
+        select(make, model, func.count())
+        .where(Asset.account_id == account.id, Asset.is_trashed.is_(False))
+        .group_by(make, model)
+        .order_by(func.count().desc())
+    )
+    return [
+        {
+            "value": f"{row[0]}{CAMERA_SEPARATOR}{row[1]}",
+            "make": row[0],
+            "model": row[1],
+            "count": row[2],
+        }
+        for row in rows
+    ]
+
+
+async def album_options(db: AsyncSession, account: Account) -> list[dict[str, Any]]:
+    rows = await db.execute(
+        select(Album.id, Album.name, func.count(AssetAlbum.asset_id))
+        .outerjoin(AssetAlbum, AssetAlbum.album_id == Album.id)
+        .where(Album.account_id == account.id)
+        .group_by(Album.id, Album.name)
+        .order_by(Album.name)
+    )
+    return [{"id": row[0], "name": row[1], "count": row[2]} for row in rows]

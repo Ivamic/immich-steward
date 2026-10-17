@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import httpx2
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from starlette.exceptions import HTTPException
@@ -15,12 +16,13 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from steward import __version__
-from steward.api import auth, health, library
+from steward.api import assets, auth, health, library
 from steward.config import Settings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
 from steward.errors import ApiError, api_error_handler
 from steward.immich import ImmichClient
+from steward.immich.thumbnails import ThumbnailFetcher
 from steward.jobs import JobRunner
 
 
@@ -42,13 +44,18 @@ class SPAStaticFiles(StaticFiles):
 def create_app(
     settings: Settings | None = None,
     immich_factory: ImmichClientFactory = ImmichClient,
+    immich_transport: httpx2.AsyncBaseTransport | None = None,
 ) -> FastAPI:
+    """`immich_factory` and `immich_transport` let tests replace the real Immich server."""
     settings = settings or get_settings()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.engine = create_engine(settings.database_url)
         app.state.sessionmaker = async_sessionmaker(app.state.engine, expire_on_commit=False)
+        app.state.thumbnails = (
+            ThumbnailFetcher(settings.immich_url, immich_transport) if settings.immich_url else None
+        )
         app.state.job_runner = JobRunner(app.state.sessionmaker, settings, immich_factory)
         stop = asyncio.Event()
         runner_task = (
@@ -63,6 +70,8 @@ def create_app(
             if runner_task is not None:
                 with contextlib.suppress(asyncio.CancelledError):
                     await runner_task
+            if app.state.thumbnails is not None:
+                await app.state.thumbnails.aclose()
             await app.state.engine.dispose()
 
     app = FastAPI(title="immich-steward", version=__version__, lifespan=lifespan)
@@ -72,6 +81,7 @@ def create_app(
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(library.router, prefix="/api")
+    app.include_router(assets.router, prefix="/api")
 
     static_dir = settings.static_dir
     if static_dir is not None and Path(static_dir, "index.html").is_file():

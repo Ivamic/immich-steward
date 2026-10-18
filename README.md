@@ -1,4 +1,23 @@
-# immich-steward
+<p align="center">
+  <img src="docs/images/logo.svg" width="96" height="96" alt="immich-steward logo">
+</p>
+
+<h1 align="center">immich-steward</h1>
+
+<p align="center">
+  Find out where your photos without GPS were taken — and write it back to <a href="https://immich.app">Immich</a> only when you say so.
+</p>
+
+<p align="center">
+  <a href="https://github.com/Ivamic/immich-steward/releases"><img src="https://img.shields.io/github/v/release/Ivamic/immich-steward?include_prereleases&sort=semver" alt="Release"></a>
+  <a href="https://github.com/Ivamic/immich-steward/actions/workflows/ci.yml"><img src="https://github.com/Ivamic/immich-steward/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Ivamic/immich-steward" alt="License: AGPL-3.0"></a>
+  <img src="https://img.shields.io/badge/self--hosted-Docker%20Compose-2496ED?logo=docker&logoColor=white" alt="Self-hosted with Docker Compose">
+</p>
+
+<p align="center">
+  <img src="docs/images/time-neighbors-route.png" alt="Photo view: the route between photos taken shortly before and after, with two suggested locations on the map">
+</p>
 
 > **Status: under active development.** An early version: reviewing photos without a location,
 > suggestions from photos taken close in time and GeoCLIP already work; the other modules are
@@ -39,6 +58,19 @@ Planned:
 - **External services** — optional cloud recognizers, one module per service.
 
 New modules can be added later as plugins.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP suggests the Bay of Kotor with 85% confidence"></td>
+    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Suggestions of two modules on one map: a time neighbor from another camera and a GeoCLIP area"></td>
+  </tr>
+  <tr>
+    <td>GeoCLIP recognizes the place from the image alone: a confident guess for a camera without GPS.</td>
+    <td>Several modules at once: a phone photo taken two hours later and the GeoCLIP area agree on the city.</td>
+  </tr>
+</table>
 
 ## Principles
 
@@ -137,6 +169,32 @@ docker compose up -d --build
 UI strings live in `frontend/messages/<locale>.json`; English (`en.json`) is the source.
 A new string must be added to every locale file at once — a test checks that all locales
 have the same keys and placeholders.
+
+## Feedback and contributing
+
+- **Bugs** — open an [issue](https://github.com/Ivamic/immich-steward/issues) with the versions
+  of immich-steward and Immich and the steps to reproduce.
+- **Ideas and questions** — start a thread in
+  [Discussions](https://github.com/Ivamic/immich-steward/discussions). Stories of how you use the
+  app and which photos it fails on are welcome too.
+- **Pull requests** are welcome. For anything bigger than a small fix, please discuss it in an
+  issue or a discussion first, so that your work fits the plans of the project.
+- **Security issues** — please report them privately, see [SECURITY.md](SECURITY.md).
+
+## Support the project
+
+immich-steward is free and developed in spare time. If it saved you hours of manual tagging,
+you can support its development with a donation in cryptocurrency. Starring the repository,
+reporting bugs and sharing the project help too.
+
+| Currency | Network | Address |
+|---|---|---|
+| USDT | TRON (TRC-20) | `TAqGEvmDTw2ro4BKQmcPPtqK5xEMfNaiSX` |
+| ETH, USDT and other tokens | Ethereum and EVM networks (Base, Polygon, Arbitrum…) | `0x783C192d69fE5E9DAfa1dC2c41FeE272122AE031` |
+| SOL | Solana | `38gidbL2ocv5c6CK7zP7c3QWVHisYyqhnrMV3tuaYpgp` |
+| BTC | Bitcoin | `bc1qsdys5hvx7vlxp25mz77hfgz2l35x8klc8z2npx` |
+
+Please double-check the network before sending: funds sent over a different network may be lost.
 
 ## License
 

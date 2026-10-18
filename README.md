@@ -92,13 +92,16 @@ immich-steward runs with Docker Compose next to your Immich server (Immich v3.x)
 git clone https://github.com/Ivamic/immich-steward.git
 cd immich-steward
 cp .env.example .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
-docker compose up -d --build
+docker compose up -d
 ```
+
+The images are pulled from GitHub Container Registry (`ghcr.io/ivamic/immich-steward-core`,
+`amd64` and `arm64`); add `--build` to build them from source instead.
 
 Then open `http://<your-server>:8780` and sign in with your Immich account.
 
 GeoCLIP runs in an optional worker container (about 1 GB of RAM, up to 3 GB at its peak):
-set `STEWARD_WORKER_TOKEN` in `.env` and start with `docker compose --profile worker up -d --build`.
+set `STEWARD_WORKER_TOKEN` in `.env` and start with `docker compose --profile worker up -d`.
 
 See [docs/install.md](docs/install.md) for the details: configuration, the GeoCLIP worker, Immich
 on the same machine, updating, backup and troubleshooting.
@@ -122,7 +125,7 @@ Repository layout:
 | `core/` | Core service: Python package `steward` (FastAPI), Alembic migrations, tests |
 | `worker/` | Worker: Python package `steward_worker` that runs ML location modules (GeoCLIP) |
 | `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
-| `docker/` | Dockerfiles of the core image (with the built web UI) and of the worker image (CPU) |
+| `docker/` | Dockerfiles of the core image (with the built web UI) and of the worker image (CPU); `.github/workflows/release.yml` publishes them for every version tag |
 | `compose.yaml` | Core service, PostgreSQL with pgvector, optional worker (profile `worker`) |
 | `docs/` | User documentation (installation) |
 

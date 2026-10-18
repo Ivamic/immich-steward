@@ -28,6 +28,7 @@ FROM python:${PYTHON_VERSION}-slim
 RUN useradd --system --uid 1000 --home-dir /app steward \
     && mkdir /models && chown steward /models
 COPY --from=build /app/venv /app/venv
+COPY LICENSE THIRD_PARTY_NOTICES.md /app/
 ENV PATH=/app/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     HF_HOME=/models \

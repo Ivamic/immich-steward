@@ -8,7 +8,8 @@ ARG UV_VERSION=0.13.1
 ARG PNPM_VERSION=12.10.1
 
 # --- Web UI -------------------------------------------------------------------
-FROM node:${NODE_VERSION}-slim AS frontend
+# Static files only, so it is built on the build machine's own platform (no emulation).
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-slim AS frontend
 ARG PNPM_VERSION
 RUN npm install --global pnpm@${PNPM_VERSION}
 WORKDIR /src/frontend
@@ -42,6 +43,7 @@ COPY core/alembic.ini /app/alembic.ini
 COPY core/migrations /app/migrations
 COPY --from=frontend /src/frontend/build /app/static
 COPY docker/core-entrypoint.sh /app/entrypoint.sh
+COPY LICENSE THIRD_PARTY_NOTICES.md /app/
 
 ENV PATH=/app/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \

@@ -6,19 +6,24 @@
 
 immich-steward runs as two Docker containers: the app itself (API and web UI) and a
 PostgreSQL database with pgvector, plus an optional third one, the
-[GeoCLIP worker](#geoclip-worker-optional). Ready-made images are not published yet, so the
-images are built from source on your server. It takes a few minutes the first time.
+[GeoCLIP worker](#geoclip-worker-optional). Ready-made images are published on GitHub
+Container Registry (`ghcr.io/ivamic/immich-steward-core` for `amd64` and `arm64`,
+`ghcr.io/ivamic/immich-steward-worker` for `amd64`); you can also
+[build them from source](#building-the-images-from-source).
 
 ## Requirements
 
 - A Linux machine with [Docker Engine](https://docs.docker.com/engine/install/) and the
   Compose plugin (`docker compose version` prints v2.x). Usually the same machine as Immich.
 - Immich **v3.x**, reachable from that machine over the network.
-- Internet access during the build (packages are downloaded) and in your browser (the map is
-  loaded from OpenFreeMap).
-- About 2 GB of free disk space for the build; the running app needs a few hundred MB of RAM.
+- Internet access to download the images and in your browser (the map is loaded from
+  OpenFreeMap).
+- About 1 GB of free disk space (another 3 GB for the GeoCLIP worker and its model); the
+  running app needs a few hundred MB of RAM.
 
 ## 1. Get the code
+
+The repository holds `compose.yaml` and the example settings that match the images:
 
 ```sh
 git clone https://github.com/Ivamic/immich-steward.git
@@ -43,11 +48,13 @@ Edit `.env` and set at least these values:
 The other settings are optional and explained in `.env.example`. The lines at the end under
 "Development only" are not used by Docker and can stay as they are.
 
-## 3. Build and start
+## 3. Start
 
 ```sh
-docker compose up -d --build
+docker compose up -d
 ```
+
+The images are downloaded on the first start.
 
 Check that both containers are running and the app is healthy:
 
@@ -98,10 +105,10 @@ To start it:
 
 1. Set a shared secret for the worker in `.env`, e.g. `STEWARD_WORKER_TOKEN=` followed by the
    output of `openssl rand -hex 32`.
-2. Build and start everything, including the worker:
+2. Start everything, including the worker:
 
    ```sh
-   docker compose --profile worker up -d --build
+   docker compose --profile worker up -d
    ```
 
 3. Open the **Library** page: the worker is listed under *Workers*, with the progress of the runs.
@@ -163,11 +170,29 @@ passes through the app when you sign in), and set `STEWARD_COOKIE_SECURE=true` i
 
 ```sh
 cd immich-steward
-git pull
+git pull                                    # compose.yaml now names the new version
+docker compose --profile worker pull        # without --profile worker if you don't use it
+docker compose --profile worker up -d
+```
+
+Old images can be removed afterwards with `docker image prune`. See the
+[changelog](../CHANGELOG.md) for what is new and whether `.env` needs new settings.
+
+To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.2.2`).
+
+## Building the images from source
+
+Instead of downloading the images, you can build them on your server (a few minutes, about
+2 GB of disk space during the build, internet access for the packages). Run the same commands
+with `--build`:
+
+```sh
 docker compose up -d --build                      # or: docker compose --profile worker up -d --build
 ```
 
-Old image layers can be removed afterwards with `docker image prune`.
+This is also the way to run the worker on `arm64` for now. The images built this way get the
+same names as the published ones; `docker compose pull` replaces them with the published images
+again.
 
 ## Backup
 
@@ -210,6 +235,10 @@ If this fails while Immich opens fine in your browser:
   `default-address-pools` in `/etc/docker/daemon.json`.
 - Docker Desktop (Windows, macOS) sometimes cannot reach devices of the local network; a Linux
   server is the intended setup.
+
+**`pull access denied for immich-steward-core`.** Your `compose.yaml` is from version 0.2.1 or
+older, which only built the images locally. Run `git pull` to get the current one, or build
+with `docker compose up -d --build`.
 
 **`core` is `unhealthy` or restarting.** See `docker compose logs core`. A missing
 `STEWARD_IMMICH_URL`, `STEWARD_SECRET_KEY` or `DB_PASSWORD` is reported when the containers

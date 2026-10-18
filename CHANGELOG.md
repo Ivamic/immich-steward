@@ -7,6 +7,23 @@ between releases.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-18
+
+### Added
+
+- Ready-made Docker images on GitHub Container Registry, published for every release:
+  `ghcr.io/ivamic/immich-steward-core` (`amd64`, `arm64`) and
+  `ghcr.io/ivamic/immich-steward-worker` (`amd64`). `docker compose up -d` downloads them, so
+  the images no longer have to be built on the server; `--build` still builds them from source.
+- `STEWARD_VERSION` in `.env` to stay on a particular release.
+- `THIRD_PARTY_NOTICES.md`: licenses of the software inside the images (also in `/app` of the
+  images).
+
+### Changed
+
+- Updating is now `git pull`, `docker compose pull` and `docker compose up -d`
+  ([docs/install.md](docs/install.md#updating)).
+
 ## [0.2.1] - 2026-10-18
 
 ### Changed
@@ -81,7 +98,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/Ivamic/immich-steward/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Ivamic/immich-steward/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Ivamic/immich-steward/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Ivamic/immich-steward/releases/tag/v0.1.0

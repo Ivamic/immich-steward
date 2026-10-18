@@ -7,6 +7,17 @@ between releases.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-18
+
+### Changed
+
+- The app has its own icon (a map pin with a picture) instead of the default Svelte logo.
+- README: screenshots, how to give feedback and contribute, how to support the project.
+
+### Added
+
+- Security policy (`SECURITY.md`) with private vulnerability reporting.
+
 ## [0.2.0] - 2026-10-18
 
 GeoCLIP suggests locations by the look of a photo, in a worker on the server or on another
@@ -70,6 +81,7 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/Ivamic/immich-steward/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Ivamic/immich-steward/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Ivamic/immich-steward/releases/tag/v0.1.0

@@ -168,10 +168,23 @@ passes through the app when you sign in), and set `STEWARD_COOKIE_SECURE=true` i
 
 ## Updating
 
+`git pull` gets the new `compose.yaml`, which names the new version of the images.
+
+Without the GeoCLIP worker:
+
 ```sh
 cd immich-steward
-git pull                                    # compose.yaml now names the new version
-docker compose --profile worker pull        # without --profile worker if you don't use it
+git pull
+docker compose pull
+docker compose up -d
+```
+
+With the GeoCLIP worker:
+
+```sh
+cd immich-steward
+git pull
+docker compose --profile worker pull
 docker compose --profile worker up -d
 ```
 
@@ -184,10 +197,18 @@ To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.2
 
 Instead of downloading the images, you can build them on your server (a few minutes, about
 2 GB of disk space during the build, internet access for the packages). Run the same commands
-with `--build`:
+with `--build`.
+
+Without the GeoCLIP worker:
 
 ```sh
-docker compose up -d --build                      # or: docker compose --profile worker up -d --build
+docker compose up -d --build
+```
+
+With the GeoCLIP worker:
+
+```sh
+docker compose --profile worker up -d --build
 ```
 
 This is also the way to run the worker on `arm64` for now. The images built this way get the

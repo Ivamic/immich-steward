@@ -26,6 +26,10 @@ between releases.
   Now it fails at once with the reason; when Immich does not answer at all, the photo waits in
   the queue without using up its attempts.
 - A worker reports a request the app refused instead of dropping the job silently.
+- Two workers with the same name on different computers shared one entry, and stopping one
+  showed the other as gone. Now the second one is refused while the first runs, with a clear
+  message in its log.
+- On Windows, a worker stopped with Ctrl+C now writes "stopped" to its log, as on Linux.
 
 ## [0.2.2] - 2026-10-18
 

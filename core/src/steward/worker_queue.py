@@ -296,13 +296,34 @@ async def rerun_failed(db: AsyncSession, account: Account, module_id: str, code:
 
 
 async def register(
-    db: AsyncSession, name: str, modules: list[str], device: str, version: str
+    db: AsyncSession,
+    name: str,
+    modules: list[str],
+    device: str,
+    version: str,
+    instance_id: UUID | None = None,
+    active_within: timedelta = timedelta(minutes=3),
 ) -> Worker:
-    worker = await db.scalar(select(Worker).where(Worker.name == name))
+    """Registers the worker under its name, reusing the row of an earlier start.
+
+    Refused while another running process (another computer, say) holds the name: both would
+    share one row, and stopping one would show the other as gone.
+    """
+    worker = await db.scalar(select(Worker).where(Worker.name == name).with_for_update())
     now = datetime.now(UTC)
     if worker is None:
         worker = Worker(name=name, registered_at=now)
         db.add(worker)
+    elif (
+        instance_id is not None
+        and worker.instance_id is not None
+        and worker.instance_id != instance_id
+        and worker.online
+        and worker.last_seen_at >= now - active_within
+    ):
+        await db.rollback()
+        raise ApiError(409, "worker_name_taken", name=name)
+    worker.instance_id = instance_id
     worker.modules = modules
     worker.device = device
     worker.version = version

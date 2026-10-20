@@ -8,7 +8,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from steward_worker.client import CoreClient, ImmichUnreachable
+from steward_worker.client import CoreClient, ImmichUnreachable, NameTaken
 from steward_worker.modules import Candidate, PermanentError
 from steward_worker.runner import Worker, WorkerConfig
 
@@ -29,6 +29,8 @@ class FakeCore:
     image_error: tuple[int, dict[str, Any]] | None = None
     result_error: tuple[int, dict[str, Any]] | None = None
     goodbyes: int = 0
+    name_taken: bool = False
+    instances: list[str] = field(default_factory=list)
 
     def add_job(self, module: str = "stub") -> str:
         job_id = str(uuid.uuid4())
@@ -43,7 +45,10 @@ class FakeCore:
             self.goodbyes += 1
             return httpx2.Response(204)
         if path == "/register":
+            if self.name_taken:
+                return httpx2.Response(409, json={"code": "worker_name_taken"})
             self.registrations += 1
+            self.instances.append(json.loads(request.content)["instance_id"])
             worker_id = str(uuid.uuid4())
             self.known_workers.add(worker_id)
             return httpx2.Response(200, json={"worker_id": worker_id, "lease_seconds": 30})
@@ -255,3 +260,20 @@ def test_system_busy_without_limit_or_with_a_high_one(value: float | None) -> No
     from steward_worker.load import system_busy
 
     assert system_busy(value) is False
+
+
+def test_the_same_process_keeps_its_instance_id() -> None:
+    core = FakeCore()
+    worker, _ = make_worker(core, StubModule())
+    asyncio.run(worker.run_once())
+    core.known_workers.clear()
+    asyncio.run(worker.run_once())  # registers again
+    asyncio.run(worker.run_once())
+    assert len(core.instances) == 2
+    assert core.instances[0] == core.instances[1]
+
+
+def test_taken_name_is_reported() -> None:
+    worker, _ = make_worker(FakeCore(name_taken=True), StubModule())
+    with pytest.raises(NameTaken):
+        asyncio.run(worker.run_once())

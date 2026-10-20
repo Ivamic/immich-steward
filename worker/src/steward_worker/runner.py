@@ -21,6 +21,7 @@ from steward_worker.client import (
     ImmichUnreachable,
     LeasedJob,
     LeaseLost,
+    NameTaken,
     WorkerUnknown,
 )
 from steward_worker.load import system_busy
@@ -71,6 +72,15 @@ class Worker:
         while not self._stop.is_set():
             try:
                 worked = await self.run_once()
+            except NameTaken:
+                log.warning(
+                    "another running worker is called %s: give this one a name of its own "
+                    "(--name or STEWARD_WORKER_NAME); retrying in %.0f s",
+                    self._config.name,
+                    ERROR_WAIT_S,
+                )
+                await self._sleep(ERROR_WAIT_S)
+                continue
             except ImmichUnreachable:
                 log.warning("the core cannot reach Immich; retrying in %.0f s", ERROR_WAIT_S)
                 await self._sleep(ERROR_WAIT_S)

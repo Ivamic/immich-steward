@@ -4,7 +4,7 @@
 from dataclasses import asdict, dataclass
 from types import TracebackType
 from typing import Any, Self
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx2
 
@@ -38,6 +38,10 @@ class ImmichUnreachable(CoreRefused):
     """Immich does not answer the core; the job went back to the queue."""
 
 
+class NameTaken(CoreRefused):
+    """Another running worker uses the same name."""
+
+
 @dataclass(frozen=True)
 class LeasedJob:
     job_id: UUID
@@ -59,6 +63,8 @@ class CoreClient:
         )
         self.worker_id: UUID | None = None
         self.lease_seconds = 300
+        # Tells this process from another computer that uses the same worker name.
+        self.instance_id = uuid4()
 
     async def __aenter__(self) -> Self:
         return self
@@ -78,6 +84,7 @@ class CoreClient:
             "device": device,
             "version": version,
             "protocol_version": PROTOCOL_VERSION,
+            "instance_id": str(self.instance_id),
         }
         data = (await self._call("POST", "/register", json=body)).json()
         self.worker_id = UUID(data["worker_id"])
@@ -131,6 +138,8 @@ class CoreClient:
             raise ImageUnavailable(_param(response, "reason") or code)
         if response.status_code == 503 and code == "immich_unreachable":
             raise ImmichUnreachable(code)
+        if response.status_code == 409 and code == "worker_name_taken":
+            raise NameTaken(code)
         raise CoreRefused(f"{method} {path}: HTTP {response.status_code} {code}")
 
 

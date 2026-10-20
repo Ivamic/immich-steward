@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -10,7 +11,7 @@ from sqlalchemy import select, update
 
 from steward import worker_queue
 from steward.api.worker import PROTOCOL_VERSION
-from steward.models import Asset, Job, ModuleRun
+from steward.models import Asset, Job, ModuleRun, Worker
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
 
@@ -319,3 +320,53 @@ def test_failure_codes_from_the_worker(photos: TestClient) -> None:
     body = {"error": "cannot decode", "retry": False}
     photos.post(f"/api/worker/jobs/{job['job_id']}/fail", json=body, headers=worker)
     assert run_status(photos, second).error_code == "image_invalid"
+
+
+def register_instance(client: TestClient, name: str, instance: str) -> Any:
+    body = {
+        "name": name,
+        "modules": ["test"],
+        "device": "cpu",
+        "version": "0.3.0",
+        "protocol_version": PROTOCOL_VERSION,
+        "instance_id": instance,
+    }
+    return client.post("/api/worker/register", json=body, headers=AUTH)
+
+
+def test_two_running_workers_cannot_share_a_name(client: TestClient) -> None:
+    first, second = str(uuid.uuid4()), str(uuid.uuid4())
+    response = register_instance(client, "laptop", first)
+    assert response.status_code == 200
+    worker = AUTH | {"X-Worker-Id": response.json()["worker_id"]}
+    # The same process may register again (e.g. after the core forgot it).
+    assert register_instance(client, "laptop", first).status_code == 200
+
+    taken = register_instance(client, "laptop", second)
+    assert taken.status_code == 409
+    assert taken.json()["code"] == "worker_name_taken"
+    # Workers before 0.3 send no instance id and are never refused.
+    assert (
+        client.post(
+            "/api/worker/register",
+            json={"name": "laptop", "modules": [], "version": "0.2.2", "protocol_version": 1},
+            headers=AUTH,
+        ).status_code
+        == 200
+    )
+
+    register_instance(client, "laptop", first)
+    client.post("/api/worker/bye", headers=worker)
+    # Once the first one has stopped, the name is free.
+    assert register_instance(client, "laptop", second).status_code == 200
+
+
+def test_name_of_a_silent_worker_can_be_taken(client: TestClient) -> None:
+    register_instance(client, "desktop", str(uuid.uuid4()))
+
+    async def silence(db: Any) -> None:
+        await db.execute(update(Worker).values(last_seen_at=datetime.now(UTC) - timedelta(hours=1)))
+        await db.commit()
+
+    db_call(client, silence)
+    assert register_instance(client, "desktop", str(uuid.uuid4())).status_code == 200

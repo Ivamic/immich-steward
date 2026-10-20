@@ -184,7 +184,8 @@ reboot, until you stop it.
 
 - `STEWARD_WORKER_NAME` is the name shown on the **Library** page. The app tells workers apart
   by their names, so give every worker its own name (not `server`, which the worker on the
-  server uses).
+  server uses). A second worker with the name of a running one is refused until the first
+  stops.
 - `STEWARD_WORKER_THREADS` is the number of CPU threads for the model: more is faster, but leaves
   less for other programs on that computer.
 - The volume `steward-models` keeps the model, so it is downloaded only once.
@@ -202,6 +203,7 @@ docker logs --tail 20 steward-worker
 | `GeoCLIP loaded on cpu …`, then `job … done in … s` | Working on photos. The first load takes a few minutes (the model is downloaded). |
 | `HTTP 401 worker_unauthorized` | The token differs from `STEWARD_WORKER_TOKEN` on the server. |
 | `HTTP 503 workers_disabled` | The app has no worker token: set `STEWARD_WORKER_TOKEN` on the server and run `docker compose up -d` there. |
+| `another running worker is called …` | That name is taken by a worker that is running now: choose another `STEWARD_WORKER_NAME` (or `--name`). |
 | `ConnectError` | The app is not reachable at that address: check the address, the port and the firewall. |
 
 A worker with no photos to do just waits, that is normal.

@@ -19,6 +19,8 @@ from steward_worker.modules import AVAILABLE, ModuleOptions
 from steward_worker.modules.geoclip import resolve_device
 from steward_worker.runner import Worker, WorkerConfig
 
+log = logging.getLogger("steward_worker")
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     env = os.environ.get
@@ -118,6 +120,7 @@ async def _run(
             worker.stop()
             with contextlib.suppress(CoreError):
                 await client.bye()
+            log.info("stopped")
             raise
 
 

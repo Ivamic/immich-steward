@@ -7,6 +7,7 @@ from the core, which fetches it from Immich with the key of the photo's owner.
 """
 
 import secrets
+from datetime import timedelta
 from typing import Annotated, Any, NoReturn
 from uuid import UUID
 
@@ -64,6 +65,8 @@ class RegisterRequest(BaseModel):
     device: str = Field(default="cpu", max_length=100)
     version: str = Field(max_length=32)
     protocol_version: int
+    # New at every start of the worker; workers before 0.3 send none.
+    instance_id: UUID | None = None
 
 
 class RegisterResponse(BaseModel):
@@ -109,7 +112,15 @@ class FailRequest(BaseModel):
 async def register(body: RegisterRequest, db: DbDep, settings: SettingsDep) -> RegisterResponse:
     if body.protocol_version != PROTOCOL_VERSION:
         raise ApiError(400, "protocol_version_unsupported", supported=PROTOCOL_VERSION)
-    worker = await worker_queue.register(db, body.name, body.modules, body.device, body.version)
+    worker = await worker_queue.register(
+        db,
+        body.name,
+        body.modules,
+        body.device,
+        body.version,
+        body.instance_id,
+        timedelta(minutes=settings.worker_active_minutes),
+    )
     return RegisterResponse(worker_id=worker.id, lease_seconds=settings.worker_lease_seconds)
 
 

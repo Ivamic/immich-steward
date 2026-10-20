@@ -11,8 +11,10 @@ from sqlalchemy import select
 
 from steward import worker_queue
 from steward.deps import CurrentAccount, DbDep, SettingsDep
+from steward.errors import ApiError
 from steward.jobs import SYNC, enqueue
 from steward.models import Job, Worker
+from steward.modules import REMOTE_MODULES
 from steward.sync import library_counts
 
 router = APIRouter(prefix="/library")
@@ -66,7 +68,18 @@ class Workers(BaseModel):
     workers: list[WorkerOut]
     # Module -> status of the latest run -> number of photos of this account.
     runs: dict[str, dict[str, int]]
+    # Module -> failure code -> photos whose latest run failed so.
+    failures: dict[str, dict[str, int]]
     auto_modules: list[str]
+
+
+class RerunRequest(BaseModel):
+    # Failure code (`worker_queue.FAILURE_CODES`); None: every failed photo.
+    code: str | None = None
+
+
+class RerunResult(BaseModel):
+    queued: int
 
 
 class SyncRequest(BaseModel):
@@ -114,5 +127,16 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
             for w in workers
         ],
         runs=await worker_queue.run_counts(db, account),
+        failures=await worker_queue.failure_counts(db, account),
         auto_modules=settings.auto_module_ids,
     )
+
+
+@router.post("/modules/{module_id}/rerun-failed")
+async def rerun_failed(
+    module_id: str, body: RerunRequest, account: CurrentAccount, db: DbDep
+) -> RerunResult:
+    """Runs the module again on this library's photos whose latest run of it failed."""
+    if module_id not in REMOTE_MODULES:
+        raise ApiError(404, "module_not_found")
+    return RerunResult(queued=await worker_queue.rerun_failed(db, account, module_id, body.code))

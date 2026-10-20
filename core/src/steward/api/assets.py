@@ -59,6 +59,8 @@ def gallery_filter(
     date_to: date | None = None,
     archived: bool = False,
     geoclip_confident: bool = False,
+    failed_module: Annotated[str | None, Query(max_length=32)] = None,
+    failure: Annotated[str | None, Query(max_length=32)] = None,
 ) -> GalleryFilter:
     return GalleryFilter(
         show=frozenset(show or ()),
@@ -69,6 +71,8 @@ def gallery_filter(
         date_to=date_to,
         include_archived=archived,
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
+        failed_module=failed_module,
+        failure=failure if failed_module else None,
     )
 
 
@@ -155,6 +159,8 @@ class AssetDetail(BaseModel):
     # Neighbors in the gallery order under the filter passed with the request.
     previous_id: UUID | None
     next_id: UUID | None
+    # The photo in the Immich web UI.
+    immich_url: str | None = None
 
 
 class ReviewUpdate(BaseModel):
@@ -223,6 +229,8 @@ class ModuleSuggestions(BaseModel):
     # A worker that runs the module has contacted the core recently.
     worker_available: bool = True
     error: str | None = None
+    # Why the latest run failed (`worker_queue.FAILURE_CODES`).
+    error_code: str | None = None
     finished_at: datetime | None = None
     # Queued runs: jobs of the module a worker takes before this one.
     queue_position: int | None = None
@@ -284,7 +292,7 @@ async def _own_asset(db: DbDep, account: CurrentAccount, asset_id: UUID) -> Asse
 
 
 async def _detail(
-    db: DbDep, account: CurrentAccount, asset: Asset, filters: GalleryFilter
+    db: DbDep, account: CurrentAccount, asset: Asset, filters: GalleryFilter, settings: Settings
 ) -> AssetDetail:
     albums = await db.scalars(
         select(Album.name)
@@ -318,25 +326,36 @@ async def _detail(
         can_undo=last_applied is not None,
         previous_id=previous_id,
         next_id=next_id,
+        immich_url=(
+            f"{settings.immich_browser_url}/photos/{asset.immich_id}"
+            if settings.immich_browser_url
+            else None
+        ),
     )
 
 
 @router.get("/{asset_id}")
 async def get_asset(
-    asset_id: UUID, account: CurrentAccount, db: DbDep, filters: FilterDep
+    asset_id: UUID, account: CurrentAccount, db: DbDep, filters: FilterDep, settings: SettingsDep
 ) -> AssetDetail:
-    return await _detail(db, account, await _own_asset(db, account, asset_id), filters)
+    asset = await _own_asset(db, account, asset_id)
+    return await _detail(db, account, asset, filters, settings)
 
 
 @router.put("/{asset_id}/review")
 async def set_review(
-    asset_id: UUID, body: ReviewUpdate, account: CurrentAccount, db: DbDep, filters: FilterDep
+    asset_id: UUID,
+    body: ReviewUpdate,
+    account: CurrentAccount,
+    db: DbDep,
+    filters: FilterDep,
+    settings: SettingsDep,
 ) -> AssetDetail:
     """Marks the photo as skipped / not applicable, or returns it to the to-do list."""
     asset = await _own_asset(db, account, asset_id)
     asset.review_status = body.status
     await db.commit()
-    return await _detail(db, account, asset, filters)
+    return await _detail(db, account, asset, filters, settings)
 
 
 @router.get("/{asset_id}/suggestions")
@@ -433,6 +452,7 @@ async def _suggestions(
                 runnable=True,
                 worker_available=remote.id in available,
                 error=run.error if run else None,
+                error_code=run.error_code if run else None,
                 finished_at=run.finished_at if run else None,
                 queue_position=await worker_queue.queue_position(db, run) if run else None,
             )
@@ -486,7 +506,7 @@ async def set_location(
             source="manual",
             tag=settings.estimated_tag,
         )
-    return await _detail(db, account, asset, filters)
+    return await _detail(db, account, asset, filters, settings)
 
 
 @router.post("/{asset_id}/location/undo")
@@ -503,7 +523,7 @@ async def undo_location(
     asset = await _own_asset(db, account, asset_id)
     async with _immich(settings, factory, box, account) as client:
         await locations.undo_last(db, client, asset, tag=settings.estimated_tag)
-    return await _detail(db, account, asset, filters)
+    return await _detail(db, account, asset, filters, settings)
 
 
 @router.get("/{asset_id}/thumbnail")

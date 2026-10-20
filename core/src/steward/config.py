@@ -20,6 +20,9 @@ class Settings(BaseSettings):
 
     # Immich server shared by all users of this installation, e.g. http://192.168.1.10:2283
     immich_url: str | None = None
+    # Address of Immich in the browsers of the users, for "Open in Immich" links, when it
+    # differs from immich_url (e.g. that one is a Docker container name). Empty: immich_url.
+    immich_public_url: str | None = None
     # Encrypts stored Immich API keys. Changing it invalidates all stored keys.
     secret_key: SecretStr | None = Field(default=None, min_length=MIN_SECRET_KEY_LENGTH)
 
@@ -65,6 +68,10 @@ class Settings(BaseSettings):
     # A worker counts as active this long after it last contacted the core. Idle workers ask for
     # jobs every 30 s at most, busy ones send a heartbeat every third of the lease.
     worker_active_minutes: int = Field(default=3, ge=1)
+
+    @property
+    def immich_browser_url(self) -> str | None:
+        return (self.immich_public_url or self.immich_url or "").rstrip("/") or None
 
     @property
     def auto_module_ids(self) -> list[str]:

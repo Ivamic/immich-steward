@@ -357,7 +357,9 @@ networks:
 ```
 
 and set `STEWARD_IMMICH_URL=http://immich_server:2283` (the container name from Immich's
-`docker-compose.yml`). Then run `docker compose up -d` again.
+`docker-compose.yml`). Your browser does not know that name, so also set the address you open
+Immich with, for the **Open in Immich** links in photo cards, e.g.
+`STEWARD_IMMICH_PUBLIC_URL=http://192.168.1.10:2283`. Then run `docker compose up -d` again.
 
 ## Access from outside your home network
 
@@ -494,6 +496,11 @@ start.
 loads the model, which takes a few minutes. Look at `docker compose logs --tail 40 worker`:
 `GeoCLIP loaded` and then `done in … s` lines mean it works. An error there (out of memory, no
 access to `huggingface.co`) tells what is wrong.
+
+**Some photos failed in GeoCLIP.** The **Library** page lists the failed photos by reason.
+**Show** opens them in the gallery (the photo card has a link to open the photo in Immich), and
+**Run again** queues them once more, e.g. after fixing a file in Immich. "Immich could not give
+the photo" usually means a broken or unsupported file: Immich cannot make its preview either.
 
 **Password sign-in is refused although the password is right.** Password login may be turned
 off on your Immich server (OAuth only). Sign in with an API key instead.

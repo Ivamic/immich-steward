@@ -12,6 +12,20 @@ between releases.
 - Installation guide: workers on other computers in the home network, with Docker (Linux,
   Windows) or on an NVIDIA GPU (Windows, Linux), how to check, stop and update them
   ([docs/install.md](docs/install.md#workers-on-other-computers)).
+- The Library page lists photos a module failed on by reason, with links to show them and to
+  run them again.
+- Gallery filter "Not processed": photos whose latest run of GeoCLIP failed, for any or one
+  reason; the photo card then steps through them.
+- "Open in Immich" link in the photo card. `STEWARD_IMMICH_PUBLIC_URL` sets the address used
+  in the browser when `STEWARD_IMMICH_URL` is not reachable from it (e.g. a container name).
+
+### Fixed
+
+- When the app could not get a photo from Immich (a broken file, for instance), its GeoCLIP run
+  waited for three time-outs of 5 minutes and failed as "lease_expired", without the reason.
+  Now it fails at once with the reason; when Immich does not answer at all, the photo waits in
+  the queue without using up its attempts.
+- A worker reports a request the app refused instead of dropping the job silently.
 
 ## [0.2.2] - 2026-10-18
 

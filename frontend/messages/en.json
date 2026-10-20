@@ -186,5 +186,20 @@
 	"photo_tab_place": "Location",
 	"photo_tab_info": "Photo and details",
 	"photo_keys": "Keyboard shortcuts",
-	"candidate_locate": "Show on the map"
+	"candidate_locate": "Show on the map",
+	"failure_image_unavailable": "Immich could not give the photo (deleted, or Immich cannot make its preview)",
+	"failure_immich_auth": "Immich refused the API key of the account",
+	"failure_image_invalid": "The worker cannot read the photo",
+	"failure_module_error": "The module failed on the photo",
+	"failure_worker_error": "The worker could not report the result",
+	"failure_lease_expired": "The worker did not finish (time-out)",
+	"failure_lease_expired_hint": "Earlier versions of the app did not keep the real reason. Run it again to see it.",
+	"workers_failures_heading": "Failed photos by reason",
+	"workers_failures_show": "Show",
+	"workers_failures_rerun": "Run again",
+	"workers_failures_rerun_done": "{count} photos queued again.",
+	"filter_failed": "Not processed",
+	"filter_failed_none": "—",
+	"filter_failed_any": "any reason",
+	"photo_open_in_immich": "Open in Immich"
 }

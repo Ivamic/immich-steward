@@ -8,6 +8,7 @@
 		type ShowCategory
 	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { FAILURE_CODES, failureReason, moduleName } from '#lib/suggestions/format.js';
 	import { defaultFilter } from './filter.js';
 
 	let { filter, onchange }: { filter: GalleryFilter; onchange: (f: GalleryFilter) => void } =
@@ -31,6 +32,18 @@
 	function toggleShow(category: ShowCategory, checked: boolean) {
 		const chosen = checked ? [...filter.show, category] : filter.show.filter((c) => c !== category);
 		set({ show: SHOW_CATEGORIES.filter((c) => chosen.includes(c)) });
+	}
+	// "", "geoclip" (any reason) or "geoclip:image_unavailable".
+	const failedValue = $derived(
+		filter.failed_module
+			? filter.failure
+				? `${filter.failed_module}:${filter.failure}`
+				: filter.failed_module
+			: ''
+	);
+	function setFailed(value: string) {
+		const [module, failure] = value.split(':');
+		set({ failed_module: module || null, failure: failure || null });
 	}
 	const cameraLabel = (make: string, model: string) =>
 		[make, model].filter(Boolean).join(' ') || m.filter_camera_unknown();
@@ -121,6 +134,17 @@
 			onchange={(e) => set({ geoclip_confident: e.currentTarget.checked })}
 		/>
 		{m.filter_geoclip_confident()}
+	</label>
+
+	<label>
+		{m.filter_failed()}
+		<select value={failedValue} onchange={(e) => setFailed(e.currentTarget.value)}>
+			<option value="">{m.filter_failed_none()}</option>
+			<option value="geoclip">{moduleName('geoclip')}: {m.filter_failed_any()}</option>
+			{#each FAILURE_CODES as code (code)}
+				<option value="geoclip:{code}">{moduleName('geoclip')}: {failureReason(code)}</option>
+			{/each}
+		</select>
 	</label>
 
 	<label class="checkbox">

@@ -113,6 +113,10 @@ export interface GalleryFilter {
 	archived: boolean;
 	/** Only photos without a location that GeoCLIP places confidently. */
 	geoclip_confident: boolean;
+	/** Only photos whose latest run of this module failed... */
+	failed_module: string | null;
+	/** ...for this reason (a failure code); null: any reason. */
+	failure: string | null;
 }
 
 export interface MonthBucket {
@@ -148,6 +152,10 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
+	if (filter.failed_module) {
+		params.set('failed_module', filter.failed_module);
+		if (filter.failure) params.set('failure', filter.failure);
+	}
 	const query = params.toString();
 	return query ? `?${query}` : '';
 }
@@ -200,6 +208,8 @@ export interface AssetDetail {
 	can_undo: boolean;
 	previous_id: string | null;
 	next_id: string | null;
+	/** The photo in the Immich web UI. */
+	immich_url: string | null;
 }
 
 export interface MapConfig {
@@ -275,6 +285,8 @@ export interface ModuleSuggestions {
 	/** A worker running this module has contacted the core recently. */
 	worker_available: boolean;
 	error: string | null;
+	/** Why the latest run failed (see FAILURE_CODES). */
+	error_code: string | null;
 	finished_at: string | null;
 	/** Queued runs: jobs of the module a worker takes before this one. */
 	queue_position: number | null;
@@ -298,10 +310,16 @@ export interface WorkersOverview {
 	workers: WorkerInfo[];
 	/** Module -> status of the latest run -> number of photos. */
 	runs: Record<string, Partial<Record<ModuleStatus, number>>>;
+	/** Module -> failure code -> photos whose latest run failed so. */
+	failures: Record<string, Record<string, number>>;
 	auto_modules: string[];
 }
 
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
+
+/** Runs the module again on the photos whose latest run failed (for this reason). */
+export const rerunFailed = (module: string, code: string | null) =>
+	request<{ queued: number }>('POST', `/api/library/modules/${module}/rerun-failed`, { code });
 
 function cameraQuery(excludeCameras: string[]): string {
 	const params = new URLSearchParams(excludeCameras.map((value) => ['exclude_camera', value]));

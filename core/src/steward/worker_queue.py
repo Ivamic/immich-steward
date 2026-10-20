@@ -14,6 +14,8 @@ from uuid import UUID
 from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
+from sqlalchemy.sql import ColumnElement
 
 from steward.errors import ApiError
 from steward.models import Account, Asset, Job, ModuleRun, Worker
@@ -243,6 +245,54 @@ async def run_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, 
     for module_id, status, count in rows:
         counts.setdefault(module_id, {})[status] = count
     return counts
+
+
+async def failure_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, int]]:
+    """Module -> failure code -> number of photos of the account whose latest run failed so."""
+    rows = await db.execute(
+        select(ModuleRun.module_id, ModuleRun.error_code, func.count())
+        .join(Asset, Asset.id == ModuleRun.asset_id)
+        .where(Asset.account_id == account.id, _latest_failed())
+        .group_by(ModuleRun.module_id, ModuleRun.error_code)
+    )
+    counts: dict[str, dict[str, int]] = {}
+    for module_id, code, count in rows:
+        counts.setdefault(module_id, {})[code or MODULE_ERROR] = count
+    return counts
+
+
+def latest_run_failed(module_id: str, code: str | None = None) -> ColumnElement[bool]:
+    """For a query over assets: the asset's latest run of the module failed (with this code)."""
+    conditions = [ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id]
+    if code is not None:
+        conditions.append(ModuleRun.error_code == code)
+    return exists().where(*conditions, _latest_failed())
+
+
+def _latest_failed() -> ColumnElement[bool]:
+    newer = aliased(ModuleRun)
+    return and_(
+        ModuleRun.status == "failed",
+        ~exists().where(
+            newer.asset_id == ModuleRun.asset_id,
+            newer.module_id == ModuleRun.module_id,
+            newer.created_at > ModuleRun.created_at,
+        ),
+    )
+
+
+async def rerun_failed(db: AsyncSession, account: Account, module_id: str, code: str | None) -> int:
+    """Queues the module again on the account's photos whose latest run of it failed."""
+    assets = list(
+        await db.scalars(
+            select(Asset)
+            .where(Asset.account_id == account.id, latest_run_failed(module_id, code))
+            .order_by(Asset.local_taken_at.desc())
+        )
+    )
+    for asset in assets:
+        await enqueue_module(db, asset, module_id)
+    return len(assets)
 
 
 async def register(

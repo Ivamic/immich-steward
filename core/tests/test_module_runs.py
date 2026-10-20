@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from steward import worker_queue
 from steward.api.worker import PROTOCOL_VERSION
+from steward.config import Settings
 from steward.models import Account, Asset
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
@@ -296,3 +297,62 @@ def test_automatic_runs_take_accounts_in_turns(
     # Mine, the other's, mine, the other's (or the other way round): never two in a row.
     assert taken.count(True) == 2
     assert all(a != b for a, b in pairwise(taken))
+
+
+def fail_job(client: TestClient, worker: dict[str, str], body: dict[str, Any] | None = None) -> str:
+    job = client.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker).json()
+    body = body or {"error": "cannot decode", "retry": False, "code": "image_invalid"}
+    client.post(f"/api/worker/jobs/{job['job_id']}/fail", json=body, headers=worker)
+    return str(job["asset_id"])
+
+
+def test_failures_by_reason_filter_and_rerun(
+    library: dict[str, str], signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    worker = start_worker(signed_in)
+    for name in ("todo1.jpg", "todo2.jpg"):
+        signed_in.post(f"/api/assets/{library[name]}/modules/geoclip/run")
+    broken = fail_job(signed_in, worker)
+    other = fail_job(signed_in, worker, {"error": "boom", "retry": False, "code": "module_error"})
+
+    overview = signed_in.get("/api/library/workers").json()
+    assert overview["failures"] == {"geoclip": {"image_invalid": 1, "module_error": 1}}
+    assert geoclip(signed_in, broken)["error_code"] == "image_invalid"
+
+    show = ["todo", "with", "skipped", "not_applicable"]
+    params: dict[str, Any] = {"month": "2024-05", "show": show, "failed_module": "geoclip"}
+    found = signed_in.get("/api/assets", params=params).json()
+    assert {item["id"] for item in found} == {broken, other}
+    params["failure"] = "image_invalid"
+    assert [item["id"] for item in signed_in.get("/api/assets", params=params).json()] == [broken]
+    # The card steps through the failed photos only.
+    detail = signed_in.get(f"/api/assets/{broken}", params=params).json()
+    assert (detail["previous_id"], detail["next_id"]) == (None, None)
+
+    rerun = signed_in.post(
+        "/api/library/modules/geoclip/rerun-failed", json={"code": "image_invalid"}
+    )
+    assert rerun.json() == {"queued": 1}
+    assert geoclip(signed_in, broken)["status"] == "queued"
+    # The photo no longer counts as failed: its latest run is the new one.
+    overview = signed_in.get("/api/library/workers").json()
+    assert overview["failures"] == {"geoclip": {"module_error": 1}}
+    assert signed_in.get("/api/assets", params=params).json() == []
+    assert signed_in.post("/api/library/modules/nope/rerun-failed", json={}).status_code == 404
+
+
+def test_photo_links_to_immich(library: dict[str, str], signed_in: TestClient) -> None:
+    detail = signed_in.get(f"/api/assets/{library['todo1.jpg']}").json()
+    assert detail["immich_url"].startswith("http")
+    assert "/photos/" in detail["immich_url"]
+
+
+def test_public_immich_address_wins() -> None:
+    internal = Settings(immich_url="http://immich_server:2283/", _env_file=None)
+    assert internal.immich_browser_url == "http://immich_server:2283"
+    public = Settings(
+        immich_url="http://immich_server:2283",
+        immich_public_url="https://photos.example.org/",
+        _env_file=None,
+    )
+    assert public.immich_browser_url == "https://photos.example.org"

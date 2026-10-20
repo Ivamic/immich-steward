@@ -23,6 +23,7 @@
 		candidateDetails,
 		candidateLabel,
 		candidateRemarks,
+		failureReason,
 		formatDelta,
 		formatDistance,
 		moduleName,
@@ -113,7 +114,7 @@
 			case 'running':
 				return m.module_status_running();
 			case 'failed':
-				return m.module_status_failed({ error: module.error ?? '' });
+				return m.module_status_failed({ error: failureReason(module.error_code) });
 			case 'done':
 				return module.candidates.length ? null : m.module_no_candidates();
 			default:
@@ -148,7 +149,16 @@
 				{/if}
 			</h3>
 			{#if status(module)}
-				<p class="muted" class:pending={isPending(module)}>{status(module)}</p>
+				<p
+					class="muted"
+					class:pending={isPending(module)}
+					title={module.status === 'failed' ? (module.error ?? undefined) : undefined}
+				>
+					{status(module)}
+				</p>
+				{#if module.status === 'failed' && module.error_code === 'lease_expired'}
+					<p class="muted">{m.failure_lease_expired_hint()}</p>
+				{/if}
 			{/if}
 			{#if module.runnable && !module.worker_available && module.status !== 'done'}
 				<p class="warning">{m.module_no_worker()}</p>

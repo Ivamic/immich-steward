@@ -455,7 +455,15 @@
 				<dt>{m.photo_camera()}</dt>
 				<dd>{camera}</dd>
 				<dt>{m.photo_file()}</dt>
-				<dd class="file">{asset.file_name}</dd>
+				<dd class="file">
+					{asset.file_name}
+					{#if asset.immich_url}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external link -->
+						<br /><a href={asset.immich_url} target="_blank" rel="noopener"
+							>{m.photo_open_in_immich()} ↗</a
+						>
+					{/if}
+				</dd>
 				{#if asset.albums.length}
 					<dt>{m.photo_albums()}</dt>
 					<dd>{asset.albums.join(', ')}</dd>

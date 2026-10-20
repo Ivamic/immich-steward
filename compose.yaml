@@ -18,6 +18,7 @@ services:
       STEWARD_DATABASE_URL: "postgresql+asyncpg://${DB_USER:-steward}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/${DB_NAME:-steward}"
       STEWARD_LOG_LEVEL: "${STEWARD_LOG_LEVEL:-info}"
       STEWARD_IMMICH_URL: "${STEWARD_IMMICH_URL:?set STEWARD_IMMICH_URL in .env}"
+      STEWARD_IMMICH_PUBLIC_URL: "${STEWARD_IMMICH_PUBLIC_URL:-}"
       STEWARD_SECRET_KEY: "${STEWARD_SECRET_KEY:?set STEWARD_SECRET_KEY in .env}"
       STEWARD_COOKIE_SECURE: "${STEWARD_COOKIE_SECURE:-false}"
       STEWARD_MAP_STYLE_URL: "${STEWARD_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}"

@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun
+from steward.worker_queue import latest_run_failed
 
 # Disjoint groups the gallery can show in any combination. with: has a location (whatever its
 # review status); todo: no location and not marked; skipped / not_applicable: no location and
@@ -35,6 +36,9 @@ class GalleryFilter:
     include_archived: bool = False
     # Only photos without a location that GeoCLIP places with at least this confidence.
     geoclip_confidence: float | None = None
+    # Only photos whose latest run of this module failed (with this failure code, if set).
+    failed_module: str | None = None
+    failure: str | None = None
 
     def conditions(self, account: Account) -> list[ColumnElement[bool]]:
         result: list[ColumnElement[bool]] = [
@@ -67,6 +71,8 @@ class GalleryFilter:
         if self.date_to is not None:
             end = datetime.combine(self.date_to + timedelta(days=1), datetime.min.time())
             result.append(Asset.local_taken_at < end)
+        if self.failed_module is not None:
+            result.append(latest_run_failed(self.failed_module, self.failure))
         return result
 
 

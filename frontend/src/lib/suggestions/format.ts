@@ -27,6 +27,36 @@ export function formatDistance(meters: number): string {
 	return m.distance_km({ n: km < 10 ? km.toFixed(1) : String(Math.round(km)) });
 }
 
+/** Why a module run failed; the core sends one of these codes (newer ones are shown as is). */
+export const FAILURE_CODES = [
+	'image_unavailable',
+	'immich_auth',
+	'image_invalid',
+	'module_error',
+	'worker_error',
+	'lease_expired'
+] as const;
+
+export function failureReason(code: string | null): string {
+	switch (code) {
+		case 'image_unavailable':
+			return m.failure_image_unavailable();
+		case 'immich_auth':
+			return m.failure_immich_auth();
+		case 'image_invalid':
+			return m.failure_image_invalid();
+		case 'module_error':
+		case null:
+			return m.failure_module_error();
+		case 'worker_error':
+			return m.failure_worker_error();
+		case 'lease_expired':
+			return m.failure_lease_expired();
+		default:
+			return code;
+	}
+}
+
 export function moduleName(id: string): string {
 	switch (id) {
 		case 'time_neighbors':

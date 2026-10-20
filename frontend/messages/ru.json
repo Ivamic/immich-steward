@@ -186,5 +186,20 @@
 	"photo_tab_place": "Выбор места",
 	"photo_tab_info": "Фото и сведения",
 	"photo_keys": "Клавиши",
-	"candidate_locate": "Показать на карте"
+	"candidate_locate": "Показать на карте",
+	"failure_image_unavailable": "Immich не отдал фото (удалено, или Immich не может сделать его превью)",
+	"failure_immich_auth": "Immich отклонил API-ключ аккаунта",
+	"failure_image_invalid": "Воркер не может прочитать фото",
+	"failure_module_error": "Ошибка модуля на этом фото",
+	"failure_worker_error": "Воркер не смог передать результат",
+	"failure_lease_expired": "Воркер не завершил задачу (тайм-аут)",
+	"failure_lease_expired_hint": "Прежние версии приложения не сохраняли настоящую причину. Запустите ещё раз, чтобы её увидеть.",
+	"workers_failures_heading": "Неудачные фото по причинам",
+	"workers_failures_show": "Показать",
+	"workers_failures_rerun": "Перезапустить",
+	"workers_failures_rerun_done": "Снова в очереди фото: {count}.",
+	"filter_failed": "Не обработано",
+	"filter_failed_none": "—",
+	"filter_failed_any": "любая причина",
+	"photo_open_in_immich": "Открыть в Immich"
 }

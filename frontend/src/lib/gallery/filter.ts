@@ -11,7 +11,9 @@ export const defaultFilter: GalleryFilter = {
 	date_from: null,
 	date_to: null,
 	archived: false,
-	geoclip_confident: false
+	geoclip_confident: false,
+	failed_module: null,
+	failure: null
 };
 
 const oneOf = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -28,9 +30,20 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		date_from: params.get('date_from'),
 		date_to: params.get('date_to'),
 		archived: params.get('archived') === 'true',
-		geoclip_confident: params.get('geoclip_confident') === 'true'
+		geoclip_confident: params.get('geoclip_confident') === 'true',
+		failed_module: params.get('failed_module'),
+		failure: params.get('failed_module') ? params.get('failure') : null
 	};
 }
+
+/** Every photo, whatever its review status, whose latest run of the module failed so. */
+export const failedFilter = (module: string, failure: string | null = null): GalleryFilter => ({
+	...defaultFilter,
+	show: [...SHOW_CATEGORIES],
+	archived: true,
+	failed_module: module,
+	failure
+});
 
 export type FilterQuery = `?${string}`;
 
@@ -45,5 +58,9 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
+	if (filter.failed_module) {
+		params.set('failed_module', filter.failed_module);
+		if (filter.failure) params.set('failure', filter.failure);
+	}
 	return `?${params}`;
 }

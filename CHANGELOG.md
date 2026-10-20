@@ -7,6 +7,13 @@ between releases.
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-21
+
+### Fixed
+
+- "Recognize a part of the photo" is offered for videos too: the part is cut from the frame of
+  the preview, the one GeoCLIP looks at for the whole video. Before, the button was missing.
+
 ## [0.2.4] - 2026-10-21
 
 GeoCLIP can look at a part of the photo only; the gallery returns to the photo you came from,
@@ -153,7 +160,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.4...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.5...HEAD
+[0.2.5]: https://github.com/Ivamic/immich-steward/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Ivamic/immich-steward/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Ivamic/immich-steward/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Ivamic/immich-steward/compare/v0.2.1...v0.2.2

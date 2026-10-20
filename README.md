@@ -102,6 +102,8 @@ Then open `http://<your-server>:8780` and sign in with your Immich account.
 
 GeoCLIP runs in an optional worker container (about 1 GB of RAM, up to 3 GB at its peak):
 set `STEWARD_WORKER_TOKEN` in `.env` and start with `docker compose --profile worker up -d`.
+Workers can also run on other computers in your network
+([how](docs/install.md#workers-on-other-computers)).
 
 See [docs/install.md](docs/install.md) for the details: configuration, the GeoCLIP worker, Immich
 on the same machine, updating, backup and troubleshooting.

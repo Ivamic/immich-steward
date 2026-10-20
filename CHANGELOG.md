@@ -7,6 +7,12 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- Installation guide: workers on other computers in the home network, with Docker (Linux,
+  Windows) or on an NVIDIA GPU (Windows, Linux), how to check, stop and update them
+  ([docs/install.md](docs/install.md#workers-on-other-computers)).
+
 ## [0.2.2] - 2026-10-18
 
 ### Added

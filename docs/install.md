@@ -126,6 +126,217 @@ Settings in `.env` (see `.env.example`):
 The model is unloaded from memory after 10 minutes without work. Photos never leave your server:
 the worker gets them from the app, not from the internet.
 
+## Workers on other computers
+
+A worker does not have to run on the server. It can run on any computer in your home network:
+a desktop that is on in the evening, a laptop, a second server. The worker connects to the app
+itself (nothing has to connect to the worker), takes photos without a location one by one,
+gets each photo from the app and sends back the result. It never sees your Immich API key.
+
+Several workers can run at the same time, each takes its own photos. For example, the worker on
+the server works in the background day and night, and a desktop helps while it is on. When a
+worker is stopped, its current photo goes back to the queue right away; when a computer simply
+goes to sleep, after 5 minutes.
+
+### Before you start
+
+1. **The app must have a worker token.** On the server, `STEWARD_WORKER_TOKEN` in `.env` must be
+   set (see [GeoCLIP worker](#geoclip-worker-optional)). If you have just set it, apply it with
+   `docker compose up -d` (or `docker compose --profile worker up -d`).
+2. **The other computer must reach the app** at the same address you open in your browser, e.g.
+   `http://192.168.1.10:8780`. If the server has a firewall, allow port `8780` from your home
+   network.
+3. **Choose how to run it.** With an NVIDIA graphics card, use the
+   [GPU worker](#worker-on-an-nvidia-gpu): it is several times faster. Otherwise use Docker
+   (Docker Engine on Linux or Docker Desktop on Windows) and about 3 GB of disk space: the image
+   (1.4 GB) and the CLIP model (1.7 GB), which is downloaded from Hugging Face on the first
+   start.
+
+In the examples below, replace `192.168.1.10:8780` with the address of your server and
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`.
+
+### Start a worker with Docker on Linux
+
+```sh
+docker run -d --name steward-worker --restart unless-stopped \
+  -e STEWARD_CORE_URL=http://192.168.1.10:8780 \
+  -e STEWARD_WORKER_TOKEN=your-token \
+  -e STEWARD_WORKER_NAME=desktop \
+  -e STEWARD_WORKER_THREADS=4 \
+  -v steward-models:/models \
+  ghcr.io/ivamic/immich-steward-worker:0.2.2
+```
+
+### Start a worker with Docker on Windows (PowerShell, Docker Desktop)
+
+```powershell
+docker run -d --name steward-worker --restart unless-stopped `
+  -e STEWARD_CORE_URL=http://192.168.1.10:8780 `
+  -e STEWARD_WORKER_TOKEN=your-token `
+  -e STEWARD_WORKER_NAME=desktop `
+  -e STEWARD_WORKER_THREADS=4 `
+  -v steward-models:/models `
+  ghcr.io/ivamic/immich-steward-worker:0.2.2
+```
+
+With `--restart unless-stopped`, the worker starts again together with Docker, e.g. after a
+reboot, until you stop it.
+
+- `STEWARD_WORKER_NAME` is the name shown on the **Library** page. The app tells workers apart
+  by their names, so give every worker its own name (not `server`, which the worker on the
+  server uses).
+- `STEWARD_WORKER_THREADS` is the number of CPU threads for the model: more is faster, but leaves
+  less for other programs on that computer.
+- The volume `steward-models` keeps the model, so it is downloaded only once.
+- On Linux, `-e STEWARD_WORKER_MAX_LOAD=0.8` makes the worker wait while the computer is busy.
+
+### Check that it works
+
+```sh
+docker logs --tail 20 steward-worker
+```
+
+| In the log | Meaning |
+|---|---|
+| `registered with the core as …` | Connected. The worker is listed on the **Library** page. |
+| `GeoCLIP loaded on cpu …`, then `job … done in … s` | Working on photos. The first load takes a few minutes (the model is downloaded). |
+| `HTTP 401 worker_unauthorized` | The token differs from `STEWARD_WORKER_TOKEN` on the server. |
+| `HTTP 503 workers_disabled` | The app has no worker token: set `STEWARD_WORKER_TOKEN` on the server and run `docker compose up -d` there. |
+| `ConnectError` | The app is not reachable at that address: check the address, the port and the firewall. |
+
+A worker with no photos to do just waits, that is normal.
+
+### Stop, update, remove the Docker worker
+
+Stop the worker:
+
+```sh
+docker stop steward-worker
+```
+
+Start it again:
+
+```sh
+docker start steward-worker
+```
+
+Update it to a new version: remove the container, then run the `docker run` command above
+again with the new version number instead of `0.2.2` at its end. The model stays in the volume.
+
+```sh
+docker rm -f steward-worker
+```
+
+Remove it completely, together with the downloaded model:
+
+```sh
+docker rm -f steward-worker
+docker volume rm steward-models
+```
+
+Keep the worker version the same as the app's version.
+
+### Worker on an NVIDIA GPU
+
+The published worker image uses the CPU only: a GPU build contains NVIDIA's proprietary
+libraries, which we do not distribute. On a computer with an NVIDIA graphics card, install the
+worker from source instead; the GPU build of PyTorch is downloaded during the installation.
+
+Measured on a laptop with an RTX 3060 Laptop GPU (6 GB), connected to the server over the home
+network: about 0.25 seconds per photo, some 10,000 photos an hour; the server's CPU worker
+next to it needs 0.8 seconds. The model takes about 3 GB of video memory.
+
+What it needs:
+
+- an NVIDIA graphics card with at least 4 GB of video memory and a current driver (version 580
+  or newer, check with `nvidia-smi`);
+- [Git](https://git-scm.com/downloads) and [uv](https://docs.astral.sh/uv/getting-started/installation/);
+- about 5 GB of disk space: 3.2 GB for the installation and 1.7 GB for the CLIP model, which is
+  downloaded on the first start.
+
+In the examples below, replace `192.168.1.10:8780` with the address of your server,
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.2.2` with
+the version of the app on your server.
+
+#### GPU worker on Windows (PowerShell)
+
+Install once:
+
+```powershell
+winget install --id Git.Git -e
+winget install --id astral-sh.uv -e
+git clone --branch v0.2.2 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+cd D:\steward-worker
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+```
+
+Open a new PowerShell window after `winget` so that `git` and `uv` are found.
+
+Start the worker (every time; it runs while the window is open):
+
+```powershell
+cd D:\steward-worker
+$env:STEWARD_WORKER_TOKEN = "your-token"
+.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules geoclip --name laptop
+```
+
+#### GPU worker on Linux (bash)
+
+Install once (Git is usually installed already; otherwise `sudo apt install git`):
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+git clone --branch v0.2.2 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+cd ~/steward-worker
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+```
+
+Start the worker (every time; it runs while the terminal is open):
+
+```sh
+cd ~/steward-worker
+export STEWARD_WORKER_TOKEN=your-token
+.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules geoclip --name desktop
+```
+
+#### Check, stop, update the GPU worker
+
+The log is printed in the window. `GeoCLIP loaded on cuda` means the worker uses the graphics
+card; `loaded on cpu` means PyTorch did not find it (check the driver with `nvidia-smi`). The
+other messages are the same as in the [table above](#check-that-it-works).
+
+Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Library**
+page shows the worker as not connected right away.
+
+Update to a new version (replace `0.2.3` with the new version), on Windows:
+
+```powershell
+cd D:\steward-worker
+git fetch --tags
+git checkout v0.2.3
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+```
+
+On Linux:
+
+```sh
+cd ~/steward-worker
+git fetch --tags
+git checkout v0.2.3
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+```
+
+To remove the worker, delete the folder (`D:\steward-worker` or `~/steward-worker`) and the
+downloaded model: the folder `models--openai--clip-vit-large-patch14` in
+`%USERPROFILE%\.cache\huggingface\hub` on Windows or in `~/.cache/huggingface/hub` on Linux.
+
+### Security
+
+The worker token and the photos travel over plain HTTP. That is fine inside your home network
+or a VPN (e.g. WireGuard), but do not connect workers to the app over the internet without HTTPS.
+Anyone who has the token can get photos from the app, so keep it secret.
+
 ## Immich on the same machine
 
 If Immich runs on the same machine, the simplest choice is the machine's LAN address in
@@ -169,6 +380,12 @@ passes through the app when you sign in), and set `STEWARD_COOKIE_SECURE=true` i
 ## Updating
 
 `git pull` gets the new `compose.yaml`, which names the new version of the images.
+Don't skip it: `compose.yaml` pins the image version, so `docker compose pull` alone downloads
+the same version you already have.
+
+The version is pinned on purpose. The project is at an early stage, and a new version may need
+changes in `compose.yaml` itself: new settings, services or volumes. Updating the images and
+`compose.yaml` together keeps them in step.
 
 Without the GeoCLIP worker:
 
@@ -192,6 +409,14 @@ Old images can be removed afterwards with `docker image prune`. See the
 [changelog](../CHANGELOG.md) for what is new and whether `.env` needs new settings.
 
 To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.2.2`).
+
+If you changed `compose.yaml` yourself, `git pull` may stop with a conflict. Move your changes
+to `.env` or to a `compose.override.yaml` file, which Docker Compose reads automatically and
+`git pull` doesn't touch.
+
+`STEWARD_VERSION=latest` (or `0.2` for the newest 0.2.x) makes `docker compose pull` fetch new
+images without `git pull`. We don't recommend it while the project is at an early stage: a new
+image may need a newer `compose.yaml` than the one you have, and the app may fail to start.
 
 ## Building the images from source
 

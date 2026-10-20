@@ -207,7 +207,7 @@
 	"module_part_title": "{module} — part of the photo",
 	"module_part_change": "Change the part",
 	"region_title": "Select a part of the photo",
-	"region_hint": "Drag to draw a frame; drag its corners or inside to adjust it. Wheel: zoom. Right or middle button, or Space + drag: move the photo. Esc: close.",
+	"region_hint": "Drag to draw a frame; drag its corners, sides or inside to adjust it. Wheel: zoom. Right or middle button, or Space + drag: move the photo. Esc: close.",
 	"region_fit": "Fit",
 	"region_reset": "Reset selection",
 	"region_cancel": "Cancel",

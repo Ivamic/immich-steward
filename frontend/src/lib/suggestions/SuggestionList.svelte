@@ -66,8 +66,14 @@
 		parts?: boolean;
 	} = $props();
 
-	const lastPart = (module: string) =>
-		modules.find((block) => block.module === module && block.region)?.region ?? null;
+	const partBlock = (module: string) =>
+		modules.find((block) => block.module === module && block.region);
+	const lastPart = (module: string) => partBlock(module)?.region ?? null;
+	// One part at a time: a new one waits until the run on the last one is over.
+	const partPending = (module: string) => {
+		const block = partBlock(module);
+		return block !== undefined && isPending(block);
+	};
 
 	// Enlarged thumbnail of a neighbor photo, next to the hovered one.
 	let peek = $state<{
@@ -176,6 +182,7 @@
 							type="button"
 							class="run"
 							title={m.module_part_hint()}
+							disabled={partPending(module.module)}
 							onclick={() => onpart(module.module, lastPart(module.module))}
 						>
 							{m.module_part_run()} <kbd>R</kbd>
@@ -323,8 +330,10 @@
 		font-size: 1rem;
 		margin: 0.25rem 0;
 	}
+	/* A button that does not fit goes to the next line whole, so buttons keep one height. */
 	h3 {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.4rem;
 		font-size: 0.9rem;
@@ -341,6 +350,7 @@
 	.run {
 		margin-left: 0.5rem;
 		font-size: 0.8rem;
+		white-space: nowrap;
 	}
 	.pending::before {
 		content: '⏳ ';

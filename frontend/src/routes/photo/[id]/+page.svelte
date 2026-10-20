@@ -29,6 +29,7 @@
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
 	import PhotoViewer from '#lib/PhotoViewer.svelte';
+	import { shortcutKey } from '#lib/keys.js';
 	import RegionPicker from '#lib/RegionPicker.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
@@ -164,6 +165,8 @@
 	function pickPart() {
 		if (asset?.type !== 'IMAGE') return;
 		const block = suggestions.find((s) => s.module === 'geoclip' && s.region);
+		// One part at a time: wait until the run on the last one is over.
+		if (block && isPending(block)) return;
 		partPicker = { module: 'geoclip', region: block?.region ?? null };
 	}
 
@@ -304,7 +307,7 @@
 			z: () => (viewerOpen = true),
 			r: pickPart
 		};
-		const key = event.key.toLowerCase();
+		const key = shortcutKey(event);
 		const suggestion = numbered.find((item) => String(item.key) === key);
 		if (suggestion) {
 			event.preventDefault();

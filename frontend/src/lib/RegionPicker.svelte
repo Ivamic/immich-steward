@@ -33,6 +33,9 @@
 	type Drag =
 		| { kind: 'draw'; anchor: Point }
 		| { kind: 'move'; start: Point; base: Region }
+		// A side of the frame: only the width or only the height changes; `fixed` is the
+		// opposite side.
+		| { kind: 'side'; axis: 'x' | 'y'; fixed: number; base: Region }
 		| { kind: 'pan'; x: number; y: number; ox: number; oy: number };
 
 	let dialog: HTMLDialogElement;
@@ -98,23 +101,40 @@
 		};
 	}
 
-	/** The corner of the frame under the pointer: the opposite one stays in place. */
-	function grabbedCorner(event: PointerEvent): Point | null {
+	// Handles at the corners and in the middle of the sides, as shares of the frame.
+	const HANDLES = [
+		[0, 0, 'nwse-resize'],
+		[1, 1, 'nwse-resize'],
+		[1, 0, 'nesw-resize'],
+		[0, 1, 'nesw-resize'],
+		[0.5, 0, 'ns-resize'],
+		[0.5, 1, 'ns-resize'],
+		[0, 0.5, 'ew-resize'],
+		[1, 0.5, 'ew-resize']
+	] as const;
+
+	/** What dragging the handle under the pointer does: a corner keeps the opposite one in
+	 *  place, a side keeps the opposite side. */
+	function grabbedHandle(event: PointerEvent): { drag: Drag; cursor: string } | null {
 		if (!frame || !region || !stage) return null;
 		const box = stage.getBoundingClientRect();
 		const x = event.clientX - box.left;
 		const y = event.clientY - box.top;
-		for (const [cx, cy] of [
-			[0, 0],
-			[1, 0],
-			[0, 1],
-			[1, 1]
-		]) {
-			const px = frame.left + cx * frame.width;
-			const py = frame.top + cy * frame.height;
-			if (Math.abs(x - px) <= HANDLE_PX && Math.abs(y - py) <= HANDLE_PX) {
-				return { x: region.x + (1 - cx) * region.w, y: region.y + (1 - cy) * region.h };
-			}
+		for (const [hx, hy, handleCursor] of HANDLES) {
+			const px = frame.left + hx * frame.width;
+			const py = frame.top + hy * frame.height;
+			if (Math.abs(x - px) > HANDLE_PX || Math.abs(y - py) > HANDLE_PX) continue;
+			const base = region;
+			const drag: Drag =
+				hx === 0.5
+					? { kind: 'side', axis: 'y', fixed: base.y + (1 - hy) * base.h, base }
+					: hy === 0.5
+						? { kind: 'side', axis: 'x', fixed: base.x + (1 - hx) * base.w, base }
+						: {
+								kind: 'draw',
+								anchor: { x: base.x + (1 - hx) * base.w, y: base.y + (1 - hy) * base.h }
+							};
+			return { drag, cursor: handleCursor };
 		}
 		return null;
 	}
@@ -138,8 +158,8 @@
 		}
 		if (event.button !== 0) return;
 		const point = pointAt(event);
-		const anchor = grabbedCorner(event);
-		if (anchor) drag = { kind: 'draw', anchor };
+		const handle = grabbedHandle(event);
+		if (handle) drag = handle.drag;
 		else if (region && inside(point, region)) drag = { kind: 'move', start: point, base: region };
 		else {
 			drag = { kind: 'draw', anchor: point };
@@ -153,11 +173,8 @@
 			const point = pointAt(event);
 			cursor = spaceHeld
 				? 'grab'
-				: grabbedCorner(event)
-					? 'nwse-resize'
-					: region && inside(point, region)
-						? 'move'
-						: 'crosshair';
+				: (grabbedHandle(event)?.cursor ??
+					(region && inside(point, region) ? 'move' : 'crosshair'));
 			return;
 		}
 		if (drag.kind === 'pan') {
@@ -165,6 +182,13 @@
 			oy = drag.oy + event.clientY - drag.y;
 		} else if (drag.kind === 'draw') {
 			region = between(drag.anchor, pointAt(event));
+		} else if (drag.kind === 'side') {
+			const point = pointAt(event);
+			const { base, fixed } = drag;
+			region =
+				drag.axis === 'x'
+					? { ...base, x: Math.min(fixed, point.x), w: Math.abs(point.x - fixed) }
+					: { ...base, y: Math.min(fixed, point.y), h: Math.abs(point.y - fixed) };
 		} else {
 			const point = pointAt(event);
 			const { base } = drag;
@@ -264,6 +288,8 @@
 			>
 				<span class="handle nw"></span><span class="handle ne"></span>
 				<span class="handle sw"></span><span class="handle se"></span>
+				<span class="handle n"></span><span class="handle s"></span>
+				<span class="handle w"></span><span class="handle e"></span>
 			</div>
 		{/if}
 	</div>
@@ -377,6 +403,26 @@
 	.se {
 		right: -6px;
 		bottom: -6px;
+	}
+	.n,
+	.s {
+		left: calc(50% - 6px);
+	}
+	.n {
+		top: -6px;
+	}
+	.s {
+		bottom: -6px;
+	}
+	.w,
+	.e {
+		top: calc(50% - 6px);
+	}
+	.w {
+		left: -6px;
+	}
+	.e {
+		right: -6px;
 	}
 	.spacer {
 		flex: 1;

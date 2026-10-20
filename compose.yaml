@@ -10,7 +10,7 @@ services:
     build:
       context: .
       dockerfile: docker/core.Dockerfile
-    image: ghcr.io/ivamic/immich-steward-core:${STEWARD_VERSION:-0.2.2}
+    image: ghcr.io/ivamic/immich-steward-core:${STEWARD_VERSION:-0.2.3}
     restart: unless-stopped
     ports:
       - "${STEWARD_PORT:-8780}:8080"
@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: docker/worker.Dockerfile
-    image: ghcr.io/ivamic/immich-steward-worker:${STEWARD_VERSION:-0.2.2}
+    image: ghcr.io/ivamic/immich-steward-worker:${STEWARD_VERSION:-0.2.3}
     restart: unless-stopped
     environment:
       STEWARD_CORE_URL: "http://core:8080"

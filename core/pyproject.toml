@@ -2,7 +2,7 @@
 
 [project]
 name = "steward"
-version = "0.2.2"
+version = "0.2.3"
 description = "Core service of immich-steward: a companion app that restores missing metadata in an Immich library."
 license = "AGPL-3.0-or-later"
 authors = [{ name = "Ivamic" }]

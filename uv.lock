@@ -2076,7 +2076,7 @@ wheels = [
 
 [[package]]
 name = "steward"
-version = "0.2.2"
+version = "0.2.3"
 source = { editable = "core" }
 dependencies = [
     { name = "alembic" },
@@ -2103,7 +2103,7 @@ requires-dist = [
 
 [[package]]
 name = "steward-worker"
-version = "0.2.2"
+version = "0.2.3"
 source = { editable = "worker" }
 dependencies = [
     { name = "httpx2" },

@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-20
+
+The reason why GeoCLIP failed on a photo is kept and shown, with a way to find those photos
+and run them again; workers on other computers, with Docker or an NVIDIA GPU, are documented.
+
 ### Added
 
 - Installation guide: workers on other computers in the home network, with Docker (Linux,
@@ -122,7 +127,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/Ivamic/immich-steward/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Ivamic/immich-steward/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Ivamic/immich-steward/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/Ivamic/immich-steward/compare/v0.1.0...v0.2.0

@@ -22,8 +22,20 @@ class WorkerUnknown(CoreError):
     """The core does not know this worker (e.g. its database was reset): register again."""
 
 
-class LeaseLost(CoreError):
+class CoreRefused(CoreError):
+    """The core answered a request with an error (it was reached, unlike a plain CoreError)."""
+
+
+class LeaseLost(CoreRefused):
     """The job is no longer ours: its lease ran out and another worker may have it."""
+
+
+class ImageUnavailable(CoreRefused):
+    """The core cannot give the photo of the job; it has recorded why, the job is done with."""
+
+
+class ImmichUnreachable(CoreRefused):
+    """Immich does not answer the core; the job went back to the queue."""
 
 
 @dataclass(frozen=True)
@@ -98,8 +110,9 @@ class CoreClient:
         """Tells the core this worker stops, so that it is not shown as available."""
         await self._call("POST", "/bye")
 
-    async def fail(self, job_id: UUID, error: str, retry: bool) -> None:
-        await self._call("POST", f"/jobs/{job_id}/fail", json={"error": error, "retry": retry})
+    async def fail(self, job_id: UUID, error: str, retry: bool, code: str) -> None:
+        body = {"error": error, "retry": retry, "code": code}
+        await self._call("POST", f"/jobs/{job_id}/fail", json=body)
 
     async def _call(self, method: str, path: str, **kwargs: Any) -> httpx2.Response:
         headers = {"X-Worker-Id": str(self.worker_id)} if self.worker_id else {}
@@ -114,7 +127,18 @@ class CoreClient:
             raise WorkerUnknown(code)
         if response.status_code == 409 and code == "lease_lost":
             raise LeaseLost(code)
-        raise CoreError(f"{method} {path}: HTTP {response.status_code} {code}")
+        if response.status_code == 410 and code == "image_unavailable":
+            raise ImageUnavailable(_param(response, "reason") or code)
+        if response.status_code == 503 and code == "immich_unreachable":
+            raise ImmichUnreachable(code)
+        raise CoreRefused(f"{method} {path}: HTTP {response.status_code} {code}")
+
+
+def _param(response: httpx2.Response, name: str) -> str:
+    try:
+        return str(response.json().get("params", {}).get(name, ""))
+    except (ValueError, AttributeError):
+        return ""
 
 
 def _code(response: httpx2.Response) -> str:

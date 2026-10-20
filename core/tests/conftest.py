@@ -60,6 +60,10 @@ class FakeImmich:
     album_assets: dict[str, list[str]] = field(default_factory=dict)
     search_requests: list[dict[str, Any]] = field(default_factory=list)
     thumbnail_requests: int = 0
+    # Asset id -> HTTP status Immich answers for its thumbnails (e.g. a broken file).
+    thumbnail_status: dict[str, int] = field(default_factory=dict)
+    # Thumbnail requests cannot connect, as if Immich were down.
+    thumbnails_unreachable: bool = False
     # Tag id -> full value, and asset id -> ids of its tags.
     tags: dict[str, str] = field(default_factory=dict)
     asset_tags: dict[str, set[str]] = field(default_factory=dict)
@@ -230,6 +234,10 @@ class FakeImmich:
             asset_id = path.split("/")[3]
             if asset_id not in self.assets:
                 return _json({"message": "Not found"}, 400)
+            if self.thumbnails_unreachable:
+                raise httpx2.ConnectError("connection refused", request=request)
+            if asset_id in self.thumbnail_status:
+                return _json({"message": "Thumbnail failed"}, self.thumbnail_status[asset_id])
             self.thumbnail_requests += 1
             size = request.url.params.get("size")
             if size == "fullsize":

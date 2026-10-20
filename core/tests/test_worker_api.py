@@ -195,7 +195,7 @@ def test_failures_are_retried_then_given_up(photos: TestClient) -> None:
         )
     assert lease(photos, worker).status_code == 204
     run = run_status(photos, run_id)
-    assert (run.status, run.error) == ("failed", "boom")
+    assert (run.status, run.error, run.error_code) == ("failed", "boom", "module_error")
 
 
 def test_hopeless_failure_is_not_retried(photos: TestClient) -> None:
@@ -218,7 +218,8 @@ def test_lease_expiring_on_the_last_attempt_fails_the_job(photos: TestClient) ->
 
     db_call(photos, exhaust)
     assert lease(photos, worker).status_code == 204
-    assert run_status(photos, run_id).error == "lease_expired"
+    run = run_status(photos, run_id)
+    assert (run.error, run.error_code) == ("lease_expired", "lease_expired")
 
 
 def test_core_runner_leaves_worker_jobs_alone(photos: TestClient) -> None:
@@ -234,3 +235,87 @@ def test_invalid_results_are_rejected(photos: TestClient) -> None:
     bad = {"module_version": "1", "candidates": [{"latitude": 91, "longitude": 0, "score": 0.5}]}
     response = photos.post(f"/api/worker/jobs/{job['job_id']}/result", json=bad, headers=worker)
     assert response.status_code == 422
+
+
+def immich_id(client: TestClient, run_id: UUID) -> str:
+    async def work(db: Any) -> str:
+        run = await db.get(ModuleRun, run_id)
+        asset = await db.get(Asset, run.asset_id)
+        return str(asset.immich_id)
+
+    result: str = db_call(client, work)
+    return result
+
+
+def get_image(client: TestClient, worker: dict[str, Any], job: dict[str, Any]) -> Any:
+    return client.get(f"/api/worker/jobs/{job['job_id']}/image", headers=worker)
+
+
+@pytest.mark.parametrize("status", [400, 404])
+def test_photo_immich_cannot_give_fails_at_once(
+    photos: TestClient, fake_immich: FakeImmich, status: int
+) -> None:
+    run_id = enqueue(photos)
+    fake_immich.thumbnail_status[immich_id(photos, run_id)] = status
+    worker = register(photos)
+    response = get_image(photos, worker, lease(photos, worker).json())
+    assert response.status_code == 410
+    assert response.json()["code"] == "image_unavailable"
+    run = run_status(photos, run_id)
+    assert (run.status, run.error_code) == ("failed", "image_unavailable")
+    assert f"HTTP {status}" in (run.error or "")
+    assert lease(photos, worker).status_code == 204
+
+
+def test_immich_server_error_is_retried_then_recorded(
+    photos: TestClient, fake_immich: FakeImmich
+) -> None:
+    run_id = enqueue(photos)
+    fake_immich.thumbnail_status[immich_id(photos, run_id)] = 500
+    worker = register(photos)
+    for attempt in (1, 2, 3):
+        job = lease(photos, worker).json()
+        assert job["attempt"] == attempt
+        assert get_image(photos, worker, job).status_code == 410
+    run = run_status(photos, run_id)
+    assert (run.status, run.error_code) == ("failed", "image_unavailable")
+
+
+def test_rejected_api_key_is_recorded(photos: TestClient, fake_immich: FakeImmich) -> None:
+    run_id = enqueue(photos)
+    fake_immich.thumbnail_status[immich_id(photos, run_id)] = 401
+    worker = register(photos)
+    assert get_image(photos, worker, lease(photos, worker).json()).status_code == 410
+    assert run_status(photos, run_id).error_code == "immich_auth"
+
+
+def test_unreachable_immich_does_not_use_up_attempts(
+    photos: TestClient, fake_immich: FakeImmich
+) -> None:
+    run_id = enqueue(photos)
+    fake_immich.thumbnails_unreachable = True
+    worker = register(photos)
+    for _ in range(5):
+        response = get_image(photos, worker, lease(photos, worker).json())
+        assert response.status_code == 503
+        assert response.json()["code"] == "immich_unreachable"
+    assert run_status(photos, run_id).status == "queued"
+
+    fake_immich.thumbnails_unreachable = False
+    job = lease(photos, worker).json()
+    assert job["attempt"] == 1
+    assert get_image(photos, worker, job).status_code == 200
+
+
+def test_failure_codes_from_the_worker(photos: TestClient) -> None:
+    first, second = enqueue(photos, index=0), enqueue(photos, index=1)
+    worker = register(photos)
+    job = lease(photos, worker).json()
+    body = {"error": "bad result", "retry": False, "code": "worker_error"}
+    photos.post(f"/api/worker/jobs/{job['job_id']}/fail", json=body, headers=worker)
+    assert run_status(photos, first).error_code == "worker_error"
+    # A worker before 0.3 sends no code: it follows from `retry`.
+    job = lease(photos, worker).json()
+    body = {"error": "cannot decode", "retry": False}
+    photos.post(f"/api/worker/jobs/{job['job_id']}/fail", json=body, headers=worker)
+    assert run_status(photos, second).error_code == "image_invalid"

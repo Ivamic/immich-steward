@@ -12,6 +12,7 @@ from uuid import UUID
 import httpx2
 
 from steward.immich.client import (
+    ImmichError,
     ImmichPermissionError,
     ImmichUnreachableError,
     api_base_url,
@@ -64,8 +65,12 @@ class ThumbnailFetcher:
                 headers={"x-api-key": api_key},
                 follow_redirects=size == "fullsize",
             )
-        except httpx2.HTTPError as exc:
+        except httpx2.ConnectError as exc:
             raise ImmichUnreachableError(f"GET {path}: {type(exc).__name__}") from exc
+        except httpx2.HTTPError as exc:
+            # Immich answers but not in time, e.g. while it makes the preview of a huge file:
+            # a problem of this photo rather than of the server.
+            raise ImmichError(f"GET {path}: {type(exc).__name__}") from exc
         raise_for_status(response, f"GET {path}")
         media_type = response.headers.get("content-type", "application/octet-stream")
         return Image(response.content, media_type)

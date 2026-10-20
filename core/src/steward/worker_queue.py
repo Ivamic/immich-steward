@@ -25,6 +25,28 @@ ACTIVE = ("queued", "running")
 PRIORITY_BACKGROUND = 0
 PRIORITY_USER = 100
 
+# Why a run failed (`ModuleRun.error_code`).
+# The photo cannot be had from Immich: deleted, or Immich cannot make its preview.
+IMAGE_UNAVAILABLE = "image_unavailable"
+# Immich refused the API key of the photo's owner (revoked key, missing permission).
+IMMICH_AUTH = "immich_auth"
+# The worker got the photo but cannot read it.
+IMAGE_INVALID = "image_invalid"
+# The module failed on the photo.
+MODULE_ERROR = "module_error"
+# The worker failed to talk to the core about the job (e.g. the core refused its result).
+WORKER_ERROR = "worker_error"
+# The job never finished in time: its worker crashed, hung or went away, three times.
+LEASE_EXPIRED = "lease_expired"
+FAILURE_CODES = (
+    IMAGE_UNAVAILABLE,
+    IMMICH_AUTH,
+    IMAGE_INVALID,
+    MODULE_ERROR,
+    WORKER_ERROR,
+    LEASE_EXPIRED,
+)
+
 # Automatic runs keep at most this many background jobs per module queued: enough for a GPU
 # worker (~5 photos/s) between two scheduler ticks (1 min), without queuing the whole library.
 # Runs started by hand have a higher priority and never wait behind them.
@@ -124,12 +146,15 @@ async def say_goodbye(db: AsyncSession, worker: Worker) -> None:
         select(Job).where(Job.worker_id == worker.id, Job.status == "running").with_for_update()
     )
     for job in jobs:
-        job.status = "queued"
-        job.worker_id = None
-        job.lease_until = None
-        job.attempts = max(job.attempts - 1, 0)
-        run = await _run_of(db, job)
-        run.status = "queued"
+        _requeue(job, await _run_of(db, job), refund=True)
+    await db.commit()
+
+
+async def give_back(db: AsyncSession, leased: Lease, error: str) -> None:
+    """The job could not be done for a reason outside it (Immich is down): it goes back to the
+    queue without using up an attempt."""
+    _requeue(leased.job, leased.run, refund=True)
+    leased.job.error = error
     await db.commit()
 
 
@@ -263,7 +288,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
         run = await _run_of(db, job)
         if job.attempts >= job.max_attempts:
             # Lease ran out on the last attempt: the job keeps crashing or hanging its workers.
-            _finish(job, run, "failed", error="lease_expired")
+            _finish(job, run, "failed", error=LEASE_EXPIRED, code=LEASE_EXPIRED)
             continue
         job.status = "running"
         job.attempts += 1
@@ -301,17 +326,14 @@ async def complete(
     await db.commit()
 
 
-async def fail(db: AsyncSession, leased: Lease, error: str, retry: bool) -> None:
+async def fail(db: AsyncSession, leased: Lease, error: str, retry: bool, code: str) -> None:
     """Puts the job back in the queue if it may succeed later, otherwise fails it."""
     job, run = leased.job, leased.run
     if retry and job.attempts < job.max_attempts:
-        job.status = "queued"
-        job.worker_id = None
-        job.lease_until = None
+        _requeue(job, run, refund=False)
         job.error = error
-        run.status = "queued"
     else:
-        _finish(job, run, "failed", error=error)
+        _finish(job, run, "failed", error=error, code=code)
     await db.commit()
 
 
@@ -321,9 +343,20 @@ async def _run_of(db: AsyncSession, job: Job) -> ModuleRun:
     return run
 
 
-def _finish(job: Job, run: ModuleRun, status: str, error: str | None = None) -> None:
+def _requeue(job: Job, run: ModuleRun, refund: bool) -> None:
+    job.status = run.status = "queued"
+    job.worker_id = None
+    job.lease_until = None
+    if refund:
+        job.attempts = max(job.attempts - 1, 0)
+
+
+def _finish(
+    job: Job, run: ModuleRun, status: str, error: str | None = None, code: str | None = None
+) -> None:
     now = datetime.now(UTC)
     job.status = run.status = status
     job.error = run.error = error
+    run.error_code = code
     job.finished_at = run.finished_at = now
     job.lease_until = None

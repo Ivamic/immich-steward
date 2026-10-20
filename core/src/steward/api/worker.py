@@ -7,7 +7,7 @@ from the core, which fetches it from Immich with the key of the photo's owner.
 """
 
 import secrets
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, Response
@@ -17,6 +17,11 @@ from steward import worker_queue
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
 from steward.immich import ImmichError
+from steward.immich.client import (
+    ImmichAuthError,
+    ImmichPermissionError,
+    ImmichUnreachableError,
+)
 from steward.immich.thumbnails import ThumbnailFetcher
 from steward.models import Account, Asset, Worker
 
@@ -96,6 +101,8 @@ class FailRequest(BaseModel):
     error: str = Field(max_length=2000)
     # False when running again cannot help (e.g. the image cannot be decoded).
     retry: bool = True
+    # Why it failed (`worker_queue.FAILURE_CODES`); workers before 0.3 send none.
+    code: str | None = Field(default=None, pattern=r"^[a-z_]{1,32}$")
 
 
 @router.post("/register", dependencies=[Depends(check_token)])
@@ -140,21 +147,45 @@ async def heartbeat(job_id: UUID, worker: WorkerDep, db: DbDep, settings: Settin
 async def image(
     job_id: UUID, request: Request, worker: WorkerDep, db: DbDep, box: SecretBoxDep
 ) -> Response:
-    """The preview of the job's photo (JPEG or WebP, about 1440 px on the long side)."""
+    """The preview of the job's photo (JPEG or WebP, about 1440 px on the long side).
+
+    When the photo cannot be had, the core records why itself and answers 410
+    `image_unavailable`: the worker drops the job. When Immich does not answer at all, the job
+    goes back to the queue without using up an attempt, and the answer is 503
+    `immich_unreachable`: the worker waits a little.
+    """
     leased = await worker_queue.leased_job(db, worker, job_id)
     await db.commit()  # releases the row lock while Immich is asked
     asset = await db.get(Asset, leased.run.asset_id)
     account = await db.get(Account, asset.account_id) if asset else None
     if asset is None or account is None:
-        raise ApiError(404, "asset_not_found")
+        await _image_failed(db, worker, job_id, "photo not found", worker_queue.IMAGE_UNAVAILABLE)
+    assert asset is not None and account is not None
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
     try:
         found = await fetcher.fetch(
             box.decrypt(account.api_key_encrypted), asset.immich_id, "preview"
         )
+    except ImmichUnreachableError as exc:
+        leased = await worker_queue.leased_job(db, worker, job_id)
+        await worker_queue.give_back(db, leased, str(exc))
+        raise ApiError(503, "immich_unreachable") from exc
+    except (ImmichAuthError, ImmichPermissionError) as exc:
+        await _image_failed(db, worker, job_id, str(exc), worker_queue.IMMICH_AUTH)
     except ImmichError as exc:
-        raise ApiError(502, "immich_error") from exc
+        # 4xx: the photo is gone or Immich cannot make its preview, a retry cannot help;
+        # 5xx or no answer in time: Immich may manage next time.
+        retry = exc.status is None or exc.status >= 500
+        await _image_failed(db, worker, job_id, str(exc), worker_queue.IMAGE_UNAVAILABLE, retry)
     return Response(content=found.content, media_type=found.media_type)
+
+
+async def _image_failed(
+    db: DbDep, worker: Worker, job_id: UUID, error: str, code: str, retry: bool = False
+) -> NoReturn:
+    leased = await worker_queue.leased_job(db, worker, job_id)
+    await worker_queue.fail(db, leased, error, retry, code)
+    raise ApiError(410, "image_unavailable", reason=code)
 
 
 @router.post("/jobs/{job_id}/result", status_code=204)
@@ -167,4 +198,5 @@ async def result(job_id: UUID, body: ResultRequest, worker: WorkerDep, db: DbDep
 @router.post("/jobs/{job_id}/fail", status_code=204)
 async def fail(job_id: UUID, body: FailRequest, worker: WorkerDep, db: DbDep) -> None:
     leased = await worker_queue.leased_job(db, worker, job_id)
-    await worker_queue.fail(db, leased, body.error, body.retry)
+    code = body.code or (worker_queue.MODULE_ERROR if body.retry else worker_queue.IMAGE_INVALID)
+    await worker_queue.fail(db, leased, body.error, body.retry, code)

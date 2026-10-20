@@ -219,6 +219,9 @@ class ModuleRun(Base):
         JSON().with_variant(JSONB(), "postgresql"), default=list
     )
     error: Mapped[str | None] = mapped_column(Text)
+    # Why a failed run failed, one of `worker_queue.FAILURE_CODES` (or a newer worker's code);
+    # `error` keeps the details.
+    error_code: Mapped[str | None] = mapped_column(String(32))
     worker_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("worker.id", ondelete="SET NULL")
     )

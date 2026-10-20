@@ -8,7 +8,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from steward_worker.client import CoreClient
+from steward_worker.client import CoreClient, ImmichUnreachable
 from steward_worker.modules import Candidate, PermanentError
 from steward_worker.runner import Worker, WorkerConfig
 
@@ -25,6 +25,9 @@ class FakeCore:
     registrations: int = 0
     known_workers: set[str] = field(default_factory=set)
     lose_lease: bool = False
+    # Status and body of the answers to /image and /result instead of success.
+    image_error: tuple[int, dict[str, Any]] | None = None
+    result_error: tuple[int, dict[str, Any]] | None = None
     goodbyes: int = 0
 
     def add_job(self, module: str = "stub") -> str:
@@ -55,10 +58,14 @@ class FakeCore:
             return httpx2.Response(200, json=job | {"attempt": 1, "lease_seconds": 30})
         job_id = path.split("/")[2]
         if path.endswith("/image"):
+            if self.image_error:
+                return httpx2.Response(self.image_error[0], json=self.image_error[1])
             return httpx2.Response(200, content=b"image-bytes")
         if self.lose_lease:
             return httpx2.Response(409, json={"code": "lease_lost"})
         if path.endswith("/result"):
+            if self.result_error:
+                return httpx2.Response(self.result_error[0], json=self.result_error[1])
             self.results[job_id] = json.loads(request.content)
         elif path.endswith("/fail"):
             self.failures[job_id] = json.loads(request.content)
@@ -136,13 +143,48 @@ def test_module_errors_are_reported_for_retry() -> None:
     retry_job = core.add_job()
     worker, _ = make_worker(core, StubModule(RuntimeError("out of memory")))
     asyncio.run(worker.run_once())
-    assert core.failures[retry_job] == {"error": "RuntimeError: out of memory", "retry": True}
+    assert core.failures[retry_job] == {
+        "error": "RuntimeError: out of memory",
+        "retry": True,
+        "code": "module_error",
+    }
 
     hopeless = FakeCore()
     job = hopeless.add_job()
     worker, _ = make_worker(hopeless, StubModule(PermanentError("not an image")))
     asyncio.run(worker.run_once())
     assert hopeless.failures[job]["retry"] is False
+    assert hopeless.failures[job]["code"] == "image_invalid"
+
+
+def test_photo_the_core_cannot_give_is_dropped() -> None:
+    body = {"code": "image_unavailable", "params": {"reason": "image_unavailable"}}
+    core = FakeCore(image_error=(410, body))
+    core.add_job()
+    module = StubModule()
+    worker, _ = make_worker(core, module)
+    assert asyncio.run(worker.run_once()) is True
+    # The core has recorded the failure itself; the module never ran.
+    assert (core.results, core.failures, module.loads) == ({}, {}, 0)
+
+
+def test_unreachable_immich_makes_the_worker_wait() -> None:
+    core = FakeCore(image_error=(503, {"code": "immich_unreachable", "params": {}}))
+    core.add_job()
+    worker, _ = make_worker(core, StubModule())
+    with pytest.raises(ImmichUnreachable):
+        asyncio.run(worker.run_once())
+    assert core.failures == {}
+
+
+def test_refused_result_is_reported_as_a_failure() -> None:
+    core = FakeCore(result_error=(422, {"code": "validation_error", "params": {}}))
+    job_id = core.add_job()
+    worker, _ = make_worker(core, StubModule())
+    assert asyncio.run(worker.run_once()) is True
+    failure = core.failures[job_id]
+    assert (failure["retry"], failure["code"]) == (True, "worker_error")
+    assert "HTTP 422" in failure["error"]
 
 
 def test_lost_lease_drops_the_job_quietly() -> None:

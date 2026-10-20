@@ -13,7 +13,16 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from steward_worker import __version__
-from steward_worker.client import CoreClient, CoreError, LeasedJob, LeaseLost, WorkerUnknown
+from steward_worker.client import (
+    CoreClient,
+    CoreError,
+    CoreRefused,
+    ImageUnavailable,
+    ImmichUnreachable,
+    LeasedJob,
+    LeaseLost,
+    WorkerUnknown,
+)
 from steward_worker.load import system_busy
 from steward_worker.modules import PermanentError, WorkerModule
 
@@ -62,6 +71,10 @@ class Worker:
         while not self._stop.is_set():
             try:
                 worked = await self.run_once()
+            except ImmichUnreachable:
+                log.warning("the core cannot reach Immich; retrying in %.0f s", ERROR_WAIT_S)
+                await self._sleep(ERROR_WAIT_S)
+                continue
             except CoreError as exc:
                 log.warning("core: %s; retrying in %.0f s", exc, ERROR_WAIT_S)
                 await self._sleep(ERROR_WAIT_S)
@@ -131,15 +144,26 @@ class Worker:
             )
         except LeaseLost:
             log.warning("job %s: lease lost, dropping it", job.job_id)
+        except ImageUnavailable as exc:
+            log.warning("job %s: the core cannot get the photo from Immich (%s)", job.job_id, exc)
+        except ImmichUnreachable:
+            raise  # the job is back in the queue; wait before the next one
+        except CoreRefused as exc:
+            # E.g. the core refused the result: tell it, or the job waits for its lease to end.
+            log.warning("job %s: %s", job.job_id, exc)
+            with contextlib.suppress(CoreError):
+                await self._client.fail(job.job_id, str(exc), retry=True, code="worker_error")
         except CoreError:
             raise
         except Exception as exc:
             log.exception("job %s failed", job.job_id)
+            permanent = isinstance(exc, PermanentError)
             with contextlib.suppress(LeaseLost):
                 await self._client.fail(
                     job.job_id,
                     f"{type(exc).__name__}: {exc}",
-                    retry=not isinstance(exc, PermanentError),
+                    retry=not permanent,
+                    code="image_invalid" if permanent else "module_error",
                 )
         finally:
             heartbeat.cancel()

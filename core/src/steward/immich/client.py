@@ -27,6 +27,11 @@ SEARCH_PAGE_SIZE = 1000
 class ImmichError(Exception):
     """Base class for errors talking to Immich."""
 
+    def __init__(self, message: str, status: int | None = None) -> None:
+        super().__init__(message)
+        # HTTP status of Immich's answer; None when there was no answer.
+        self.status = status
+
 
 class ImmichUnreachableError(ImmichError):
     """The server did not answer (wrong URL, network problem, timeout)."""
@@ -189,11 +194,13 @@ def api_base_url(server_url: str) -> str:
 
 def raise_for_status(response: httpx2.Response, what: str) -> None:
     if response.status_code == 401:
-        raise ImmichAuthError(f"{what}: API key rejected")
+        raise ImmichAuthError(f"{what}: API key rejected", 401)
     if response.status_code == 403:
-        raise ImmichPermissionError(f"{what}: {_message(response)}")
+        raise ImmichPermissionError(f"{what}: {_message(response)}", 403)
     if response.is_error:
-        raise ImmichError(f"{what}: HTTP {response.status_code} {_message(response)}")
+        raise ImmichError(
+            f"{what}: HTTP {response.status_code} {_message(response)}", response.status_code
+        )
 
 
 def _message(response: httpx2.Response) -> str:

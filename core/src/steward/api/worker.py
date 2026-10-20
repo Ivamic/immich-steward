@@ -6,6 +6,7 @@ it never needs incoming connections and never sees an Immich API key. The image 
 from the core, which fetches it from Immich with the key of the photo's owner.
 """
 
+import asyncio
 import secrets
 from datetime import timedelta
 from typing import Annotated, Any, NoReturn
@@ -17,6 +18,7 @@ from pydantic import BaseModel, Field
 from steward import worker_queue
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
+from steward.images import UnreadableImage, crop
 from steward.immich import ImmichError
 from steward.immich.client import (
     ImmichAuthError,
@@ -160,6 +162,9 @@ async def image(
 ) -> Response:
     """The preview of the job's photo (JPEG or WebP, about 1440 px on the long side).
 
+    For a run on a part of the photo, the part is cut from the full-size image (the preview
+    when the API key may not download originals), as a JPEG of up to 1440 px.
+
     When the photo cannot be had, the core records why itself and answers 410
     `image_unavailable`: the worker drops the job. When Immich does not answer at all, the job
     goes back to the queue without using up an attempt, and the answer is 503
@@ -173,9 +178,12 @@ async def image(
         await _image_failed(db, worker, job_id, "photo not found", worker_queue.IMAGE_UNAVAILABLE)
     assert asset is not None and account is not None
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
+    region = leased.run.region
     try:
         found = await fetcher.fetch(
-            box.decrypt(account.api_key_encrypted), asset.immich_id, "preview"
+            box.decrypt(account.api_key_encrypted),
+            asset.immich_id,
+            "fullsize" if region else "preview",
         )
     except ImmichUnreachableError as exc:
         leased = await worker_queue.leased_job(db, worker, job_id)
@@ -188,6 +196,12 @@ async def image(
         # 5xx or no answer in time: Immich may manage next time.
         retry = exc.status is None or exc.status >= 500
         await _image_failed(db, worker, job_id, str(exc), worker_queue.IMAGE_UNAVAILABLE, retry)
+    if region:
+        try:
+            part = await asyncio.to_thread(crop, found.content, region)
+        except UnreadableImage as exc:
+            await _image_failed(db, worker, job_id, str(exc), worker_queue.IMAGE_INVALID)
+        return Response(content=part, media_type="image/jpeg")
     return Response(content=found.content, media_type=found.media_type)
 
 

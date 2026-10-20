@@ -222,6 +222,11 @@ class ModuleRun(Base):
         JSON().with_variant(JSONB(), "postgresql"), default=list
     )
     error: Mapped[str | None] = mapped_column(Text)
+    # Part of the photo the run looked at (FR-35): {"x", "y", "w", "h"} as shares of the width
+    # and height of the oriented photo; None (SQL NULL) for the whole photo.
+    region: Mapped[dict[str, float] | None] = mapped_column(
+        JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
+    )
     # Why a failed run failed, one of `worker_queue.FAILURE_CODES` (or a newer worker's code);
     # `error` keeps the details.
     error_code: Mapped[str | None] = mapped_column(String(32))

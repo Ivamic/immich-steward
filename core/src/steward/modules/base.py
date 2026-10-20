@@ -79,6 +79,8 @@ class ModuleContext:
     settings: Settings
     # Cameras the user excluded for this photo (camera filter values).
     exclude_cameras: frozenset[str] = frozenset()
+    # Only photos of the photo's own camera count (when the camera is known).
+    same_camera_only: bool = False
 
 
 class LocationModule(Protocol):

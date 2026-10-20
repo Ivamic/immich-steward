@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
 from steward import locations, worker_queue
@@ -40,8 +40,8 @@ from steward.immich import (
     ImmichUnreachableError,
 )
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
-from steward.models import Account, Album, Asset, AssetAlbum, LocationChange
-from steward.modules import MODULES, REMOTE_MODULES, ModuleContext
+from steward.models import Account, Album, Asset, AssetAlbum, LocationChange, ModuleRun
+from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule
 
 router = APIRouter(prefix="/assets")
 
@@ -172,6 +172,21 @@ class LocationUpdate(BaseModel):
     longitude: float = Field(ge=-180, le=180)
 
 
+class RegionIn(BaseModel):
+    """A part of the photo as shares of its width and height (FR-35)."""
+
+    x: float = Field(ge=0, lt=1)
+    y: float = Field(ge=0, lt=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+
+    @model_validator(mode="after")
+    def inside(self) -> "RegionIn":
+        if self.x + self.w > 1 + 1e-6 or self.y + self.h > 1 + 1e-6:
+            raise ValueError("the region must lie inside the photo")
+        return self
+
+
 class CandidateItem(BaseModel):
     rank: int  # 1-based, within the module
     latitude: float
@@ -234,6 +249,15 @@ class ModuleSuggestions(BaseModel):
     finished_at: datetime | None = None
     # Queued runs: jobs of the module a worker takes before this one.
     queue_position: int | None = None
+    # Tells the block apart: the module id, or "<module>:region" for its run on a part.
+    key: str = ""
+    # The part of the photo of a run on a part (FR-35).
+    region: RegionIn | None = None
+
+
+class RunRequest(BaseModel):
+    # None: the whole photo.
+    region: RegionIn | None = None
 
 
 class CameraOption(BaseModel):
@@ -365,10 +389,12 @@ async def suggestions(
     db: DbDep,
     settings: SettingsDep,
     exclude_camera: Annotated[list[str] | None, Query()] = None,
+    same_camera_only: bool = False,
 ) -> list[ModuleSuggestions]:
     """Candidates of the core modules (computed now) and the latest results of worker modules."""
     asset = await _own_asset(db, account, asset_id)
-    return await _suggestions(db, account, asset, settings, frozenset(exclude_camera or ()))
+    cameras = frozenset(exclude_camera or ())
+    return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
 
 
 @router.post("/{asset_id}/modules/{module_id}/run")
@@ -379,13 +405,18 @@ async def run_module(
     db: DbDep,
     settings: SettingsDep,
     exclude_camera: Annotated[list[str] | None, Query()] = None,
+    same_camera_only: bool = False,
+    body: RunRequest | None = None,
 ) -> list[ModuleSuggestions]:
-    """Queues a worker module for the photo ahead of the background runs (FR-34)."""
+    """Queues a worker module for the photo, or a part of it, ahead of the background runs
+    (FR-34, FR-35)."""
     if module_id not in REMOTE_MODULES:
         raise ApiError(404, "module_not_found")
     asset = await _own_asset(db, account, asset_id)
-    await worker_queue.enqueue_module(db, asset, module_id, worker_queue.PRIORITY_USER)
-    return await _suggestions(db, account, asset, settings, frozenset(exclude_camera or ()))
+    region = body.region.model_dump() if body and body.region else None
+    await worker_queue.enqueue_module(db, asset, module_id, worker_queue.PRIORITY_USER, region)
+    cameras = frozenset(exclude_camera or ())
+    return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
 
 
 async def _suggestions(
@@ -394,6 +425,7 @@ async def _suggestions(
     asset: Asset,
     settings: SettingsDep,
     exclude_cameras: frozenset[str],
+    same_camera_only: bool = False,
 ) -> list[ModuleSuggestions]:
     ctx = ModuleContext(
         db=db,
@@ -401,6 +433,7 @@ async def _suggestions(
         asset=asset,
         settings=settings,
         exclude_cameras=exclude_cameras,
+        same_camera_only=same_camera_only,
     )
     result = []
     for module in MODULES:
@@ -418,46 +451,61 @@ async def _suggestions(
                 track=[TrackPointItem(**vars(point)) for point in found.track],
                 cameras=[CameraCountItem(**vars(camera)) for camera in found.cameras],
                 note=found.note,
+                key=module.id,
             )
         )
 
     runs = await worker_queue.latest_runs(db, asset.id)
+    region_runs = await worker_queue.latest_runs(db, asset.id, region=True)
     workers = await worker_queue.active_workers(
         db, timedelta(minutes=settings.worker_active_minutes)
     )
     available = {module for worker in workers for module in worker.modules}
     for remote in REMOTE_MODULES.values():
-        run = runs.get(remote.id)
-        result.append(
-            ModuleSuggestions(
-                module=remote.id,
-                version=(run.module_version if run else None) or "",
-                color=remote.color,
-                shape=remote.shape,
-                candidates=[
-                    CandidateItem(rank=rank, tier=_tier(candidate["score"], settings), **candidate)
-                    for rank, candidate in enumerate(
-                        [
-                            c
-                            for c in (run.candidates if run and run.status == "done" else [])
-                            if c["score"] >= settings.geoclip_min_confidence
-                        ],
-                        start=1,
-                    )
-                ],
-                track=[],
-                cameras=[],
-                note=None,
-                status=run.status if run else "not_run",
-                runnable=True,
-                worker_available=remote.id in available,
-                error=run.error if run else None,
-                error_code=run.error_code if run else None,
-                finished_at=run.finished_at if run else None,
-                queue_position=await worker_queue.queue_position(db, run) if run else None,
-            )
-        )
+        result.append(await _remote(db, remote, runs.get(remote.id), available, settings))
+        # The run on a part of the photo, if any, right after the one on the whole photo.
+        if run := region_runs.get(remote.id):
+            result.append(await _remote(db, remote, run, available, settings))
     return result
+
+
+async def _remote(
+    db: DbDep,
+    remote: RemoteModule,
+    run: ModuleRun | None,
+    available: set[str],
+    settings: Settings,
+) -> ModuleSuggestions:
+    region = RegionIn(**run.region) if run and run.region else None
+    return ModuleSuggestions(
+        module=remote.id,
+        version=(run.module_version if run else None) or "",
+        color=remote.color,
+        shape=remote.shape,
+        candidates=[
+            CandidateItem(rank=rank, tier=_tier(candidate["score"], settings), **candidate)
+            for rank, candidate in enumerate(
+                [
+                    c
+                    for c in (run.candidates if run and run.status == "done" else [])
+                    if c["score"] >= settings.geoclip_min_confidence
+                ],
+                start=1,
+            )
+        ],
+        track=[],
+        cameras=[],
+        note=None,
+        status=run.status if run else "not_run",
+        runnable=True,
+        worker_available=remote.id in available,
+        error=run.error if run else None,
+        error_code=run.error_code if run else None,
+        finished_at=run.finished_at if run else None,
+        queue_position=await worker_queue.queue_position(db, run) if run else None,
+        key=f"{remote.id}:region" if region else remote.id,
+        region=region,
+    )
 
 
 @asynccontextmanager

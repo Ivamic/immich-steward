@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun
-from steward.worker_queue import latest_run_failed
+from steward.worker_queue import latest_run_failed, whole_photo
 
 # Disjoint groups the gallery can show in any combination. with: has a location (whatever its
 # review status); todo: no location and not marked; skipped / not_applicable: no location and
@@ -89,6 +89,7 @@ def geoclip_confident(min_score: float) -> ColumnElement[bool]:
         ModuleRun.asset_id == Asset.id,
         ModuleRun.module_id == "geoclip",
         ModuleRun.status == "done",
+        whole_photo(),
         func.jsonb_path_exists(
             ModuleRun.candidates,
             literal("$[*] ? (@.score >= $min)", JSONPATH),

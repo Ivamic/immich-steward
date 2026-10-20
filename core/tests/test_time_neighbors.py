@@ -164,3 +164,30 @@ def test_cameras_are_listed_and_can_be_excluded(
     )
     assert nothing["note"] == "no_neighbors"
     assert len(nothing["cameras"]) == 2
+
+
+def test_only_this_camera(signed_in: TestClient, fake_immich: FakeImmich) -> None:
+    add(fake_immich, "09:00:00", **A)  # same camera (Canon), an hour earlier
+    add(fake_immich, "09:55:00", **B, **PHONE)  # another camera, 5 minutes earlier
+    target = add(fake_immich, "10:00:00")
+    sync(signed_in)
+    url = f"/api/assets/{local_id(signed_in, fake_immich, target)}/suggestions"
+    same = time_neighbors(signed_in.get(url, params={"same_camera_only": True}).json())
+    assert [p["camera"] for p in same["track"]] == ["Canon EOS 300D"]
+    # The other cameras show as excluded; the photo's own one stays in.
+    assert [(c["same_camera"], c["excluded"]) for c in same["cameras"]] == [
+        (True, False),
+        (False, True),
+    ]
+
+
+def test_only_this_camera_needs_a_known_camera(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    add(fake_immich, "09:55:00", **B, **PHONE)
+    target = fake_immich.add_asset(taken="2024-05-01T10:00:00", exif={"make": None, "model": None})
+    sync(signed_in)
+    url = f"/api/assets/{local_id(signed_in, fake_immich, target)}/suggestions"
+    result = time_neighbors(signed_in.get(url, params={"same_camera_only": True}).json())
+    # Nothing to compare with: the mode is ignored rather than hiding every neighbor.
+    assert [p["camera"] for p in result["track"]] == ["Apple iPhone 15 Pro Max"]

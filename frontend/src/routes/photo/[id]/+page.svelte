@@ -20,6 +20,7 @@
 		type GalleryFilter,
 		type MapConfig,
 		type ModuleSuggestions,
+		type Region,
 		type ReviewStatus
 	} from '#lib/api.js';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
@@ -28,6 +29,7 @@
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
 	import PhotoViewer from '#lib/PhotoViewer.svelte';
+	import RegionPicker from '#lib/RegionPicker.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { saves } from '#lib/saves.svelte.js';
@@ -55,6 +57,10 @@
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let viewerOpen = $state(false);
+	// The module to choose a part of the photo for, and the part to start from (FR-35).
+	let partPicker = $state<{ module: string; region: Region | null } | null>(null);
+	// The part outlined on the photo while its suggestions are hovered.
+	let shownPart = $state<Region | null>(null);
 	let suggestions = $state<ModuleSuggestions[]>([]);
 	let suggestionsLoading = $state(false);
 
@@ -112,6 +118,7 @@
 	// Cameras excluded or included again: recompute the suggestions of this photo.
 	$effect(() => {
 		void cameraFilter.excluded;
+		void cameraFilter.sameOnly;
 		if (untrack(() => asset)) untrack(() => fetchSuggestions(id));
 	});
 
@@ -140,22 +147,34 @@
 		}
 	}
 
-	async function run(module: string) {
+	async function run(module: string, region: Region | null = null) {
 		if (!asset) return;
 		const assetId = asset.id;
 		try {
-			setSuggestions(assetId, await runModule(assetId, module, cameraFilter.excluded));
+			setSuggestions(
+				assetId,
+				await runModule(assetId, module, cameraFilter.excluded, region, cameraFilter.sameOnly)
+			);
 		} catch (e) {
 			error = errorMessage(e);
 		}
 	}
 
+	// R: a part of the photo for GeoCLIP, starting from the part chosen last time.
+	function pickPart() {
+		if (asset?.type !== 'IMAGE') return;
+		const block = suggestions.find((s) => s.module === 'geoclip' && s.region);
+		partPicker = { module: 'geoclip', region: block?.region ?? null };
+	}
+
 	function fetchSuggestions(assetId: string): Promise<ModuleSuggestions[]> {
 		suggestionsLoading = true;
-		const found = getSuggestions(assetId, cameraFilter.excluded).then((result) => {
-			setSuggestions(assetId, result);
-			return result;
-		});
+		const found = getSuggestions(assetId, cameraFilter.excluded, cameraFilter.sameOnly).then(
+			(result) => {
+				setSuggestions(assetId, result);
+				return result;
+			}
+		);
 		found.catch((e) => (error = errorMessage(e))).finally(() => (suggestionsLoading = false));
 		return found;
 	}
@@ -271,7 +290,7 @@
 
 	function onkeydown(event: KeyboardEvent) {
 		// The viewer handles its own keys (Esc closes it).
-		if (viewerOpen) return;
+		if (viewerOpen || partPicker) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if ((event.target as HTMLElement).closest('input, textarea, select')) return;
 		const actions: Record<string, () => void> = {
@@ -282,7 +301,8 @@
 			n: () => review('not_applicable'),
 			s: () => review('skipped'),
 			u: () => review('new'),
-			z: () => (viewerOpen = true)
+			z: () => (viewerOpen = true),
+			r: pickPart
 		};
 		const key = event.key.toLowerCase();
 		const suggestion = numbered.find((item) => String(item.key) === key);
@@ -427,6 +447,9 @@
 					: [...unfolded, module])}
 			onlocate={(c) =>
 				mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
+			parts={asset?.type === 'IMAGE'}
+			onpart={(module, region) => (partPicker = { module, region })}
+			onpartshow={(region) => (shownPart = region)}
 		/>
 	</section>
 
@@ -439,7 +462,18 @@
 				aria-label={m.photo_zoom()}
 				onclick={() => (viewerOpen = true)}
 			>
-				<img src={thumbnailUrl(id, 'preview')} alt={asset?.file_name ?? ''} />
+				<span class="framed">
+					<img src={thumbnailUrl(id, 'preview')} alt={asset?.file_name ?? ''} />
+					{#if shownPart}
+						<span
+							class="part"
+							style:left="{shownPart.x * 100}%"
+							style:top="{shownPart.y * 100}%"
+							style:width="{shownPart.w * 100}%"
+							style:height="{shownPart.h * 100}%"
+						></span>
+					{/if}
+				</span>
 				<span class="zoom-label">⤢ {m.photo_zoom()} <kbd>Z</kbd></span>
 			</button>
 			{#if asset?.type === 'VIDEO'}
@@ -523,6 +557,20 @@
 		{/if}
 	</aside>
 </div>
+
+{#if partPicker}
+	<RegionPicker
+		src={thumbnailUrl(id, 'fullsize')}
+		alt={asset?.file_name ?? ''}
+		initial={partPicker.region}
+		onrun={(region) => {
+			const module = partPicker?.module ?? 'geoclip';
+			partPicker = null;
+			run(module, region);
+		}}
+		onclose={() => (partPicker = null)}
+	/>
+{/if}
 
 {#if viewerOpen}
 	<PhotoViewer
@@ -643,11 +691,24 @@
 		background: none;
 		cursor: zoom-in;
 	}
+	/* Fits the photo exactly, so that a part can be outlined on it. */
+	.framed {
+		position: relative;
+		display: block;
+		width: fit-content;
+		margin: 0 auto;
+		overflow: hidden;
+	}
 	.zoom img {
 		display: block;
 		max-width: 100%;
 		max-height: 16rem;
-		margin: 0 auto;
+	}
+	.part {
+		position: absolute;
+		outline: 2px dashed #fff;
+		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45);
+		pointer-events: none;
 	}
 	.zoom-label {
 		position: absolute;

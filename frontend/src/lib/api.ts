@@ -290,6 +290,18 @@ export interface ModuleSuggestions {
 	finished_at: string | null;
 	/** Queued runs: jobs of the module a worker takes before this one. */
 	queue_position: number | null;
+	/** Tells the blocks apart: the module id, or "<module>:region" for its run on a part. */
+	key: string;
+	/** The part of the photo of a run on a part (FR-35). */
+	region: Region | null;
+}
+
+/** A part of the photo as shares of its width and height (of the photo as shown). */
+export interface Region {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
 }
 
 export type ModuleStatus = 'ready' | 'not_run' | 'queued' | 'running' | 'done' | 'failed';
@@ -321,22 +333,30 @@ export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/wo
 export const rerunFailed = (module: string, code: string | null) =>
 	request<{ queued: number }>('POST', `/api/library/modules/${module}/rerun-failed`, { code });
 
-function cameraQuery(excludeCameras: string[]): string {
+function cameraQuery(excludeCameras: string[], sameCameraOnly = false): string {
 	const params = new URLSearchParams(excludeCameras.map((value) => ['exclude_camera', value]));
+	if (sameCameraOnly) params.set('same_camera_only', 'true');
 	return params.size ? `?${params}` : '';
 }
 
-export const getSuggestions = (id: string, excludeCameras: string[] = []) =>
+export const getSuggestions = (id: string, excludeCameras: string[] = [], sameCameraOnly = false) =>
 	request<ModuleSuggestions[]>(
 		'GET',
-		`/api/assets/${id}/suggestions${cameraQuery(excludeCameras)}`
+		`/api/assets/${id}/suggestions${cameraQuery(excludeCameras, sameCameraOnly)}`
 	);
 
-/** Queues a worker module for the photo ahead of the background runs. */
-export const runModule = (id: string, module: string, excludeCameras: string[] = []) =>
+/** Queues a worker module for the photo, or a part of it, ahead of the background runs. */
+export const runModule = (
+	id: string,
+	module: string,
+	excludeCameras: string[] = [],
+	region: Region | null = null,
+	sameCameraOnly = false
+) =>
 	request<ModuleSuggestions[]>(
 		'POST',
-		`/api/assets/${id}/modules/${module}/run${cameraQuery(excludeCameras)}`
+		`/api/assets/${id}/modules/${module}/run${cameraQuery(excludeCameras, sameCameraOnly)}`,
+		region ? { region } : undefined
 	);
 export const getAsset = (id: string, filter: GalleryFilter) =>
 	request<AssetDetail>('GET', `/api/assets/${id}${filterQuery(filter)}`);

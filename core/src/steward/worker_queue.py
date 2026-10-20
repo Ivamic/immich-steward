@@ -61,22 +61,40 @@ class Lease:
     run: ModuleRun
 
 
+def whole_photo() -> ColumnElement[bool]:
+    """Runs on the whole photo, as opposed to a part the user selected (FR-35).
+
+    Only these count for the library: progress, failures, filters, automatic runs.
+    """
+    return ModuleRun.region.is_(None)
+
+
 async def enqueue_module(
-    db: AsyncSession, asset: Asset, module_id: str, priority: int = PRIORITY_BACKGROUND
+    db: AsyncSession,
+    asset: Asset,
+    module_id: str,
+    priority: int = PRIORITY_BACKGROUND,
+    region: dict[str, float] | None = None,
 ) -> ModuleRun:
-    """Queues a module run unless one is already queued or running; raises its priority."""
+    """Queues a module run unless one is already queued or running; raises its priority.
+
+    A run on a part of the photo is separate from the runs on the whole photo; a part chosen
+    anew replaces the part of a run still waiting in the queue.
+    """
     active = await db.scalar(
         select(ModuleRun).where(
             ModuleRun.asset_id == asset.id,
             ModuleRun.module_id == module_id,
             ModuleRun.status.in_(ACTIVE),
+            whole_photo() if region is None else ModuleRun.region.is_not(None),
         )
     )
-    if active is not None:
+    if active is not None and (region is None or active.status == "queued"):
         job = await db.get(Job, active.job_id) if active.job_id else None
         if job is not None and job.priority < priority:
             job.priority = priority
-            await db.commit()
+        active.region = region
+        await db.commit()
         return active
     job = Job(
         kind=MODULE_JOB,
@@ -87,17 +105,24 @@ async def enqueue_module(
     )
     db.add(job)
     await db.flush()
-    run = ModuleRun(asset_id=asset.id, module_id=module_id, job_id=job.id, status="queued")
+    run = ModuleRun(
+        asset_id=asset.id, module_id=module_id, job_id=job.id, status="queued", region=region
+    )
     db.add(run)
     await db.commit()
     return run
 
 
-async def latest_runs(db: AsyncSession, asset_id: UUID) -> dict[str, ModuleRun]:
-    """The newest run of every module for the asset."""
+async def latest_runs(
+    db: AsyncSession, asset_id: UUID, region: bool = False
+) -> dict[str, ModuleRun]:
+    """The newest run of every module for the asset: on the whole photo, or on a part of it."""
     runs = await db.scalars(
         select(ModuleRun)
-        .where(ModuleRun.asset_id == asset_id)
+        .where(
+            ModuleRun.asset_id == asset_id,
+            ModuleRun.region.is_not(None) if region else whole_photo(),
+        )
         .order_by(ModuleRun.created_at.desc())
     )
     latest: dict[str, ModuleRun] = {}
@@ -194,7 +219,9 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
             Asset.type == "IMAGE",
             Asset.is_trashed.is_(False),
             Asset.visibility == "timeline",
-            ~exists().where(ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id),
+            ~exists().where(
+                ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id, whole_photo()
+            ),
         )
         .subquery()
     )
@@ -231,7 +258,7 @@ async def run_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, 
     latest = (
         select(ModuleRun.module_id, ModuleRun.status)
         .join(Asset, Asset.id == ModuleRun.asset_id)
-        .where(Asset.account_id == account.id)
+        .where(Asset.account_id == account.id, whole_photo())
         .ext(distinct_on(ModuleRun.asset_id, ModuleRun.module_id))
         .order_by(ModuleRun.asset_id, ModuleRun.module_id, ModuleRun.created_at.desc())
         .subquery()
@@ -273,9 +300,11 @@ def _latest_failed() -> ColumnElement[bool]:
     newer = aliased(ModuleRun)
     return and_(
         ModuleRun.status == "failed",
+        whole_photo(),
         ~exists().where(
             newer.asset_id == ModuleRun.asset_id,
             newer.module_id == ModuleRun.module_id,
+            newer.region.is_(None),
             newer.created_at > ModuleRun.created_at,
         ),
     )

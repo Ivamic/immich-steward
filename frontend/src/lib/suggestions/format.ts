@@ -120,7 +120,7 @@ export function visibleSuggestions(
 	unfolded: string[]
 ): ModuleSuggestions[] {
 	return modules.map((module) =>
-		unfolded.includes(module.module)
+		unfolded.includes(module.key)
 			? module
 			: { ...module, candidates: module.candidates.filter((c) => c.tier !== 'weak') }
 	);

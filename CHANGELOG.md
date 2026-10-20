@@ -7,6 +7,25 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Recognize a part of the photo**: next to GeoCLIP's Run again, a window shows the photo in
+  full size (zoom with the wheel, move it with the right or middle button or with Space held)
+  to draw a frame around the part to look at, e.g. a building behind a crowd. The result is
+  shown as its own block, "GeoCLIP — part of the photo", next to the one for the whole photo,
+  with dashed markers on the map; hovering it outlines the part on the photo. The key R opens
+  the window. Runs on a part do not count in the Library page, the filters or the automatic
+  runs. Any worker can do them: the app cuts the part from the full-size photo itself.
+- Time neighbors: "Only this camera" keeps the photos of the photo's own camera only, on the
+  next photos as well.
+
+### Changed
+
+- Back from a photo, the gallery opens where that photo is (the last one viewed, after
+  stepping through others), like Immich's `?at=`; the browser's back button returns there too.
+- The timeline scrubber labels a year at January, as Immich does, instead of at December, and
+  shows a dot per month.
+
 ## [0.2.3] - 2026-10-20
 
 The reason why GeoCLIP failed on a photo is kept and shown, with a way to find those photos

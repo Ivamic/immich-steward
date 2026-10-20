@@ -64,6 +64,9 @@ class FakeImmich:
     thumbnail_status: dict[str, int] = field(default_factory=dict)
     # Thumbnail requests cannot connect, as if Immich were down.
     thumbnails_unreachable: bool = False
+    # Asset id -> content of its original file / preview (real images, for cutting parts).
+    originals: dict[str, bytes] = field(default_factory=dict)
+    previews: dict[str, bytes] = field(default_factory=dict)
     # Tag id -> full value, and asset id -> ids of its tags.
     tags: dict[str, str] = field(default_factory=dict)
     asset_tags: dict[str, set[str]] = field(default_factory=dict)
@@ -242,6 +245,10 @@ class FakeImmich:
             size = request.url.params.get("size")
             if size == "fullsize":
                 return httpx2.Response(302, headers={"location": "original?"})
+            if size == "preview" and asset_id in self.previews:
+                return httpx2.Response(
+                    200, content=self.previews[asset_id], headers={"content-type": "image/jpeg"}
+                )
             return httpx2.Response(
                 200,
                 content=f"image:{asset_id}:{size}".encode(),
@@ -257,7 +264,8 @@ class FakeImmich:
         if path.startswith("/api/assets/") and path.endswith("/original"):
             if "asset.download" not in self.permissions:
                 return _json({"message": "Missing required permission: asset.download"}, 403)
-            return httpx2.Response(200, content=b"original", headers={"content-type": "image/jpeg"})
+            content = self.originals.get(path.split("/")[3], b"original")
+            return httpx2.Response(200, content=content, headers={"content-type": "image/jpeg"})
         if path == "/api/search/metadata":
             return self._search(json.loads(request.content))
         if path == "/api/albums":

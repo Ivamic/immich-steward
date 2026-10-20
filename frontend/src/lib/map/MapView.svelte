@@ -252,7 +252,7 @@
 							c.longitude,
 							c.radius_m ?? 0,
 							module.color,
-							`${module.module}:${c.rank}`
+							`${module.key}:${c.rank}`
 						)
 					)
 			)
@@ -309,15 +309,17 @@
 				const pin = document.createElement('div');
 				// Shape tells modules apart without relying on color (FR-31).
 				pin.className = `steward-candidate steward-shape-${module.shape}`;
+				// A guess from a part of the photo: same module, dashed rim.
+				if (module.region) pin.classList.add('steward-part');
 				pin.style.background = module.color;
 				pin.textContent = String(c.rank);
 				pin.dataset.lat = String(c.latitude);
 				pin.dataset.lon = String(c.longitude);
-				pin.dataset.candidate = `${module.module}:${c.rank}`;
+				pin.dataset.candidate = `${module.key}:${c.rank}`;
 				// Hover shows the photos the suggestion comes from; a click still picks it.
 				const photos = candidatePhotos(c, module.track);
 				pin.addEventListener('mouseenter', () => {
-					onhighlight({ module: module.module, rank: c.rank, from: 'map' });
+					onhighlight({ module: module.key, rank: c.rank, from: 'map' });
 					if (!popupPinned && photos.length) {
 						showPreview(instance, { lat: c.latitude, lon: c.longitude }, photos, false);
 					}
@@ -627,6 +629,9 @@
 	}
 	/* The marker of the suggestion hovered in the list. Not a transform: MapLibre positions
 	   markers with it. */
+	:global(.steward-candidate.steward-part) {
+		border-style: dashed;
+	}
 	:global(.steward-candidate.steward-highlight) {
 		z-index: 5;
 		outline: 3px solid #0969da;

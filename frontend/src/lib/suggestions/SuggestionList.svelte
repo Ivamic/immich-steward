@@ -13,11 +13,12 @@
 		thumbnailUrl,
 		type Candidate,
 		type ModuleSuggestions,
-		type NeighborEvidence
+		type NeighborEvidence,
+		type Region
 	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { resolve } from '$app/paths';
-	import { setCameraExcluded } from './cameraFilter.svelte.js';
+	import { cameraFilter, setCameraExcluded } from './cameraFilter.svelte.js';
 	import type { Highlight } from './highlight.js';
 	import {
 		candidateDetails,
@@ -41,7 +42,10 @@
 		ontoggle,
 		highlight,
 		onhighlight,
-		onlocate
+		onlocate,
+		onpart,
+		onpartshow,
+		parts = true
 	}: {
 		modules: ModuleSuggestions[];
 		loading: boolean;
@@ -54,7 +58,16 @@
 		onhighlight: (highlight: Highlight | null) => void;
 		/** Show the suggestion on the map (does not pick it). */
 		onlocate: (candidate: Candidate) => void;
+		/** Choose a part of the photo for the module (FR-35), starting from the last one. */
+		onpart: (module: string, region: Region | null) => void;
+		/** The part of the photo to outline while a block of a run on a part is hovered. */
+		onpartshow: (region: Region | null) => void;
+		/** Runs on a part are possible (photos, not videos). */
+		parts?: boolean;
 	} = $props();
+
+	const lastPart = (module: string) =>
+		modules.find((block) => block.module === module && block.region)?.region ?? null;
 
 	// Enlarged thumbnail of a neighbor photo, next to the hovered one.
 	let peek = $state<{
@@ -131,21 +144,43 @@
 	{#if loading && !modules.length}
 		<p class="muted">{m.suggestions_loading()}</p>
 	{/if}
-	{#each shown as module, index (module.module)}
+	{#each shown as module, index (module.key)}
 		{@const weak = weakCount(modules[index])}
-		<div class="module">
+		<div
+			class="module"
+			role="group"
+			onmouseenter={() => module.region && onpartshow(module.region)}
+			onmouseleave={() => module.region && onpartshow(null)}
+		>
 			<h3>
 				<span class="swatch shape-{module.shape}" style:background={module.color}></span>
-				{moduleName(module.module)}
+				{module.region
+					? m.module_part_title({ module: moduleName(module.module) })
+					: moduleName(module.module)}
 				{#if module.runnable}
 					<button
 						type="button"
 						class="run"
 						disabled={isPending(module)}
-						onclick={() => onrun(module.module)}
+						onclick={() =>
+							module.region ? onpart(module.module, module.region) : onrun(module.module)}
 					>
-						{module.status === 'not_run' ? m.module_run() : m.module_rerun()}
+						{module.region
+							? m.module_part_change()
+							: module.status === 'not_run'
+								? m.module_run()
+								: m.module_rerun()}
 					</button>
+					{#if parts && !module.region}
+						<button
+							type="button"
+							class="run"
+							title={m.module_part_hint()}
+							onclick={() => onpart(module.module, lastPart(module.module))}
+						>
+							{m.module_part_run()} <kbd>R</kbd>
+						</button>
+					{/if}
 				{/if}
 			</h3>
 			{#if status(module)}
@@ -163,14 +198,24 @@
 			{#if module.runnable && !module.worker_available && module.status !== 'done'}
 				<p class="warning">{m.module_no_worker()}</p>
 			{/if}
-			{#if module.cameras.length}
+			<!-- Shown in "only this device" mode even without neighbors, so that it can be undone. -->
+			{#if module.cameras.length || (module.module === 'time_neighbors' && cameraFilter.sameOnly)}
 				<fieldset class="devices">
 					<legend>{m.suggestions_devices()}</legend>
+					<label class="same-only" title={m.device_same_only_hint()}>
+						<input
+							type="checkbox"
+							checked={cameraFilter.sameOnly}
+							onchange={(e) => (cameraFilter.sameOnly = e.currentTarget.checked)}
+						/>
+						{m.device_same_only()}
+					</label>
 					{#each module.cameras as camera (camera.value)}
 						<label>
 							<input
 								type="checkbox"
 								checked={!camera.excluded}
+								disabled={cameraFilter.sameOnly && !camera.same_camera}
 								onchange={(e) => setCameraExcluded(camera.value, !e.currentTarget.checked)}
 							/>
 							{camera.label || m.device_unknown()}
@@ -192,10 +237,10 @@
 					<li
 						onclick={(e) => rowClick(e, candidate)}
 						class:weak={candidate.tier === 'weak'}
-						class:highlight={isHighlighted(module.module, candidate.rank)}
-						data-candidate="{module.module}:{candidate.rank}"
+						class:highlight={isHighlighted(module.key, candidate.rank)}
+						data-candidate="{module.key}:{candidate.rank}"
 						onmouseenter={() =>
-							onhighlight({ module: module.module, rank: candidate.rank, from: 'list' })}
+							onhighlight({ module: module.key, rank: candidate.rank, from: 'list' })}
 						onmouseleave={() => onhighlight(null)}
 					>
 						<span class="rank shape-{module.shape}" style:background={module.color}
@@ -254,8 +299,8 @@
 				{/each}
 			</ol>
 			{#if weak}
-				<button type="button" class="fold" onclick={() => ontoggle(module.module)}>
-					{unfolded.includes(module.module)
+				<button type="button" class="fold" onclick={() => ontoggle(module.key)}>
+					{unfolded.includes(module.key)
 						? m.suggestions_weak_hide()
 						: m.suggestions_weak_more({ count: String(weak) })}
 				</button>

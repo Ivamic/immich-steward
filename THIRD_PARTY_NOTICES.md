@@ -24,6 +24,7 @@ Python packages (in `/app/venv`):
 | asyncpg, opentelemetry-api | Apache-2.0 |
 | cryptography | Apache-2.0 OR BSD-3-Clause |
 | cffi | MIT-0 |
+| Pillow (cutting a part of a photo) | MIT-CMU (HPND) |
 | greenlet | MIT AND PSF-2.0 |
 | typing_extensions | PSF-2.0 |
 

@@ -33,6 +33,8 @@ const module = (id: string, count: number): ModuleSuggestions => ({
 	worker_available: true,
 	error: null,
 	error_code: null,
+	key: id,
+	region: null,
 	finished_at: null,
 	queue_position: null,
 	note: null

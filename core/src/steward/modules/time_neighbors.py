@@ -76,23 +76,26 @@ class TimeNeighbors:
         ).all()
         found = [n for n in rows if not is_scanner(n.camera_make, n.camera_model)]
         own = camera_value(asset.camera_make, asset.camera_model)
+        has_own = any((asset.camera_make, asset.camera_model))
+
+        def excluded(value: str) -> bool:
+            if ctx.same_camera_only and has_own:
+                return value != own
+            return value in ctx.exclude_cameras
+
         counts = Counter(camera_value(n.camera_make, n.camera_model) for n in found)
         cameras = [
             CameraCount(
                 value=value,
                 label=camera_label(value),
                 count=count,
-                same_camera=value == own and any((asset.camera_make, asset.camera_model)),
-                excluded=value in ctx.exclude_cameras,
+                same_camera=value == own and has_own,
+                excluded=excluded(value),
             )
             # This camera first, then by number of photos.
             for value, count in sorted(counts.items(), key=lambda vc: (vc[0] != own, -vc[1]))
         ]
-        neighbors = [
-            n
-            for n in found
-            if camera_value(n.camera_make, n.camera_model) not in ctx.exclude_cameras
-        ]
+        neighbors = [n for n in found if not excluded(camera_value(n.camera_make, n.camera_model))]
         if not neighbors:
             return ModuleResult(note="no_neighbors", cameras=cameras)
 

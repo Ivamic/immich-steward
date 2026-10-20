@@ -43,10 +43,11 @@ Available modules:
 
 - **Time neighbors** — photos taken shortly before and after that already have a location. The
   route between them is drawn on the map, colored by time; cameras with a wrong clock can be
-  excluded.
+  excluded, or only the photo's own camera kept.
 - **GeoCLIP** *(optional worker)* — worldwide image geolocation by a neural network, running
   locally on the server CPU or on a GPU of another computer. Shown by confidence, with a gallery
-  filter for its confident guesses.
+  filter for its confident guesses. It can also look at a part of the photo only: a building
+  behind a crowd, a sign, a mountain on the horizon.
 
 Planned:
 
@@ -79,8 +80,8 @@ New modules can be added later as plugins.
 - **Local first.** Default modules run on your own hardware. Modules that send images
   to third-party services are never run automatically — only on an explicit request,
   with a clear warning about what is sent and where.
-- **Region-based search** *(planned)*. If the whole picture is misleading (for example, a crowd
-  in front of a monument), select a part of the image and run detection on that region only.
+- **Region-based search.** If the whole picture is misleading (for example, a crowd in front
+  of a monument), select a part of the image and run detection on that region only.
 - **"Not applicable" flag.** Mark photos where a location makes no sense, so they never
   show up in your to-do list again.
 

@@ -315,7 +315,7 @@ def test_failure_codes_from_the_worker(photos: TestClient) -> None:
     body = {"error": "bad result", "retry": False, "code": "worker_error"}
     photos.post(f"/api/worker/jobs/{job['job_id']}/fail", json=body, headers=worker)
     assert run_status(photos, first).error_code == "worker_error"
-    # A worker before 0.3 sends no code: it follows from `retry`.
+    # A worker before 0.2.3 sends no code: it follows from `retry`.
     job = lease(photos, worker).json()
     body = {"error": "cannot decode", "retry": False}
     photos.post(f"/api/worker/jobs/{job['job_id']}/fail", json=body, headers=worker)
@@ -327,7 +327,7 @@ def register_instance(client: TestClient, name: str, instance: str) -> Any:
         "name": name,
         "modules": ["test"],
         "device": "cpu",
-        "version": "0.3.0",
+        "version": "0.2.3",
         "protocol_version": PROTOCOL_VERSION,
         "instance_id": instance,
     }
@@ -345,7 +345,7 @@ def test_two_running_workers_cannot_share_a_name(client: TestClient) -> None:
     taken = register_instance(client, "laptop", second)
     assert taken.status_code == 409
     assert taken.json()["code"] == "worker_name_taken"
-    # Workers before 0.3 send no instance id and are never refused.
+    # Workers before 0.2.3 send no instance id and are never refused.
     assert (
         client.post(
             "/api/worker/register",

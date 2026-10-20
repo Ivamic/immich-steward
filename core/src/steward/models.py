@@ -170,7 +170,7 @@ class Worker(Base):
     # False after the worker said goodbye; any later request brings it back.
     online: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Random id of the running worker process (new at every start), to tell two computers that
-    # use the same name apart. Workers before 0.3 send none.
+    # use the same name apart. Workers before 0.2.3 send none.
     instance_id: Mapped[uuid.UUID | None]
 
 

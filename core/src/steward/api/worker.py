@@ -65,7 +65,7 @@ class RegisterRequest(BaseModel):
     device: str = Field(default="cpu", max_length=100)
     version: str = Field(max_length=32)
     protocol_version: int
-    # New at every start of the worker; workers before 0.3 send none.
+    # New at every start of the worker; workers before 0.2.3 send none.
     instance_id: UUID | None = None
 
 
@@ -104,7 +104,7 @@ class FailRequest(BaseModel):
     error: str = Field(max_length=2000)
     # False when running again cannot help (e.g. the image cannot be decoded).
     retry: bool = True
-    # Why it failed (`worker_queue.FAILURE_CODES`); workers before 0.3 send none.
+    # Why it failed (`worker_queue.FAILURE_CODES`); workers before 0.2.3 send none.
     code: str | None = Field(default=None, pattern=r"^[a-z_]{1,32}$")
 
 

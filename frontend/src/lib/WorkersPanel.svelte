@@ -104,16 +104,18 @@
 						{#each reasons(failures) as [code, count] (code)}
 							<li>
 								<span>{failureReason(code)} — {count}</span>
-								<a href={resolve(`/${filterToUrl(failedFilter(module, code))}`)}>
-									{m.workers_failures_show()}
-								</a>
-								<button
-									type="button"
-									disabled={rerunning !== null}
-									onclick={() => rerun(module, code)}
-								>
-									{m.workers_failures_rerun()}
-								</button>
+								<span class="actions">
+									<a href={resolve(`/${filterToUrl(failedFilter(module, code))}`)}>
+										{m.workers_failures_show()}
+									</a>
+									<button
+										type="button"
+										disabled={rerunning !== null}
+										onclick={() => rerun(module, code)}
+									>
+										{m.workers_failures_rerun()}
+									</button>
+								</span>
 							</li>
 						{/each}
 					</ul>
@@ -164,6 +166,13 @@
 		flex-wrap: wrap;
 		align-items: baseline;
 		gap: 0.25rem 0.75rem;
+	}
+	/* The link and the button stay together when the reason is long. */
+	.failures .actions {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.75rem;
+		white-space: nowrap;
 	}
 	.active {
 		color: #1a7f37;

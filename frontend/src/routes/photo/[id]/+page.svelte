@@ -24,7 +24,7 @@
 	} from '#lib/api.js';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
-	import { filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
 	import PhotoViewer from '#lib/PhotoViewer.svelte';
@@ -43,6 +43,8 @@
 	const id = $derived(page.params.id ?? '');
 	const filter = $derived(filterFromUrl(page.url.searchParams));
 	const query = $derived(filterToUrl(filter));
+	// Back to the gallery at the photo shown now (after stepping through others, too).
+	const backUrl = $derived(resolve(`/${atPhoto(query, id)}`));
 
 	let asset = $state<AssetDetail | null>(null);
 	let mapConfig = $state<MapConfig | null>(null);
@@ -276,7 +278,7 @@
 			enter: save,
 			arrowleft: () => open(asset?.previous_id),
 			arrowright: () => open(asset?.next_id),
-			escape: () => goto(resolve(`/${query}`)),
+			escape: () => goto(backUrl),
 			n: () => review('not_applicable'),
 			s: () => review('skipped'),
 			u: () => review('new'),
@@ -303,7 +305,7 @@
 <svelte:document {onvisibilitychange} />
 
 <nav class="toolbar">
-	<a href={resolve(`/${query}`)}>← {m.photo_back()}</a>
+	<a href={backUrl}>← {m.photo_back()}</a>
 	<span class="spacer"></span>
 	<button type="button" disabled={!asset?.previous_id} onclick={() => open(asset?.previous_id)}>
 		← {m.photo_previous()}

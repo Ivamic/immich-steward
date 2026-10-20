@@ -14,8 +14,9 @@
 	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { FilterQuery } from './filter.js';
+	import { atPhoto, type FilterQuery } from './filter.js';
 
 	const TILE = 160; // px, keep in sync with the grid CSS below
 	const GAP = 4;
@@ -34,7 +35,7 @@
 	let failed = $state(false);
 
 	const columns = $derived(Math.max(1, Math.floor((width + GAP) / (TILE + GAP))));
-	const estimatedHeight = $derived(Math.ceil(bucket.count / columns) * (TILE + GAP));
+	const estimatedHeight = $derived(Math.ceil(bucket.count / columns) * (TILE + GAP) - GAP);
 	const title = $derived(
 		new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(
 			new Date(`${bucket.month}-01T00:00:00`)
@@ -66,6 +67,8 @@
 					class="tile"
 					href={resolve(`/photo/[id]${query}`, { id: item.id })}
 					title={item.file_name}
+					data-asset={item.id}
+					onclick={() => replaceState(resolve(`/${atPhoto(query, item.id)}`), {})}
 				>
 					<img src={thumbnailUrl(item.id)} alt={item.file_name} loading="lazy" decoding="async" />
 					{#if item.type === 'VIDEO'}

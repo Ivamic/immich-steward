@@ -47,6 +47,10 @@ export const failedFilter = (module: string, failure: string | null = null): Gal
 
 export type FilterQuery = `?${string}`;
 
+/** Gallery URL query that opens the timeline at this photo, like Immich's `?at=`. */
+export const atPhoto = (query: FilterQuery, id: string): FilterQuery =>
+	`${query}${query.length > 1 ? '&' : ''}at=${encodeURIComponent(id)}`;
+
 /** URL query for the page: like the API query, but `show` is always explicit. */
 export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	const params = new URLSearchParams();

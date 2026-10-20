@@ -7,16 +7,9 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import { scrubberMarks, type Segment } from './scrubber.js';
 
 	let { timeline }: { timeline: HTMLElement } = $props();
-
-	interface Segment {
-		month: string; // YYYY-MM
-		top: number; // px from the top of the timeline
-		height: number;
-	}
-
-	const MIN_LABEL_GAP = 16; // px between year labels on the bar
 
 	let bar = $state<HTMLElement>();
 	let barHeight = $state(0);
@@ -49,22 +42,7 @@
 
 	const toY = (px: number) => (px / total) * barHeight;
 
-	// Year labels at the first month of each year, skipping ones that would overlap.
-	const years = $derived.by(() => {
-		const result: { year: string; y: number }[] = [];
-		let lastY = -Infinity;
-		let lastYear = '';
-		for (const segment of segments) {
-			const year = segment.month.slice(0, 4);
-			if (year === lastYear) continue;
-			lastYear = year;
-			const y = toY(segment.top);
-			if (y - lastY < MIN_LABEL_GAP) continue;
-			result.push({ year, y });
-			lastY = y;
-		}
-		return result;
-	});
+	const marks = $derived(scrubberMarks(segments, toY));
 
 	function segmentAt(clientY: number): Segment | undefined {
 		if (!bar) return undefined;
@@ -122,10 +100,10 @@
 	onpointerup={() => (dragging = false)}
 	onpointerleave={() => (hover = null)}
 >
-	{#each segments as segment (segment.month)}
-		<span class="tick" style:top="{toY(segment.top)}px"></span>
+	{#each marks.dots as y (y)}
+		<span class="dot" style:top="{y}px"></span>
 	{/each}
-	{#each years as label (label.year)}
+	{#each marks.years as label (label.year)}
 		<span class="year" style:top="{label.y}px">{label.year}</span>
 	{/each}
 	<span class="position" style:top="{scrollRatio * barHeight}px"></span>
@@ -147,19 +125,24 @@
 		touch-action: none;
 		z-index: 10;
 	}
-	.tick {
+	/* Dots and labels end at the bottom of their month, as in Immich. */
+	.dot {
 		position: absolute;
 		right: 0.5rem;
-		width: 0.25rem;
-		height: 1px;
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		transform: translateY(-100%);
 		background: currentColor;
-		opacity: 0.35;
+		opacity: 0.3;
 	}
 	.year {
 		position: absolute;
-		right: 1rem;
-		transform: translateY(-50%);
-		font-size: 0.7rem;
+		right: 1.1rem;
+		transform: translateY(-100%);
+		font-family: ui-monospace, monospace;
+		font-size: 0.75rem;
+		line-height: 1;
 		opacity: 0.8;
 	}
 	.position {

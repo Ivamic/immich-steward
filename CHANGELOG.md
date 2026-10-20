@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-21
+
+GeoCLIP can look at a part of the photo only; the gallery returns to the photo you came from,
+and its timeline is labeled as in Immich.
+
 ### Added
 
 - **Recognize a part of the photo**: next to GeoCLIP's Run again, a window shows the photo in
@@ -25,6 +30,8 @@ between releases.
   stepping through others), like Immich's `?at=`; the browser's back button returns there too.
 - The timeline scrubber labels a year at January, as Immich does, instead of at December, and
   shows a dot per month.
+- Keyboard shortcuts work whatever the keyboard layout: on a Cyrillic one, for instance, the
+  key of R is R.
 
 ## [0.2.3] - 2026-10-20
 
@@ -146,7 +153,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/Ivamic/immich-steward/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Ivamic/immich-steward/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/Ivamic/immich-steward/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/Ivamic/immich-steward/compare/v0.2.0...v0.2.1

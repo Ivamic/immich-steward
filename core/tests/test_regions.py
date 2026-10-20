@@ -176,3 +176,23 @@ def test_parts_outside_the_photo_are_refused(
     signed_in: TestClient, photo: tuple[str, str], region: dict[str, float]
 ) -> None:
     assert run_on(signed_in, photo[0], region).status_code == 422
+
+
+def test_part_of_a_video_is_cut_from_its_preview_frame(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    immich_id = fake_immich.add_asset(
+        taken="2024-05-02T10:00:00", originalFileName="clip.mov", type="VIDEO"
+    )
+    fake_immich.permissions.append("asset.download")
+    fake_immich.originals[immich_id] = b"a video file"  # not an image: must not be used
+    fake_immich.previews[immich_id] = two_colors()
+    sync(signed_in)
+    item = signed_in.get("/api/assets", params={"month": "2024-05"}).json()[0]
+    assert item["type"] == "VIDEO"
+    worker = start_worker(signed_in)
+    run_on(signed_in, item["id"], LEFT_HALF)
+    job = lease(signed_in, worker)
+    image = signed_in.get(f"/api/worker/jobs/{job['job_id']}/image", headers=worker)
+    assert image.status_code == 200
+    assert is_red(image.content)

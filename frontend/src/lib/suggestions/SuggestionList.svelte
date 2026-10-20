@@ -44,8 +44,7 @@
 		onhighlight,
 		onlocate,
 		onpart,
-		onpartshow,
-		parts = true
+		onpartshow
 	}: {
 		modules: ModuleSuggestions[];
 		loading: boolean;
@@ -62,8 +61,6 @@
 		onpart: (module: string, region: Region | null) => void;
 		/** The part of the photo to outline while a block of a run on a part is hovered. */
 		onpartshow: (region: Region | null) => void;
-		/** Runs on a part are possible (photos, not videos). */
-		parts?: boolean;
 	} = $props();
 
 	const partBlock = (module: string) =>
@@ -177,7 +174,7 @@
 								? m.module_run()
 								: m.module_rerun()}
 					</button>
-					{#if parts && !module.region}
+					{#if !module.region}
 						<button
 							type="button"
 							class="run"

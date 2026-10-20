@@ -161,9 +161,10 @@
 		}
 	}
 
-	// R: a part of the photo for GeoCLIP, starting from the part chosen last time.
+	// R: a part of the photo (of the preview frame of a video) for GeoCLIP, starting from the part
+	// chosen last time.
 	function pickPart() {
-		if (asset?.type !== 'IMAGE') return;
+		if (!asset) return;
 		const block = suggestions.find((s) => s.module === 'geoclip' && s.region);
 		// One part at a time: wait until the run on the last one is over.
 		if (block && isPending(block)) return;
@@ -450,7 +451,6 @@
 					: [...unfolded, module])}
 			onlocate={(c) =>
 				mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
-			parts={asset?.type === 'IMAGE'}
 			onpart={(module, region) => (partPicker = { module, region })}
 			onpartshow={(region) => (shownPart = region)}
 		/>
@@ -563,7 +563,7 @@
 
 {#if partPicker}
 	<RegionPicker
-		src={thumbnailUrl(id, 'fullsize')}
+		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize')}
 		alt={asset?.file_name ?? ''}
 		initial={partPicker.region}
 		onrun={(region) => {

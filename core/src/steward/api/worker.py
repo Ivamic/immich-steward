@@ -163,7 +163,7 @@ async def image(
     """The preview of the job's photo (JPEG or WebP, about 1440 px on the long side).
 
     For a run on a part of the photo, the part is cut from the full-size image (the preview
-    when the API key may not download originals), as a JPEG of up to 1440 px.
+    when the API key may not download originals, and for videos), as a JPEG of up to 1440 px.
 
     When the photo cannot be had, the core records why itself and answers 410
     `image_unavailable`: the worker drops the job. When Immich does not answer at all, the job
@@ -183,7 +183,8 @@ async def image(
         found = await fetcher.fetch(
             box.decrypt(account.api_key_encrypted),
             asset.immich_id,
-            "fullsize" if region else "preview",
+            # A video has no full-size image: its part is cut from the frame of the preview.
+            "fullsize" if region and asset.type == "IMAGE" else "preview",
         )
     except ImmichUnreachableError as exc:
         leased = await worker_queue.leased_job(db, worker, job_id)

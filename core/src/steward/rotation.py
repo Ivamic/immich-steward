@@ -54,6 +54,8 @@ async def save_turn(db: AsyncSession, client: ImmichClient, asset: Asset, turn: 
         await client.set_asset_edits(asset.immich_id, edits)
     else:
         await client.remove_asset_edits(asset.immich_id)
+    asset.is_edited = bool(edits)
+    await db.commit()
     for _ in range(THUMBNAIL_ATTEMPTS):
         await asyncio.sleep(THUMBNAIL_POLL_S)
         fresh = await client.asset(asset.immich_id)

@@ -198,6 +198,8 @@ async def image(
             asset.immich_id,
             # A video has no full-size image: its part is cut from the frame of the preview.
             "fullsize" if region and asset.type == "IMAGE" else "preview",
+            # As Immich shows it: rotated or cropped there, the modules see it so too.
+            asset.is_edited,
         )
     except ImmichUnreachableError as exc:
         leased = await worker_queue.leased_job(db, worker, job_id)

@@ -195,3 +195,41 @@ def test_videos_cannot_be_rotated_in_immich(
     response = save_rotation(signed_in, asset, 90)
     assert (response.status_code, response.json()["code"]) == (422, "rotate_not_supported")
     assert save_rotation(signed_in, asset, 45).status_code == 422
+
+
+def test_images_as_immich_shows_them(
+    signed_in: TestClient, fake_immich: FakeImmich, photo: tuple[str, str], fast_polling: None
+) -> None:
+    """Immich gives the images before the edits unless asked for the edited ones."""
+    asset, _ = photo
+
+    def params(size: str) -> dict[str, str]:
+        fake_immich.thumbnail_params.clear()
+        signed_in.get(f"/api/assets/{asset}/thumbnail", params={"size": size, "v": "x"})
+        return fake_immich.thumbnail_params[0]
+
+    # Thumbnails and previews: edited when there are edits, as they are otherwise.
+    assert params("preview") == {"size": "preview", "edited": "true"}
+    # Full size of an unedited photo: never "edited", or Immich would not give the original.
+    assert params("fullsize") == {"size": "fullsize"}
+
+    save_rotation(signed_in, asset, 90)
+    assert params("fullsize") == {"size": "fullsize", "edited": "true"}
+    # The modules see the photo rotated too.
+    worker = start_worker(signed_in)
+    signed_in.post(f"/api/assets/{asset}/modules/geoclip/run")
+    job = lease(signed_in, worker)
+    fake_immich.thumbnail_params.clear()
+    signed_in.get(f"/api/worker/jobs/{job['job_id']}/image", headers=worker)
+    assert fake_immich.thumbnail_params == [{"size": "preview", "edited": "true"}]
+
+
+def test_edits_made_in_immich_arrive_with_a_sync(
+    signed_in: TestClient, fake_immich: FakeImmich, photo: tuple[str, str]
+) -> None:
+    asset, immich_id = photo
+    fake_immich.assets[immich_id]["isEdited"] = True
+    sync(signed_in, full=True)
+    fake_immich.thumbnail_params.clear()
+    signed_in.get(f"/api/assets/{asset}/thumbnail", params={"size": "fullsize"})
+    assert fake_immich.thumbnail_params[0] == {"size": "fullsize", "edited": "true"}

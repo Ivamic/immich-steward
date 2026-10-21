@@ -130,6 +130,7 @@ def _asset_row(account: Account, item: ImmichAsset, synced_at: datetime) -> dict
         "country": exif.country if exif else None,
         "checksum": item.checksum,
         "thumbhash": item.thumbhash,
+        "is_edited": item.is_edited,
         "immich_updated_at": item.updated_at,
         "synced_at": synced_at,
     }

@@ -667,7 +667,9 @@ async def thumbnail(
 
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
     try:
-        image = await fetcher.fetch(box.decrypt(account.api_key_encrypted), asset.immich_id, size)
+        image = await fetcher.fetch(
+            box.decrypt(account.api_key_encrypted), asset.immich_id, size, asset.is_edited
+        )
     except ImmichError as exc:
         raise _api_error(exc) from exc
     if not turn:

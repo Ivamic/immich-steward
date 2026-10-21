@@ -45,6 +45,11 @@ rotated in the app and the rotation saved to Immich.
 - Thumbnail addresses change with the previews, so the browser never shows old ones after a
   photo was rotated or edited.
 
+### Fixed
+
+- Photos edited in Immich (rotated, cropped) are shown and given to the modules as Immich shows
+  them. Before, the app got their images from before the edits.
+
 ### Upgrade notes
 
 - `git pull` is needed for the new `compose.yaml` (new settings, worker modules and memory

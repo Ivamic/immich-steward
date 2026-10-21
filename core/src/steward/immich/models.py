@@ -75,6 +75,8 @@ class ImmichAsset(ImmichModel):
     checksum: str | None = None
     # Hash of the thumbnails; changes when Immich makes new ones (photo rotated or edited).
     thumbhash: str | None = None
+    # The photo has edits in Immich (rotation, crop): its images must be asked for edited.
+    is_edited: bool = False
     exif_info: ExifInfo | None = None
 
 

@@ -97,6 +97,8 @@ class Asset(Base):
     checksum: Mapped[str | None]
     # Immich's hash of the thumbnails: a new one means a new image for the modules.
     thumbhash: Mapped[str | None] = mapped_column(String(100))
+    # Has edits in Immich (rotation, crop): its images are asked for as edited.
+    is_edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     immich_updated_at: Mapped[datetime]
     # Start time of the sync run that last saw this asset; a full sync removes older rows.
     synced_at: Mapped[datetime]

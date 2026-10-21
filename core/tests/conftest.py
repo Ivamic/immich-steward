@@ -61,6 +61,8 @@ class FakeImmich:
     album_assets: dict[str, list[str]] = field(default_factory=dict)
     search_requests: list[dict[str, Any]] = field(default_factory=list)
     thumbnail_requests: int = 0
+    # Query parameters of every thumbnail request, in order.
+    thumbnail_params: list[dict[str, str]] = field(default_factory=list)
     # Asset id -> HTTP status Immich answers for its thumbnails (e.g. a broken file).
     thumbnail_status: dict[str, int] = field(default_factory=dict)
     # Thumbnail requests cannot connect, as if Immich were down.
@@ -249,6 +251,7 @@ class FakeImmich:
             if asset_id in self.thumbnail_status:
                 return _json({"message": "Thumbnail failed"}, self.thumbnail_status[asset_id])
             self.thumbnail_requests += 1
+            self.thumbnail_params.append(dict(request.url.params))
             size = request.url.params.get("size")
             if size == "fullsize":
                 return httpx2.Response(302, headers={"location": "original?"})
@@ -294,6 +297,7 @@ class FakeImmich:
             self.edits[asset_id] = json.loads(request.content)["edits"]
         else:
             self.edits.pop(asset_id, None)
+        self.assets[asset_id]["isEdited"] = asset_id in self.edits
         if not self.edit_thumbnails_late:
             self.assets[asset_id]["thumbhash"] = f"edited-{uuid.uuid4().hex[:8]}"
         if request.method == "PUT":

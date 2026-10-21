@@ -23,6 +23,11 @@ from steward.immich.client import (
 # optional asset.download permission; without it the preview is returned instead.
 ThumbnailSize = Literal["thumbnail", "preview", "fullsize"]
 
+# Immich returns the images of a photo as it was before its edits (rotation, crop) unless asked
+# for the edited ones; then it falls back to the unedited ones when there are none. Only the full
+# size must not be asked edited for an unedited photo: Immich would no longer redirect to the
+# original file.
+
 MAX_PARALLEL_REQUESTS = 8
 TIMEOUT_S = 30.0
 
@@ -48,20 +53,27 @@ class ThumbnailFetcher:
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def fetch(self, api_key: str, asset_id: UUID, size: ThumbnailSize) -> Image:
+    async def fetch(
+        self, api_key: str, asset_id: UUID, size: ThumbnailSize, edited: bool = False
+    ) -> Image:
+        """The image as Immich shows it: with the edits of the photo when `edited` (from Immich's
+        `isEdited`)."""
         try:
-            return await self._fetch(api_key, asset_id, size)
+            return await self._fetch(api_key, asset_id, size, edited or size != "fullsize")
         except ImmichPermissionError:
             if size != "fullsize":
                 raise
-            return await self._fetch(api_key, asset_id, "preview")
+            return await self._fetch(api_key, asset_id, "preview", edited=True)
 
-    async def _fetch(self, api_key: str, asset_id: UUID, size: ThumbnailSize) -> Image:
+    async def _fetch(
+        self, api_key: str, asset_id: UUID, size: ThumbnailSize, edited: bool
+    ) -> Image:
         path = f"/assets/{asset_id}/thumbnail"
+        params = {"size": size} | ({"edited": "true"} if edited else {})
         try:
             response = await self._http.get(
                 path,
-                params={"size": size},
+                params=params,
                 headers={"x-api-key": api_key},
                 follow_redirects=size == "fullsize",
             )

@@ -13,6 +13,7 @@ dependencies = [
     "cryptography>=46",
     "fastapi>=0.115",
     "httpx2>=2.13",
+    "pgvector>=0.5.1",
     "pillow>=12",
     "pydantic-settings>=2.8",
     "sqlalchemy[asyncio]>=2.0.40",

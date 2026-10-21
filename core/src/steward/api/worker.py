@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, Response
 from pydantic import BaseModel, Field
 
-from steward import worker_queue
+from steward import embeddings, worker_queue
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
 from steward.images import UnreadableImage, crop
@@ -27,6 +27,7 @@ from steward.immich.client import (
 )
 from steward.immich.thumbnails import ThumbnailFetcher
 from steward.models import Account, Asset, Worker
+from steward.modules import REMOTE_MODULES
 
 router = APIRouter(prefix="/worker")
 
@@ -34,6 +35,8 @@ router = APIRouter(prefix="/worker")
 PROTOCOL_VERSION = 1
 # Workers may send at most this many candidates per run.
 MAX_CANDIDATES = 50
+# The longest vector pgvector stores as halfvec.
+MAX_EMBEDDING_DIM = 16_000
 
 
 def check_token(
@@ -97,9 +100,17 @@ class CandidateIn(BaseModel):
     evidence: dict[str, Any] = Field(default_factory=dict)
 
 
+class EmbeddingIn(BaseModel):
+    dim: int = Field(ge=1, le=MAX_EMBEDDING_DIM)
+    # Base64 of `dim` little-endian float16 numbers.
+    data: str = Field(max_length=(MAX_EMBEDDING_DIM * 2 + 2) // 3 * 4)
+
+
 class ResultRequest(BaseModel):
     module_version: str = Field(min_length=1, max_length=32)
     candidates: list[CandidateIn] = Field(max_length=MAX_CANDIDATES)
+    # From retrieval modules (M3) instead of candidates.
+    embedding: EmbeddingIn | None = None
 
 
 class FailRequest(BaseModel):
@@ -218,7 +229,17 @@ async def _image_failed(
 async def result(job_id: UUID, body: ResultRequest, worker: WorkerDep, db: DbDep) -> None:
     leased = await worker_queue.leased_job(db, worker, job_id)
     candidates = [c.model_dump() for c in body.candidates]
-    await worker_queue.complete(db, leased, body.module_version, candidates)
+    remote = REMOTE_MODULES.get(leased.job.module_id or "")
+    expected = remote.embedding_dim if remote else None
+    vector = None
+    if body.embedding is not None or expected is not None:
+        if body.embedding is None or body.embedding.dim != expected:
+            raise ApiError(422, "embedding_invalid", expected=expected)
+        try:
+            vector = embeddings.decode(body.embedding.data, body.embedding.dim)
+        except embeddings.InvalidEmbedding as exc:
+            raise ApiError(422, "embedding_invalid", expected=expected) from exc
+    await worker_queue.complete(db, leased, body.module_version, candidates, vector)
 
 
 @router.post("/jobs/{job_id}/fail", status_code=204)

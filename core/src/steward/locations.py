@@ -17,6 +17,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from steward import embeddings
 from steward.errors import ApiError
 from steward.immich import ImmichClient, ImmichError
 from steward.models import Asset, LocationChange
@@ -68,6 +69,7 @@ async def write_location(
     _set_local_location(asset, latitude, longitude)
     # A located photo is no longer skipped or "not applicable".
     asset.review_status = "new"
+    await embeddings.refresh_located(db, asset_id=asset.id)
     await db.commit()
     return change
 
@@ -100,6 +102,7 @@ async def undo_last(db: AsyncSession, client: ImmichClient, asset: Asset, *, tag
     change.status = "undone"
     change.undone_at = datetime.now(UTC)
     _set_local_location(asset, change.prev_latitude, change.prev_longitude)
+    await embeddings.refresh_located(db, asset_id=asset.id)
     await db.commit()
 
 

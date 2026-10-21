@@ -22,6 +22,8 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+# Third-party code kept exactly as published.
+extend-exclude = ["worker/src/steward_worker/modules/megaloc_model.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
@@ -38,8 +40,16 @@ packages = ["steward", "steward_worker"]
 
 # Heavy optional dependencies of the worker modules (extras), not installed for checks.
 [[tool.mypy.overrides]]
-module = ["torch", "torch.*", "geoclip", "geoclip.*", "PIL", "PIL.*"]
+module = [
+    "torch", "torch.*", "torchvision", "torchvision.*", "geoclip", "geoclip.*", "PIL", "PIL.*",
+    "huggingface_hub", "huggingface_hub.*", "safetensors", "safetensors.*",
+]
 ignore_missing_imports = true
+
+# Third-party code kept exactly as published.
+[[tool.mypy.overrides]]
+module = ["steward_worker.modules.megaloc_model"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["core/tests", "worker/tests"]

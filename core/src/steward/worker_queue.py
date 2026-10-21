@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import ColumnElement
 
+from steward import embeddings
 from steward.errors import ApiError
 from steward.models import Account, Asset, Job, ModuleRun, Worker
 
@@ -418,10 +419,18 @@ async def heartbeat(db: AsyncSession, leased: Lease, lease_s: int) -> None:
 
 
 async def complete(
-    db: AsyncSession, leased: Lease, module_version: str, candidates: list[dict[str, Any]]
+    db: AsyncSession,
+    leased: Lease,
+    module_version: str,
+    candidates: list[dict[str, Any]],
+    embedding: list[float] | None = None,
 ) -> None:
     leased.run.module_version = module_version
     leased.run.candidates = candidates
+    if embedding is not None:
+        asset = await db.get(Asset, leased.run.asset_id)
+        if asset is not None:
+            await embeddings.store(db, leased.run, asset, module_version, embedding)
     _finish(leased.job, leased.run, "done")
     await db.commit()
 

@@ -28,7 +28,8 @@ UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://nobody:x@127.0.0.1:1/none"
 FAKE_IMMICH_URL = "http://immich.test"
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
 TABLES = (
-    "account, auth_session, asset, album, asset_album, job, location_change, worker, module_run"
+    "account, auth_session, asset, album, asset_album, job, location_change, worker, module_run, "
+    "embedding"
 )
 WORKER_TOKEN = "test-worker-token"
 

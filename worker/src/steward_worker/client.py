@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """HTTP client of the worker API of the core (`/api/worker/...`)."""
 
+import base64
 from dataclasses import asdict, dataclass
 from types import TracebackType
 from typing import Any, Self
@@ -8,7 +9,7 @@ from uuid import UUID, uuid4
 
 import httpx2
 
-from steward_worker.modules import Candidate
+from steward_worker.modules import Candidate, Embedding
 
 PROTOCOL_VERSION = 1
 TIMEOUT_S = 60.0
@@ -109,8 +110,13 @@ class CoreClient:
     async def heartbeat(self, job_id: UUID) -> None:
         await self._call("POST", f"/jobs/{job_id}/heartbeat")
 
-    async def result(self, job_id: UUID, version: str, candidates: list[Candidate]) -> None:
-        body = {"module_version": version, "candidates": [asdict(c) for c in candidates]}
+    async def result(self, job_id: UUID, version: str, output: list[Candidate] | Embedding) -> None:
+        body: dict[str, Any] = {"module_version": version, "candidates": []}
+        if isinstance(output, Embedding):
+            data = base64.b64encode(output.data).decode("ascii")
+            body["embedding"] = {"dim": output.dim, "data": data}
+        else:
+            body["candidates"] = [asdict(c) for c in output]
         await self._call("POST", f"/jobs/{job_id}/result", json=body)
 
     async def bye(self) -> None:

@@ -19,7 +19,7 @@ Python packages (in `/app/venv`):
 
 | Packages | License |
 |---|---|
-| FastAPI, Pydantic, pydantic-core, pydantic-settings, SQLAlchemy, Alembic, Mako, anyio, annotated-types, annotated-doc, typing-inspection, h11, truststore | MIT |
+| FastAPI, Pydantic, pydantic-core, pydantic-settings, SQLAlchemy, Alembic, Mako, anyio, annotated-types, annotated-doc, typing-inspection, h11, truststore, pgvector | MIT |
 | Starlette, Uvicorn, httpx2, httpcore2, click, idna, MarkupSafe, pycparser, python-dotenv | BSD-3-Clause |
 | asyncpg, opentelemetry-api | Apache-2.0 |
 | cryptography | Apache-2.0 OR BSD-3-Clause |
@@ -39,14 +39,16 @@ Python packages (in `/app/venv`), the main ones:
 | Packages | License |
 |---|---|
 | [GeoCLIP](https://github.com/VicenteVivan/geo-clip) with its model weights and GPS gallery | MIT |
+| [MegaLoc](https://github.com/gmberton/MegaLoc) model code (copied into the worker, see below) | MIT |
 | PyTorch and torchvision (CPU build) | BSD-3-Clause |
 | Transformers, Hugging Face Hub, safetensors, tokenizers | Apache-2.0 |
 | NumPy, pandas, NetworkX, Jinja2 | BSD-3-Clause |
 | Pillow | MIT-CMU (HPND) |
 | Other dependencies (geopy, SymPy, tqdm, regex…) | MIT, BSD, Apache-2.0, MPL-2.0, PSF |
 
-The image contains no NVIDIA libraries. The CLIP ViT-L/14 model (MIT) is not part of the image:
-the worker downloads it from Hugging Face on its first start.
+The image contains no NVIDIA libraries. The CLIP ViT-L/14 model (MIT) and the MegaLoc weights
+(MIT, [gberton/MegaLoc](https://huggingface.co/gberton/MegaLoc)) are not part of the image: the
+worker downloads them from Hugging Face on first use.
 
 ## Full list
 
@@ -60,6 +62,37 @@ docker run --rm --entrypoint sh ghcr.io/ivamic/immich-steward-worker -c \
 
 (use `immich-steward-core` for the core image). The CI checks that all of them have licenses
 compatible with the AGPL.
+
+## Code copied into the source
+
+`worker/src/steward_worker/modules/megaloc_model.py` is the MegaLoc model from
+[gmberton/MegaLoc](https://github.com/gmberton/MegaLoc) (commit `5fe0dd6`), unchanged, under the
+MIT license; parts of it are adapted by its authors from
+[OpenGlue](https://github.com/ucuapps/OpenGlue) (MIT):
+
+```text
+MIT License
+
+Copyright (c) 2024 Gabriele Berton, Carlo Masone
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## Services used at run time
 

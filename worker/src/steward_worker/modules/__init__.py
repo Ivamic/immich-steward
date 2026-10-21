@@ -3,13 +3,22 @@
 
 from collections.abc import Callable
 
-from steward_worker.modules.base import Candidate, PermanentError, WorkerModule
+from steward_worker.modules.base import Candidate, Embedding, PermanentError, WorkerModule
 from steward_worker.modules.geoclip import GeoClipModule, ModuleOptions
+from steward_worker.modules.similar import SimilarModule
 
 # A factory per module: models are heavy, so only the modules a worker is asked to run are
 # created, and they load their models (and import PyTorch) only on their first job.
 AVAILABLE: dict[str, Callable[[ModuleOptions], WorkerModule]] = {
     GeoClipModule.id: GeoClipModule,
+    SimilarModule.id: SimilarModule,
 }
 
-__all__ = ["AVAILABLE", "Candidate", "ModuleOptions", "PermanentError", "WorkerModule"]
+__all__ = [
+    "AVAILABLE",
+    "Candidate",
+    "Embedding",
+    "ModuleOptions",
+    "PermanentError",
+    "WorkerModule",
+]

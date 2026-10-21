@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 
+from steward.models import EMBEDDING_DIM
 from steward.modules.base import (
     Candidate,
     LocationModule,
@@ -24,11 +25,16 @@ class RemoteModule:
     id: str
     color: str
     shape: MarkerShape
+    # Retrieval modules send the vector of the photo, of this length, instead of candidates.
+    embedding_dim: int | None = None
 
 
 # Shown after the core modules, in this order.
 REMOTE_MODULES: dict[str, RemoteModule] = {
     "geoclip": RemoteModule("geoclip", color="#bc4c00", shape="square"),
+    "similar": RemoteModule(
+        "similar", color="#1a7f37", shape="diamond", embedding_dim=EMBEDDING_DIM
+    ),
 }
 
 __all__ = [

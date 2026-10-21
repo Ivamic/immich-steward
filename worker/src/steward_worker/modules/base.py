@@ -18,6 +18,16 @@ class Candidate:
     evidence: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class Embedding:
+    """What a retrieval module returns instead of candidates: a vector of the photo, with which
+    the core searches the user's own library (M3)."""
+
+    # Little-endian float16, `dim` numbers.
+    data: bytes
+    dim: int
+
+
 class PermanentError(Exception):
     """Running the job again cannot help (e.g. the image cannot be decoded)."""
 
@@ -33,6 +43,6 @@ class WorkerModule(Protocol):
     def unload(self) -> None:
         """Frees the memory of the model when the worker has been idle for a while."""
 
-    def run(self, image: bytes) -> list[Candidate]:
-        """Candidate locations for one image (JPEG or WebP). Runs in a thread."""
+    def run(self, image: bytes) -> list[Candidate] | Embedding:
+        """Candidate locations for one image (JPEG or WebP), or its vector. Runs in a thread."""
         ...

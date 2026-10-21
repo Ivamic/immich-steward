@@ -15,6 +15,8 @@ dependencies = [
 # M2 GeoCLIP. Pick one PyTorch build as well: "cpu" (servers, the Docker image) or "cuda"
 # (NVIDIA GPUs), e.g. `uv sync --package steward-worker --extra geoclip --extra cpu`.
 geoclip = ["geoclip>=1.2.3", "pillow>=10"]
+# M3 similar photos (MegaLoc); the weights come from Hugging Face on first use.
+similar = ["huggingface-hub>=0.25", "safetensors>=0.4", "pillow>=10"]
 cpu = ["torch>=2.5", "torchvision>=0.20"]
 cuda = ["torch>=2.5", "torchvision>=0.20"]
 

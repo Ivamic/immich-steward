@@ -25,7 +25,7 @@ from steward_worker.client import (
     WorkerUnknown,
 )
 from steward_worker.load import system_busy
-from steward_worker.modules import PermanentError, WorkerModule
+from steward_worker.modules import Embedding, PermanentError, WorkerModule
 
 log = logging.getLogger(__name__)
 
@@ -143,14 +143,16 @@ class Worker:
                 await asyncio.to_thread(module.load)
             self._loaded[job.module] = time.monotonic()
             started = time.monotonic()
-            candidates = await asyncio.to_thread(module.run, image)
+            output = await asyncio.to_thread(module.run, image)
             self._loaded[job.module] = time.monotonic()
-            await self._client.result(job.job_id, module.version, candidates)
+            await self._client.result(job.job_id, module.version, output)
             log.info(
-                "job %s done in %.1f s: %d candidates",
+                "job %s done in %.1f s: %s",
                 job.job_id,
                 time.monotonic() - started,
-                len(candidates),
+                f"a vector of {output.dim} numbers"
+                if isinstance(output, Embedding)
+                else f"{len(output)} candidates",
             )
         except LeaseLost:
             log.warning("job %s: lease lost, dropping it", job.job_id)

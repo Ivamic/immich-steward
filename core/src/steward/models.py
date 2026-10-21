@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, ClassVar
 
+from pgvector.sqlalchemy import HALFVEC
 from sqlalchemy import (
     JSON,
     Boolean,
@@ -235,3 +236,36 @@ class ModuleRun(Base):
     )
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     finished_at: Mapped[datetime | None]
+
+
+# Length of the vectors of the similar-photos module (MegaLoc, M3).
+EMBEDDING_DIM = 8448
+
+
+class Embedding(Base):
+    """Vector of a photo, or of a part of it, computed by a run of a retrieval module (M3).
+
+    One per asset and module for the whole photo (the newest run replaces the older vector), and
+    one for the latest part. The search looks among the `located` rows of the user's own photos.
+    """
+
+    __tablename__ = "embedding"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("module_run.id", ondelete="CASCADE"), primary_key=True
+    )
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), index=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    module_id: Mapped[str] = mapped_column(String(32))
+    module_version: Mapped[str] = mapped_column(String(32))
+    # Vector of a part of the photo (FR-35): never searched among.
+    region: Mapped[bool] = mapped_column(Boolean)
+    # Whole photo whose asset has a location: kept in step with the asset by
+    # `steward.embeddings.refresh_located`.
+    located: Mapped[bool] = mapped_column(Boolean)
+    vector: Mapped[Any] = mapped_column(HALFVEC(EMBEDDING_DIM))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)

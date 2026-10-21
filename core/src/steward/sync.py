@@ -16,6 +16,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from steward import embeddings
 from steward.immich import ImmichClient
 from steward.immich.models import ImmichAlbum, ImmichAsset
 from steward.models import Account, Album, Asset, AssetAlbum
@@ -90,6 +91,8 @@ async def sync_account(
         stats.removed = removed.rowcount  # type: ignore[attr-defined]
 
     stats.albums = await _sync_albums(db, client, account, refresh_all=full)
+    # Photos that got (or lost) a location in Immich join (or leave) the similar-photos search.
+    await embeddings.refresh_located(db, account_id=account.id)
 
     account.synced_at = started
     if full:

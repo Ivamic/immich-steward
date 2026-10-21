@@ -329,6 +329,8 @@ export interface WorkersOverview {
 	/** Module -> failure code -> photos whose latest run failed so. */
 	failures: Record<string, Record<string, number>>;
 	auto_modules: string[];
+	/** Indexing module -> photos with a location in its search index, of those it indexes. */
+	index: Record<string, { indexed: number; located: number }>;
 }
 
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');

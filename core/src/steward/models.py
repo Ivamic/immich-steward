@@ -95,6 +95,8 @@ class Asset(Base):
     state: Mapped[str | None]
     country: Mapped[str | None]
     checksum: Mapped[str | None]
+    # Immich's hash of the thumbnails: a new one means a new image for the modules.
+    thumbhash: Mapped[str | None] = mapped_column(String(100))
     immich_updated_at: Mapped[datetime]
     # Start time of the sync run that last saw this asset; a full sync removes older rows.
     synced_at: Mapped[datetime]

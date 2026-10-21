@@ -12,11 +12,11 @@ import math
 import struct
 from uuid import UUID
 
-from sqlalchemy import and_, delete, not_, update
+from sqlalchemy import and_, delete, func, not_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 
-from steward.models import Asset, Embedding, ModuleRun
+from steward.models import Account, Asset, Embedding, ModuleRun
 
 
 class InvalidEmbedding(ValueError):
@@ -82,6 +82,25 @@ async def store(
             vector=vector,
         )
     )
+
+
+async def index_counts(db: AsyncSession, account: Account, module_id: str) -> dict[str, int]:
+    """How much of the search index is there: of the photos with a location that automatic runs
+    index (`worker_queue.auto_enqueue`), how many have their vector."""
+    photos = (
+        Asset.account_id == account.id,
+        Asset.type == "IMAGE",
+        Asset.visibility.in_(("timeline", "archive")),
+        located(),
+    )
+    located_photos = await db.scalar(select(func.count()).where(*photos))
+    indexed = await db.scalar(
+        select(func.count())
+        .select_from(Embedding)
+        .join(Asset, Asset.id == Embedding.asset_id)
+        .where(*photos, Embedding.module_id == module_id, Embedding.located.is_(True))
+    )
+    return {"indexed": indexed or 0, "located": located_photos or 0}
 
 
 async def refresh_located(

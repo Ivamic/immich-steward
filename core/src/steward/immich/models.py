@@ -73,6 +73,8 @@ class ImmichAsset(ImmichModel):
     width: int | None = None
     height: int | None = None
     checksum: str | None = None
+    # Hash of the thumbnails; changes when Immich makes new ones (photo rotated or edited).
+    thumbhash: str | None = None
     exif_info: ExifInfo | None = None
 
 

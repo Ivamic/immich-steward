@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, case, delete, exists, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -186,12 +186,30 @@ async def give_back(db: AsyncSession, leased: Lease, error: str) -> None:
     await db.commit()
 
 
-async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
-    """Tops up the background queue of the module with photos that still need a location.
+# Modules that need every photo, not only the ones without a location: the vectors of the photos
+# with a location are what similar photos (M3) are searched among.
+INDEXING_MODULES = ("similar",)
 
-    Photos only (videos later, D-040), never twice: a photo that already has a run of the module
-    (whatever its result) is not queued again automatically. Accounts take turns, newest photos
-    first within each, so that every user sees progress on their own library.
+
+def _auto_eligible(module_id: str) -> tuple[ColumnElement[bool], ColumnElement[int]]:
+    """Photos the module runs on automatically, and which of them go first (lower first)."""
+    needs_location = and_(
+        Asset.latitude.is_(None), Asset.review_status == "new", Asset.visibility == "timeline"
+    )
+    if module_id not in INDEXING_MODULES:
+        return needs_location, literal(0)
+    # The search index first, so that suggestions have something to be found among.
+    located = and_(embeddings.located(), Asset.visibility.in_(("timeline", "archive")))
+    return or_(located, needs_location), case((located, 0), else_=1)
+
+
+async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
+    """Tops up the background queue of the module with photos that still need it.
+
+    Photos without a location; for indexing modules also the photos with one, first. Photos only
+    (videos later, D-040), never twice: a photo that already has a run of the module (whatever
+    its result) is not queued again automatically. Accounts take turns, newest photos first
+    within each, so that every user sees progress on their own library.
     """
     queued = await db.scalar(
         select(func.count())
@@ -206,20 +224,19 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     room = AUTO_QUEUE_SIZE - (queued or 0)
     if room <= 0:
         return 0
+    eligible, group = _auto_eligible(module_id)
     # 1st newest photo of every account, then the 2nd of every account, and so on.
     turn = (
         func.row_number()
-        .over(partition_by=Asset.account_id, order_by=Asset.local_taken_at.desc())
+        .over(partition_by=(Asset.account_id, group), order_by=Asset.local_taken_at.desc())
         .label("turn")
     )
     candidates = (
-        select(Asset.id, Asset.local_taken_at, turn)
+        select(Asset.id, Asset.local_taken_at, group.label("grp"), turn)
         .where(
-            Asset.latitude.is_(None),
-            Asset.review_status == "new",
+            eligible,
             Asset.type == "IMAGE",
             Asset.is_trashed.is_(False),
-            Asset.visibility == "timeline",
             ~exists().where(
                 ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id, whole_photo()
             ),
@@ -229,7 +246,7 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     ids = list(
         await db.scalars(
             select(candidates.c.id)
-            .order_by(candidates.c.turn, candidates.c.local_taken_at.desc())
+            .order_by(candidates.c.grp, candidates.c.turn, candidates.c.local_taken_at.desc())
             .limit(room)
         )
     )
@@ -252,6 +269,15 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
         count += 1
     await db.commit()
     return count
+
+
+async def forget_results(db: AsyncSession, asset_ids: list[UUID]) -> None:
+    """The image of these photos changed (rotated or edited in Immich): the results and vectors
+    of the worker modules no longer describe it, so the photos count as never run (automatic runs
+    take them again). Runs still in the queue or running are left alone."""
+    await db.execute(
+        delete(ModuleRun).where(ModuleRun.asset_id.in_(asset_ids), ModuleRun.status.not_in(ACTIVE))
+    )
 
 
 async def run_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, int]]:

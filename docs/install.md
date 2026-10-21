@@ -121,7 +121,7 @@ Settings in `.env` (see `.env.example`):
 | `STEWARD_WORKER_MAX_LOAD` | empty | E.g. `0.8`: the worker waits while the machine is busy (load average per CPU above 0.8), for instance while Immich transcodes videos. |
 | `STEWARD_WORKER_MEMORY_LIMIT` | `4g` | Memory limit of the worker container. |
 | `STEWARD_GEOCLIP_MIN_CONFIDENCE` | `0.25` | GeoCLIP suggestions below this confidence are hidden; up to `STEWARD_GEOCLIP_WEAK_BELOW` (`0.5`) they are folded as weak; from `STEWARD_GEOCLIP_CONFIDENT_FROM` (`0.75`) they are marked as confident and counted by the gallery filter. |
-| `STEWARD_AUTO_MODULES` | `geoclip` | Modules that run automatically on photos without a location. Empty: only when started with **Run** in a photo card. |
+| `STEWARD_AUTO_MODULES` | `geoclip,similar` | Modules that run automatically on photos without a location (`similar` also on the photos with one: they are its search index, and go first). Empty: only when started with **Run** in a photo card. |
 
 The model is unloaded from memory after 10 minutes without work. Photos never leave your server:
 the worker gets them from the app, not from the internet.

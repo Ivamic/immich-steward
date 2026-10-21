@@ -54,9 +54,10 @@ class Settings(BaseSettings):
     worker_token: SecretStr | None = None
     # A leased job returns to the queue when its worker stays silent this long.
     worker_lease_seconds: int = Field(default=300, ge=30)
-    # Worker modules run automatically on photos without a location (FR-10, FR-11),
-    # comma-separated; empty turns automatic runs off. Runs started by hand are always allowed.
-    auto_modules: str = "geoclip"
+    # Worker modules run automatically on photos without a location (FR-10, FR-11) and, for
+    # similar photos, on the photos with one too (its search index), comma-separated; empty turns
+    # automatic runs off. Runs started by hand are always allowed.
+    auto_modules: str = "geoclip,similar"
     # How GeoCLIP results are shown (they are stored in full, so changing these needs no rerun).
     # Measured on 506 photos with GPS: below 25 % a suggestion is rarely right (noise, hidden);
     # 25-50 % often hits the region only (weak, folded); from 75 % it is right about 95 % of the

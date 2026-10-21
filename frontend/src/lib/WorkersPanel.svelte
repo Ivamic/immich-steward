@@ -96,6 +96,12 @@
 					failed: String(counts.failed ?? 0)
 				})}
 			</p>
+			{@const index = overview.index[module]}
+			{#if index}
+				<p class="muted">
+					{m.workers_index({ indexed: String(index.indexed), located: String(index.located) })}
+				</p>
+			{/if}
 			{@const failures = overview.failures[module]}
 			{#if failures && Object.keys(failures).length}
 				<div class="failures">

@@ -16,7 +16,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward import embeddings
+from steward import embeddings, worker_queue
 from steward.immich import ImmichClient
 from steward.immich.models import ImmichAlbum, ImmichAsset
 from steward.models import Account, Album, Asset, AssetAlbum
@@ -77,7 +77,10 @@ async def sync_account(
                 for item in result.items
                 if item.owner_id == account.immich_user_id
             ]
+            changed = await _images_changed(db, account, rows)
             await _upsert_assets(db, rows)
+            if changed:
+                await worker_queue.forget_results(db, changed)
             await db.commit()
             stats.assets += len(rows)
             if on_progress is not None:
@@ -126,9 +129,28 @@ def _asset_row(account: Account, item: ImmichAsset, synced_at: datetime) -> dict
         "state": exif.state if exif else None,
         "country": exif.country if exif else None,
         "checksum": item.checksum,
+        "thumbhash": item.thumbhash,
         "immich_updated_at": item.updated_at,
         "synced_at": synced_at,
     }
+
+
+async def _images_changed(
+    db: AsyncSession, account: Account, rows: list[dict[str, Any]]
+) -> list[UUID]:
+    """Known assets whose thumbnails Immich has made anew since the last sync: rotated or
+    edited, so the results of the worker modules no longer describe them."""
+    new = {row["immich_id"]: row["thumbhash"] for row in rows}
+    if not new:
+        return []
+    known = await db.execute(
+        select(Asset.id, Asset.immich_id, Asset.thumbhash).where(
+            Asset.account_id == account.id, Asset.immich_id.in_(new)
+        )
+    )
+    return [
+        asset_id for asset_id, immich_id, old in known if old is not None and new[immich_id] != old
+    ]
 
 
 async def _upsert_assets(db: AsyncSession, rows: list[dict[str, Any]]) -> None:

@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from steward import worker_queue
+from steward import embeddings, worker_queue
 from steward.deps import CurrentAccount, DbDep, SettingsDep
 from steward.errors import ApiError
 from steward.jobs import SYNC, enqueue
@@ -71,6 +71,8 @@ class Workers(BaseModel):
     # Module -> failure code -> photos whose latest run failed so.
     failures: dict[str, dict[str, int]]
     auto_modules: list[str]
+    # Indexing module -> {"indexed", "located"}: photos with a location in its search index.
+    index: dict[str, dict[str, int]]
 
 
 class RerunRequest(BaseModel):
@@ -129,6 +131,10 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
         runs=await worker_queue.run_counts(db, account),
         failures=await worker_queue.failure_counts(db, account),
         auto_modules=settings.auto_module_ids,
+        index={
+            module_id: await embeddings.index_counts(db, account, module_id)
+            for module_id in worker_queue.INDEXING_MODULES
+        },
     )
 
 

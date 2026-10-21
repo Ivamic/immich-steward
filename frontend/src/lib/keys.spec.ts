@@ -15,6 +15,9 @@ describe('shortcut keys', () => {
 		expect(shortcutKey({ key: 'Ы', code: 'KeyS' })).toBe('s');
 		// French keyboard without Shift: "&" on the key of 1.
 		expect(shortcutKey({ key: '&', code: 'Digit1' })).toBe('1');
+		expect(shortcutKey({ key: 'х', code: 'BracketLeft' })).toBe('[');
+		expect(shortcutKey({ key: 'ъ', code: 'BracketRight' })).toBe(']');
+		expect(shortcutKey({ key: ']', code: 'BracketRight' })).toBe(']');
 	});
 
 	it('keeps named keys', () => {

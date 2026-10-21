@@ -21,7 +21,8 @@
 		type MapConfig,
 		type ModuleSuggestions,
 		type Region,
-		type ReviewStatus
+		type ReviewStatus,
+		type Turn
 	} from '#lib/api.js';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -62,6 +63,8 @@
 	let partPicker = $state<{ module: string; region: Region | null } | null>(null);
 	// The part outlined on the photo while its suggestions are hovered.
 	let shownPart = $state<Region | null>(null);
+	// How the user turned the photo here (not in Immich); back to 0 on another photo.
+	let turn = $state<Turn>(0);
 	let suggestions = $state<ModuleSuggestions[]>([]);
 	let suggestionsLoading = $state(false);
 
@@ -154,7 +157,7 @@
 		try {
 			setSuggestions(
 				assetId,
-				await runModule(assetId, module, cameraFilter.excluded, region, cameraFilter.sameOnly)
+				await runModule(assetId, module, cameraFilter.excluded, region, cameraFilter.sameOnly, turn)
 			);
 		} catch (e) {
 			error = errorMessage(e);
@@ -168,7 +171,18 @@
 		const block = suggestions.find((s) => s.module === 'geoclip' && s.region);
 		// One part at a time: wait until the run on the last one is over.
 		if (block && isPending(block)) return;
-		partPicker = { module: 'geoclip', region: block?.region ?? null };
+		startPart('geoclip', block?.region ?? null);
+	}
+
+	/** The last part is a start only when it was chosen on the photo turned as it is now. */
+	function startPart(module: string, region: Region | null) {
+		const block = suggestions.find((s) => s.module === module && s.region);
+		partPicker = { module, region: block?.turn === turn ? region : null };
+	}
+
+	function rotate(by: 90 | -90) {
+		turn = ((((turn + by) % 360) + 360) % 360) as Turn;
+		shownPart = null;
 	}
 
 	function fetchSuggestions(assetId: string): Promise<ModuleSuggestions[]> {
@@ -186,6 +200,7 @@
 	function load(assetId: string, currentFilter: GalleryFilter) {
 		error = null;
 		picked = null;
+		turn = 0;
 		coordinatesText = '';
 		coordinatesInvalid = false;
 		suggestions = [];
@@ -306,7 +321,9 @@
 			s: () => review('skipped'),
 			u: () => review('new'),
 			z: () => (viewerOpen = true),
-			r: pickPart
+			r: pickPart,
+			'[': () => rotate(-90),
+			']': () => rotate(90)
 		};
 		const key = shortcutKey(event);
 		const suggestion = numbered.find((item) => String(item.key) === key);
@@ -451,8 +468,8 @@
 					: [...unfolded, module])}
 			onlocate={(c) =>
 				mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
-			onpart={(module, region) => (partPicker = { module, region })}
-			onpartshow={(region) => (shownPart = region)}
+			onpart={startPart}
+			onpartshow={(region, partTurn) => (shownPart = partTurn === turn ? region : null)}
 		/>
 	</section>
 
@@ -466,7 +483,7 @@
 				onclick={() => (viewerOpen = true)}
 			>
 				<span class="framed">
-					<img src={thumbnailUrl(id, 'preview')} alt={asset?.file_name ?? ''} />
+					<img src={thumbnailUrl(id, 'preview', turn)} alt={asset?.file_name ?? ''} />
 					{#if shownPart}
 						<span
 							class="part"
@@ -479,6 +496,17 @@
 				</span>
 				<span class="zoom-label">⤢ {m.photo_zoom()} <kbd>Z</kbd></span>
 			</button>
+			<div class="turns">
+				<button type="button" title="{m.photo_turn_left()} [" onclick={() => rotate(-90)}>
+					⟲ <span class="sr-only">{m.photo_turn_left()}</span>
+				</button>
+				<button type="button" title="{m.photo_turn_right()} ]" onclick={() => rotate(90)}>
+					⟳ <span class="sr-only">{m.photo_turn_right()}</span>
+				</button>
+				{#if turn}
+					<span class="muted turned">{m.photo_turned_note()}</span>
+				{/if}
+			</div>
 			{#if asset?.type === 'VIDEO'}
 				<figcaption class="muted">{m.photo_video_note()}</figcaption>
 			{/if}
@@ -563,7 +591,7 @@
 
 {#if partPicker}
 	<RegionPicker
-		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize')}
+		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn)}
 		alt={asset?.file_name ?? ''}
 		initial={partPicker.region}
 		onrun={(region) => {
@@ -577,7 +605,7 @@
 
 {#if viewerOpen}
 	<PhotoViewer
-		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize')}
+		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn)}
 		alt={asset?.file_name ?? ''}
 		onclose={() => (viewerOpen = false)}
 	/>
@@ -712,6 +740,24 @@
 		outline: 2px dashed #fff;
 		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45);
 		pointer-events: none;
+	}
+	.turns {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
+		margin-top: 0.4rem;
+	}
+	.turns .turned {
+		font-size: 0.8rem;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	.zoom-label {
 		position: absolute;

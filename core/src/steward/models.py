@@ -230,6 +230,9 @@ class ModuleRun(Base):
     region: Mapped[dict[str, float] | None] = mapped_column(
         JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
     )
+    # The photo was turned this many degrees clockwise for the run (shown so in the app; the
+    # region, if any, is on the turned photo).
+    turn: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Why a failed run failed, one of `worker_queue.FAILURE_CODES` (or a newer worker's code);
     # `error` keeps the details.
     error_code: Mapped[str | None] = mapped_column(String(32))

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from steward import embeddings, worker_queue
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
-from steward.images import UnreadableImage, crop
+from steward.images import MAX_SIDE, UnreadableImage, crop, turned
 from steward.immich import ImmichError
 from steward.immich.client import (
     ImmichAuthError,
@@ -175,6 +175,8 @@ async def image(
 
     For a run on a part of the photo, the part is cut from the full-size image (the preview
     when the API key may not download originals, and for videos), as a JPEG of up to 1440 px.
+    For a run on a photo the user turned, the photo (or the part, cut after turning) is turned
+    the same way.
 
     When the photo cannot be had, the core records why itself and answers 410
     `image_unavailable`: the worker drops the job. When Immich does not answer at all, the job
@@ -189,7 +191,7 @@ async def image(
         await _image_failed(db, worker, job_id, "photo not found", worker_queue.IMAGE_UNAVAILABLE)
     assert asset is not None and account is not None
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
-    region = leased.run.region
+    region, turn = leased.run.region, leased.run.turn
     try:
         found = await fetcher.fetch(
             box.decrypt(account.api_key_encrypted),
@@ -208,12 +210,15 @@ async def image(
         # 5xx or no answer in time: Immich may manage next time.
         retry = exc.status is None or exc.status >= 500
         await _image_failed(db, worker, job_id, str(exc), worker_queue.IMAGE_UNAVAILABLE, retry)
-    if region:
+    if region or turn:
         try:
-            part = await asyncio.to_thread(crop, found.content, region)
+            if region:
+                shown = await asyncio.to_thread(crop, found.content, region, turn)
+            else:
+                shown = await asyncio.to_thread(turned, found.content, turn, MAX_SIDE)
         except UnreadableImage as exc:
             await _image_failed(db, worker, job_id, str(exc), worker_queue.IMAGE_INVALID)
-        return Response(content=part, media_type="image/jpeg")
+        return Response(content=shown, media_type="image/jpeg")
     return Response(content=found.content, media_type=found.media_type)
 
 

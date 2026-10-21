@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Gallery API: month buckets, assets, filter options and images proxied from Immich."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
@@ -32,6 +33,7 @@ from steward.gallery import (
     month_buckets,
     neighbors,
 )
+from steward.images import TURNS, UnreadableImage, turned
 from steward.immich import (
     ImmichAuthError,
     ImmichClient,
@@ -270,11 +272,15 @@ class ModuleSuggestions(BaseModel):
     key: str = ""
     # The part of the photo of a run on a part (FR-35).
     region: RegionIn | None = None
+    # The run was on the photo turned this many degrees clockwise.
+    turn: int = 0
 
 
 class RunRequest(BaseModel):
     # None: the whole photo.
     region: RegionIn | None = None
+    # The photo as the user turned it, clockwise; the region is on the turned photo.
+    turn: Literal[0, 90, 180, 270] = 0
 
 
 class CameraOption(BaseModel):
@@ -431,7 +437,10 @@ async def run_module(
         raise ApiError(404, "module_not_found")
     asset = await _own_asset(db, account, asset_id)
     region = body.region.model_dump() if body and body.region else None
-    await worker_queue.enqueue_module(db, asset, module_id, worker_queue.PRIORITY_USER, region)
+    turn = body.turn if body else 0
+    await worker_queue.enqueue_module(
+        db, asset, module_id, worker_queue.PRIORITY_USER, region, turn
+    )
     cameras = frozenset(exclude_camera or ())
     return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
 
@@ -531,6 +540,7 @@ async def _remote(
         queue_position=await worker_queue.queue_position(db, run) if run else None,
         key=f"{remote.id}:region" if region else remote.id,
         region=region,
+        turn=run.turn if run else 0,
     )
 
 
@@ -608,10 +618,14 @@ async def thumbnail(
     db: DbDep,
     box: SecretBoxDep,
     size: ThumbnailSize = "thumbnail",
+    turn: int = 0,
     if_none_match: Annotated[str | None, Header()] = None,
 ) -> Response:
+    """The photo as Immich shows it, or turned clockwise as the user turned it in the app."""
+    if turn not in TURNS:
+        raise ApiError(422, "turn_invalid")
     asset = await _own_asset(db, account, asset_id)
-    etag = f'"{asset.immich_id}-{asset.immich_updated_at.timestamp():.0f}-{size}"'
+    etag = f'"{asset.immich_id}-{asset.immich_updated_at.timestamp():.0f}-{size}-{turn}"'
     headers = {"ETag": etag, "Cache-Control": IMAGE_CACHE_CONTROL}
     if if_none_match == etag:
         return Response(status_code=304, headers=headers)
@@ -621,4 +635,10 @@ async def thumbnail(
         image = await fetcher.fetch(box.decrypt(account.api_key_encrypted), asset.immich_id, size)
     except ImmichError as exc:
         raise _api_error(exc) from exc
-    return Response(content=image.content, media_type=image.media_type, headers=headers)
+    if not turn:
+        return Response(content=image.content, media_type=image.media_type, headers=headers)
+    try:
+        content = await asyncio.to_thread(turned, image.content, turn)
+    except UnreadableImage as exc:
+        raise ApiError(422, "image_invalid") from exc
+    return Response(content=content, media_type="image/jpeg", headers=headers)

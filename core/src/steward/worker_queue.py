@@ -76,6 +76,7 @@ async def enqueue_module(
     module_id: str,
     priority: int = PRIORITY_BACKGROUND,
     region: dict[str, float] | None = None,
+    turn: int = 0,
 ) -> ModuleRun:
     """Queues a module run unless one is already queued or running; raises its priority.
 
@@ -95,6 +96,8 @@ async def enqueue_module(
         if job is not None and job.priority < priority:
             job.priority = priority
         active.region = region
+        if active.status == "queued":
+            active.turn = turn
         await db.commit()
         return active
     job = Job(
@@ -107,7 +110,12 @@ async def enqueue_module(
     db.add(job)
     await db.flush()
     run = ModuleRun(
-        asset_id=asset.id, module_id=module_id, job_id=job.id, status="queued", region=region
+        asset_id=asset.id,
+        module_id=module_id,
+        job_id=job.id,
+        status="queued",
+        region=region,
+        turn=turn,
     )
     db.add(run)
     await db.commit()

@@ -60,8 +60,9 @@
 		onlocate: (candidate: Candidate) => void;
 		/** Choose a part of the photo for the module (FR-35), starting from the last one. */
 		onpart: (module: string, region: Region | null) => void;
-		/** The part of the photo to outline while a block of a run on a part is hovered. */
-		onpartshow: (region: Region | null) => void;
+		/** The part of the photo to outline while a block of a run on a part is hovered, and how
+		 * the photo was turned when the part was chosen. */
+		onpartshow: (region: Region | null, turn: number) => void;
 	} = $props();
 
 	const partBlock = (module: string) =>
@@ -153,14 +154,17 @@
 		<div
 			class="module"
 			role="group"
-			onmouseenter={() => module.region && onpartshow(module.region)}
-			onmouseleave={() => module.region && onpartshow(null)}
+			onmouseenter={() => module.region && onpartshow(module.region, module.turn)}
+			onmouseleave={() => module.region && onpartshow(null, 0)}
 		>
 			<h3>
 				<span class="swatch shape-{module.shape}" style:background={module.color}></span>
 				{module.region
 					? m.module_part_title({ module: moduleName(module.module) })
 					: moduleName(module.module)}
+				{#if module.turn}
+					<span class="muted turned">· {m.module_turned({ degrees: String(module.turn) })}</span>
+				{/if}
 				{#if module.runnable}
 					<button
 						type="button"
@@ -353,6 +357,10 @@
 	.rank.shape-diamond {
 		width: 1.7rem;
 		height: 1.7rem;
+	}
+	.turned {
+		font-weight: normal;
+		font-size: 0.8rem;
 	}
 	.run {
 		margin-left: 0.5rem;

@@ -160,10 +160,14 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	return query ? `?${query}` : '';
 }
 
+/** Clockwise, in degrees: how the user turned the photo in the app (Immich is not changed). */
+export type Turn = 0 | 90 | 180 | 270;
+
 export const thumbnailUrl = (
 	id: string,
-	size: 'thumbnail' | 'preview' | 'fullsize' = 'thumbnail'
-) => `/api/assets/${id}/thumbnail?size=${size}`;
+	size: 'thumbnail' | 'preview' | 'fullsize' = 'thumbnail',
+	turn: Turn = 0
+) => `/api/assets/${id}/thumbnail?size=${size}${turn ? `&turn=${turn}` : ''}`;
 
 export const getMonths = (filter: GalleryFilter) =>
 	request<MonthBucket[]>('GET', `/api/assets/months${filterQuery(filter)}`);
@@ -298,6 +302,8 @@ export interface ModuleSuggestions {
 	key: string;
 	/** The part of the photo of a run on a part (FR-35). */
 	region: Region | null;
+	/** The run was on the photo turned this way. */
+	turn: Turn;
 }
 
 /** A part of the photo as shares of its width and height (of the photo as shown). */
@@ -357,12 +363,13 @@ export const runModule = (
 	module: string,
 	excludeCameras: string[] = [],
 	region: Region | null = null,
-	sameCameraOnly = false
+	sameCameraOnly = false,
+	turn: Turn = 0
 ) =>
 	request<ModuleSuggestions[]>(
 		'POST',
 		`/api/assets/${id}/modules/${module}/run${cameraQuery(excludeCameras, sameCameraOnly)}`,
-		region ? { region } : undefined
+		{ turn, ...(region ? { region } : {}) }
 	);
 export const getAsset = (id: string, filter: GalleryFilter) =>
 	request<AssetDetail>('GET', `/api/assets/${id}${filterQuery(filter)}`);

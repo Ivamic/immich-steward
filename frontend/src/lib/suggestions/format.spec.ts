@@ -38,6 +38,7 @@ const module = (id: string, count: number): ModuleSuggestions => ({
 	error_code: null,
 	key: id,
 	region: null,
+	turn: 0,
 	finished_at: null,
 	queue_position: null,
 	note: null

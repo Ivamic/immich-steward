@@ -18,8 +18,10 @@ REQUIRED_PERMISSIONS = frozenset(
     }
 )
 
-# Used when granted: asset.download shows originals in full size in the photo viewer.
-OPTIONAL_PERMISSIONS = frozenset({"asset.download"})
+# Used when granted: asset.download shows originals in full size in the photo viewer; the
+# asset.edit ones save a photo rotated in the app to Immich.
+EDIT_PERMISSIONS = ("asset.edit.get", "asset.edit.create", "asset.edit.delete")
+OPTIONAL_PERMISSIONS = frozenset({"asset.download", *EDIT_PERMISSIONS})
 
 # Immich lets a key be created with every permission at once.
 ALL_PERMISSIONS = "all"

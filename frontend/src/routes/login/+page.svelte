@@ -23,7 +23,12 @@
 		'tag.create',
 		'tag.asset'
 	];
-	const optionalPermissions = ['asset.download'];
+	const optionalPermissions: [string, () => string][] = [
+		['asset.download', m.auth_help_optional_download],
+		['asset.edit.get', m.auth_help_optional_edit],
+		['asset.edit.create', m.auth_help_optional_edit],
+		['asset.edit.delete', m.auth_help_optional_edit]
+	];
 
 	let email = $state('');
 	let password = $state('');
@@ -97,8 +102,8 @@
 		{#each permissions as permission (permission)}
 			<li><code>{permission}</code></li>
 		{/each}
-		{#each optionalPermissions as permission (permission)}
-			<li><code>{permission}</code> — {m.auth_help_optional_download()}</li>
+		{#each optionalPermissions as [permission, purpose] (permission)}
+			<li><code>{permission}</code> — {purpose()}</li>
 		{/each}
 	</ul>
 	<p>{m.auth_help_storage()}</p>

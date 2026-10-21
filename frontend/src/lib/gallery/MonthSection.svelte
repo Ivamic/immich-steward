@@ -70,7 +70,12 @@
 					data-asset={item.id}
 					onclick={() => replaceState(resolve(`/${atPhoto(query, item.id)}`), {})}
 				>
-					<img src={thumbnailUrl(item.id)} alt={item.file_name} loading="lazy" decoding="async" />
+					<img
+						src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)}
+						alt={item.file_name}
+						loading="lazy"
+						decoding="async"
+					/>
 					{#if item.type === 'VIDEO'}
 						<span class="badge video" aria-label={m.asset_video()}>▶</span>
 					{/if}

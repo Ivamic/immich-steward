@@ -154,6 +154,18 @@ class ImmichClient:
         body = {"latitude": latitude, "longitude": longitude}
         await self._request("PUT", f"/assets/{asset_id}", json=body)
 
+    async def asset_edits(self, asset_id: UUID) -> list[dict[str, Any]]:
+        """Edits (crop, rotate, mirror) Immich applies to the photo, in order (Immich 2.5+)."""
+        data = await self._request("GET", f"/assets/{asset_id}/edits")
+        return list(data["edits"])
+
+    async def set_asset_edits(self, asset_id: UUID, edits: list[dict[str, Any]]) -> None:
+        """Replaces all edits of the photo; Immich makes new thumbnails in the background."""
+        await self._request("PUT", f"/assets/{asset_id}/edits", json={"edits": edits})
+
+    async def remove_asset_edits(self, asset_id: UUID) -> None:
+        await self._request("DELETE", f"/assets/{asset_id}/edits")
+
     async def upsert_tag(self, value: str) -> UUID:
         """Id of the tag with this full path ("a/b" is nested); creates the tag if needed."""
         tags = await self._request("PUT", "/tags", json={"tags": [value]})

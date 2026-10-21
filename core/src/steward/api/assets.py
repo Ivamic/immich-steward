@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
-from steward import locations, worker_queue
+from steward import locations, rotation, worker_queue
 from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
@@ -41,6 +41,7 @@ from steward.immich import (
     ImmichPermissionError,
     ImmichUnreachableError,
 )
+from steward.immich.compat import EDIT_PERMISSIONS
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
 from steward.models import Account, Album, Asset, AssetAlbum, LocationChange, ModuleRun
 from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule, similar
@@ -96,6 +97,8 @@ class AssetItem(BaseModel):
     geoclip_confident: bool = False
     width: int | None
     height: int | None
+    # Changes with the thumbnails (photo rotated or edited in Immich): for their addresses.
+    version: str | None = None
 
     @classmethod
     def of(cls, asset: Asset, geoclip_confident: bool = False) -> "AssetItem":
@@ -108,6 +111,7 @@ class AssetItem(BaseModel):
             has_location=asset.latitude is not None,
             width=asset.width,
             height=asset.height,
+            version=asset.thumbhash,
         )
 
 
@@ -163,6 +167,8 @@ class AssetDetail(BaseModel):
     next_id: UUID | None
     # The photo in the Immich web UI.
     immich_url: str | None = None
+    # Changes with the thumbnails (photo rotated or edited in Immich): for their addresses.
+    version: str | None = None
 
 
 class ReviewUpdate(BaseModel):
@@ -378,6 +384,7 @@ async def _detail(
             if settings.immich_browser_url
             else None
         ),
+        version=asset.thumbhash,
     )
 
 
@@ -565,6 +572,34 @@ def _api_error(exc: ImmichError) -> ApiError:
     if isinstance(exc, ImmichPermissionError):
         return ApiError(403, "immich_missing_permissions", permissions=[])
     return ApiError(502, "immich_error")
+
+
+class RotateRequest(BaseModel):
+    # Clockwise, on top of how the photo is shown now.
+    turn: Literal[90, 180, 270]
+
+
+@router.post("/{asset_id}/rotate")
+async def rotate(
+    asset_id: UUID,
+    body: RotateRequest,
+    account: CurrentAccount,
+    db: DbDep,
+    filters: FilterDep,
+    settings: SettingsDep,
+    factory: ImmichFactoryDep,
+    box: SecretBoxDep,
+) -> AssetDetail:
+    """Saves the photo rotated in Immich (as an edit; the original file is not changed)."""
+    asset = await _own_asset(db, account, asset_id)
+    try:
+        async with _immich(settings, factory, box, account) as client:
+            await rotation.save_turn(db, client, asset, body.turn)
+    except ApiError as exc:
+        if exc.code == "immich_missing_permissions":
+            raise ApiError(403, exc.code, permissions=list(EDIT_PERMISSIONS)) from exc
+        raise
+    return await _detail(db, account, asset, filters, settings)
 
 
 @router.put("/{asset_id}/location")

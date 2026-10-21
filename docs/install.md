@@ -77,6 +77,9 @@ Open `http://<your-server>:8780` and sign in with your **Immich email and passwo
   the sign-in page.
 - Every member of the family signs in with their own Immich account and sees only their own
   library.
+- Saving a photo rotated in the app to Immich needs the `asset.edit.get`, `asset.edit.create` and
+  `asset.edit.delete` permissions. Keys the app creates from now on have them; a key created by
+  an earlier version needs them added in Immich (Account Settings → API Keys → edit the key).
 
 Within a minute after the first sign-in the app reads your library from Immich (a few seconds
 for thousands of photos; the Library page has a button to start it right away). It then checks

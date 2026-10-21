@@ -11,6 +11,7 @@
 		getMapConfig,
 		getSuggestions,
 		isPending,
+		rotateInImmich,
 		runModule,
 		setReview,
 		thumbnailUrl,
@@ -65,6 +66,9 @@
 	let shownPart = $state<Region | null>(null);
 	// How the user turned the photo here (not in Immich); back to 0 on another photo.
 	let turn = $state<Turn>(0);
+	// Outcome of the last rotation saved to Immich.
+	let rotationNotice = $state<string | null>(null);
+	const version = $derived(asset?.version ?? null);
 	let suggestions = $state<ModuleSuggestions[]>([]);
 	let suggestionsLoading = $state(false);
 
@@ -180,7 +184,28 @@
 		partPicker = { module, region: block?.turn === turn ? region : null };
 	}
 
+	/** Saves the rotation to Immich; the photo then comes from Immich rotated. */
+	async function saveRotation() {
+		if (!asset || busy || !turn) return;
+		busy = true;
+		rotationNotice = null;
+		const before = asset.version;
+		try {
+			asset = await rotateInImmich(asset.id, turn, filter);
+			turn = 0;
+			shownPart = null;
+			rotationNotice =
+				asset.version !== before ? m.photo_rotation_saved() : m.photo_rotation_saved_later();
+			fetchSuggestions(asset.id);
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	function rotate(by: 90 | -90) {
+		rotationNotice = null;
 		turn = ((((turn + by) % 360) + 360) % 360) as Turn;
 		shownPart = null;
 	}
@@ -201,6 +226,7 @@
 		error = null;
 		picked = null;
 		turn = 0;
+		rotationNotice = null;
 		coordinatesText = '';
 		coordinatesInvalid = false;
 		suggestions = [];
@@ -483,7 +509,7 @@
 				onclick={() => (viewerOpen = true)}
 			>
 				<span class="framed">
-					<img src={thumbnailUrl(id, 'preview', turn)} alt={asset?.file_name ?? ''} />
+					<img src={thumbnailUrl(id, 'preview', turn, version)} alt={asset?.file_name ?? ''} />
 					{#if shownPart}
 						<span
 							class="part"
@@ -503,8 +529,16 @@
 				<button type="button" title="{m.photo_turn_right()} ]" onclick={() => rotate(90)}>
 					⟳ <span class="sr-only">{m.photo_turn_right()}</span>
 				</button>
+				{#if turn && asset?.type === 'IMAGE'}
+					<button type="button" disabled={busy} onclick={saveRotation}>
+						{m.photo_rotation_save()}
+					</button>
+				{/if}
 				{#if turn}
 					<span class="muted turned">{m.photo_turned_note()}</span>
+				{/if}
+				{#if rotationNotice}
+					<span class="muted turned" role="status">{rotationNotice}</span>
 				{/if}
 			</div>
 			{#if asset?.type === 'VIDEO'}
@@ -591,7 +625,7 @@
 
 {#if partPicker}
 	<RegionPicker
-		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn)}
+		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn, version)}
 		alt={asset?.file_name ?? ''}
 		initial={partPicker.region}
 		onrun={(region) => {
@@ -605,7 +639,7 @@
 
 {#if viewerOpen}
 	<PhotoViewer
-		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn)}
+		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn, version)}
 		alt={asset?.file_name ?? ''}
 		onclose={() => (viewerOpen = false)}
 	/>

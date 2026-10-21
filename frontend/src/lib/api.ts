@@ -134,6 +134,8 @@ export interface AssetItem {
 	geoclip_confident: boolean;
 	width: number | null;
 	height: number | null;
+	/** Changes with the thumbnails (photo rotated or edited in Immich). */
+	version: string | null;
 }
 
 export interface FilterOptions {
@@ -163,11 +165,15 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 /** Clockwise, in degrees: how the user turned the photo in the app (Immich is not changed). */
 export type Turn = 0 | 90 | 180 | 270;
 
+/** The address changes with the thumbnails (`version`), so that the browser never keeps old ones. */
 export const thumbnailUrl = (
 	id: string,
 	size: 'thumbnail' | 'preview' | 'fullsize' = 'thumbnail',
-	turn: Turn = 0
-) => `/api/assets/${id}/thumbnail?size=${size}${turn ? `&turn=${turn}` : ''}`;
+	turn: Turn = 0,
+	version: string | null = null
+) =>
+	`/api/assets/${id}/thumbnail?size=${size}${turn ? `&turn=${turn}` : ''}` +
+	(version ? `&v=${encodeURIComponent(version)}` : '');
 
 export const getMonths = (filter: GalleryFilter) =>
 	request<MonthBucket[]>('GET', `/api/assets/months${filterQuery(filter)}`);
@@ -214,6 +220,8 @@ export interface AssetDetail {
 	next_id: string | null;
 	/** The photo in the Immich web UI. */
 	immich_url: string | null;
+	/** Changes with the thumbnails (photo rotated or edited in Immich). */
+	version: string | null;
 }
 
 export interface MapConfig {
@@ -387,6 +395,10 @@ export const setLocation = (
 		{ latitude: point.lat, longitude: point.lon },
 		keepalive
 	);
+/** Saves the photo rotated in Immich, on top of how it is shown now (an Immich edit). */
+export const rotateInImmich = (id: string, turn: Turn, filter: GalleryFilter) =>
+	request<AssetDetail>('POST', `/api/assets/${id}/rotate${filterQuery(filter)}`, { turn });
+
 export const undoLocation = (id: string, filter: GalleryFilter | null = null) =>
 	request<AssetDetail>(
 		'POST',

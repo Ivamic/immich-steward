@@ -39,6 +39,8 @@ export function errorMessage(error: unknown): string {
 			return m.error_location_changed_in_immich();
 		case 'location_nothing_to_undo':
 			return m.error_location_nothing_to_undo();
+		case 'rotate_not_supported':
+			return m.error_rotate_not_supported();
 		default:
 			return m.error_unexpected();
 	}

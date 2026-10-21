@@ -79,6 +79,12 @@ class FakeImmich:
     sessions: set[str] = field(default_factory=set)
     created_keys: dict[str, dict[str, Any]] = field(default_factory=dict)
     fail_tagging: bool = False
+    # Asset id -> its edits (crop, rotate, mirror) as Immich keeps them.
+    edits: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    # Editing needs the asset.edit permissions; new thumbnails come with a new thumbhash, unless
+    # Immich is slow to make them.
+    can_edit: bool = True
+    edit_thumbnails_late: bool = False
     # Immich's metadata job turns exactly (0, 0) into "no location".
     clears_null_island: bool = True
 
@@ -256,6 +262,8 @@ class FakeImmich:
                 headers={"content-type": "image/webp"},
             )
         parts = path.split("/")
+        if len(parts) == 5 and parts[2] == "assets" and parts[4] == "edits":
+            return self._edits(request, parts[3])
         if len(parts) == 4 and parts[2] == "assets" and request.method in ("GET", "PUT"):
             return self._asset(request, parts[3])
         if path == "/api/tags" and request.method == "PUT":
@@ -273,6 +281,24 @@ class FakeImmich:
             shared = request.url.params.get("shared") == "true"
             return _json([a for a in self.albums.values() if a["shared"] == shared])
         return _json({"message": "Not found"}, 404)
+
+    def _edits(self, request: httpx2.Request, asset_id: str) -> httpx2.Response:
+        if not self.can_edit:
+            return _json({"message": "Missing required permission: asset.edit.get"}, 403)
+        if request.method == "GET":
+            edits = [e | {"id": str(uuid.uuid4())} for e in self.edits.get(asset_id, [])]
+            return _json({"assetId": asset_id, "edits": edits})
+        if self.assets[asset_id]["type"] != "IMAGE":
+            return _json({"message": "Only images can be edited"}, 400)
+        if request.method == "PUT":
+            self.edits[asset_id] = json.loads(request.content)["edits"]
+        else:
+            self.edits.pop(asset_id, None)
+        if not self.edit_thumbnails_late:
+            self.assets[asset_id]["thumbhash"] = f"edited-{uuid.uuid4().hex[:8]}"
+        if request.method == "PUT":
+            return _json({"assetId": asset_id, "edits": self.edits[asset_id]})
+        return httpx2.Response(204)
 
     @property
     def transport(self) -> httpx2.MockTransport:

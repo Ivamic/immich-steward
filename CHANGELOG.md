@@ -7,6 +7,56 @@ between releases.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
+A second module in the worker finds photos of the same place in your own library; photos can be
+rotated in the app and the rotation saved to Immich.
+
+### Added
+
+- **Similar photos**: the worker computes a vector of every photo with
+  [MegaLoc](https://github.com/gmberton/MegaLoc), a model made for recognizing places, and the
+  app suggests where the most similar photos with a location were taken, grouped by place, with
+  their thumbnails (green diamonds on the map). It runs automatically: first on the photos with a
+  location, which are what it searches among, then on the photos without one. The search runs
+  when a photo is opened, so it always includes the locations set since; it only looks in the
+  library of the person who looks at the photo. The Library page shows how much of the index is
+  built. It also works on a part of the photo. Settings: `STEWARD_SIMILAR_MIN_CONFIDENCE`,
+  `STEWARD_SIMILAR_WEAK_BELOW`, `STEWARD_SIMILAR_CONFIDENT_FROM`, and
+  `STEWARD_SIMILAR_INCLUDE_ESTIMATED` (whether locations set in the app count, on by default).
+- **Rotate a photo** in the card with the buttons under it or the keys `[` and `]`: the photo, the
+  full-size view and the part picker show it rotated, and modules started then get it rotated.
+  **Save rotation in Immich** turns it there too, as an Immich edit (the original file is not
+  changed, other edits stay); this needs the `asset.edit.get`, `asset.edit.create` and
+  `asset.edit.delete` permissions, which keys created from now on have.
+- When a photo is rotated or edited in Immich, the next sync notices its new previews, and the
+  worker modules (GeoCLIP too) look at it again.
+
+### Changed
+
+- The worker runs similar photos and GeoCLIP (`STEWARD_WORKER_MODULES`, default
+  `similar,geoclip`); both run automatically (`STEWARD_AUTO_MODULES`, default `geoclip,similar`).
+  The order of `STEWARD_WORKER_MODULES` is the priority of their background photos: the index
+  of similar photos first by default. Photos started from a card still go first.
+- `STEWARD_WORKER_ONE_MODEL=true` keeps one model in memory at a time, for machines short of
+  memory. Otherwise both may be loaded at once, so the memory limit of the worker container is
+  now 6 GB instead of 4 GB (`STEWARD_WORKER_MEMORY_LIMIT`).
+- Each worker module has its own display thresholds; before, GeoCLIP's applied to all.
+- Thumbnail addresses change with the previews, so the browser never shows old ones after a
+  photo was rotated or edited.
+
+### Upgrade notes
+
+- `git pull` is needed for the new `compose.yaml` (new settings, worker modules and memory
+  limit). On the first start, the database migrations add the vectors table; on its first use,
+  the worker downloads the MegaLoc model (0.9 GB).
+- The first pass of similar photos over the library takes a while: about 0.3 to 0.6 seconds per
+  photo on a server CPU (a day or two for 100,000 photos), about 0.1 seconds on an NVIDIA GPU.
+  Until the photos with a location are in the index, similar photos has little to suggest.
+- The vectors take about 17 KB per photo in the database (some 2 GB for 130,000 photos).
+- To save rotations in Immich with a key created before this version, add the `asset.edit.*`
+  permissions to it in Immich (Account Settings → API Keys).
+
 ## [0.2.5] - 2026-10-21
 
 ### Fixed
@@ -160,7 +210,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Ivamic/immich-steward/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/Ivamic/immich-steward/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Ivamic/immich-steward/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/Ivamic/immich-steward/compare/v0.2.2...v0.2.3

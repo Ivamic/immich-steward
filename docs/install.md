@@ -6,7 +6,7 @@
 
 immich-steward runs as two Docker containers: the app itself (API and web UI) and a
 PostgreSQL database with pgvector, plus an optional third one, the
-[GeoCLIP worker](#geoclip-worker-optional). Ready-made images are published on GitHub
+[worker](#worker-optional) for the location modules that are neural networks. Ready-made images are published on GitHub
 Container Registry (`ghcr.io/ivamic/immich-steward-core` for `amd64` and `arm64`,
 `ghcr.io/ivamic/immich-steward-worker` for `amd64`); you can also
 [build them from source](#building-the-images-from-source).
@@ -18,7 +18,8 @@ Container Registry (`ghcr.io/ivamic/immich-steward-core` for `amd64` and `arm64`
 - Immich **v3.x**, reachable from that machine over the network.
 - Internet access to download the images and in your browser (the map is loaded from
   OpenFreeMap).
-- About 1 GB of free disk space (another 3 GB for the GeoCLIP worker and its model); the
+- About 1 GB of free disk space (another 4 GB for the worker and its models, and a few GB for
+  the database of a big library: similar photos keep 17 KB per photo); the
   running app needs a few hundred MB of RAM.
 
 ## 1. Get the code
@@ -88,21 +89,32 @@ for changes every 15 minutes.
 Nothing is written to Immich until you save a location for a photo. Saved locations get the tag
 `steward/estimated` in Immich, so you can always find them there.
 
-## GeoCLIP worker (optional)
+## Worker (optional)
 
-GeoCLIP suggests where a photo was taken by its look: landmarks, cities, landscapes. It is a
-neural network, so it runs in a separate container, the *worker*, which takes photos without a
-location one by one in the background. Results appear in the photo card as orange squares.
+Two location modules are neural networks, so they run in a separate container, the *worker*,
+which takes photos one by one in the background:
+
+- **GeoCLIP** suggests where a photo was taken by its look: landmarks, cities, landscapes, all
+  over the world. It looks at the photos without a location. Its suggestions are orange squares.
+- **Similar photos** finds photos of the same place in your own library: the same street, house,
+  view or room, from another angle or in another season. It needs every photo of the library: the
+  ones with a location are what it searches among, so the worker takes them first, then the
+  photos without a location. Its suggestions are green diamonds, with thumbnails of the similar
+  photos. The search runs when you open a photo, so it always includes the locations you have
+  set since.
 
 What it needs (measured on an Intel Core i3-13100 next to Immich):
 
-- about 1 GB of RAM while working, up to 3 GB at its peak (the container is limited to 4 GB),
-  and a 1.4 GB image;
-- on its first start, the CLIP model (1.7 GB) is downloaded from Hugging Face into the volume
-  `immich-steward_model-cache`, then loaded for a minute or two;
-- about 0.8 seconds per photo with 2 CPU threads: some 4,000 photos an hour, in the background.
+- for GeoCLIP about 1 GB of RAM, up to 3 GB at its peak; for similar photos about 1.2 GB, 2 GB
+  while loading (the container is limited to 6 GB); a 1.4 GB image;
+- on their first use, the models are downloaded from Hugging Face into the volume
+  `immich-steward_model-cache` (CLIP 1.7 GB, MegaLoc 0.9 GB), then loaded for a minute or two;
+- with 2 CPU threads, about 0.8 seconds per photo for GeoCLIP and 0.3 to 0.6 seconds for similar
+  photos. The first pass of similar photos over a library of 100,000 photos takes a day or two
+  in the background; a [GPU worker](#worker-on-an-nvidia-gpu) does it in about an hour.
 
-When several family members use the app, their photos are processed in turns.
+When several family members use the app, their photos are processed in turns. Similar photos
+only ever searches the library of the person who looks at the photo.
 
 To start it:
 
@@ -122,12 +134,19 @@ Settings in `.env` (see `.env.example`):
 |---|---|---|
 | `STEWARD_WORKER_THREADS` | `2` | CPU threads for the model. More is faster but leaves less for Immich. |
 | `STEWARD_WORKER_MAX_LOAD` | empty | E.g. `0.8`: the worker waits while the machine is busy (load average per CPU above 0.8), for instance while Immich transcodes videos. |
-| `STEWARD_WORKER_MEMORY_LIMIT` | `4g` | Memory limit of the worker container. |
+| `STEWARD_WORKER_MODULES` | `similar,geoclip` | Modules the worker on the server runs, the photos of the first one first (photos you start a module on from a card always go first). |
+| `STEWARD_WORKER_ONE_MODEL` | `false` | `true`: one model in memory at a time. With the order above, the worker finishes one module's photos before it loads the other model; a limit of `4g` is then enough. |
+| `STEWARD_WORKER_MEMORY_LIMIT` | `6g` | Memory limit of the worker container. |
 | `STEWARD_GEOCLIP_MIN_CONFIDENCE` | `0.25` | GeoCLIP suggestions below this confidence are hidden; up to `STEWARD_GEOCLIP_WEAK_BELOW` (`0.5`) they are folded as weak; from `STEWARD_GEOCLIP_CONFIDENT_FROM` (`0.75`) they are marked as confident and counted by the gallery filter. |
+| `STEWARD_SIMILAR_MIN_CONFIDENCE` | `0.2` | The same for similar photos (`STEWARD_SIMILAR_WEAK_BELOW` `0.5`, `STEWARD_SIMILAR_CONFIDENT_FROM` `0.8`). Their confidence is how often such a match turned out right within 1 km on a real family library: 0.8 means about 8 times out of 10. |
+| `STEWARD_SIMILAR_INCLUDE_ESTIMATED` | `true` | Similar photos also searches among the photos whose location you set in the app. `false`: only among locations recorded by cameras. Applies at once. |
 | `STEWARD_AUTO_MODULES` | `geoclip,similar` | Modules that run automatically on photos without a location (`similar` also on the photos with one: they are its search index, and go first). Empty: only when started with **Run** in a photo card. |
 
-The model is unloaded from memory after 10 minutes without work. Photos never leave your server:
+A model is unloaded from memory after 10 minutes without work. Photos never leave your server:
 the worker gets them from the app, not from the internet.
+
+When a photo is rotated or edited in Immich (or rotated and saved from the photo card), the
+modules look at it again.
 
 ## Workers on other computers
 
@@ -144,16 +163,16 @@ goes to sleep, after 5 minutes.
 ### Before you start
 
 1. **The app must have a worker token.** On the server, `STEWARD_WORKER_TOKEN` in `.env` must be
-   set (see [GeoCLIP worker](#geoclip-worker-optional)). If you have just set it, apply it with
+   set (see [Worker](#worker-optional)). If you have just set it, apply it with
    `docker compose up -d` (or `docker compose --profile worker up -d`).
 2. **The other computer must reach the app** at the same address you open in your browser, e.g.
    `http://192.168.1.10:8780`. If the server has a firewall, allow port `8780` from your home
    network.
 3. **Choose how to run it.** With an NVIDIA graphics card, use the
    [GPU worker](#worker-on-an-nvidia-gpu): it is several times faster. Otherwise use Docker
-   (Docker Engine on Linux or Docker Desktop on Windows) and about 3 GB of disk space: the image
-   (1.4 GB) and the CLIP model (1.7 GB), which is downloaded from Hugging Face on the first
-   start.
+   (Docker Engine on Linux or Docker Desktop on Windows) and about 4 GB of disk space: the image
+   (1.4 GB) and the models (CLIP 1.7 GB, MegaLoc 0.9 GB), which are downloaded from Hugging Face
+   on their first use.
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server and
 `your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`.
@@ -167,7 +186,7 @@ docker run -d --name steward-worker --restart unless-stopped \
   -e STEWARD_WORKER_NAME=desktop \
   -e STEWARD_WORKER_THREADS=4 \
   -v steward-models:/models \
-  ghcr.io/ivamic/immich-steward-worker:0.2.5
+  ghcr.io/ivamic/immich-steward-worker:0.3.0
 ```
 
 ### Start a worker with Docker on Windows (PowerShell, Docker Desktop)
@@ -179,7 +198,7 @@ docker run -d --name steward-worker --restart unless-stopped `
   -e STEWARD_WORKER_NAME=desktop `
   -e STEWARD_WORKER_THREADS=4 `
   -v steward-models:/models `
-  ghcr.io/ivamic/immich-steward-worker:0.2.5
+  ghcr.io/ivamic/immich-steward-worker:0.3.0
 ```
 
 With `--restart unless-stopped`, the worker starts again together with Docker, e.g. after a
@@ -189,9 +208,12 @@ reboot, until you stop it.
   by their names, so give every worker its own name (not `server`, which the worker on the
   server uses). A second worker with the name of a running one is refused until the first
   stops.
-- `STEWARD_WORKER_THREADS` is the number of CPU threads for the model: more is faster, but leaves
+- `STEWARD_WORKER_THREADS` is the number of CPU threads for the models: more is faster, but leaves
   less for other programs on that computer.
-- The volume `steward-models` keeps the model, so it is downloaded only once.
+- The volume `steward-models` keeps the models, so they are downloaded only once.
+- The worker runs both modules, the photos of similar photos first;
+  `-e STEWARD_WORKER_MODULES=geoclip,similar` changes the order, `geoclip` alone limits it to
+  one module. On a computer short of memory, add `-e STEWARD_WORKER_ONE_MODEL=true`.
 - On Linux, `-e STEWARD_WORKER_MAX_LOAD=0.8` makes the worker wait while the computer is busy.
 
 ### Check that it works
@@ -203,7 +225,7 @@ docker logs --tail 20 steward-worker
 | In the log | Meaning |
 |---|---|
 | `registered with the core as …` | Connected. The worker is listed on the **Library** page. |
-| `GeoCLIP loaded on cpu …`, then `job … done in … s` | Working on photos. The first load takes a few minutes (the model is downloaded). |
+| `GeoCLIP loaded on cpu …` or `MegaLoc loaded on cpu …`, then `job … done in … s` | Working on photos. The first load takes a few minutes (the model is downloaded). |
 | `HTTP 401 worker_unauthorized` | The token differs from `STEWARD_WORKER_TOKEN` on the server. |
 | `HTTP 503 workers_disabled` | The app has no worker token: set `STEWARD_WORKER_TOKEN` on the server and run `docker compose up -d` there. |
 | `another running worker is called …` | That name is taken by a worker that is running now: choose another `STEWARD_WORKER_NAME` (or `--name`). |
@@ -226,13 +248,13 @@ docker start steward-worker
 ```
 
 Update it to a new version: remove the container, then run the `docker run` command above
-again with the new version number instead of `0.2.5` at its end. The model stays in the volume.
+again with the new version number instead of `0.3.0` at its end. The models stay in the volume.
 
 ```sh
 docker rm -f steward-worker
 ```
 
-Remove it completely, together with the downloaded model:
+Remove it completely, together with the downloaded models:
 
 ```sh
 docker rm -f steward-worker
@@ -248,19 +270,20 @@ libraries, which we do not distribute. On a computer with an NVIDIA graphics car
 worker from source instead; the GPU build of PyTorch is downloaded during the installation.
 
 Measured on a laptop with an RTX 3060 Laptop GPU (6 GB), connected to the server over the home
-network: about 0.25 seconds per photo, some 10,000 photos an hour; the server's CPU worker
-next to it needs 0.8 seconds. The model takes about 3 GB of video memory.
+network: about 0.25 seconds per photo for GeoCLIP, some 10,000 photos an hour (the server's CPU
+worker next to it needs 0.8 seconds), and 0.1 seconds for similar photos. Both models together
+take about 4 GB of video memory.
 
 What it needs:
 
 - an NVIDIA graphics card with at least 4 GB of video memory and a current driver (version 580
   or newer, check with `nvidia-smi`);
 - [Git](https://git-scm.com/downloads) and [uv](https://docs.astral.sh/uv/getting-started/installation/);
-- about 5 GB of disk space: 3.2 GB for the installation and 1.7 GB for the CLIP model, which is
-  downloaded on the first start.
+- about 6 GB of disk space: 3.2 GB for the installation and the models (CLIP 1.7 GB, MegaLoc
+  0.9 GB), which are downloaded on their first use.
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
-`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.2.5` with
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.3.0` with
 the version of the app on your server.
 
 #### GPU worker on Windows (PowerShell)
@@ -270,9 +293,9 @@ Install once:
 ```powershell
 winget install --id Git.Git -e
 winget install --id astral-sh.uv -e
-git clone --branch v0.2.5 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+git clone --branch v0.3.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
 Open a new PowerShell window after `winget` so that `git` and `uv` are found.
@@ -282,7 +305,7 @@ Start the worker (every time; it runs while the window is open):
 ```powershell
 cd D:\steward-worker
 $env:STEWARD_WORKER_TOKEN = "your-token"
-.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules geoclip --name laptop
+.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip --name laptop
 ```
 
 #### GPU worker on Linux (bash)
@@ -292,9 +315,9 @@ Install once (Git is usually installed already; otherwise `sudo apt install git`
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-git clone --branch v0.2.5 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+git clone --branch v0.3.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
 Start the worker (every time; it runs while the terminal is open):
@@ -302,25 +325,25 @@ Start the worker (every time; it runs while the terminal is open):
 ```sh
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
-.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules geoclip --name desktop
+.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip --name desktop
 ```
 
 #### Check, stop, update the GPU worker
 
-The log is printed in the window. `GeoCLIP loaded on cuda` means the worker uses the graphics
+The log is printed in the window. `GeoCLIP loaded on cuda` (or `MegaLoc loaded on cuda`) means the worker uses the graphics
 card; `loaded on cpu` means PyTorch did not find it (check the driver with `nvidia-smi`). The
 other messages are the same as in the [table above](#check-that-it-works).
 
 Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Library**
 page shows the worker as not connected right away.
 
-Update to a new version (replace `0.2.6` with the new version), on Windows:
+Update to a new version (replace `0.3.1` with the new version), on Windows:
 
 ```powershell
 cd D:\steward-worker
 git fetch --tags
-git checkout v0.2.6
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+git checkout v0.3.1
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
 On Linux:
@@ -328,12 +351,13 @@ On Linux:
 ```sh
 cd ~/steward-worker
 git fetch --tags
-git checkout v0.2.6
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra cuda
+git checkout v0.3.1
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
 To remove the worker, delete the folder (`D:\steward-worker` or `~/steward-worker`) and the
-downloaded model: the folder `models--openai--clip-vit-large-patch14` in
+downloaded models: the folders `models--openai--clip-vit-large-patch14` and
+`models--gberton--MegaLoc` in
 `%USERPROFILE%\.cache\huggingface\hub` on Windows or in `~/.cache/huggingface/hub` on Linux.
 
 ### Security
@@ -379,10 +403,11 @@ passes through the app when you sign in), and set `STEWARD_COOKIE_SECURE=true` i
 - **Address search** sends the typed text and the approximate map position from the app server
   to the public Photon geocoder (`photon.komoot.io`). Set `STEWARD_GEOCODER_URL=` (empty) to turn
   address search off, or point it to your own Photon.
-- **The GeoCLIP model** is downloaded from Hugging Face (`huggingface.co`) when the worker loads
-  it for the first time; later loads only check for updates there.
+- **The models** of GeoCLIP and of similar photos (MegaLoc) are downloaded from Hugging Face
+  (`huggingface.co`) when the worker loads them for the first time; later loads only check for
+  updates there.
 - **Photos never leave your server.** Location suggestions are computed from your own library and
-  by the local GeoCLIP model.
+  by the local models.
 
 ## Updating
 
@@ -394,7 +419,7 @@ The version is pinned on purpose. The project is at an early stage, and a new ve
 changes in `compose.yaml` itself: new settings, services or volumes. Updating the images and
 `compose.yaml` together keeps them in step.
 
-Without the GeoCLIP worker:
+Without the worker:
 
 ```sh
 cd immich-steward
@@ -403,7 +428,7 @@ docker compose pull
 docker compose up -d
 ```
 
-With the GeoCLIP worker:
+With the worker:
 
 ```sh
 cd immich-steward
@@ -415,13 +440,13 @@ docker compose --profile worker up -d
 Old images can be removed afterwards with `docker image prune`. See the
 [changelog](../CHANGELOG.md) for what is new and whether `.env` needs new settings.
 
-To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.2.5`).
+To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.3.0`).
 
 If you changed `compose.yaml` yourself, `git pull` may stop with a conflict. Move your changes
 to `.env` or to a `compose.override.yaml` file, which Docker Compose reads automatically and
 `git pull` doesn't touch.
 
-`STEWARD_VERSION=latest` (or `0.2` for the newest 0.2.x) makes `docker compose pull` fetch new
+`STEWARD_VERSION=latest` (or `0.3` for the newest 0.3.x) makes `docker compose pull` fetch new
 images without `git pull`. We don't recommend it while the project is at an early stage: a new
 image may need a newer `compose.yaml` than the one you have, and the app may fail to start.
 
@@ -431,13 +456,13 @@ Instead of downloading the images, you can build them on your server (a few minu
 2 GB of disk space during the build, internet access for the packages). Run the same commands
 with `--build`.
 
-Without the GeoCLIP worker:
+Without the worker:
 
 ```sh
 docker compose up -d --build
 ```
 
-With the GeoCLIP worker:
+With the worker:
 
 ```sh
 docker compose --profile worker up -d --build

@@ -184,7 +184,7 @@
 	"candidate_area": "Area that looks like the photo",
 	"workers_heading": "Workers",
 	"workers_intro": "Workers run the heavy location modules (GeoCLIP, similar photos) on the server or on another computer.",
-	"workers_none": "No worker has connected yet. See “GeoCLIP worker” in the installation guide.",
+	"workers_none": "No worker has connected yet. See “Worker” in the installation guide.",
 	"workers_active": "connected",
 	"workers_seen": "last seen {when}",
 	"workers_runs": "{module}: {done} done, {queued} queued, {running} running, {failed} failed",

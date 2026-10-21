@@ -20,8 +20,8 @@
 </p>
 
 > **Status: under active development.** An early version: reviewing photos without a location,
-> suggestions from photos taken close in time and GeoCLIP already work; the other modules are
-> still to come. Expect bugs and changes between versions, and keep a backup of your Immich
+> suggestions from photos taken close in time, GeoCLIP and similar photos of your own library
+> already work; the other modules are still to come. Expect bugs and changes between versions, and keep a backup of your Immich
 > library before writing locations to it.
 
 A self-hosted companion app for [Immich](https://immich.app) that helps you restore
@@ -48,10 +48,17 @@ Available modules:
   locally on the server CPU or on a GPU of another computer. Shown by confidence, with a gallery
   filter for its confident guesses. It can also look at a part of the photo only: a building
   behind a crowd, a sign, a mountain on the horizon.
+- **Similar photos** *(optional worker)* — photos of the same place in your own library, with a
+  location: the same street, house, view or room, from another angle or in another season. Uses
+  [MegaLoc](https://github.com/gmberton/MegaLoc), a model made for recognizing places; on a real
+  family library, about half of its suggestions are right within 1 km, and more than eight
+  out of ten of its confident ones. The search always includes the locations you have set since.
+
+A photo can be rotated in the app for a better look, the modules run on it rotated, and the
+rotation can be saved to Immich.
 
 Planned:
 
-- **Similar photos in your library** — visual similarity to your own geotagged photos.
 - **Landmarks** — your own library of recognizable places: mark a landmark once on a
   geotagged photo, and the app looks for it in photos without location.
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
@@ -101,12 +108,13 @@ The images are pulled from GitHub Container Registry (`ghcr.io/ivamic/immich-ste
 
 Then open `http://<your-server>:8780` and sign in with your Immich account.
 
-GeoCLIP runs in an optional worker container (about 1 GB of RAM, up to 3 GB at its peak):
-set `STEWARD_WORKER_TOKEN` in `.env` and start with `docker compose --profile worker up -d`.
+GeoCLIP and similar photos run in an optional worker container (2 to 4 GB of RAM with both
+models loaded): set `STEWARD_WORKER_TOKEN` in `.env` and start with
+`docker compose --profile worker up -d`.
 Workers can also run on other computers in your network
 ([how](docs/install.md#workers-on-other-computers)).
 
-See [docs/install.md](docs/install.md) for the details: configuration, the GeoCLIP worker, Immich
+See [docs/install.md](docs/install.md) for the details: configuration, the worker, Immich
 on the same machine, updating, backup and troubleshooting.
 
 ## Architecture
@@ -126,7 +134,7 @@ Repository layout:
 | Path | Contents |
 |---|---|
 | `core/` | Core service: Python package `steward` (FastAPI), Alembic migrations, tests |
-| `worker/` | Worker: Python package `steward_worker` that runs ML location modules (GeoCLIP) |
+| `worker/` | Worker: Python package `steward_worker` that runs ML location modules (GeoCLIP, similar photos) |
 | `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
 | `docker/` | Dockerfiles of the core image (with the built web UI) and of the worker image (CPU); `.github/workflows/release.yml` publishes them for every version tag |
 | `compose.yaml` | Core service, PostgreSQL with pgvector, optional worker (profile `worker`) |
@@ -149,10 +157,10 @@ uv run python -m steward --reload
 # Web UI dev server on http://localhost:5173 (proxies /api to the core)
 cd frontend && pnpm install && pnpm dev
 
-# Optional: a worker with GeoCLIP (PyTorch for the CPU; --extra cuda for an NVIDIA GPU).
-# The core needs the same STEWARD_WORKER_TOKEN in .env.
-uv sync --all-packages --extra geoclip --extra cpu
-STEWARD_WORKER_TOKEN=... uv run python -m steward_worker --core http://127.0.0.1:8080 --modules geoclip
+# Optional: a worker with GeoCLIP and similar photos (PyTorch for the CPU; --extra cuda for an
+# NVIDIA GPU). The core needs the same STEWARD_WORKER_TOKEN in .env.
+uv sync --all-packages --extra geoclip --extra similar --extra cpu
+STEWARD_WORKER_TOKEN=... uv run python -m steward_worker --core http://127.0.0.1:8080 --modules similar,geoclip
 ```
 
 Checks (the same as in CI):

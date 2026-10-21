@@ -63,9 +63,29 @@ export function moduleName(id: string): string {
 			return m.module_time_neighbors();
 		case 'geoclip':
 			return m.module_geoclip();
+		case 'similar':
+			return m.module_similar();
 		default:
 			return id;
 	}
+}
+
+/** Shown when a finished run of the module has nothing to suggest. */
+export function noCandidates(id: string): string {
+	return id === 'similar' ? m.module_similar_none() : m.module_no_candidates();
+}
+
+/** Second line under a neighbor's thumbnail: how it relates to the photo. */
+export function neighborMeta(neighbor: NeighborEvidence, camera: string): string {
+	const parts =
+		neighbor.similarity === undefined
+			? [formatDelta(neighbor.delta_s), camera || m.device_unknown()]
+			: [
+					m.neighbor_similarity({ percent: String(Math.round(neighbor.similarity * 100)) }),
+					neighbor.local_taken_at?.slice(0, 10) ?? ''
+				];
+	if (neighbor.estimated) parts.push(m.candidate_estimated());
+	return parts.filter(Boolean).join(' · ');
 }
 
 export function moduleNote(note: string): string {
@@ -94,6 +114,12 @@ export function candidateLabel(candidate: Candidate): string {
 		return m.candidate_same_place({ photo: neighborRef(neighbors[0]) });
 	}
 	if (candidate.kind === 'area') return m.candidate_area();
+	if (candidate.kind === 'similar' && neighbors.length) {
+		const file = neighbors[0].file_name;
+		return neighbors.length > 1
+			? m.candidate_similar_more({ file, count: String(neighbors.length - 1) })
+			: m.candidate_similar({ file });
+	}
 	return candidate.kind;
 }
 
@@ -102,6 +128,10 @@ export function candidateDetails(candidate: Candidate): string | undefined {
 	if (candidate.kind === 'area' && typeof candidate.evidence.points === 'number') {
 		return m.candidate_area_details({ points: String(candidate.evidence.points) });
 	}
+	if (candidate.kind === 'similar') {
+		const count = String(candidate.evidence.neighbors?.length ?? 0);
+		return m.candidate_similar_details({ count });
+	}
 	return undefined;
 }
 
@@ -109,7 +139,7 @@ export function candidateDetails(candidate: Candidate): string | undefined {
 export function candidateRemarks(candidate: Candidate): string[] {
 	const neighbors = candidate.evidence.neighbors ?? [];
 	const remarks: string[] = [];
-	if (neighbors.some((n) => !n.same_camera)) remarks.push(m.candidate_other_camera());
+	if (neighbors.some((n) => n.same_camera === false)) remarks.push(m.candidate_other_camera());
 	if (neighbors.some((n) => n.estimated)) remarks.push(m.candidate_estimated());
 	return remarks;
 }

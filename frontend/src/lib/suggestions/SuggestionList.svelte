@@ -25,10 +25,11 @@
 		candidateLabel,
 		candidateRemarks,
 		failureReason,
-		formatDelta,
 		formatDistance,
 		moduleName,
 		moduleNote,
+		neighborMeta,
+		noCandidates,
 		numberCandidates,
 		visibleSuggestions
 	} from './format.js';
@@ -91,7 +92,7 @@
 		peek = {
 			id: neighbor.asset_id,
 			name: neighbor.file_name,
-			meta: [formatDelta(neighbor.delta_s), camera || m.device_unknown()].join(' · '),
+			meta: neighborMeta(neighbor, camera ?? ''),
 			left: Math.max(8, Math.min(box.left, innerWidth - PEEK_WIDTH - 8)),
 			top: below ? box.bottom + 6 : Math.max(8, box.top - PEEK_HEIGHT - 6)
 		};
@@ -132,7 +133,7 @@
 			case 'failed':
 				return m.module_status_failed({ error: failureReason(module.error_code) });
 			case 'done':
-				return module.candidates.length ? null : m.module_no_candidates();
+				return module.candidates.length ? null : noCandidates(module.module);
 			default:
 				return null;
 		}
@@ -343,6 +344,15 @@
 	}
 	.swatch.shape-square {
 		border-radius: 0.15rem;
+	}
+	.swatch.shape-diamond,
+	.rank.shape-diamond {
+		border-radius: 0;
+		clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+	}
+	.rank.shape-diamond {
+		width: 1.7rem;
+		height: 1.7rem;
 	}
 	.run {
 		margin-left: 0.5rem;

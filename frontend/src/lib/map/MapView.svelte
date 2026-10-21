@@ -33,7 +33,7 @@
 	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { formatDelta } from '#lib/suggestions/format.js';
+	import { formatDelta, neighborMeta } from '#lib/suggestions/format.js';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { resolve } from '$app/paths';
 	import {
@@ -312,6 +312,7 @@
 				// A guess from a part of the photo: same module, dashed rim.
 				if (module.region) pin.classList.add('steward-part');
 				pin.style.background = module.color;
+				pin.style.setProperty('--marker-color', module.color);
 				pin.textContent = String(c.rank);
 				pin.dataset.lat = String(c.latitude);
 				pin.dataset.lon = String(c.longitude);
@@ -404,6 +405,8 @@
 		delta_s: number;
 		camera: string;
 		estimated: boolean;
+		similarity?: number;
+		local_taken_at?: string;
 	}
 
 	function showFeaturePreview(instance: MapLibreMap, feature: MapGeoJSONFeature, pinned: boolean) {
@@ -456,13 +459,8 @@
 			name.className = 'name';
 			name.textContent = photo.file_name;
 			const meta = document.createElement('div');
-			meta.textContent = [
-				formatDelta(Number(photo.delta_s)),
-				photo.camera || m.device_unknown(),
-				photo.estimated ? m.candidate_estimated() : ''
-			]
-				.filter(Boolean)
-				.join(' · ');
+			// Map features carry their properties as strings.
+			meta.textContent = neighborMeta({ ...photo, delta_s: Number(photo.delta_s) }, photo.camera);
 			item.append(image, name, meta);
 			if (pinned) {
 				const link = document.createElement('a');
@@ -639,6 +637,27 @@
 	}
 	:global(.steward-candidate.steward-shape-square) {
 		border-radius: 0.3rem;
+	}
+	/* A square turned behind the number, so that the number stays upright. */
+	:global(.steward-candidate.steward-shape-diamond) {
+		position: relative;
+		border: none;
+		box-shadow: none;
+		background: none !important;
+	}
+	:global(.steward-candidate.steward-shape-diamond::before) {
+		content: '';
+		position: absolute;
+		inset: 0.2rem;
+		z-index: -1;
+		transform: rotate(45deg);
+		background: var(--marker-color);
+		border: 2px solid #fff;
+		border-radius: 0.15rem;
+		box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+	}
+	:global(.steward-candidate.steward-shape-diamond.steward-part::before) {
+		border-style: dashed;
 	}
 	:global(.steward-tag) {
 		padding: 0.1rem 0.35rem;

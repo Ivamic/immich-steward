@@ -230,9 +230,13 @@ export interface NeighborEvidence {
 	file_name: string;
 	/** Seconds from the photo; negative means before it. */
 	delta_s: number;
-	same_camera: boolean;
+	/** Time neighbors only. */
+	same_camera?: boolean;
 	/** The neighbor's location was written by this app, not recorded by a camera. */
 	estimated: boolean;
+	/** Similar photos only: 0..1, and when the photo was taken (local time). */
+	similarity?: number;
+	local_taken_at?: string;
 }
 
 export interface Candidate {

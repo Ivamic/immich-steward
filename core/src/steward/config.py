@@ -64,6 +64,15 @@ class Settings(BaseSettings):
     geoclip_min_confidence: float = Field(default=0.25, ge=0, le=1)
     geoclip_weak_below: float = Field(default=0.5, ge=0, le=1)
     geoclip_confident_from: float = Field(default=0.75, ge=0, le=1)
+    # How similar-photos (M3) suggestions are shown, on the calibrated scale of
+    # `steward.modules.similar.CALIBRATION`: hidden below 20 % (similarity ~0.15), weak below
+    # 50 % (~0.2), confident from 80 % (~0.35, right within 1 km about 85 % of the time).
+    similar_min_confidence: float = Field(default=0.2, ge=0, le=1)
+    similar_weak_below: float = Field(default=0.5, ge=0, le=1)
+    similar_confident_from: float = Field(default=0.8, ge=0, le=1)
+    # Photos whose location was set in this app are searched among too (D-106). The search runs
+    # when the suggestions are shown, so a change applies at once, without running anything again.
+    similar_include_estimated: bool = True
 
     # A worker counts as active this long after it last contacted the core. Idle workers ask for
     # jobs every 30 s at most, busy ones send a heartbeat every third of the lease.

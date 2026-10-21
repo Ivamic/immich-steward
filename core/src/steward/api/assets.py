@@ -41,7 +41,7 @@ from steward.immich import (
 )
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
 from steward.models import Account, Album, Asset, AssetAlbum, LocationChange, ModuleRun
-from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule
+from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule, similar
 
 router = APIRouter(prefix="/assets")
 
@@ -199,10 +199,27 @@ class CandidateItem(BaseModel):
     tier: Literal["weak", "normal", "confident"] = "normal"
 
 
-def _tier(score: float, settings: Settings) -> Literal["weak", "normal", "confident"]:
-    if score < settings.geoclip_weak_below:
+def _thresholds(module_id: str, settings: Settings) -> tuple[float, float, float]:
+    """Display minimum, "weak" below, "confident" from: each module has its own score scale."""
+    if module_id == similar.MODULE_ID:
+        return (
+            settings.similar_min_confidence,
+            settings.similar_weak_below,
+            settings.similar_confident_from,
+        )
+    return (
+        settings.geoclip_min_confidence,
+        settings.geoclip_weak_below,
+        settings.geoclip_confident_from,
+    )
+
+
+def _tier(
+    score: float, weak_below: float, confident_from: float
+) -> Literal["weak", "normal", "confident"]:
+    if score < weak_below:
         return "weak"
-    if score >= settings.geoclip_confident_from:
+    if score >= confident_from:
         return "confident"
     return "normal"
 
@@ -462,36 +479,45 @@ async def _suggestions(
     )
     available = {module for worker in workers for module in worker.modules}
     for remote in REMOTE_MODULES.values():
-        result.append(await _remote(db, remote, runs.get(remote.id), available, settings))
+        result.append(await _remote(db, asset, remote, runs.get(remote.id), available, settings))
         # The run on a part of the photo, if any, right after the one on the whole photo.
         if run := region_runs.get(remote.id):
-            result.append(await _remote(db, remote, run, available, settings))
+            result.append(await _remote(db, asset, remote, run, available, settings))
     return result
 
 
 async def _remote(
     db: DbDep,
+    asset: Asset,
     remote: RemoteModule,
     run: ModuleRun | None,
     available: set[str],
     settings: Settings,
 ) -> ModuleSuggestions:
     region = RegionIn(**run.region) if run and run.region else None
+    minimum, weak_below, confident_from = _thresholds(remote.id, settings)
+    found: list[dict[str, Any]] = []
+    if run and run.status == "done":
+        if remote.id == similar.MODULE_ID:
+            # Searched now, so that it sees the library as it is (D-105).
+            found = [
+                vars(candidate)
+                for candidate in await similar.suggest(
+                    db, run, asset.account_id, asset.local_taken_at, settings
+                )
+            ]
+        else:
+            found = run.candidates
     return ModuleSuggestions(
         module=remote.id,
         version=(run.module_version if run else None) or "",
         color=remote.color,
         shape=remote.shape,
         candidates=[
-            CandidateItem(rank=rank, tier=_tier(candidate["score"], settings), **candidate)
-            for rank, candidate in enumerate(
-                [
-                    c
-                    for c in (run.candidates if run and run.status == "done" else [])
-                    if c["score"] >= settings.geoclip_min_confidence
-                ],
-                start=1,
+            CandidateItem(
+                rank=rank, tier=_tier(candidate["score"], weak_below, confident_from), **candidate
             )
+            for rank, candidate in enumerate([c for c in found if c["score"] >= minimum], start=1)
         ],
         track=[],
         cameras=[],

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import type { Candidate, ModuleSuggestions } from '#lib/api.js';
+import type { Candidate, ModuleSuggestions, NeighborEvidence } from '#lib/api.js';
 import {
+	candidateLabel,
+	candidateRemarks,
 	formatDelta,
 	formatDistance,
 	formatDuration,
+	neighborMeta,
 	numberCandidates,
 	visibleSuggestions
 } from './format.js';
@@ -70,5 +73,40 @@ describe('suggestion formatting', () => {
 		expect(folded[0].candidates.map((c) => c.rank)).toEqual([1, 2]);
 		expect(numberCandidates(folded).map((item) => item.key)).toEqual([1, 2]);
 		expect(visibleSuggestions([geoclip], ['geoclip'])[0].candidates).toHaveLength(3);
+	});
+
+	it('labels similar photos by the most similar one', () => {
+		const photo = (file_name: string, estimated = false): NeighborEvidence => ({
+			asset_id: file_name,
+			file_name,
+			delta_s: -3600,
+			estimated,
+			similarity: 0.42,
+			local_taken_at: '2019-07-14T12:00:00'
+		});
+		const similar = (neighbors: NeighborEvidence[]): Candidate => ({
+			...candidate(1),
+			kind: 'similar',
+			evidence: { neighbors }
+		});
+		expect(candidateLabel(similar([photo('a.jpg')]))).toBe('Like a.jpg');
+		expect(candidateLabel(similar([photo('a.jpg'), photo('b.jpg'), photo('c.jpg')]))).toBe(
+			'Like a.jpg and 2 more'
+		);
+		// No camera to compare with: never "another camera".
+		expect(candidateRemarks(similar([photo('a.jpg')]))).toEqual([]);
+		expect(neighborMeta(photo('a.jpg'), '')).toBe('42% alike · 2019-07-14');
+		expect(neighborMeta(photo('a.jpg', true), '')).toContain('set by hand');
+	});
+
+	it('describes a time neighbor by its time and camera', () => {
+		const neighbor: NeighborEvidence = {
+			asset_id: 'x',
+			file_name: 'x.jpg',
+			delta_s: -720,
+			same_camera: true,
+			estimated: false
+		};
+		expect(neighborMeta(neighbor, 'Canon EOS')).toBe(`${formatDelta(-720)} · Canon EOS`);
 	});
 });

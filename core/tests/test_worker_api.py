@@ -370,3 +370,26 @@ def test_name_of_a_silent_worker_can_be_taken(client: TestClient) -> None:
 
     db_call(client, silence)
     assert register_instance(client, "desktop", str(uuid.uuid4())).status_code == 200
+
+
+def test_modules_in_the_order_the_worker_lists_them(photos: TestClient) -> None:
+    older = enqueue(photos, module="geoclip", index=0)
+    newer = enqueue(photos, module="similar", index=1)
+    by_hand = enqueue(photos, module="geoclip", index=1, priority=worker_queue.PRIORITY_USER)
+    worker = register(photos, modules=["similar", "geoclip"])
+
+    def next_run() -> UUID:
+        job = lease(photos, worker, ["similar", "geoclip"]).json()
+        return UUID(str(run_of_job(photos, job["job_id"])))
+
+    # Runs started by hand first, then the first module listed, although its job is newer.
+    assert [next_run() for _ in range(3)] == [by_hand, newer, older]
+
+
+def run_of_job(client: TestClient, job_id: str) -> UUID:
+    async def work(db: Any) -> UUID:
+        run = await db.scalar(select(ModuleRun).where(ModuleRun.job_id == UUID(job_id)))
+        return UUID(str(run.id))
+
+    result: UUID = db_call(client, work)
+    return result

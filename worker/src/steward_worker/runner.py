@@ -43,6 +43,9 @@ class WorkerConfig:
     max_load: float | None = None
     # Free a model's memory after this long without jobs (NFR-03).
     unload_after_s: float = 600.0
+    # Keep one model in memory at a time: another one is loaded only after the current one is
+    # freed (for machines short of memory; switching costs a reload).
+    one_model: bool = False
 
 
 class Worker:
@@ -139,6 +142,8 @@ class Worker:
         try:
             image = await self._client.image(job.job_id)
             if job.module not in self._loaded:
+                if self._config.one_model:
+                    self._unload_idle(force=True)
                 log.info("loading module %s", job.module)
                 await asyncio.to_thread(module.load)
             self._loaded[job.module] = time.monotonic()

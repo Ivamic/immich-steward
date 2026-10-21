@@ -277,3 +277,26 @@ def test_taken_name_is_reported() -> None:
     worker, _ = make_worker(FakeCore(name_taken=True), StubModule())
     with pytest.raises(NameTaken):
         asyncio.run(worker.run_once())
+
+
+def test_one_model_at_a_time() -> None:
+    core = FakeCore()
+    first, second = StubModule(), StubModule()
+    second.id = "other"
+    core.add_job("stub")
+    core.add_job("other")
+    core.add_job("other")
+    client = CoreClient("http://core.test", TOKEN, transport=httpx2.MockTransport(core.handler))
+
+    async def no_sleep(_: float) -> None:
+        pass
+
+    config = WorkerConfig(name="test", one_model=True)
+    worker = Worker(
+        client, {"stub": first, "other": second}, config, sleep=no_sleep, busy=lambda _: False
+    )
+    for _ in range(3):
+        asyncio.run(worker.run_once())
+    # The first model is freed before the second one is loaded, and only once.
+    assert (first.loads, first.unloads) == (1, 1)
+    assert (second.loads, second.unloads) == (1, 0)

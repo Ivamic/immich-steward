@@ -38,8 +38,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--modules",
         default=env("STEWARD_WORKER_MODULES", ",".join(AVAILABLE)),
-        help=f"comma-separated modules to run (STEWARD_WORKER_MODULES); available: "
-        f"{', '.join(AVAILABLE) or 'none yet'}",
+        help=f"comma-separated modules to run, the first one's background jobs first "
+        f"(STEWARD_WORKER_MODULES); available: {', '.join(AVAILABLE) or 'none yet'}",
+    )
+    parser.add_argument(
+        "--one-model",
+        action="store_true",
+        default=env("STEWARD_WORKER_ONE_MODEL", "").lower() in ("1", "true", "yes"),
+        help="keep one model in memory at a time, for machines short of memory "
+        "(STEWARD_WORKER_ONE_MODEL=true)",
     )
     parser.add_argument(
         "--name",
@@ -99,6 +106,7 @@ def main(argv: list[str] | None = None) -> None:
         device=options.device,
         max_load=args.max_load,
         unload_after_s=args.unload_after * 60,
+        one_model=args.one_model,
     )
     asyncio.run(_run(args.core, token, modules, options, config))
 

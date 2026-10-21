@@ -398,7 +398,12 @@ async def register(
 
 
 async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: int) -> Lease | None:
-    """Takes the most urgent job of the given modules, including ones whose lease ran out."""
+    """Takes the most urgent job of the given modules, including ones whose lease ran out.
+
+    Runs started by hand come first; then the modules in the order the worker lists them (so a
+    worker short of memory can finish one module's queue before it loads the next model).
+    """
+    module_order = case({module: i for i, module in enumerate(modules)}, value=Job.module_id)
     now = datetime.now(UTC)
     worker.last_seen_at = now
     worker.online = True
@@ -413,7 +418,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
                     and_(Job.status == "running", Job.lease_until < now),
                 ),
             )
-            .order_by(Job.priority.desc(), Job.created_at)
+            .order_by(Job.priority.desc(), module_order, Job.created_at)
             .limit(1)
             .with_for_update(skip_locked=True)
         )

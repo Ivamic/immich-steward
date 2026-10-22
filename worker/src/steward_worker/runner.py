@@ -77,9 +77,16 @@ class Worker:
         # The state the core knows; False once the core turned out not to take states.
         self._reported: tuple[str, str | None] | None = None
         self._report_states = True
+        self._goodbye: asyncio.Task[None] | None = None
 
     def stop(self) -> None:
+        """Stops after the current job, but says goodbye at once: the core gives the job to
+        another worker, and the name is free for a new start even if this process is killed
+        before the job ends (Docker waits 10 s; a photo on a slow CPU takes longer)."""
         self._stop.set()
+        if self._registered and self._goodbye is None:
+            with contextlib.suppress(RuntimeError):  # no event loop: run_forever says it
+                self._goodbye = asyncio.get_running_loop().create_task(self._say_goodbye())
 
     async def run_forever(self) -> None:
         log.info("worker %s with modules %s", self._config.name, ", ".join(self._modules))
@@ -110,10 +117,16 @@ class Worker:
                 await self._sleep(self._idle_wait)
                 self._idle_wait = min(self._idle_wait * 2, IDLE_WAIT_S[1])
         self._unload_idle(force=True)
+        if self._goodbye is not None:
+            await self._goodbye
+        elif self._registered:
+            await self._say_goodbye()
         if self._registered:
-            with contextlib.suppress(CoreError):
-                await self._client.bye()
             log.info("stopped")
+
+    async def _say_goodbye(self) -> None:
+        with contextlib.suppress(CoreError):
+            await self._client.bye()
 
     async def run_once(self) -> bool:
         """Takes and processes one job; False when there was nothing to do (or no capacity)."""
@@ -145,7 +158,8 @@ class Worker:
 
     async def _report(self, state: str, module: str | None = None) -> None:
         """Tells the core what the worker is doing, when that changes. Never fails the work."""
-        if not self._report_states or self._reported == (state, module):
+        # After goodbye: any request would show the worker as connected again.
+        if not self._report_states or self._stop.is_set() or self._reported == (state, module):
             return
         try:
             await self._client.state(state, module)

@@ -32,6 +32,7 @@ COPY LICENSE THIRD_PARTY_NOTICES.md /app/
 ENV PATH=/app/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     HF_HOME=/models \
+    STEWARD_WORKER_ID_FILE=/models/steward-worker.id \
     HF_HUB_DISABLE_PROGRESS_BARS=1
 WORKDIR /app
 USER steward

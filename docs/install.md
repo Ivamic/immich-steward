@@ -228,7 +228,7 @@ docker logs --tail 20 steward-worker
 | `GeoCLIP loaded on cpu …` or `MegaLoc loaded on cpu …`, then `job … done in … s` | Working on photos. The first load takes a few minutes (the model is downloaded). |
 | `HTTP 401 worker_unauthorized` | The token differs from `STEWARD_WORKER_TOKEN` on the server. |
 | `HTTP 503 workers_disabled` | The app has no worker token: set `STEWARD_WORKER_TOKEN` on the server and run `docker compose up -d` there. |
-| `another running worker is called …` | That name is taken by a worker that is running now: choose another `STEWARD_WORKER_NAME` (or `--name`). |
+| `another running worker is called …` | That name is taken by a worker that is running now on another computer: choose another `STEWARD_WORKER_NAME` (or `--name`). A restarted worker is known as the same one: it keeps its id in the models volume (`/models/steward-worker.id`; from source: `~/.cache/steward-worker/<name>.id`, or `STEWARD_WORKER_ID_FILE`). |
 | `ConnectError` | The app is not reachable at that address: check the address, the port and the firewall. |
 
 A worker with no photos to do just waits, that is normal.

@@ -57,7 +57,11 @@ class LeasedJob:
 
 class CoreClient:
     def __init__(
-        self, core_url: str, token: str, transport: httpx2.AsyncBaseTransport | None = None
+        self,
+        core_url: str,
+        token: str,
+        transport: httpx2.AsyncBaseTransport | None = None,
+        instance_id: UUID | None = None,
     ) -> None:
         self._http = httpx2.AsyncClient(
             base_url=core_url.rstrip("/") + "/api/worker",
@@ -67,8 +71,9 @@ class CoreClient:
         )
         self.worker_id: UUID | None = None
         self.lease_seconds = 300
-        # Tells this process from another computer that uses the same worker name.
-        self.instance_id = uuid4()
+        # Tells this worker from another computer that uses the same worker name; kept across
+        # restarts when given (`instance_id.load_instance_id`).
+        self.instance_id = instance_id or uuid4()
 
     async def __aenter__(self) -> Self:
         return self

@@ -441,6 +441,14 @@ async def register(
     worker.last_seen_at = now
     worker.online = True
     worker.state = worker.state_module = worker.state_since = None
+    # A worker registers when it starts: what its row still runs is left from a process that
+    # was killed before it could say goodbye (with a kept id, a restart is let in at once).
+    if worker.id is not None:
+        jobs = await db.scalars(
+            select(Job).where(Job.worker_id == worker.id, Job.status == "running").with_for_update()
+        )
+        for job in jobs:
+            _requeue(job, await _run_of(db, job), refund=True)
     await db.commit()
     return worker
 

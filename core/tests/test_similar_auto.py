@@ -45,8 +45,9 @@ def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
 def queued(client: TestClient, module: str) -> list[str]:
     """File names of the queued runs of the module, in the order workers take them."""
     names = []
+    # Once: registering again would give the jobs it holds back to the queue.
+    worker = start_worker(client, [module])
     while True:
-        worker = start_worker(client, [module])
         job = client.post("/api/worker/lease", json={"modules": [module]}, headers=worker)
         if job.status_code == 204:
             return names

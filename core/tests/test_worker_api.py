@@ -393,3 +393,17 @@ def run_of_job(client: TestClient, job_id: str) -> UUID:
 
     result: UUID = db_call(client, work)
     return result
+
+
+def test_a_restarted_worker_gets_its_job_back_at_once(photos: TestClient) -> None:
+    instance = str(uuid.uuid4())
+    response = register_instance(photos, "server", instance)
+    worker = AUTH | {"X-Worker-Id": response.json()["worker_id"]}
+    run_id = enqueue(photos)
+    assert lease(photos, worker).status_code == 200
+    # Killed in the middle of the job, without a goodbye; started again with the kept id.
+    assert register_instance(photos, "server", instance).status_code == 200
+    run = run_status(photos, run_id)
+    assert run.status == "queued"
+    again = lease(photos, worker).json()
+    assert again["attempt"] == 1  # the lost attempt is not counted

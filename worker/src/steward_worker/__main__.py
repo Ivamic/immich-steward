@@ -13,8 +13,11 @@ import os
 import signal
 import socket
 import sys
+from pathlib import Path
+from uuid import UUID
 
 from steward_worker.client import CoreClient, CoreError
+from steward_worker.instance_id import default_path, load_instance_id
 from steward_worker.modules import AVAILABLE, ModuleOptions
 from steward_worker.modules.geoclip import resolve_device
 from steward_worker.runner import Worker, WorkerConfig
@@ -79,6 +82,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         choices=["auto", "cpu", "cuda"],
         help="where models run (STEWARD_WORKER_DEVICE); auto picks an NVIDIA GPU when available",
     )
+    parser.add_argument(
+        "--id-file",
+        default=env("STEWARD_WORKER_ID_FILE"),
+        help="file that keeps the id of this worker across restarts (STEWARD_WORKER_ID_FILE; "
+        "default: ~/.cache/steward-worker/<name>.id)",
+    )
     parser.add_argument("--log-level", default=env("STEWARD_LOG_LEVEL", "info"))
     return parser.parse_args(argv)
 
@@ -108,13 +117,19 @@ def main(argv: list[str] | None = None) -> None:
         unload_after_s=args.unload_after * 60,
         one_model=args.one_model,
     )
-    asyncio.run(_run(args.core, token, modules, options, config))
+    instance_id = load_instance_id(Path(args.id_file) if args.id_file else default_path(args.name))
+    asyncio.run(_run(args.core, token, modules, options, config, instance_id))
 
 
 async def _run(
-    core: str, token: str, module_ids: list[str], options: ModuleOptions, config: WorkerConfig
+    core: str,
+    token: str,
+    module_ids: list[str],
+    options: ModuleOptions,
+    config: WorkerConfig,
+    instance_id: UUID,
 ) -> None:
-    async with CoreClient(core, token) as client:
+    async with CoreClient(core, token, instance_id=instance_id) as client:
         worker = Worker(client, {m: AVAILABLE[m](options) for m in module_ids}, config)
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):

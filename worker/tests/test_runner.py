@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import asyncio
 import json
+import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import httpx2
@@ -365,3 +367,41 @@ def test_an_older_core_without_states_still_gets_the_work() -> None:
     asyncio.run(scenario())
     assert job_id in core.results
     assert worker._report_states is False
+
+
+def test_stop_says_goodbye_before_the_job_ends() -> None:
+    core = FakeCore()
+    core.add_job()
+    started = asyncio.Event()
+    loops: list[asyncio.AbstractEventLoop] = []
+
+    class SlowModule(StubModule):
+        def run(self, image: bytes) -> list[Candidate]:
+            loops[0].call_soon_threadsafe(started.set)
+            time.sleep(0.3)
+            return super().run(image)
+
+    module = SlowModule()
+    worker, _ = make_worker(core, module, real_sleep=True)
+
+    async def scenario() -> None:
+        loops.append(asyncio.get_running_loop())
+        task = asyncio.create_task(worker.run_forever())
+        await started.wait()
+        worker.stop()
+        await asyncio.sleep(0.1)
+        assert core.goodbyes == 1  # while the photo is still being worked on
+        await asyncio.wait_for(task, timeout=2)
+
+    asyncio.run(scenario())
+    assert core.goodbyes == 1  # not twice
+
+
+def test_the_worker_id_outlives_a_restart(tmp_path: Path) -> None:
+    from steward_worker.instance_id import load_instance_id
+
+    path = tmp_path / "ids" / "server.id"
+    first = load_instance_id(path)
+    assert load_instance_id(path) == first
+    path.write_text("not an id")
+    assert load_instance_id(path) != first  # a broken file is replaced

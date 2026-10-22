@@ -333,7 +333,15 @@
 		}
 	}
 
+	// The control last pressed with the mouse: it keeps the focus, but Enter should still save.
+	let pointerControl: Element | null = null;
+
+	function onpointerdown(event: PointerEvent) {
+		pointerControl = (event.target as HTMLElement).closest('button, a');
+	}
+
 	function onkeydown(event: KeyboardEvent) {
+		if (event.key === 'Tab') pointerControl = null;
 		// The viewer handles its own keys (Esc closes it).
 		if (viewerOpen || partPicker) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -358,8 +366,9 @@
 			choose(suggestion.candidate);
 			return;
 		}
-		// Enter on a focused button or link belongs to that control.
-		if (key === 'enter' && (event.target as HTMLElement).closest('button, a')) return;
+		// Enter on a button or link reached with the keyboard belongs to that control.
+		const control = (event.target as HTMLElement).closest('button, a');
+		if (key === 'enter' && control && control !== pointerControl) return;
 		const action = actions[key];
 		if (action) {
 			event.preventDefault();
@@ -368,7 +377,7 @@
 	}
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} {onpointerdown} />
 <svelte:document {onvisibilitychange} />
 
 <nav class="toolbar">
@@ -412,40 +421,49 @@
 	</div>
 
 	<section class="panel">
-		{#if asset}
-			<div class="actions">
-				<!-- Re-created for every new point, so that it catches the eye each time. -->
-				{#key picked}
-					<button type="button" class="save" class:ready={picked} disabled={!picked} onclick={save}>
-						{m.photo_save()} <kbd>Enter</kbd>
-					</button>
-				{/key}
-				{#if asset.review_status === 'new'}
-					<button type="button" disabled={busy} onclick={() => review('skipped')}>
-						{m.photo_skip()} <kbd>S</kbd>
-					</button>
-					<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
-						{m.photo_not_applicable()} <kbd>N</kbd>
-					</button>
-				{:else}
-					<button type="button" disabled={busy} onclick={() => review('new')}>
-						{m.photo_back_to_todo()} <kbd>U</kbd>
-					</button>
-				{/if}
-			</div>
-		{/if}
-		{#if picked}
-			<p class="picked">
-				{m.photo_picked({ coordinates: formatCoordinates(picked) })}
-				<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
-			</p>
-		{/if}
-		{#if pending}
-			<p class="pending">
-				{m.photo_pending()}
-				<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
-			</p>
-		{/if}
+		<!-- Stays in view: only the search and the suggestions below scroll. -->
+		<div class="pinned">
+			{#if asset}
+				<div class="actions">
+					<!-- Re-created for every new point, so that it catches the eye each time. -->
+					{#key picked}
+						<button
+							type="button"
+							class="save"
+							class:ready={picked}
+							disabled={!picked}
+							onclick={save}
+						>
+							{m.photo_save()} <kbd>Enter</kbd>
+						</button>
+					{/key}
+					{#if asset.review_status === 'new'}
+						<button type="button" disabled={busy} onclick={() => review('skipped')}>
+							{m.photo_skip()} <kbd>S</kbd>
+						</button>
+						<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
+							{m.photo_not_applicable()} <kbd>N</kbd>
+						</button>
+					{:else}
+						<button type="button" disabled={busy} onclick={() => review('new')}>
+							{m.photo_back_to_todo()} <kbd>U</kbd>
+						</button>
+					{/if}
+				</div>
+			{/if}
+			{#if picked}
+				<p class="picked">
+					{m.photo_picked({ coordinates: formatCoordinates(picked) })}
+					<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
+				</p>
+			{/if}
+			{#if pending}
+				<p class="pending">
+					{m.photo_pending()}
+					<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
+				</p>
+			{/if}
+		</div>
 
 		<div class="picker">
 			{#if mapConfig?.geocoder_enabled}
@@ -831,6 +849,22 @@
 	}
 	.picked {
 		margin: 0;
+	}
+	.pinned {
+		position: sticky;
+		top: 0;
+		z-index: 2;
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		padding-bottom: 0.6rem;
+		border-bottom: 1px solid rgb(127 127 127 / 0.25);
+		background: #f6f8fa;
+	}
+	@media (prefers-color-scheme: dark) {
+		.pinned {
+			background: #0d1117;
+		}
 	}
 	.actions {
 		display: flex;

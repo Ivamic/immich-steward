@@ -5,6 +5,22 @@
 	import { saves, type Save } from '#lib/saves.svelte.js';
 
 	let now = $state(Date.now());
+	let expanded = $state(false);
+
+	// When saving fast, only the newest notice is shown (and failures, which need attention);
+	// the rest are one click away.
+	let shown = $derived(
+		expanded
+			? saves.items
+			: saves.items.filter(
+					(item, index) => item.phase === 'failed' || index === saves.items.length - 1
+				)
+	);
+	let hidden = $derived(saves.items.length - shown.length);
+
+	$effect(() => {
+		if (saves.items.length <= 1) expanded = false;
+	});
 
 	$effect(() => {
 		if (!saves.items.some((item) => item.phase === 'pending')) return;
@@ -35,7 +51,12 @@
 
 {#if saves.items.length}
 	<div class="notices" role="status" aria-live="polite">
-		{#each saves.items as save (save.key)}
+		{#if hidden || expanded}
+			<button type="button" class="more" onclick={() => (expanded = !expanded)}>
+				{expanded ? m.save_notices_fewer() : m.save_notices_more({ count: String(hidden) })}
+			</button>
+		{/if}
+		{#each shown as save (save.key)}
 			<div class="notice" class:failed={save.phase === 'failed'}>
 				<span class="text">
 					{text(save)}
@@ -64,14 +85,27 @@
 
 <style>
 	.notices {
+		/* Bottom left, over the empty corner of the map: away from the suggestions the user
+		   picks from on the right. */
 		position: fixed;
-		right: 1rem;
+		left: 1rem;
 		bottom: 1rem;
 		z-index: 10;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		max-width: min(32rem, calc(100vw - 2rem));
+		align-items: flex-start;
+		max-width: min(28rem, calc(100vw - 2rem));
+	}
+	.more {
+		padding: 0.25rem 0.6rem;
+		border: none;
+		border-radius: 0.4rem;
+		background: #24292f;
+		color: #fff;
+		font-size: 0.85rem;
+		opacity: 0.85;
+		cursor: pointer;
 	}
 	.notice {
 		display: flex;

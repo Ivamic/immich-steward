@@ -118,6 +118,8 @@
 	"save_undo": "Вернуть как было",
 	"save_retry": "Повторить",
 	"save_dismiss": "Закрыть",
+	"save_notices_more": "Ещё уведомлений: {count}",
+	"save_notices_fewer": "Свернуть",
 	"error_location_null_island": "Ровно 0, 0 сохранить нельзя: Immich считает это «нет координат».",
 	"error_location_clear_failed": "Immich не удалил координаты, поэтому сохранённая точка осталась.",
 	"photo_turn_left": "Повернуть влево",

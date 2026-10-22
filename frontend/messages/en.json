@@ -118,6 +118,8 @@
 	"save_undo": "Undo",
 	"save_retry": "Retry",
 	"save_dismiss": "Close",
+	"save_notices_more": "{count} more notices",
+	"save_notices_fewer": "Show fewer",
 	"error_location_null_island": "Exactly 0, 0 cannot be saved: Immich treats it as \"no location\".",
 	"error_location_clear_failed": "Immich did not remove the coordinates, so the saved point was kept.",
 	"photo_turn_left": "Rotate left",

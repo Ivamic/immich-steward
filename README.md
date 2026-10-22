@@ -59,8 +59,9 @@ rotation can be saved to Immich.
 
 Planned:
 
-- **Landmarks** — your own library of recognizable places: mark a landmark once on a
-  geotagged photo, and the app looks for it in photos without location.
+- **Satellite imagery and street-level panoramas** on the map, to check a place by eye.
+- **Geometric verification** of similar photos (matching details, not only the overall look),
+  and telling apart photos that show no place at all: close-up portraits, pets, plants, objects.
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
   plus the evidence collected by the other modules.
 - **External services** — optional cloud recognizers, one module per service.

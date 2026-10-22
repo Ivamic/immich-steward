@@ -151,6 +151,11 @@ class JobRunner:
                     if added:
                         log.info("queued %d photos for %s", added, module_id)
 
+    async def forget_old_workers(self) -> None:
+        async with self._sessionmaker() as db:
+            if forgotten := await worker_queue.forget_old_workers(db):
+                log.info("forgot %d workers not seen for 30 days", forgotten)
+
     async def run_once(self) -> bool:
         """Claims and runs the oldest queued job. Returns False when the queue is empty."""
         async with self._sessionmaker() as db:
@@ -210,6 +215,7 @@ class JobRunner:
                 if loop.time() >= next_schedule:
                     await self.schedule_syncs()
                     await self.schedule_modules()
+                    await self.forget_old_workers()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S
                 if await self.run_once():
                     continue

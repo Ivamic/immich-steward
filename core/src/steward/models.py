@@ -102,6 +102,9 @@ class Asset(Base):
     immich_updated_at: Mapped[datetime]
     # Start time of the sync run that last saw this asset; a full sync removes older rows.
     synced_at: Mapped[datetime]
+    # When a sync first saw it, if not in the first sync of the account: a new photo, which
+    # automatic runs take before the rest of the library.
+    added_at: Mapped[datetime | None]
     # The user's decision about this asset; not touched by sync. See REVIEW_STATUSES.
     review_status: Mapped[str] = mapped_column(String(16), default="new", server_default="new")
 

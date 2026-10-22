@@ -332,6 +332,7 @@ export const isPending = (module: ModuleSuggestions) =>
 	module.status === 'queued' || module.status === 'running';
 
 export interface WorkerInfo {
+	id: string;
 	name: string;
 	device: string;
 	modules: string[];
@@ -371,6 +372,8 @@ export interface Pause {
 }
 
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
+/** Removes a worker that is not connected from the list. */
+export const forgetWorker = (id: string) => request<void>('DELETE', `/api/library/workers/${id}`);
 
 export const getPause = () => request<Pause>('GET', '/api/library/pause');
 /** Pauses (for `minutes`, or until resumed) or resumes a module; `null`: all modules. */

@@ -14,7 +14,7 @@ from sqlalchemy import update
 from steward import worker_queue
 from steward.api.worker import PROTOCOL_VERSION
 from steward.config import Settings
-from steward.models import Account, Asset, ModulePause
+from steward.models import Account, Asset, ModulePause, Worker
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
 GPS = {"latitude": 42.4, "longitude": 19.26}
@@ -464,3 +464,72 @@ def test_pause_for_a_while_ends_by_itself(library: dict[str, str], signed_in: Te
     assert signed_in.get("/api/library/pause").json() == NO_PAUSE | {"all": True}
     too_long = {"paused": True, "minutes": 8 * 24 * 60}
     assert signed_in.put("/api/library/pause", json=too_long).status_code == 422
+
+
+def immich_id(fake: FakeImmich, file_name: str) -> str:
+    return next(i for i, a in fake.assets.items() if a["originalFileName"] == file_name)
+
+
+def test_new_photos_go_before_the_rest(
+    library: dict[str, str],
+    signed_in: TestClient,
+    fake_immich: FakeImmich,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(worker_queue, "AUTO_QUEUE_SIZE", 1)
+    worker = start_worker(signed_in)
+    schedule(signed_in)  # the library from the first sync: one photo, the queue is full
+    fake_immich.add_asset(taken="2020-01-01T10:00:00", originalFileName="new.jpg")
+    sync(signed_in, full=True)
+    schedule(signed_in)  # a new photo is queued whatever the size of the queue
+    [new] = signed_in.get("/api/assets", params={"month": "2020-01"}).json()
+    assert geoclip(signed_in, new["id"])["status"] == "queued"
+
+    def take() -> Any:
+        return signed_in.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker)
+
+    signed_in.put("/api/library/pause", json={"module": "geoclip", "paused": True})
+    assert take().status_code == 204  # a pause holds new photos too
+    signed_in.delete("/api/library/pause")
+    assert take().json()["asset_id"] == new["id"]  # before the older photo queued earlier
+
+
+def test_trashed_photos_are_not_counted(
+    library: dict[str, str], signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    worker = start_worker(signed_in)
+    signed_in.post(f"/api/assets/{library['todo1.jpg']}/modules/geoclip/run")
+    finish(signed_in, worker, [])
+    assert signed_in.get("/api/library/workers").json()["runs"] == {"geoclip": {"done": 1}}
+    fake_immich.assets[immich_id(fake_immich, "todo1.jpg")]["isTrashed"] = True
+    sync(signed_in, full=True)
+    assert signed_in.get("/api/library/workers").json()["runs"] == {}
+
+
+def test_workers_that_are_gone_can_be_removed(signed_in: TestClient) -> None:
+    worker = start_worker(signed_in)
+    [seen] = signed_in.get("/api/library/workers").json()["workers"]
+    url = f"/api/library/workers/{seen['id']}"
+    assert signed_in.delete(url).status_code == 409  # connected
+    signed_in.post("/api/worker/bye", headers=worker)
+    assert signed_in.delete(url).status_code == 204
+    assert signed_in.get("/api/library/workers").json()["workers"] == []
+    assert signed_in.delete(url).status_code == 404
+
+    # Not seen for 30 days: forgotten by itself.
+    start_worker(signed_in, "old")
+    start_worker(signed_in, "recent")
+
+    async def age() -> None:
+        async with signed_in.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            long_ago = datetime.now(UTC) - timedelta(days=31)
+            await db.execute(
+                update(Worker).where(Worker.name == "old").values(last_seen_at=long_ago)
+            )
+            await db.commit()
+
+    signed_in.portal.call(age)  # type: ignore[union-attr]
+    runner = signed_in.app.state.job_runner  # type: ignore[attr-defined]
+    signed_in.portal.call(runner.forget_old_workers)  # type: ignore[union-attr]
+    names = [w["name"] for w in signed_in.get("/api/library/workers").json()["workers"]]
+    assert names == ["recent"]

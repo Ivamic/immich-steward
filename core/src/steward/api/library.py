@@ -56,6 +56,7 @@ class Library(BaseModel):
 
 
 class WorkerOut(BaseModel):
+    id: UUID
     name: str
     device: str
     modules: list[str]
@@ -160,6 +161,7 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
     return Workers(
         workers=[
             WorkerOut(
+                id=w.id,
                 name=w.name,
                 device=w.device,
                 modules=w.modules,
@@ -182,6 +184,21 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
         },
         pause=Pause.of(await worker_queue.paused_modules(db)),
     )
+
+
+@router.delete("/workers/{worker_id}", status_code=204)
+async def forget_worker(
+    worker_id: UUID, account: CurrentAccount, db: DbDep, settings: SettingsDep
+) -> None:
+    """Removes a worker that is not connected from the list; if it comes back, it registers
+    anew. Workers not seen for 30 days are removed by themselves."""
+    worker = await db.get(Worker, worker_id)
+    if worker is None:
+        raise ApiError(404, "worker_not_found")
+    since = datetime.now(UTC) - timedelta(minutes=settings.worker_active_minutes)
+    if worker.online and worker.last_seen_at >= since:
+        raise ApiError(409, "worker_active")
+    await worker_queue.forget_worker(db, worker)
 
 
 @router.get("/pause")

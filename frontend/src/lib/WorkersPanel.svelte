@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import {
+		forgetWorker,
 		getWorkers,
 		rerunFailed,
 		type ModuleStatus,
@@ -28,6 +29,7 @@
 	let rerunning = $state<string | null>(null);
 	let rerunNotice = $state<{ module: string; text: string } | null>(null);
 	let pausing = $state(false);
+	let forgetting = $state<string | null>(null);
 
 	const load = () =>
 		getWorkers()
@@ -57,6 +59,18 @@
 			error = errorMessage(e);
 		} finally {
 			pausing = false;
+		}
+	}
+
+	async function forget(id: string) {
+		forgetting = id;
+		try {
+			await forgetWorker(id);
+			await load();
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			forgetting = null;
 		}
 	}
 
@@ -143,23 +157,37 @@
 	{/if}
 	{#if overview}
 		{#if overview.workers.length}
-			<ul class="workers">
-				{#each overview.workers as worker (worker.name)}
-					<li>
-						<strong>{worker.name}</strong>
-						<span class="device">{worker.device}</span>
-						<span class="muted">{worker.modules.map(moduleName).join(', ')}</span>
-						<span class:active={worker.active} class="muted">
-							· {worker.active
-								? m.workers_active()
-								: m.workers_seen({ when: ago(worker.last_seen_at) })}
-						</span>
-						{#if stateText(worker)}
-							<span class="state" class:slow={slow(worker)}>· {stateText(worker)}</span>
+			<div class="workers">
+				{#each overview.workers as worker (worker.id)}
+					<article class="worker" class:gone={!worker.active}>
+						<header>
+							<h3>{worker.name}</h3>
+							<span class="device">{worker.device}</span>
+							<span class="muted">{worker.version}</span>
+							<span class="spacer"></span>
+							{#if worker.active}
+								<span class="active">{m.workers_active()}</span>
+							{:else}
+								<span class="muted">{m.workers_seen({ when: ago(worker.last_seen_at) })}</span>
+								<button
+									type="button"
+									title={m.workers_forget_hint()}
+									disabled={forgetting !== null}
+									onclick={() => forget(worker.id)}
+								>
+									{m.workers_forget()}
+								</button>
+							{/if}
+						</header>
+						{#if worker.active && stateText(worker)}
+							<p class="state" class:slow={slow(worker)}>{stateText(worker)}</p>
 						{/if}
-					</li>
+						<p class="muted">
+							{m.workers_modules({ modules: worker.modules.map(moduleName).join(', ') })}
+						</p>
+					</article>
 				{/each}
-			</ul>
+			</div>
 		{:else}
 			<p>{m.workers_none()}</p>
 		{/if}
@@ -218,17 +246,9 @@
 					</header>
 
 					{#if runners.length}
-						<ul class="runners">
-							{#each runners as worker (worker.name)}
-								<li>
-									<strong>{worker.name}</strong>
-									<span class="device">{worker.device}</span>
-									{#if stateText(worker)}
-										<span class="state" class:slow={slow(worker)}>{stateText(worker)}</span>
-									{/if}
-								</li>
-							{/each}
-						</ul>
+						<p class="muted">
+							{m.module_card_run_by({ workers: runners.map((w) => w.name).join(', ') })}
+						</p>
 					{:else}
 						<p class="warning">{m.module_card_no_worker()}</p>
 					{/if}
@@ -297,8 +317,6 @@
 	section {
 		margin-bottom: 2.5rem;
 	}
-	.workers,
-	.runners,
 	.failures ul {
 		list-style: none;
 		padding: 0;
@@ -308,7 +326,32 @@
 		gap: 0.3rem;
 	}
 	.workers {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
 		margin-bottom: 1rem;
+	}
+	.worker {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		padding: 0.6rem 1rem;
+		border: 1px solid rgb(127 127 127 / 0.3);
+		border-radius: 0.5rem;
+	}
+	.worker.gone {
+		opacity: 0.6;
+		border-style: dashed;
+	}
+	.worker header {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.worker h3 {
+		margin: 0;
+		font-size: 1rem;
 	}
 	.device {
 		display: inline-block;
@@ -383,13 +426,6 @@
 	}
 	.paused-badge {
 		background: rgb(191 135 0 / 0.2);
-	}
-	.runners li {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0.25rem 0.5rem;
-		font-size: 0.95rem;
 	}
 	.progress {
 		display: flex;

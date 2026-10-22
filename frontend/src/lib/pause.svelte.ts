@@ -51,6 +51,7 @@ export const pause = new PauseState();
 export const PAUSE_LENGTHS: (number | null)[] = [null, 30, 60, 12 * 60, 24 * 60];
 
 const time = new Intl.DateTimeFormat(getLocale(), { timeStyle: 'short' });
+const day = new Intl.DateTimeFormat(getLocale(), { dateStyle: 'short' });
 const dayAndTime = new Intl.DateTimeFormat(getLocale(), {
 	weekday: 'short',
 	hour: '2-digit',
@@ -59,8 +60,6 @@ const dayAndTime = new Intl.DateTimeFormat(getLocale(), {
 
 /** The end of a pause: the time today, with the day of the week later. */
 export function formatUntil(iso: string): string {
-	const date = new Date(iso);
-	return date.toDateString() === new Date().toDateString()
-		? time.format(date)
-		: dayAndTime.format(date);
+	const at = Date.parse(iso);
+	return day.format(at) === day.format(Date.now()) ? time.format(at) : dayAndTime.format(at);
 }

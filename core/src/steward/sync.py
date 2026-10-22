@@ -62,6 +62,8 @@ async def sync_account(
     else:
         updated_after = account.synced_at - INCREMENTAL_OVERLAP
     stats = SyncStats(full=full)
+    # In the first sync every photo is new; after it, the ones that appear are.
+    added_at = started if account.synced_at is not None else None
 
     for visibility in SYNCED_VISIBILITIES:
         page: int | None = 1
@@ -73,7 +75,7 @@ async def sync_account(
                 with_deleted=True,
             )
             rows = [
-                _asset_row(account, item, started)
+                _asset_row(account, item, started) | {"added_at": added_at}
                 for item in result.items
                 if item.owner_id == account.immich_user_id
             ]
@@ -161,7 +163,7 @@ async def _upsert_assets(db: AsyncSession, rows: list[dict[str, Any]]) -> None:
     updated = {
         column: statement.excluded[column]
         for column in rows[0]
-        if column not in ("account_id", "immich_id")
+        if column not in ("account_id", "immich_id", "added_at")
     }
     await db.execute(
         statement.on_conflict_do_update(index_elements=["account_id", "immich_id"], set_=updated)

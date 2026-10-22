@@ -12,6 +12,7 @@ is downloaded from Hugging Face into its cache (HF_HOME).
 import gc
 import io
 import logging
+import warnings
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,7 +66,12 @@ class GeoClipModule:
     def load(self) -> None:
         import torch
         import torch.nn.functional as F
-        from geoclip import GeoCLIP
+
+        with warnings.catch_warnings():
+            # GeoCLIP's own code uses torch.jit.script, which PyTorch now calls deprecated; it
+            # still works, and the version of PyTorch is pinned.
+            warnings.filterwarnings("ignore", r"`torch\.jit\.script` is deprecated", FutureWarning)
+            from geoclip import GeoCLIP
 
         torch.set_num_threads(self._options.threads)
         model = GeoCLIP()

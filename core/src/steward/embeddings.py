@@ -91,6 +91,7 @@ async def index_counts(db: AsyncSession, account: Account, module_id: str) -> di
         Asset.account_id == account.id,
         Asset.type == "IMAGE",
         Asset.visibility.in_(("timeline", "archive")),
+        Asset.is_trashed.is_(False),
         located(),
     )
     located_photos = await db.scalar(select(func.count()).where(*photos))

@@ -18,6 +18,11 @@ between releases.
   The photo card says when the worker is loading the model of a module, so that a slow first
   photo does not look like nothing works. A worker of this version still works with an older
   app, and an older worker with this one.
+- **New photos first**: photos that a sync finds new in the library are run before the rest of it,
+  whatever the size of the queue (runs started from a photo still go first, and a pause holds
+  them too). The photos of the first sync of an account are not "new".
+- **Workers that are gone** can be removed from the Library page; those not seen for 30 days are
+  removed by themselves. A removed worker that connects again shows up again.
 - **Pause for a while**: besides "until resumed", a module or all of them can be paused for
   30 minutes, 1 hour, 12 hours or a day; the runs then resume by themselves.
 
@@ -28,6 +33,8 @@ between releases.
   are enough), and it keeps its id across restarts (in the models volume for Docker), so even a
   killed worker is let in again at once. The job a killed worker left goes back to the queue
   when it starts again, instead of after its lease (up to 5 minutes).
+- Photos in the trash of Immich are no longer counted in the progress, the failures and the
+  search index of the modules.
 - Enter in the photo card saves the location even when a button pressed with the mouse keeps the
   focus (it used to press "Choose" of the suggestion again).
 
@@ -39,6 +46,9 @@ between releases.
   doing, the counts of its runs with a progress bar, its search index and failures. "Pause all"
   is above the modules.
 - The top menu stays in view when scrolling.
+- Each worker is a block on the Library page, with its state shown once; the module blocks say
+  which workers run them.
+- The worker no longer logs a deprecation warning of PyTorch about GeoCLIP's own code.
 - Save notices are in the bottom left corner; when saving fast, only the newest one and failures
   are shown, the rest behind "N more notices".
 - The Save / Skip / Not applicable buttons and the picked point stay in view in the photo card;

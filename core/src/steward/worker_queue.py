@@ -24,8 +24,10 @@ from steward.models import Account, Asset, Job, ModulePause, ModuleRun, Worker
 MODULE_JOB = "module"
 ACTIVE = ("queued", "running")
 
-# Priorities: the user waits for a run started from the photo card.
+# Priorities: the user waits for a run started from the photo card; photos new in the library
+# go before the rest of it.
 PRIORITY_BACKGROUND = 0
+PRIORITY_NEW = 10
 PRIORITY_USER = 100
 
 # Why a run failed (`ModuleRun.error_code`).
@@ -54,6 +56,12 @@ FAILURE_CODES = (
 # worker (~5 photos/s) between two scheduler ticks (1 min), without queuing the whole library.
 # Runs started by hand have a higher priority and never wait behind them.
 AUTO_QUEUE_SIZE = 500
+
+# Photos a sync found within this time count as new (`Asset.added_at`).
+NEW_PHOTO_WINDOW = timedelta(days=2)
+
+# A worker not seen for this long is forgotten; if it comes back, it registers anew.
+FORGET_WORKER_AFTER = timedelta(days=30)
 
 # `ModulePause.module_id` that pauses every module.
 ALL_MODULES = "*"
@@ -187,6 +195,29 @@ async def queue_position(db: AsyncSession, run: ModuleRun) -> int | None:
     return int(ahead or 0)
 
 
+async def forget_worker(db: AsyncSession, worker: Worker) -> None:
+    """Removes a worker from the list; what it still held goes back to the queue."""
+    jobs = await db.scalars(
+        select(Job).where(Job.worker_id == worker.id, Job.status == "running").with_for_update()
+    )
+    for job in jobs:
+        _requeue(job, await _run_of(db, job), refund=True)
+    await db.delete(worker)
+    await db.commit()
+
+
+async def forget_old_workers(db: AsyncSession) -> int:
+    """Forgets the workers not seen for `FORGET_WORKER_AFTER`."""
+    old = list(
+        await db.scalars(
+            select(Worker).where(Worker.last_seen_at < datetime.now(UTC) - FORGET_WORKER_AFTER)
+        )
+    )
+    for worker in old:
+        await forget_worker(db, worker)
+    return len(old)
+
+
 async def say_goodbye(db: AsyncSession, worker: Worker) -> None:
     """The worker stops: it is no longer counted as available, and a job it was running goes
     back to the queue at once (stopping is not a failure of the job)."""
@@ -232,7 +263,12 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     (videos later, D-040), never twice: a photo that already has a run of the module (whatever
     its result) is not queued again automatically. Accounts take turns, newest photos first
     within each, so that every user sees progress on their own library.
+
+    Photos new in the library are queued at once, whatever the size of the queue, and go before
+    the rest of it: a photo taken today is not left behind hundreds of old ones.
     """
+    new = Asset.added_at > datetime.now(UTC) - NEW_PHOTO_WINDOW
+    count = await _enqueue_eligible(db, module_id, new, PRIORITY_NEW, AUTO_QUEUE_SIZE)
     queued = await db.scalar(
         select(func.count())
         .select_from(Job)
@@ -244,8 +280,15 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
         )
     )
     room = AUTO_QUEUE_SIZE - (queued or 0)
-    if room <= 0:
-        return 0
+    if room > 0:
+        count += await _enqueue_eligible(db, module_id, true(), PRIORITY_BACKGROUND, room)
+    return count
+
+
+async def _enqueue_eligible(
+    db: AsyncSession, module_id: str, among: ColumnElement[bool], priority: int, limit: int
+) -> int:
+    """Queues up to `limit` photos the module still needs to run on automatically, of `among`."""
     eligible, group = _auto_eligible(module_id)
     # 1st newest photo of every account, then the 2nd of every account, and so on.
     turn = (
@@ -257,6 +300,7 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
         select(Asset.id, Asset.local_taken_at, group.label("grp"), turn)
         .where(
             eligible,
+            among,
             Asset.type == "IMAGE",
             Asset.is_trashed.is_(False),
             ~exists().where(
@@ -269,7 +313,7 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
         await db.scalars(
             select(candidates.c.id)
             .order_by(candidates.c.grp, candidates.c.turn, candidates.c.local_taken_at.desc())
-            .limit(room)
+            .limit(limit)
         )
     )
     assets = {a.id: a for a in await db.scalars(select(Asset).where(Asset.id.in_(ids)))}
@@ -281,7 +325,7 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
             kind=MODULE_JOB,
             account_id=asset.account_id,
             module_id=module_id,
-            priority=PRIORITY_BACKGROUND,
+            priority=priority,
             payload={"asset_id": str(asset.id)},
             created_at=start + timedelta(microseconds=count),
         )
@@ -333,11 +377,11 @@ async def resume_all(db: AsyncSession) -> None:
 
 
 def _not_paused(paused: dict[str, datetime | None]) -> ColumnElement[bool]:
-    """Jobs a worker may take: background jobs of a paused module wait, runs by hand go."""
+    """Jobs a worker may take: automatic jobs of a paused module wait, runs by hand go."""
     if ALL_MODULES in paused:
-        return Job.priority > PRIORITY_BACKGROUND
+        return Job.priority >= PRIORITY_USER
     if paused:
-        return or_(Job.priority > PRIORITY_BACKGROUND, Job.module_id.not_in(list(paused)))
+        return or_(Job.priority >= PRIORITY_USER, Job.module_id.not_in(list(paused)))
     return true()
 
 
@@ -355,7 +399,7 @@ async def run_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, 
     latest = (
         select(ModuleRun.module_id, ModuleRun.status)
         .join(Asset, Asset.id == ModuleRun.asset_id)
-        .where(Asset.account_id == account.id, whole_photo())
+        .where(Asset.account_id == account.id, Asset.is_trashed.is_(False), whole_photo())
         .ext(distinct_on(ModuleRun.asset_id, ModuleRun.module_id))
         .order_by(ModuleRun.asset_id, ModuleRun.module_id, ModuleRun.created_at.desc())
         .subquery()
@@ -376,7 +420,7 @@ async def failure_counts(db: AsyncSession, account: Account) -> dict[str, dict[s
     rows = await db.execute(
         select(ModuleRun.module_id, ModuleRun.error_code, func.count())
         .join(Asset, Asset.id == ModuleRun.asset_id)
-        .where(Asset.account_id == account.id, _latest_failed())
+        .where(Asset.account_id == account.id, Asset.is_trashed.is_(False), _latest_failed())
         .group_by(ModuleRun.module_id, ModuleRun.error_code)
     )
     counts: dict[str, dict[str, int]] = {}

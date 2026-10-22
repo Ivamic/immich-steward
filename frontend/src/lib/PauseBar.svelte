@@ -4,7 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { pause } from '#lib/pause.svelte.js';
+	import { formatUntil, pause } from '#lib/pause.svelte.js';
 	import { moduleName } from '#lib/suggestions/format.js';
 
 	const REFRESH_MS = 60_000;
@@ -18,6 +18,14 @@
 		const timer = setInterval(load, REFRESH_MS);
 		return () => clearInterval(timer);
 	});
+
+	/** "GeoCLIP (until 18:30)" */
+	function pausedModule(module: string): string {
+		const until = pause.until[module];
+		return until
+			? `${moduleName(module)} (${m.pause_until({ time: formatUntil(until) })})`
+			: moduleName(module);
+	}
 
 	async function resume() {
 		busy = true;
@@ -36,8 +44,10 @@
 	<p class="bar" role="status">
 		<span>
 			{pause.all
-				? m.pause_bar_all()
-				: m.pause_bar_modules({ modules: pause.modules.map(moduleName).join(', ') })}
+				? pause.allUntil
+					? m.pause_bar_all_until({ time: formatUntil(pause.allUntil) })
+					: m.pause_bar_all()
+				: m.pause_bar_modules({ modules: pause.modules.map(pausedModule).join(', ') })}
 		</span>
 		<button type="button" disabled={busy} onclick={resume}>{m.pause_resume()}</button>
 		<a href={resolve('/library')}>{m.pause_manage()}</a>

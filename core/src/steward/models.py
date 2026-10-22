@@ -192,6 +192,8 @@ class ModulePause(Base):
 
     module_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     paused_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # The pause ends by itself then; None: until resumed.
+    until: Mapped[datetime | None]
 
 
 class Job(Base):

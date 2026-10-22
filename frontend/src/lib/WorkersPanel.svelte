@@ -10,7 +10,8 @@
 		type WorkerInfo,
 		type WorkersOverview
 	} from '#lib/api.js';
-	import { pause } from '#lib/pause.svelte.js';
+	import PauseMenu from '#lib/PauseMenu.svelte';
+	import { formatUntil, pause } from '#lib/pause.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { failedFilter, filterToUrl } from '#lib/gallery/filter.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -43,10 +44,14 @@
 		return () => clearInterval(timer);
 	});
 
-	async function togglePause(module: string | null, paused: boolean) {
+	async function togglePause(
+		module: string | null,
+		paused: boolean,
+		minutes: number | null = null
+	) {
 		pausing = true;
 		try {
-			await pause.set(module, paused);
+			await pause.set(module, paused, minutes);
 			error = null;
 		} catch (e) {
 			error = errorMessage(e);
@@ -160,14 +165,17 @@
 		{/if}
 
 		<div class="pause-all" class:on={pause.all}>
-			<button
-				type="button"
-				aria-pressed={pause.all}
+			<PauseMenu
+				paused={pause.all}
 				disabled={pausing}
-				onclick={() => togglePause(null, !pause.all)}
-			>
-				{pause.all ? m.workers_resume_all() : m.workers_pause_all()}
-			</button>
+				pauseLabel={m.workers_pause_all()}
+				resumeLabel={m.workers_resume_all()}
+				onpause={(minutes) => togglePause(null, true, minutes)}
+				onresume={() => togglePause(null, false)}
+			/>
+			{#if pause.all && pause.allUntil}
+				<strong>{m.pause_until({ time: formatUntil(pause.allUntil) })}</strong>
+			{/if}
 			<span class="muted">{m.workers_pause_hint()}</span>
 		</div>
 
@@ -184,8 +192,10 @@
 						<span class="swatch shape-{module.shape}" style:background={module.color}></span>
 						<h3>{moduleName(module.id)}</h3>
 						{#if paused}
+							{@const until = pause.untilOf(module.id)}
 							<span class="badge paused-badge">
 								{pause.all ? m.module_card_paused_all() : m.module_card_paused()}
+								{#if until}· {m.pause_until({ time: formatUntil(until) })}{/if}
 							</span>
 						{/if}
 						<span class="badge">
@@ -195,14 +205,15 @@
 						</span>
 						<span class="spacer"></span>
 						{#if !pause.all}
-							<button
-								type="button"
-								aria-pressed={paused}
+							<PauseMenu
+								{paused}
 								disabled={pausing}
-								onclick={() => togglePause(module.id, !paused)}
-							>
-								{paused ? m.workers_resume() : m.workers_pause()}
-							</button>
+								align="right"
+								pauseLabel={m.workers_pause()}
+								resumeLabel={m.workers_resume()}
+								onpause={(minutes) => togglePause(module.id, true, minutes)}
+								onresume={() => togglePause(module.id, false)}
+							/>
 						{/if}
 					</header>
 

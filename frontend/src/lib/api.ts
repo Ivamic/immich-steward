@@ -364,14 +364,18 @@ export interface WorkersOverview {
 export interface Pause {
 	all: boolean;
 	modules: string[];
+	/** When the pause of all modules ends by itself; null: until resumed. */
+	all_until: string | null;
+	/** Module -> when its pause ends by itself (absent: until resumed). */
+	until: Record<string, string>;
 }
 
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
 
 export const getPause = () => request<Pause>('GET', '/api/library/pause');
-/** Pauses or resumes a module; `null` stands for all modules together. */
-export const setPause = (module: string | null, paused: boolean) =>
-	request<Pause>('PUT', '/api/library/pause', { module, paused });
+/** Pauses (for `minutes`, or until resumed) or resumes a module; `null`: all modules. */
+export const setPause = (module: string | null, paused: boolean, minutes: number | null = null) =>
+	request<Pause>('PUT', '/api/library/pause', { module, paused, minutes });
 /** Resumes every module, paused one by one or all together. */
 export const resumeAll = () => request<Pause>('DELETE', '/api/library/pause');
 

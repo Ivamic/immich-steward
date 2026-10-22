@@ -2,21 +2,23 @@
 """Worker modules seen from the web UI: results in the suggestions, manual and automatic runs."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from itertools import pairwise
 from typing import Any
 
 import pytest
 from conftest import WORKER_TOKEN, FakeImmich, sync
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
 from steward import worker_queue
 from steward.api.worker import PROTOCOL_VERSION
 from steward.config import Settings
-from steward.models import Account, Asset
+from steward.models import Account, Asset, ModulePause
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
 GPS = {"latitude": 42.4, "longitude": 19.26}
+NO_PAUSE = {"all": False, "modules": [], "all_until": None, "until": {}}
 
 
 @pytest.fixture
@@ -373,7 +375,7 @@ def test_pause_holds_background_runs_but_not_runs_by_hand(
         result: dict[str, Any] = response.json()
         return result
 
-    assert pause(module="geoclip", paused=True) == {"all": False, "modules": ["geoclip"]}
+    assert pause(module="geoclip", paused=True) == NO_PAUSE | {"modules": ["geoclip"]}
     schedule(signed_in)  # nothing is queued for a paused module
     assert geoclip(signed_in, library["todo1.jpg"])["status"] == "not_run"
     assert geoclip(signed_in, library["todo1.jpg"])["paused"] is True
@@ -390,10 +392,10 @@ def test_pause_holds_background_runs_but_not_runs_by_hand(
 
     # Pausing everything holds them as well; resuming everything lifts both pauses.
     pause(module="geoclip", paused=False)
-    assert pause(paused=True) == {"all": True, "modules": []}
+    assert pause(paused=True) == NO_PAUSE | {"all": True}
     assert take().status_code == 204
     pause(module="geoclip", paused=True)
-    assert signed_in.delete("/api/library/pause").json() == {"all": False, "modules": []}
+    assert signed_in.delete("/api/library/pause").json() == NO_PAUSE
     assert take().status_code == 200
     assert geoclip(signed_in, library["todo2.jpg"])["paused"] is False
 
@@ -428,3 +430,37 @@ def test_worker_state_is_shown(library: dict[str, str], signed_in: TestClient) -
     assert signed_in.post("/api/worker/state", json=bad, headers=worker).status_code == 422
     signed_in.post("/api/worker/bye", headers=worker)
     assert shown()["state"] is None
+
+
+def test_pause_for_a_while_ends_by_itself(library: dict[str, str], signed_in: TestClient) -> None:
+    worker = start_worker(signed_in)
+    schedule(signed_in)
+
+    def take() -> int:
+        body = {"modules": ["geoclip"]}
+        return signed_in.post("/api/worker/lease", json=body, headers=worker).status_code
+
+    body = {"module": "geoclip", "paused": True, "minutes": 30}
+    pause = signed_in.put("/api/library/pause", json=body).json()
+    assert pause["modules"] == ["geoclip"]
+    until = datetime.fromisoformat(pause["until"]["geoclip"])
+    assert 29 * 60 < (until - datetime.now(UTC)).total_seconds() <= 30 * 60
+    assert take() == 204
+
+    async def over() -> None:
+        async with signed_in.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            ended = datetime.now(UTC) - timedelta(seconds=1)
+            await db.execute(update(ModulePause).values(until=ended))
+            await db.commit()
+
+    signed_in.portal.call(over)  # type: ignore[union-attr]
+    assert signed_in.get("/api/library/pause").json() == NO_PAUSE
+    assert take() == 200
+
+    # Pausing again replaces the end: for a while, then until resumed.
+    signed_in.put("/api/library/pause", json={"paused": True, "minutes": 60})
+    assert signed_in.get("/api/library/pause").json()["all_until"] is not None
+    signed_in.put("/api/library/pause", json={"paused": True})
+    assert signed_in.get("/api/library/pause").json() == NO_PAUSE | {"all": True}
+    too_long = {"paused": True, "minutes": 8 * 24 * 60}
+    assert signed_in.put("/api/library/pause", json=too_long).status_code == 422

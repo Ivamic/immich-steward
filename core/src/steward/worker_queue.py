@@ -293,21 +293,36 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     return count
 
 
-async def paused_modules(db: AsyncSession) -> set[str]:
-    """Modules whose background runs are paused; `ALL_MODULES` among them pauses every one."""
-    return set(await db.scalars(select(ModulePause.module_id)))
+async def paused_modules(db: AsyncSession) -> dict[str, datetime | None]:
+    """Modules whose background runs are paused now, with the end of the pause (None: until
+    resumed); `ALL_MODULES` among them pauses every one."""
+    rows = await db.scalars(
+        select(ModulePause).where(
+            or_(ModulePause.until.is_(None), ModulePause.until > datetime.now(UTC))
+        )
+    )
+    return {row.module_id: row.until for row in rows}
 
 
-def is_paused(paused: set[str], module_id: str) -> bool:
+def is_paused(paused: dict[str, datetime | None], module_id: str) -> bool:
     return ALL_MODULES in paused or module_id in paused
 
 
-async def set_paused(db: AsyncSession, module_id: str, paused: bool) -> None:
-    """Pauses or resumes the background runs of a module (or of all, `ALL_MODULES`)."""
+async def set_paused(
+    db: AsyncSession, module_id: str, paused: bool, minutes: int | None = None
+) -> None:
+    """Pauses (until resumed, or for so many minutes) or resumes the background runs of a
+    module, or of all (`ALL_MODULES`). Pausing again sets the new end."""
+    # Pauses that are over are of no use any more.
+    await db.execute(delete(ModulePause).where(ModulePause.until <= datetime.now(UTC)))
     row = await db.get(ModulePause, module_id)
-    if paused and row is None:
-        db.add(ModulePause(module_id=module_id))
-    elif not paused and row is not None:
+    if paused:
+        until = datetime.now(UTC) + timedelta(minutes=minutes) if minutes else None
+        if row is None:
+            db.add(ModulePause(module_id=module_id, until=until))
+        else:
+            row.paused_at, row.until = datetime.now(UTC), until
+    elif row is not None:
         await db.delete(row)
     await db.commit()
 
@@ -317,12 +332,12 @@ async def resume_all(db: AsyncSession) -> None:
     await db.commit()
 
 
-def _not_paused(paused: set[str]) -> ColumnElement[bool]:
+def _not_paused(paused: dict[str, datetime | None]) -> ColumnElement[bool]:
     """Jobs a worker may take: background jobs of a paused module wait, runs by hand go."""
     if ALL_MODULES in paused:
         return Job.priority > PRIORITY_BACKGROUND
     if paused:
-        return or_(Job.priority > PRIORITY_BACKGROUND, Job.module_id.not_in(paused))
+        return or_(Job.priority > PRIORITY_BACKGROUND, Job.module_id.not_in(list(paused)))
     return true()
 
 

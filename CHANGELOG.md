@@ -18,14 +18,27 @@ between releases.
   The photo card says when the worker is loading the model of a module, so that a slow first
   photo does not look like nothing works. A worker of this version still works with an older
   app, and an older worker with this one.
+- **Pause for a while**: besides "until resumed", a module or all of them can be paused for
+  30 minutes, 1 hour, 12 hours or a day; the runs then resume by themselves.
 
 ### Fixed
 
+- A restarted worker no longer waits up to 3 minutes with "another running worker is called
+  …": on a stop it says goodbye at once (before the photo it works on is done, so Docker's 10 s
+  are enough), and it keeps its id across restarts (in the models volume for Docker), so even a
+  killed worker is let in again at once. The job a killed worker left goes back to the queue
+  when it starts again, instead of after its lease (up to 5 minutes).
 - Enter in the photo card saves the location even when a button pressed with the mouse keeps the
   focus (it used to press "Choose" of the suggestion again).
 
 ### Changed
 
+- Suggestions are numbered through all the modules (1, 2, 3… in the list and on the map), the
+  same as their keyboard keys; each module used to start from 1.
+- The Library page has a block per module: its pause, the workers running it and what they are
+  doing, the counts of its runs with a progress bar, its search index and failures. "Pause all"
+  is above the modules.
+- The top menu stays in view when scrolling.
 - Save notices are in the bottom left corner; when saving fast, only the newest one and failures
   are shown, the rest behind "N more notices".
 - The Save / Skip / Not applicable buttons and the picked point stay in view in the photo card;

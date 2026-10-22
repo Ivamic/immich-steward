@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from steward import embeddings, worker_queue
@@ -73,12 +73,18 @@ class Pause(BaseModel):
 
     all: bool
     modules: list[str]
+    # When the pause of all modules, or of a module, ends by itself; absent: until resumed.
+    all_until: datetime | None = None
+    until: dict[str, datetime] = {}
 
     @classmethod
-    def of(cls, paused: set[str]) -> "Pause":
+    def of(cls, paused: dict[str, datetime | None]) -> "Pause":
+        modules = {m: until for m, until in paused.items() if m != worker_queue.ALL_MODULES}
         return cls(
             all=worker_queue.ALL_MODULES in paused,
-            modules=sorted(paused - {worker_queue.ALL_MODULES}),
+            all_until=paused.get(worker_queue.ALL_MODULES),
+            modules=sorted(modules),
+            until={m: until for m, until in modules.items() if until is not None},
         )
 
 
@@ -86,6 +92,8 @@ class PauseRequest(BaseModel):
     # None: every module.
     module: str | None = None
     paused: bool
+    # A pause for so many minutes (up to a week); None: until resumed.
+    minutes: int | None = Field(default=None, ge=1, le=7 * 24 * 60)
 
 
 class ModuleOut(BaseModel):
@@ -187,7 +195,9 @@ async def set_pause(body: PauseRequest, account: CurrentAccount, db: DbDep) -> P
     """Pauses or resumes the background runs of a worker module, or of all of them."""
     if body.module is not None and body.module not in REMOTE_MODULES:
         raise ApiError(404, "module_not_found")
-    await worker_queue.set_paused(db, body.module or worker_queue.ALL_MODULES, body.paused)
+    await worker_queue.set_paused(
+        db, body.module or worker_queue.ALL_MODULES, body.paused, body.minutes
+    )
     return Pause.of(await worker_queue.paused_modules(db))
 
 
@@ -195,7 +205,7 @@ async def set_pause(body: PauseRequest, account: CurrentAccount, db: DbDep) -> P
 async def resume_all(account: CurrentAccount, db: DbDep) -> Pause:
     """Resumes every module, whether paused one by one or all together."""
     await worker_queue.resume_all(db)
-    return Pause.of(set())
+    return Pause.of({})
 
 
 @router.post("/modules/{module_id}/rerun-failed")

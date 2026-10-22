@@ -2,7 +2,7 @@
 <!-- Workers known to the core and the progress of module runs on this library. -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { getWorkers, rerunFailed, type WorkersOverview } from '#lib/api.js';
+	import { getWorkers, rerunFailed, type WorkerInfo, type WorkersOverview } from '#lib/api.js';
 	import { pause } from '#lib/pause.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { failedFilter, filterToUrl } from '#lib/gallery/filter.js';
@@ -79,6 +79,33 @@
 		Object.entries(counts).sort(([, a], [, b]) => b - a);
 
 	const relative = new Intl.RelativeTimeFormat(getLocale(), { numeric: 'auto' });
+	const seconds = new Intl.NumberFormat(getLocale(), { style: 'unit', unit: 'second' });
+	const minutes = new Intl.NumberFormat(getLocale(), { style: 'unit', unit: 'minute' });
+
+	/** How long the worker has been in its state, e.g. "40 s" or "3 min". */
+	function lasting(iso: string): string {
+		const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+		return s < 120 ? seconds.format(s) : minutes.format(Math.round(s / 60));
+	}
+
+	function stateText(worker: WorkerInfo): string | null {
+		const module = moduleName(worker.state_module ?? '');
+		const time = worker.state_since ? lasting(worker.state_since) : '';
+		switch (worker.state) {
+			case 'idle':
+				return m.worker_state_idle();
+			case 'busy':
+				return m.worker_state_busy();
+			case 'downloading':
+				return m.worker_state_downloading({ module, time });
+			case 'loading':
+				return m.worker_state_loading({ module, time });
+			case 'working':
+				return m.worker_state_working({ module });
+			default:
+				return null;
+		}
+	}
 
 	function ago(iso: string): string {
 		const minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
@@ -108,6 +135,14 @@
 								? m.workers_active()
 								: m.workers_seen({ when: ago(worker.last_seen_at) })}
 						</span>
+						{#if stateText(worker)}
+							<span
+								class="state"
+								class:slow={worker.state === 'downloading' || worker.state === 'loading'}
+							>
+								· {stateText(worker)}
+							</span>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -237,6 +272,9 @@
 		align-items: baseline;
 		gap: 0.75rem;
 		white-space: nowrap;
+	}
+	.state.slow {
+		color: #9a6700;
 	}
 	.pause h3 {
 		margin: 1rem 0 0.25rem;

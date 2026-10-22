@@ -177,6 +177,11 @@ class Worker(Base):
     # Random id of the running worker process (new at every start), to tell two computers that
     # use the same name apart. Workers before 0.2.3 send none.
     instance_id: Mapped[uuid.UUID | None]
+    # What the worker says it is doing (`worker_queue.WORKER_STATES`), about which module and
+    # since when. Older workers say nothing.
+    state: Mapped[str | None] = mapped_column(String(16))
+    state_module: Mapped[str | None] = mapped_column(String(32))
+    state_since: Mapped[datetime | None]
 
 
 class ModulePause(Base):

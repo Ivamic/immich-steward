@@ -34,6 +34,14 @@ IDLE_WAIT_S = (2.0, 30.0)
 BUSY_WAIT_S = 30.0
 ERROR_WAIT_S = 10.0
 
+# What the worker tells the core it is doing, for the people waiting for it: loading a model
+# takes a minute or more on a CPU, and the first start downloads gigabytes.
+IDLE = "idle"
+BUSY = "busy"
+DOWNLOADING = "downloading"
+LOADING = "loading"
+WORKING = "working"
+
 
 @dataclass
 class WorkerConfig:
@@ -66,6 +74,9 @@ class Worker:
         self._loaded: dict[str, float] = {}  # module id -> last use (monotonic)
         self._idle_wait = IDLE_WAIT_S[0]
         self._registered = False
+        # The state the core knows; False once the core turned out not to take states.
+        self._reported: tuple[str, str | None] | None = None
+        self._report_states = True
 
     def stop(self) -> None:
         self._stop.set()
@@ -110,6 +121,7 @@ class Worker:
             await self._register()
         if self._busy(self._config.max_load):
             log.info("system busy, waiting %.0f s", BUSY_WAIT_S)
+            await self._report(BUSY)
             await self._sleep(BUSY_WAIT_S)
             return False
         try:
@@ -118,6 +130,7 @@ class Worker:
             self._registered = False
             return True  # register and try again right away
         if job is None:
+            await self._report(IDLE)
             return False
         await self._process(job)
         return True
@@ -127,7 +140,25 @@ class Worker:
             self._config.name, list(self._modules), self._config.device, __version__
         )
         self._registered = True
+        self._reported = None  # the core forgets the state of a worker that registers
         log.info("registered with the core as %s", self._client.worker_id)
+
+    async def _report(self, state: str, module: str | None = None) -> None:
+        """Tells the core what the worker is doing, when that changes. Never fails the work."""
+        if not self._report_states or self._reported == (state, module):
+            return
+        try:
+            await self._client.state(state, module)
+        except CoreRefused as exc:
+            if exc.status == 404:
+                self._report_states = False  # an older core
+            else:
+                log.warning("cannot tell the core the state: %s", exc)
+            return
+        except CoreError as exc:
+            log.warning("cannot tell the core the state: %s", exc)
+            return
+        self._reported = (state, module)
 
     async def _process(self, job: LeasedJob) -> None:
         module = self._modules[job.module]
@@ -144,9 +175,16 @@ class Worker:
             if job.module not in self._loaded:
                 if self._config.one_model:
                     self._unload_idle(force=True)
-                log.info("loading module %s", job.module)
+                cached = getattr(module, "weights_cached", None)
+                if cached is not None and not await asyncio.to_thread(cached):
+                    log.info("downloading the model of module %s (only the first time)", job.module)
+                    await self._report(DOWNLOADING, job.module)
+                else:
+                    log.info("loading module %s", job.module)
+                    await self._report(LOADING, job.module)
                 await asyncio.to_thread(module.load)
             self._loaded[job.module] = time.monotonic()
+            await self._report(WORKING, job.module)
             started = time.monotonic()
             output = await asyncio.to_thread(module.run, image)
             self._loaded[job.module] = time.monotonic()

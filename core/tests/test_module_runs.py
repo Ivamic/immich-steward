@@ -400,3 +400,30 @@ def test_pause_holds_background_runs_but_not_runs_by_hand(
         signed_in.put("/api/library/pause", json={"module": "nope", "paused": True}).status_code
         == 404
     )
+
+
+def test_worker_state_is_shown(library: dict[str, str], signed_in: TestClient) -> None:
+    worker = start_worker(signed_in)
+
+    def say(state: str, module: str | None = None) -> None:
+        body = {"state": state, "module": module}
+        assert signed_in.post("/api/worker/state", json=body, headers=worker).status_code == 204
+
+    def shown() -> dict[str, Any]:
+        result: dict[str, Any] = signed_in.get("/api/library/workers").json()["workers"][0]
+        return result
+
+    assert shown()["state"] is None  # registered, has said nothing yet
+    say("loading", "geoclip")
+    since = shown()["state_since"]
+    assert (shown()["state"], shown()["state_module"]) == ("loading", "geoclip")
+    assert geoclip(signed_in, library["todo1.jpg"])["worker_loading"] is True
+    say("loading", "geoclip")
+    assert shown()["state_since"] == since  # the time counts from the change
+    say("working", "geoclip")
+    assert geoclip(signed_in, library["todo1.jpg"])["worker_loading"] is False
+
+    bad = {"state": "dancing", "module": None}
+    assert signed_in.post("/api/worker/state", json=bad, headers=worker).status_code == 422
+    signed_in.post("/api/worker/bye", headers=worker)
+    assert shown()["state"] is None

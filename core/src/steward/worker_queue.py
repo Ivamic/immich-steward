@@ -58,6 +58,16 @@ AUTO_QUEUE_SIZE = 500
 # `ModulePause.module_id` that pauses every module.
 ALL_MODULES = "*"
 
+# What a worker says it is doing (`Worker.state`). The model states are the slow ones: the first
+# start downloads gigabytes, and loading a model on a CPU takes a minute or more.
+IDLE = "idle"  # no jobs for it
+BUSY = "busy"  # its computer is busy (`STEWARD_WORKER_MAX_LOAD`), it waits
+DOWNLOADING = "downloading"  # downloading the weights of a model
+LOADING = "loading"  # loading a model into memory
+WORKING = "working"  # running a module on a photo
+WORKER_STATES = (IDLE, BUSY, DOWNLOADING, LOADING, WORKING)
+MODEL_STATES = (DOWNLOADING, LOADING)
+
 
 @dataclass(frozen=True)
 class Lease:
@@ -181,6 +191,7 @@ async def say_goodbye(db: AsyncSession, worker: Worker) -> None:
     """The worker stops: it is no longer counted as available, and a job it was running goes
     back to the queue at once (stopping is not a failure of the job)."""
     worker.online = False
+    worker.state = worker.state_module = worker.state_since = None
     jobs = await db.scalars(
         select(Job).where(Job.worker_id == worker.id, Job.status == "running").with_for_update()
     )
@@ -429,8 +440,19 @@ async def register(
     worker.version = version
     worker.last_seen_at = now
     worker.online = True
+    worker.state = worker.state_module = worker.state_since = None
     await db.commit()
     return worker
+
+
+async def set_state(db: AsyncSession, worker: Worker, state: str, module: str | None) -> None:
+    """Records what the worker is doing; the time counts from the last change."""
+    now = datetime.now(UTC)
+    if (worker.state, worker.state_module) != (state, module):
+        worker.state, worker.state_module, worker.state_since = state, module, now
+    worker.last_seen_at = now
+    worker.online = True
+    await db.commit()
 
 
 async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: int) -> Lease | None:

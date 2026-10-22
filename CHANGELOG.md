@@ -13,6 +13,11 @@ between releases.
   page, for the whole installation. Runs started from a photo still go, and runs in progress are
   finished. While anything is paused, a thin bar above the gallery and the photo card says so,
   with a button to resume.
+- **What a worker is doing**: the Library page shows whether each worker is downloading a model
+  (only the first time), loading it into memory and for how long, working or waiting for jobs.
+  The photo card says when the worker is loading the model of a module, so that a slow first
+  photo does not look like nothing works. A worker of this version still works with an older
+  app, and an older worker with this one.
 
 ### Fixed
 

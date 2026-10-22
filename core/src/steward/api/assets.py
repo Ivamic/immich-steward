@@ -276,6 +276,8 @@ class ModuleSuggestions(BaseModel):
     queue_position: int | None = None
     # Background runs of the module are paused (a run by hand still goes).
     paused: bool = False
+    # A worker of the module is downloading or loading its model: the next run takes longer.
+    worker_loading: bool = False
     # Tells the block apart: the module id, or "<module>:region" for its run on a part.
     key: str = ""
     # The part of the photo of a run on a part (FR-35).
@@ -496,10 +498,12 @@ async def _suggestions(
         db, timedelta(minutes=settings.worker_active_minutes)
     )
     available = {module for worker in workers for module in worker.modules}
+    loading = {w.state_module for w in workers if w.state in worker_queue.MODEL_STATES}
     paused = await worker_queue.paused_modules(db)
     for remote in REMOTE_MODULES.values():
         whole = await _remote(db, asset, remote, runs.get(remote.id), available, settings)
         whole.paused = worker_queue.is_paused(paused, remote.id)
+        whole.worker_loading = remote.id in loading
         result.append(whole)
         # The run on a part of the photo, if any, right after the one on the whole photo.
         if run := region_runs.get(remote.id):

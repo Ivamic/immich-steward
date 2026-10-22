@@ -31,6 +31,8 @@ class FakeCore:
     goodbyes: int = 0
     name_taken: bool = False
     instances: list[str] = field(default_factory=list)
+    # (state, module) the worker reported, in order; None: the core is too old to take them.
+    states: list[tuple[str, str | None]] | None = field(default_factory=list)
 
     def add_job(self, module: str = "stub") -> str:
         job_id = str(uuid.uuid4())
@@ -54,6 +56,12 @@ class FakeCore:
             return httpx2.Response(200, json={"worker_id": worker_id, "lease_seconds": 30})
         if request.headers.get("x-worker-id") not in self.known_workers:
             return httpx2.Response(401, json={"code": "worker_unknown"})
+        if path == "/state":
+            if self.states is None:
+                return httpx2.Response(404, json={"detail": "Not Found"})
+            body = json.loads(request.content)
+            self.states.append((body["state"], body["module"]))
+            return httpx2.Response(204)
         if path == "/lease":
             modules = json.loads(request.content)["modules"]
             job = next((j for j in self.jobs if j["module"] in modules), None)
@@ -232,7 +240,7 @@ def test_idle_modules_are_unloaded() -> None:
 
     async def scenario() -> None:
         await worker.run_once()
-        worker._unload_idle()
+        worker._unload_idle(force=True)
         core.add_job()
         await worker.run_once()
 
@@ -300,3 +308,60 @@ def test_one_model_at_a_time() -> None:
     # The first model is freed before the second one is loaded, and only once.
     assert (first.loads, first.unloads) == (1, 1)
     assert (second.loads, second.unloads) == (1, 0)
+
+
+class DownloadingModule(StubModule):
+    def __init__(self) -> None:
+        super().__init__()
+        self.cached = False
+
+    def weights_cached(self) -> bool:
+        return self.cached
+
+    def load(self) -> None:
+        super().load()
+        self.cached = True
+
+
+def test_tells_the_core_what_it_is_doing() -> None:
+    core, module = FakeCore(), DownloadingModule()
+    core.add_job()
+    worker, _ = make_worker(core, module)
+
+    async def scenario() -> None:
+        assert await worker.run_once() is True  # first start: the weights are downloaded
+        assert await worker.run_once() is False
+        assert await worker.run_once() is False  # the same state is not sent again
+        worker._unload_idle(force=True)
+        core.add_job()
+        assert await worker.run_once() is True  # loaded again, from the cache
+
+    asyncio.run(scenario())
+    assert core.states == [
+        ("downloading", "stub"),
+        ("working", "stub"),
+        ("idle", None),
+        ("loading", "stub"),
+        ("working", "stub"),
+    ]
+
+
+def test_busy_system_is_reported() -> None:
+    core = FakeCore()
+    worker, _ = make_worker(core, StubModule(), busy=True)
+    asyncio.run(worker.run_once())
+    assert core.states == [("busy", None)]
+
+
+def test_an_older_core_without_states_still_gets_the_work() -> None:
+    core, module = FakeCore(states=None), StubModule()
+    job_id = core.add_job()
+    worker, _ = make_worker(core, module)
+
+    async def scenario() -> None:
+        assert await worker.run_once() is True
+        assert await worker.run_once() is False
+
+    asyncio.run(scenario())
+    assert job_id in core.results
+    assert worker._report_states is False

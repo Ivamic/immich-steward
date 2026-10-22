@@ -26,6 +26,9 @@ class WorkerUnknown(CoreError):
 class CoreRefused(CoreError):
     """The core answered a request with an error (it was reached, unlike a plain CoreError)."""
 
+    # HTTP status of the answer, when known.
+    status: int | None = None
+
 
 class LeaseLost(CoreRefused):
     """The job is no longer ours: its lease ran out and another worker may have it."""
@@ -119,6 +122,10 @@ class CoreClient:
             body["candidates"] = [asdict(c) for c in output]
         await self._call("POST", f"/jobs/{job_id}/result", json=body)
 
+    async def state(self, state: str, module: str | None) -> None:
+        """Tells the core what this worker is doing (older cores answer 404)."""
+        await self._call("POST", "/state", json={"state": state, "module": module})
+
     async def bye(self) -> None:
         """Tells the core this worker stops, so that it is not shown as available."""
         await self._call("POST", "/bye")
@@ -146,7 +153,9 @@ class CoreClient:
             raise ImmichUnreachable(code)
         if response.status_code == 409 and code == "worker_name_taken":
             raise NameTaken(code)
-        raise CoreRefused(f"{method} {path}: HTTP {response.status_code} {code}")
+        error = CoreRefused(f"{method} {path}: HTTP {response.status_code} {code}")
+        error.status = response.status_code
+        raise error
 
 
 def _param(response: httpx2.Response, name: str) -> str:

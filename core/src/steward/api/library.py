@@ -62,6 +62,10 @@ class WorkerOut(BaseModel):
     version: str
     last_seen_at: datetime
     active: bool
+    # What it says it is doing (`worker_queue.WORKER_STATES`); None for older workers.
+    state: str | None
+    state_module: str | None
+    state_since: datetime | None
 
 
 class Pause(BaseModel):
@@ -145,7 +149,10 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
                 modules=w.modules,
                 version=w.version,
                 last_seen_at=w.last_seen_at,
-                active=w.online and w.last_seen_at >= since,
+                active=(active := w.online and w.last_seen_at >= since),
+                state=w.state if active else None,
+                state_module=w.state_module if active else None,
+                state_since=w.state_since if active else None,
             )
             for w in workers
         ],

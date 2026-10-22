@@ -61,6 +61,12 @@ class SimilarModule:
         self._model = model.to(self._device).eval()
         log.info("MegaLoc loaded on %s with %d threads", self._device, self._options.threads)
 
+    def weights_cached(self) -> bool:
+        from huggingface_hub import try_to_load_from_cache
+
+        path = try_to_load_from_cache(WEIGHTS_REPO, "model.safetensors", revision=WEIGHTS_REVISION)
+        return isinstance(path, str)
+
     def unload(self) -> None:
         self._model = None
         gc.collect()

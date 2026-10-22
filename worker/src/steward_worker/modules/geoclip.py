@@ -28,6 +28,8 @@ MAX_CANDIDATES = 5
 MIN_SCORE = 0.02
 MIN_RADIUS_M = 5_000.0
 MAX_RADIUS_M = 300_000.0
+# The CLIP backbone GeoCLIP downloads on first use.
+CLIP_REPO = "openai/clip-vit-large-patch14"
 
 
 @dataclass(frozen=True)
@@ -77,6 +79,12 @@ class GeoClipModule:
         self._gallery = model.gps_gallery.cpu()
         self._model = model
         log.info("GeoCLIP loaded on %s with %d threads", self._device, self._options.threads)
+
+    def weights_cached(self) -> bool:
+        """The CLIP backbone comes from Hugging Face; GeoCLIP's own weights ship with it."""
+        from huggingface_hub import try_to_load_from_cache
+
+        return isinstance(try_to_load_from_cache(CLIP_REPO, "model.safetensors"), str)
 
     def unload(self) -> None:
         self._model = self._gallery = self._gallery_features = None

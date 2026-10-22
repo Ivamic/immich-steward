@@ -38,7 +38,11 @@ class WorkerModule(Protocol):
     version: str
 
     def load(self) -> None:
-        """Loads the model; called before the first job and again after `unload`."""
+        """Loads the model; called before the first job and again after `unload`.
+
+        A module may also have `weights_cached() -> bool`: False when `load` has to download the
+        weights first, so that the worker can say it is downloading, not just loading.
+        """
 
     def unload(self) -> None:
         """Frees the memory of the model when the worker has been idle for a while."""

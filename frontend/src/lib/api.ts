@@ -308,6 +308,8 @@ export interface ModuleSuggestions {
 	queue_position: number | null;
 	/** Background runs of the module are paused; a run started from the card still goes. */
 	paused: boolean;
+	/** A worker of the module is downloading or loading its model: the next run takes longer. */
+	worker_loading: boolean;
 	/** Tells the blocks apart: the module id, or "<module>:region" for its run on a part. */
 	key: string;
 	/** The part of the photo of a run on a part (FR-35). */
@@ -336,7 +338,13 @@ export interface WorkerInfo {
 	version: string;
 	last_seen_at: string;
 	active: boolean;
+	/** What it says it is doing, while connected; null for older workers. */
+	state: WorkerState | null;
+	state_module: string | null;
+	state_since: string | null;
 }
+
+export type WorkerState = 'idle' | 'busy' | 'downloading' | 'loading' | 'working';
 
 export interface WorkersOverview {
 	workers: WorkerInfo[];

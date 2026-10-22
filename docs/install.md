@@ -523,7 +523,10 @@ with `docker compose up -d --build`.
 start.
 
 **The GeoCLIP queue grows, but nothing is done.** On its first start the worker downloads and
-loads the model, which takes a few minutes. Look at `docker compose logs --tail 40 worker`:
+loads the model, which takes a few minutes. The **Library** page shows what each worker is
+doing: downloading the model, loading it into memory (with the time so far), working, or
+waiting for jobs; it also shows when background runs are paused. Look at
+`docker compose logs --tail 40 worker`:
 `GeoCLIP loaded` and then `done in … s` lines mean it works. An error there (out of memory, no
 access to `huggingface.co`) tells what is wrong.
 

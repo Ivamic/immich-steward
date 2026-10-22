@@ -9,7 +9,7 @@ from the core, which fetches it from Immich with the key of the photo's owner.
 import asyncio
 import secrets
 from datetime import timedelta
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, Literal, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, Response
@@ -141,6 +141,17 @@ async def register(body: RegisterRequest, db: DbDep, settings: SettingsDep) -> R
 async def bye(worker: WorkerDep, db: DbDep) -> None:
     """The worker stops; a job it was running goes back to the queue right away."""
     await worker_queue.say_goodbye(db, worker)
+
+
+class StateRequest(BaseModel):
+    state: Literal["idle", "busy", "downloading", "loading", "working"]
+    module: str | None = Field(default=None, max_length=32)
+
+
+@router.post("/state", status_code=204)
+async def state(body: StateRequest, worker: WorkerDep, db: DbDep) -> None:
+    """What the worker is doing now, for the people waiting for it (older workers never say)."""
+    await worker_queue.set_state(db, worker, body.state, body.module)
 
 
 @router.post("/lease", response_model=None)

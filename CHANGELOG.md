@@ -7,6 +7,12 @@ between releases.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-22
+
+Improvements from using similar photos on a full library: background runs can be paused, the
+Library page shows what each worker is doing, new photos are run first, and the photo card is
+quicker to work with.
+
 ### Added
 
 - **Pause**: the background runs of every worker module, or of one, can be paused on the Library
@@ -262,7 +268,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Ivamic/immich-steward/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Ivamic/immich-steward/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/Ivamic/immich-steward/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/Ivamic/immich-steward/compare/v0.2.3...v0.2.4

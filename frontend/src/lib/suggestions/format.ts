@@ -159,12 +159,14 @@ export function visibleSuggestions(
 export interface Numbered {
 	module: ModuleSuggestions;
 	candidate: Candidate;
-	/** 1..9 for the first nine candidates in list order (keyboard shortcut), otherwise null. */
+	/** 1, 2, 3… through all the modules in list order: shown in the list and on the map. */
+	number: number;
+	/** The same number for the first nine candidates (keyboard shortcut), otherwise null. */
 	key: number | null;
 }
 
 export function numberCandidates(modules: ModuleSuggestions[]): Numbered[] {
 	return modules
 		.flatMap((module) => module.candidates.map((candidate) => ({ module, candidate })))
-		.map((item, index) => ({ ...item, key: index < 9 ? index + 1 : null }));
+		.map((item, index) => ({ ...item, number: index + 1, key: index < 9 ? index + 1 : null }));
 }

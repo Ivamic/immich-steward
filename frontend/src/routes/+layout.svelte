@@ -97,13 +97,23 @@
 			background: #0d1117;
 		}
 	}
+	/* Stays in view: from far down the gallery the menu is one click away. */
 	header {
+		position: sticky;
+		top: 0;
+		z-index: 20;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
 		padding: 0.75rem 1.5rem;
 		border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+		background: #f6f8fa;
+	}
+	@media (prefers-color-scheme: dark) {
+		header {
+			background: #0d1117;
+		}
 	}
 	.tagline {
 		margin-left: 0.75rem;

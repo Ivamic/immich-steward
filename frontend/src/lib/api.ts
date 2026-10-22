@@ -348,6 +348,8 @@ export type WorkerState = 'idle' | 'busy' | 'downloading' | 'loading' | 'working
 
 export interface WorkersOverview {
 	workers: WorkerInfo[];
+	/** Every module workers can run, in the order to show them. */
+	modules: { id: string; color: string; shape: string }[];
 	/** Module -> status of the latest run -> number of photos. */
 	runs: Record<string, Partial<Record<ModuleStatus, number>>>;
 	/** Module -> failure code -> photos whose latest run failed so. */

@@ -141,7 +141,7 @@
 	}
 
 	const shown = $derived(visibleSuggestions(modules, unfolded));
-	const keys = $derived(new Map(numberCandidates(shown).map((item) => [item.candidate, item.key])));
+	const numbered = $derived(new Map(numberCandidates(shown).map((item) => [item.candidate, item])));
 </script>
 
 <section class="suggestions" aria-busy={loading} bind:this={list}>
@@ -246,7 +246,7 @@
 			{/if}
 			<ol>
 				{#each module.candidates as candidate (candidate.rank)}
-					{@const key = keys.get(candidate)}
+					{@const key = numbered.get(candidate)?.key}
 					<!-- The row is a shortcut for the mouse; keyboard users have the label button. -->
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 					<li
@@ -259,7 +259,7 @@
 						onmouseleave={() => onhighlight(null)}
 					>
 						<span class="rank shape-{module.shape}" style:background={module.color}
-							>{candidate.rank}</span
+							>{numbered.get(candidate)?.number ?? candidate.rank}</span
 						>
 						<div class="body">
 							<button

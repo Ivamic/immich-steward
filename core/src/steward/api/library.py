@@ -88,8 +88,16 @@ class PauseRequest(BaseModel):
     paused: bool
 
 
+class ModuleOut(BaseModel):
+    id: str
+    color: str
+    shape: str
+
+
 class Workers(BaseModel):
     workers: list[WorkerOut]
+    # Every module workers can run, in the order they are shown.
+    modules: list[ModuleOut]
     # Module -> status of the latest run -> number of photos of this account.
     runs: dict[str, dict[str, int]]
     # Module -> failure code -> photos whose latest run failed so.
@@ -156,6 +164,7 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
             )
             for w in workers
         ],
+        modules=[ModuleOut(id=m.id, color=m.color, shape=m.shape) for m in REMOTE_MODULES.values()],
         runs=await worker_queue.run_counts(db, account),
         failures=await worker_queue.failure_counts(db, account),
         auto_modules=settings.auto_module_ids,

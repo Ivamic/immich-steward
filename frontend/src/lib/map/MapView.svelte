@@ -33,7 +33,7 @@
 	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { formatDelta, neighborMeta } from '#lib/suggestions/format.js';
+	import { formatDelta, neighborMeta, numberCandidates } from '#lib/suggestions/format.js';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { resolve } from '$app/paths';
 	import {
@@ -303,6 +303,8 @@
 					.addTo(instance)
 			);
 		}
+		// The same numbers as in the list, through all the modules.
+		const numbers = new Map(numberCandidates(suggestions).map((i) => [i.candidate, i.number]));
 		for (const module of suggestions) {
 			// Lowest rank on top.
 			for (const c of [...module.candidates].reverse()) {
@@ -313,7 +315,7 @@
 				if (module.region) pin.classList.add('steward-part');
 				pin.style.background = module.color;
 				pin.style.setProperty('--marker-color', module.color);
-				pin.textContent = String(c.rank);
+				pin.textContent = String(numbers.get(c) ?? c.rank);
 				pin.dataset.lat = String(c.latitude);
 				pin.dataset.lon = String(c.longitude);
 				pin.dataset.candidate = `${module.key}:${c.rank}`;

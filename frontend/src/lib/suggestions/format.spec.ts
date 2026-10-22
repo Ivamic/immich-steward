@@ -65,6 +65,7 @@ describe('suggestion formatting', () => {
 	it('gives keys 1–9 to the first nine candidates across modules', () => {
 		const numbered = numberCandidates([module('a', 5), module('b', 6)]);
 		expect(numbered.map((item) => item.key)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, null, null]);
+		expect(numbered.map((item) => item.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 		expect(numbered[5].module.module).toBe('b');
 		expect(numbered[5].candidate.rank).toBe(1);
 	});

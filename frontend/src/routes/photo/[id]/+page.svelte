@@ -27,6 +27,7 @@
 	} from '#lib/api.js';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
+	import PauseBar from '#lib/PauseBar.svelte';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
@@ -390,6 +391,8 @@
 		{m.photo_next()} →
 	</button>
 </nav>
+
+<PauseBar />
 
 {#if error}
 	<p class="error" role="alert">{error}</p>

@@ -64,6 +64,26 @@ class WorkerOut(BaseModel):
     active: bool
 
 
+class Pause(BaseModel):
+    """Paused background runs: of every module, or of some."""
+
+    all: bool
+    modules: list[str]
+
+    @classmethod
+    def of(cls, paused: set[str]) -> "Pause":
+        return cls(
+            all=worker_queue.ALL_MODULES in paused,
+            modules=sorted(paused - {worker_queue.ALL_MODULES}),
+        )
+
+
+class PauseRequest(BaseModel):
+    # None: every module.
+    module: str | None = None
+    paused: bool
+
+
 class Workers(BaseModel):
     workers: list[WorkerOut]
     # Module -> status of the latest run -> number of photos of this account.
@@ -73,6 +93,7 @@ class Workers(BaseModel):
     auto_modules: list[str]
     # Indexing module -> {"indexed", "located"}: photos with a location in its search index.
     index: dict[str, dict[str, int]]
+    pause: Pause
 
 
 class RerunRequest(BaseModel):
@@ -135,7 +156,30 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
             module_id: await embeddings.index_counts(db, account, module_id)
             for module_id in worker_queue.INDEXING_MODULES
         },
+        pause=Pause.of(await worker_queue.paused_modules(db)),
     )
+
+
+@router.get("/pause")
+async def get_pause(account: CurrentAccount, db: DbDep) -> Pause:
+    """Paused modules; the pause is for the whole installation, as the workers are."""
+    return Pause.of(await worker_queue.paused_modules(db))
+
+
+@router.put("/pause")
+async def set_pause(body: PauseRequest, account: CurrentAccount, db: DbDep) -> Pause:
+    """Pauses or resumes the background runs of a worker module, or of all of them."""
+    if body.module is not None and body.module not in REMOTE_MODULES:
+        raise ApiError(404, "module_not_found")
+    await worker_queue.set_paused(db, body.module or worker_queue.ALL_MODULES, body.paused)
+    return Pause.of(await worker_queue.paused_modules(db))
+
+
+@router.delete("/pause")
+async def resume_all(account: CurrentAccount, db: DbDep) -> Pause:
+    """Resumes every module, whether paused one by one or all together."""
+    await worker_queue.resume_all(db)
+    return Pause.of(set())
 
 
 @router.post("/modules/{module_id}/rerun-failed")

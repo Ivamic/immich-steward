@@ -34,6 +34,7 @@ const module = (id: string, count: number): ModuleSuggestions => ({
 	status: 'ready',
 	runnable: false,
 	worker_available: true,
+	paused: false,
 	error: null,
 	error_code: null,
 	key: id,

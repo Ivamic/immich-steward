@@ -306,6 +306,8 @@ export interface ModuleSuggestions {
 	finished_at: string | null;
 	/** Queued runs: jobs of the module a worker takes before this one. */
 	queue_position: number | null;
+	/** Background runs of the module are paused; a run started from the card still goes. */
+	paused: boolean;
 	/** Tells the blocks apart: the module id, or "<module>:region" for its run on a part. */
 	key: string;
 	/** The part of the photo of a run on a part (FR-35). */
@@ -345,9 +347,23 @@ export interface WorkersOverview {
 	auto_modules: string[];
 	/** Indexing module -> photos with a location in its search index, of those it indexes. */
 	index: Record<string, { indexed: number; located: number }>;
+	pause: Pause;
+}
+
+/** Paused background runs, for the whole installation: of every module, or of these. */
+export interface Pause {
+	all: boolean;
+	modules: string[];
 }
 
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
+
+export const getPause = () => request<Pause>('GET', '/api/library/pause');
+/** Pauses or resumes a module; `null` stands for all modules together. */
+export const setPause = (module: string | null, paused: boolean) =>
+	request<Pause>('PUT', '/api/library/pause', { module, paused });
+/** Resumes every module, paused one by one or all together. */
+export const resumeAll = () => request<Pause>('DELETE', '/api/library/pause');
 
 /** Runs the module again on the photos whose latest run failed (for this reason). */
 export const rerunFailed = (module: string, code: string | null) =>

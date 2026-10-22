@@ -179,6 +179,16 @@ class Worker(Base):
     instance_id: Mapped[uuid.UUID | None]
 
 
+class ModulePause(Base):
+    """A worker module whose background runs are paused: workers get no such jobs, none are
+    queued automatically. Runs started by hand still go. `worker_queue.ALL_MODULES` pauses all."""
+
+    __tablename__ = "module_pause"
+
+    module_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    paused_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class Job(Base):
     """Background task: run inside the core (steward.jobs.JobRunner) or leased by a worker."""
 

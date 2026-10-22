@@ -7,6 +7,25 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Pause**: the background runs of every worker module, or of one, can be paused on the Library
+  page, for the whole installation. Runs started from a photo still go, and runs in progress are
+  finished. While anything is paused, a thin bar above the gallery and the photo card says so,
+  with a button to resume.
+
+### Fixed
+
+- Enter in the photo card saves the location even when a button pressed with the mouse keeps the
+  focus (it used to press "Choose" of the suggestion again).
+
+### Changed
+
+- Save notices are in the bottom left corner; when saving fast, only the newest one and failures
+  are shown, the rest behind "N more notices".
+- The Save / Skip / Not applicable buttons and the picked point stay in view in the photo card;
+  only the search and the suggestions below them scroll.
+
 ## [0.3.0] - 2026-10-22
 
 A second module in the worker finds photos of the same place in your own library; photos can be

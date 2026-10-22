@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, case, delete, exists, func, literal, or_, select
+from sqlalchemy import and_, case, delete, exists, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -19,7 +19,7 @@ from sqlalchemy.sql import ColumnElement
 
 from steward import embeddings
 from steward.errors import ApiError
-from steward.models import Account, Asset, Job, ModuleRun, Worker
+from steward.models import Account, Asset, Job, ModulePause, ModuleRun, Worker
 
 MODULE_JOB = "module"
 ACTIVE = ("queued", "running")
@@ -54,6 +54,9 @@ FAILURE_CODES = (
 # worker (~5 photos/s) between two scheduler ticks (1 min), without queuing the whole library.
 # Runs started by hand have a higher priority and never wait behind them.
 AUTO_QUEUE_SIZE = 500
+
+# `ModulePause.module_id` that pauses every module.
+ALL_MODULES = "*"
 
 
 @dataclass(frozen=True)
@@ -279,6 +282,39 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     return count
 
 
+async def paused_modules(db: AsyncSession) -> set[str]:
+    """Modules whose background runs are paused; `ALL_MODULES` among them pauses every one."""
+    return set(await db.scalars(select(ModulePause.module_id)))
+
+
+def is_paused(paused: set[str], module_id: str) -> bool:
+    return ALL_MODULES in paused or module_id in paused
+
+
+async def set_paused(db: AsyncSession, module_id: str, paused: bool) -> None:
+    """Pauses or resumes the background runs of a module (or of all, `ALL_MODULES`)."""
+    row = await db.get(ModulePause, module_id)
+    if paused and row is None:
+        db.add(ModulePause(module_id=module_id))
+    elif not paused and row is not None:
+        await db.delete(row)
+    await db.commit()
+
+
+async def resume_all(db: AsyncSession) -> None:
+    await db.execute(delete(ModulePause))
+    await db.commit()
+
+
+def _not_paused(paused: set[str]) -> ColumnElement[bool]:
+    """Jobs a worker may take: background jobs of a paused module wait, runs by hand go."""
+    if ALL_MODULES in paused:
+        return Job.priority > PRIORITY_BACKGROUND
+    if paused:
+        return or_(Job.priority > PRIORITY_BACKGROUND, Job.module_id.not_in(paused))
+    return true()
+
+
 async def forget_results(db: AsyncSession, asset_ids: list[UUID]) -> None:
     """The image of these photos changed (rotated or edited in Immich): the results and vectors
     of the worker modules no longer describe it, so the photos count as never run (automatic runs
@@ -402,8 +438,10 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
 
     Runs started by hand come first; then the modules in the order the worker lists them (so a
     worker short of memory can finish one module's queue before it loads the next model).
+    Background jobs of paused modules stay in the queue.
     """
     module_order = case({module: i for i, module in enumerate(modules)}, value=Job.module_id)
+    paused = await paused_modules(db)
     now = datetime.now(UTC)
     worker.last_seen_at = now
     worker.online = True
@@ -413,6 +451,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
             .where(
                 Job.kind == MODULE_JOB,
                 Job.module_id.in_(modules),
+                _not_paused(paused),
                 or_(
                     Job.status == "queued",
                     and_(Job.status == "running", Job.lease_until < now),

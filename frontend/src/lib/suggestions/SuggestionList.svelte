@@ -204,6 +204,9 @@
 					<p class="muted">{m.failure_lease_expired_hint()}</p>
 				{/if}
 			{/if}
+			{#if module.paused && (module.status === 'not_run' || module.status === 'queued')}
+				<p class="muted">{m.module_paused()}</p>
+			{/if}
 			{#if module.runnable && !module.worker_available && module.status !== 'done'}
 				<p class="warning">{m.module_no_worker()}</p>
 			{/if}

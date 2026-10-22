@@ -3,6 +3,7 @@
 	import { getAsset, getMonths, type GalleryFilter, type MonthBucket } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import FilterBar from '#lib/gallery/FilterBar.svelte';
+	import PauseBar from '#lib/PauseBar.svelte';
 	import MonthSection from '#lib/gallery/MonthSection.svelte';
 	import Scrubber from '#lib/gallery/Scrubber.svelte';
 	import { filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
@@ -82,6 +83,7 @@
 </script>
 
 <FilterBar {filter} onchange={changeFilter} />
+<PauseBar />
 
 {#if error}
 	<p class="error" role="alert">{error}</p>

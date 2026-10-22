@@ -356,3 +356,47 @@ def test_public_immich_address_wins() -> None:
         _env_file=None,
     )
     assert public.immich_browser_url == "https://photos.example.org"
+
+
+def test_pause_holds_background_runs_but_not_runs_by_hand(
+    library: dict[str, str], signed_in: TestClient
+) -> None:
+    worker = start_worker(signed_in)
+
+    def take() -> Any:
+        return signed_in.post("/api/worker/lease", json={"modules": ["geoclip"]}, headers=worker)
+
+    def pause(**body: Any) -> dict[str, Any]:
+        response = signed_in.put("/api/library/pause", json=body)
+        assert response.status_code == 200
+        result: dict[str, Any] = response.json()
+        return result
+
+    assert pause(module="geoclip", paused=True) == {"all": False, "modules": ["geoclip"]}
+    schedule(signed_in)  # nothing is queued for a paused module
+    assert geoclip(signed_in, library["todo1.jpg"])["status"] == "not_run"
+    assert geoclip(signed_in, library["todo1.jpg"])["paused"] is True
+    assert signed_in.get("/api/library/workers").json()["pause"]["modules"] == ["geoclip"]
+
+    # Queued before the pause: waits. Started by hand: goes.
+    pause(module="geoclip", paused=False)
+    schedule(signed_in)
+    pause(module="geoclip", paused=True)
+    assert take().status_code == 204
+    signed_in.post(f"/api/assets/{library['todo1.jpg']}/modules/geoclip/run")
+    assert take().json()["asset_id"] == library["todo1.jpg"]
+    assert take().status_code == 204
+
+    # Pausing everything holds them as well; resuming everything lifts both pauses.
+    pause(module="geoclip", paused=False)
+    assert pause(paused=True) == {"all": True, "modules": []}
+    assert take().status_code == 204
+    pause(module="geoclip", paused=True)
+    assert signed_in.delete("/api/library/pause").json() == {"all": False, "modules": []}
+    assert take().status_code == 200
+    assert geoclip(signed_in, library["todo2.jpg"])["paused"] is False
+
+    assert (
+        signed_in.put("/api/library/pause", json={"module": "nope", "paused": True}).status_code
+        == 404
+    )

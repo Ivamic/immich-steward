@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { getWorkers, rerunFailed, type WorkersOverview } from '#lib/api.js';
+	import { pause } from '#lib/pause.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { failedFilter, filterToUrl } from '#lib/gallery/filter.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -17,13 +18,41 @@
 	let rerunning = $state<string | null>(null);
 	let rerunNotice = $state<string | null>(null);
 
+	let pausing = $state(false);
+
 	const load = () =>
 		getWorkers()
 			.then((result) => {
 				overview = result;
+				pause.update(result.pause);
 				error = null;
 			})
 			.catch((e) => (error = errorMessage(e)));
+
+	// Modules that can be paused: any a worker offers, runs automatically or has run.
+	const modules = $derived(
+		overview
+			? [
+					...new Set([
+						...overview.workers.flatMap((w) => w.modules),
+						...overview.auto_modules,
+						...Object.keys(overview.runs)
+					])
+				]
+			: []
+	);
+
+	async function togglePause(module: string | null, paused: boolean) {
+		pausing = true;
+		try {
+			await pause.set(module, paused);
+			error = null;
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			pausing = false;
+		}
+	}
 
 	$effect(() => {
 		load();
@@ -131,6 +160,35 @@
 				</div>
 			{/if}
 		{/each}
+		<div class="pause">
+			<h3>{m.workers_pause_heading()}</h3>
+			<p class="muted">{m.workers_pause_hint()}</p>
+			<div class="pause-buttons">
+				<button
+					type="button"
+					class:on={pause.all}
+					aria-pressed={pause.all}
+					disabled={pausing}
+					onclick={() => togglePause(null, !pause.all)}
+				>
+					{pause.all ? m.workers_resume_all() : m.workers_pause_all()}
+				</button>
+				{#each modules as module (module)}
+					{@const paused = pause.modules.includes(module)}
+					<button
+						type="button"
+						class:on={paused}
+						aria-pressed={paused}
+						disabled={pausing}
+						onclick={() => togglePause(module, !paused)}
+					>
+						{paused
+							? m.workers_resume_module({ module: moduleName(module) })
+							: m.workers_pause_module({ module: moduleName(module) })}
+					</button>
+				{/each}
+			</div>
+		</div>
 		<p class="muted">
 			{overview.auto_modules.length
 				? m.workers_auto({ modules: overview.auto_modules.map(moduleName).join(', ') })
@@ -179,6 +237,22 @@
 		align-items: baseline;
 		gap: 0.75rem;
 		white-space: nowrap;
+	}
+	.pause h3 {
+		margin: 1rem 0 0.25rem;
+		font-size: 0.95rem;
+	}
+	.pause p {
+		margin: 0 0 0.4rem;
+	}
+	.pause-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.pause-buttons .on {
+		border-color: #bf8700;
+		background: rgb(191 135 0 / 0.15);
 	}
 	.active {
 		color: #1a7f37;

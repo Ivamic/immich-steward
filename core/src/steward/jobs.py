@@ -134,7 +134,8 @@ class JobRunner:
     async def schedule_modules(self) -> None:
         """Feeds photos without a location to worker modules that run automatically.
 
-        Only while a worker of the module is active: without one the queue would just grow.
+        Only while a worker of the module is active (without one the queue would just grow) and
+        the module is not paused.
         """
         modules = self._settings.auto_module_ids
         if not modules:
@@ -143,8 +144,9 @@ class JobRunner:
         async with self._sessionmaker() as db:
             workers = await worker_queue.active_workers(db, within)
             active = {module for worker in workers for module in worker.modules}
+            paused = await worker_queue.paused_modules(db)
             for module_id in modules:
-                if module_id in active:
+                if module_id in active and not worker_queue.is_paused(paused, module_id):
                     added = await worker_queue.auto_enqueue(db, module_id)
                     if added:
                         log.info("queued %d photos for %s", added, module_id)

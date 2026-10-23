@@ -7,6 +7,47 @@ between releases.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-23
+
+Smaller improvements: the modules in the photo card can be ordered and hidden, the failures of
+every module can be found in the gallery, and the Library page is now two pages, Processing and
+Settings.
+
+### Added
+
+- **Order of the modules in the photo card**, per account: on the new Settings page, drag a
+  module by its handle (or use the arrows) and choose which modules the card shows. By default:
+  time neighbors, similar photos, GeoCLIP. The suggestions are numbered in this order. A hidden
+  module keeps running (pausing is separate); the card leaves it out of the list and the map and
+  names it in one short line below the suggestions, where a click shows it in the card until the
+  page is reloaded.
+- **Next sync**: the Processing page shows when the next automatic sync and the next full one
+  are due.
+- **Processing errors of every module** in the gallery filter (it used to list GeoCLIP only):
+  choose a module, or any module, then a reason. The reasons are grouped by whose trouble they
+  are: the photo and Immich, the worker, the module itself. The failure counts of a module on the
+  Processing page name the same group.
+
+### Changed
+
+- The Library page is split in two: **Processing** (the library and its sync, workers, modules,
+  status) and **Settings** (the modules in the photo card for now). Old links to `/library` open
+  Processing.
+- The gallery filter "Not processed" is now called "Processing errors".
+
+### Fixed
+
+- The thumbnails of the neighbor photos in the suggestions and on the map follow the photo when
+  it is rotated or edited in Immich (they could show the old thumbnail for a long time).
+- The pause menu closes on a click outside it and on Esc.
+- A worker started with the address of Immich instead of the app (port 2283 instead of 8780) says
+  so in its log, instead of a bare "HTTP 404".
+
+### Upgrading
+
+The database gets a new table on start (migration 0019). Workers of 0.3.1 work with this
+version; updating them is only needed for the clearer message about a wrong address.
+
 ## [0.3.1] - 2026-10-22
 
 Improvements from using similar photos on a full library: background runs can be paused, the
@@ -268,7 +309,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/Ivamic/immich-steward/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Ivamic/immich-steward/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Ivamic/immich-steward/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/Ivamic/immich-steward/compare/v0.2.4...v0.2.5

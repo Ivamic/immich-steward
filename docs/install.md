@@ -186,7 +186,7 @@ docker run -d --name steward-worker --restart unless-stopped \
   -e STEWARD_WORKER_NAME=desktop \
   -e STEWARD_WORKER_THREADS=4 \
   -v steward-models:/models \
-  ghcr.io/ivamic/immich-steward-worker:0.3.1
+  ghcr.io/ivamic/immich-steward-worker:0.3.2
 ```
 
 ### Start a worker with Docker on Windows (PowerShell, Docker Desktop)
@@ -198,7 +198,7 @@ docker run -d --name steward-worker --restart unless-stopped `
   -e STEWARD_WORKER_NAME=desktop `
   -e STEWARD_WORKER_THREADS=4 `
   -v steward-models:/models `
-  ghcr.io/ivamic/immich-steward-worker:0.3.1
+  ghcr.io/ivamic/immich-steward-worker:0.3.2
 ```
 
 With `--restart unless-stopped`, the worker starts again together with Docker, e.g. after a
@@ -248,7 +248,7 @@ docker start steward-worker
 ```
 
 Update it to a new version: remove the container, then run the `docker run` command above
-again with the new version number instead of `0.3.1` at its end. The models stay in the volume.
+again with the new version number instead of `0.3.2` at its end. The models stay in the volume.
 
 ```sh
 docker rm -f steward-worker
@@ -283,7 +283,7 @@ What it needs:
   0.9 GB), which are downloaded on their first use.
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
-`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.3.1` with
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.3.2` with
 the version of the app on your server.
 
 #### GPU worker on Windows (PowerShell)
@@ -293,7 +293,7 @@ Install once:
 ```powershell
 winget install --id Git.Git -e
 winget install --id astral-sh.uv -e
-git clone --branch v0.3.1 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+git clone --branch v0.3.2 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
@@ -315,7 +315,7 @@ Install once (Git is usually installed already; otherwise `sudo apt install git`
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-git clone --branch v0.3.1 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+git clone --branch v0.3.2 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
@@ -337,12 +337,12 @@ other messages are the same as in the [table above](#check-that-it-works).
 Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Library**
 page shows the worker as not connected right away.
 
-Update to a new version (replace `0.3.1` with the new version), on Windows:
+Update to a new version (replace `0.3.2` with the new version), on Windows:
 
 ```powershell
 cd D:\steward-worker
 git fetch --tags
-git checkout v0.3.1
+git checkout v0.3.2
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
@@ -351,7 +351,7 @@ On Linux:
 ```sh
 cd ~/steward-worker
 git fetch --tags
-git checkout v0.3.1
+git checkout v0.3.2
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
@@ -440,7 +440,7 @@ docker compose --profile worker up -d
 Old images can be removed afterwards with `docker image prune`. See the
 [changelog](../CHANGELOG.md) for what is new and whether `.env` needs new settings.
 
-To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.3.1`).
+To stay on a version, set `STEWARD_VERSION` in `.env` (e.g. `STEWARD_VERSION=0.3.2`).
 
 If you changed `compose.yaml` yourself, `git pull` may stop with a conflict. Move your changes
 to `.env` or to a `compose.override.yaml` file, which Docker Compose reads automatically and

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
-from steward import locations, rotation, worker_queue
+from steward import locations, module_display, rotation, worker_queue
 from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
@@ -285,6 +285,8 @@ class ModuleSuggestions(BaseModel):
     region: RegionIn | None = None
     # The run was on the photo turned this many degrees clockwise.
     turn: int = 0
+    # The account hides the module in the card (`module_display`); it still runs.
+    hidden: bool = False
 
 
 class RunRequest(BaseModel):
@@ -509,7 +511,14 @@ async def _suggestions(
         # The run on a part of the photo, if any, right after the one on the whole photo.
         if run := region_runs.get(remote.id):
             result.append(await _remote(db, asset, remote, run, available, settings))
-    return result
+
+    # In the order of the account (the sort is stable: a part stays after its whole photo).
+    displays = await module_display.get(db, account.id)
+    order = {d.module: i for i, d in enumerate(displays)}
+    hidden = {d.module for d in displays if d.hidden}
+    for block in result:
+        block.hidden = block.module in hidden
+    return sorted(result, key=lambda block: order.get(block.module, len(order)))
 
 
 async def _remote(

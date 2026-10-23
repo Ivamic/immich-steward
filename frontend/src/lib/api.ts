@@ -321,7 +321,20 @@ export interface ModuleSuggestions {
 	region: Region | null;
 	/** The run was on the photo turned this way. */
 	turn: Turn;
+	/** The account hides the module in the card (Library page); the module still runs. */
+	hidden: boolean;
 }
+
+/** A module in the order of the photo card, and whether it is shown there. */
+export interface ModuleDisplay {
+	module: string;
+	hidden: boolean;
+}
+
+export const getModuleDisplay = () =>
+	request<ModuleDisplay[]>('GET', '/api/library/module-display');
+export const setModuleDisplay = (displays: ModuleDisplay[]) =>
+	request<ModuleDisplay[]>('PUT', '/api/library/module-display', displays);
 
 /** A part of the photo as shares of its width and height (of the photo as shown). */
 export interface Region {

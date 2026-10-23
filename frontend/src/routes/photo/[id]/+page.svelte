@@ -38,7 +38,12 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { saves } from '#lib/saves.svelte.js';
 	import { cameraFilter } from '#lib/suggestions/cameraFilter.svelte.js';
-	import { numberCandidates, visibleSuggestions } from '#lib/suggestions/format.js';
+	import {
+		displayedModules,
+		hiddenModules,
+		numberCandidates,
+		visibleSuggestions
+	} from '#lib/suggestions/format.js';
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { untrack } from 'svelte';
@@ -93,11 +98,14 @@
 	);
 	// Modules whose weak suggestions the user unfolded; kept while moving between photos.
 	let unfolded = $state<string[]>([]);
+	// Hidden modules (Library page) shown in the card anyway; kept while moving between photos.
+	let revealed = $state<string[]>([]);
 	// The suggestion under the pointer, in the list or on the map.
 	let highlight = $state<Highlight | null>(null);
 	// Medium screens: which of the two side panels is shown.
 	let tab = $state<'place' | 'info'>('place');
-	const shown = $derived(visibleSuggestions(suggestions, unfolded));
+	const listed = $derived(displayedModules(suggestions, revealed));
+	const shown = $derived(visibleSuggestions(listed, unfolded));
 	const numbered = $derived(numberCandidates(shown));
 	const pending = $derived(asset ? saves.pendingFor(asset.id) : undefined);
 	const changedAt = new Intl.DateTimeFormat(getLocale(), {
@@ -254,7 +262,7 @@
 
 	/** What to fit the map to: the suggestions as shown (with their circles) and the neighbors. */
 	function suggestionPoints(modules: ModuleSuggestions[]) {
-		return visibleSuggestions(modules, unfolded).flatMap((module) => [
+		return visibleSuggestions(displayedModules(modules, revealed), unfolded).flatMap((module) => [
 			...module.candidates.map((c) => ({
 				lat: c.latitude,
 				lon: c.longitude,
@@ -502,7 +510,9 @@
 		{/if}
 
 		<SuggestionList
-			modules={suggestions}
+			modules={listed}
+			hidden={hiddenModules(suggestions, revealed)}
+			onreveal={(module) => (revealed = [...revealed, module])}
 			loading={suggestionsLoading}
 			onchoose={choose}
 			onrun={run}

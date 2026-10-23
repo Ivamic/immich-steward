@@ -36,6 +36,8 @@
 
 	let {
 		modules,
+		hidden,
+		onreveal,
 		loading,
 		onchoose,
 		onrun,
@@ -48,6 +50,9 @@
 		onpartshow
 	}: {
 		modules: ModuleSuggestions[];
+		/** Modules hidden in the card (Library page); a click shows one here. */
+		hidden: string[];
+		onreveal: (module: string) => void;
 		loading: boolean;
 		onchoose: (candidate: Candidate) => void;
 		onrun: (module: string) => void;
@@ -324,6 +329,17 @@
 			{/if}
 		</div>
 	{/each}
+	{#if hidden.length}
+		<p class="hidden-modules">
+			{m.suggestions_hidden()}
+			{#each hidden as module, i (module)}
+				{#if i}·{/if}
+				<button type="button" title={m.suggestions_reveal_title()} onclick={() => onreveal(module)}>
+					{moduleName(module)}
+				</button>
+			{/each}
+		</p>
+	{/if}
 </section>
 
 {#if peek}
@@ -536,6 +552,20 @@
 	.muted {
 		opacity: 0.65;
 		margin: 0;
+	}
+	.hidden-modules {
+		margin: 0.5rem 0 0;
+		font-size: 0.8rem;
+		opacity: 0.65;
+	}
+	.hidden-modules button {
+		border: none;
+		background: none;
+		padding: 0;
+		color: inherit;
+		font: inherit;
+		text-decoration: underline dotted;
+		cursor: pointer;
 	}
 	kbd {
 		font-size: 0.75em;

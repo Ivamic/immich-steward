@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import embeddings, worker_queue
+from steward import embeddings, module_display, worker_queue
 from steward.config import Settings
 from steward.deps import CurrentAccount, DbDep, SettingsDep
 from steward.errors import ApiError
@@ -248,6 +248,27 @@ async def resume_all(account: CurrentAccount, db: DbDep) -> Pause:
     """Resumes every module, whether paused one by one or all together."""
     await worker_queue.resume_all(db)
     return Pause.of({})
+
+
+class ModuleDisplayItem(BaseModel):
+    module: str
+    hidden: bool = False
+
+
+@router.get("/module-display")
+async def get_module_display(account: CurrentAccount, db: DbDep) -> list[ModuleDisplayItem]:
+    """The order of the modules in the photo card of this account and the hidden ones."""
+    return [ModuleDisplayItem(**vars(d)) for d in await module_display.get(db, account.id)]
+
+
+@router.put("/module-display")
+async def set_module_display(
+    body: list[ModuleDisplayItem], account: CurrentAccount, db: DbDep
+) -> list[ModuleDisplayItem]:
+    """Stores the order (every module once, first shown first) and which modules are hidden."""
+    displays = [module_display.Display(item.module, item.hidden) for item in body]
+    saved = await module_display.save(db, account.id, displays)
+    return [ModuleDisplayItem(**vars(d)) for d in saved]
 
 
 @router.post("/modules/{module_id}/rerun-failed")

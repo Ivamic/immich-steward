@@ -4,9 +4,11 @@ import type { Candidate, ModuleSuggestions, NeighborEvidence } from '#lib/api.js
 import {
 	candidateLabel,
 	candidateRemarks,
+	displayedModules,
 	formatDelta,
 	formatDistance,
 	formatDuration,
+	hiddenModules,
 	neighborMeta,
 	numberCandidates,
 	visibleSuggestions
@@ -43,10 +45,21 @@ const module = (id: string, count: number): ModuleSuggestions => ({
 	turn: 0,
 	finished_at: null,
 	queue_position: null,
-	note: null
+	note: null,
+	hidden: false
 });
 
 describe('suggestion formatting', () => {
+	it('leaves hidden modules out until revealed', () => {
+		const geoclip = { ...module('geoclip', 1), hidden: true };
+		const part = { ...geoclip, key: 'geoclip:region' };
+		const modules = [module('time_neighbors', 1), geoclip, part];
+		expect(displayedModules(modules, []).map((m) => m.key)).toEqual(['time_neighbors']);
+		expect(hiddenModules(modules, [])).toEqual(['geoclip']);
+		expect(displayedModules(modules, ['geoclip'])).toEqual(modules);
+		expect(hiddenModules(modules, ['geoclip'])).toEqual([]);
+	});
+
 	it('formats durations and deltas', () => {
 		expect(formatDuration(45)).toBe('45 s');
 		expect(formatDuration(-720)).toBe('12 min');

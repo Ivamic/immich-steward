@@ -3,6 +3,7 @@
 	import { getHealth, type Health } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import LibraryPanel from '#lib/LibraryPanel.svelte';
+	import ModuleDisplayPanel from '#lib/ModuleDisplayPanel.svelte';
 	import WorkersPanel from '#lib/WorkersPanel.svelte';
 
 	let health = $state<Health | null>(null);
@@ -30,6 +31,8 @@
 <LibraryPanel />
 
 <WorkersPanel />
+
+<ModuleDisplayPanel />
 
 <h2>{m.status_heading()}</h2>
 

@@ -144,6 +144,20 @@ export function candidateRemarks(candidate: Candidate): string[] {
 	return remarks;
 }
 
+/** The modules shown in the card: hidden ones only once revealed there. */
+export function displayedModules(
+	modules: ModuleSuggestions[],
+	revealed: string[]
+): ModuleSuggestions[] {
+	return modules.filter((module) => !module.hidden || revealed.includes(module.module));
+}
+
+/** Modules hidden in the card and not revealed, each once. */
+export function hiddenModules(modules: ModuleSuggestions[], revealed: string[]): string[] {
+	const ids = modules.filter((m) => m.hidden && !revealed.includes(m.module)).map((m) => m.module);
+	return [...new Set(ids)];
+}
+
 /** Suggestions as shown: weak candidates only for the modules the user unfolded. */
 export function visibleSuggestions(
 	modules: ModuleSuggestions[],

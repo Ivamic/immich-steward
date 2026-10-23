@@ -199,6 +199,20 @@ class ModulePause(Base):
     until: Mapped[datetime | None]
 
 
+class ModuleDisplay(Base):
+    """Where the suggestions of a module stand in the photo card of an account, and whether they
+    are shown (`steward.module_display`). Hiding only hides: the module still runs."""
+
+    __tablename__ = "module_display"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    module_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer)
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class Job(Base):
     """Background task: run inside the core (steward.jobs.JobRunner) or leased by a worker."""
 

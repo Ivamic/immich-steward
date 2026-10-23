@@ -48,6 +48,8 @@ class TrackPoint:
     # The location was written by this app, not recorded by the camera.
     estimated: bool
     role: Literal["before", "after"] | None = None
+    # Changes with the thumbnails (`AssetItem.version`).
+    version: str | None = None
 
 
 @dataclass(frozen=True)

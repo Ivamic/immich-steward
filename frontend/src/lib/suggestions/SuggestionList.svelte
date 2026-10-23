@@ -77,6 +77,7 @@
 	// Enlarged thumbnail of a neighbor photo, next to the hovered one.
 	let peek = $state<{
 		id: string;
+		version: string | null;
 		name: string;
 		meta: string;
 		left: number;
@@ -92,6 +93,7 @@
 		const below = box.bottom + 6 + PEEK_HEIGHT < innerHeight;
 		peek = {
 			id: neighbor.asset_id,
+			version: neighbor.version ?? null,
 			name: neighbor.file_name,
 			meta: neighborMeta(neighbor, camera ?? ''),
 			left: Math.max(8, Math.min(box.left, innerWidth - PEEK_WIDTH - 8)),
@@ -298,7 +300,7 @@
 										onmouseleave={() => (peek = null)}
 									>
 										<img
-											src={thumbnailUrl(neighbor.asset_id)}
+											src={thumbnailUrl(neighbor.asset_id, 'thumbnail', 0, neighbor.version)}
 											alt={neighbor.file_name}
 											loading="lazy"
 										/>
@@ -326,7 +328,7 @@
 
 {#if peek}
 	<div class="peek" style:left="{peek.left}px" style:top="{peek.top}px" aria-hidden="true">
-		<img src={thumbnailUrl(peek.id)} alt="" />
+		<img src={thumbnailUrl(peek.id, 'thumbnail', 0, peek.version)} alt="" />
 		<div class="name">{peek.name}</div>
 		<div>{peek.meta}</div>
 		<div class="muted">{m.photo_open_new_tab()}</div>

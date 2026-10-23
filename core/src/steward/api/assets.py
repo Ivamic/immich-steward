@@ -243,6 +243,7 @@ class TrackPointItem(BaseModel):
     same_camera: bool
     estimated: bool
     role: Literal["before", "after"] | None
+    version: str | None = None
 
 
 class CameraCountItem(BaseModel):

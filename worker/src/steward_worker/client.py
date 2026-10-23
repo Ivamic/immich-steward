@@ -46,6 +46,10 @@ class NameTaken(CoreRefused):
     """Another running worker uses the same name."""
 
 
+class NotSteward(CoreRefused):
+    """Something else answers at the core address (e.g. Immich itself): it has no worker API."""
+
+
 @dataclass(frozen=True)
 class LeasedJob:
     job_id: UUID
@@ -63,8 +67,9 @@ class CoreClient:
         transport: httpx2.AsyncBaseTransport | None = None,
         instance_id: UUID | None = None,
     ) -> None:
+        self.core_url = core_url.rstrip("/")
         self._http = httpx2.AsyncClient(
-            base_url=core_url.rstrip("/") + "/api/worker",
+            base_url=self.core_url + "/api/worker",
             headers={"Authorization": f"Bearer {token}"},
             timeout=TIMEOUT_S,
             transport=transport,
@@ -158,6 +163,8 @@ class CoreClient:
             raise ImmichUnreachable(code)
         if response.status_code == 409 and code == "worker_name_taken":
             raise NameTaken(code)
+        if response.status_code == 404 and path == "/register":
+            raise NotSteward(f"{method} {path}: HTTP 404")
         error = CoreRefused(f"{method} {path}: HTTP {response.status_code} {code}")
         error.status = response.status_code
         raise error

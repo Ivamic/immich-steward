@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import uuid
+from datetime import UTC, datetime, timedelta
 
-from conftest import FakeImmich, sync
+from conftest import FakeImmich, make_settings, sync
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from steward.models import Asset
+from steward.api.library import next_syncs
+from steward.models import Account, Asset
 
 
 def local_assets(client: TestClient) -> list[Asset]:
@@ -118,3 +120,26 @@ def test_scheduler_queues_sync_for_new_accounts(signed_in: TestClient) -> None:
 def test_library_requires_sign_in(client: TestClient) -> None:
     assert client.get("/api/library").status_code == 401
     assert client.post("/api/library/sync", json={}).status_code == 401
+
+
+def test_next_automatic_syncs() -> None:
+    now = datetime.now(UTC)
+    settings = make_settings(run_jobs=True, sync_interval_minutes=15, full_sync_interval_hours=24)
+    account = Account(synced_at=now, full_synced_at=now - timedelta(hours=1))
+    next_sync, next_full = next_syncs(account, settings)
+    assert next_sync == now + timedelta(minutes=15)
+    assert next_full == now + timedelta(hours=23)
+
+    # A full sync that is already due comes with the next automatic one.
+    account.full_synced_at = now - timedelta(days=2)
+    assert next_syncs(account, settings) == (next_sync, next_sync)
+
+    never = Account(synced_at=None, full_synced_at=None)
+    first, first_full = next_syncs(never, settings)
+    assert first is not None and first == first_full and first >= now
+
+    assert next_syncs(account, make_settings(run_jobs=True, sync_interval_minutes=0)) == (
+        None,
+        None,
+    )
+    assert next_syncs(account, make_settings(run_jobs=False)) == (None, None)

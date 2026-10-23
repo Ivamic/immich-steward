@@ -86,6 +86,9 @@ export interface Library {
 	albums: number;
 	synced_at: string | null;
 	full_synced_at: string | null;
+	/** When the automatic syncs are due (checked once a minute); null: they are off. */
+	next_sync_at: string | null;
+	next_full_sync_at: string | null;
 	sync_job: Job | null;
 }
 
@@ -246,6 +249,8 @@ export interface NeighborEvidence {
 	same_camera?: boolean;
 	/** The neighbor's location was written by this app, not recorded by a camera. */
 	estimated: boolean;
+	/** Changes with the neighbor's thumbnails (absent in results stored by older versions). */
+	version?: string | null;
 	/** Similar photos only: 0..1, and when the photo was taken (local time). */
 	similarity?: number;
 	local_taken_at?: string;

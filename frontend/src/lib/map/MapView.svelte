@@ -270,6 +270,7 @@
 						camera: p.camera,
 						estimated: p.estimated,
 						same_camera: p.same_camera,
+						version: p.version ?? null,
 						color: trackColor(p.delta_s),
 						alpha: closeness(p.delta_s)
 					})
@@ -409,6 +410,7 @@
 		estimated: boolean;
 		similarity?: number;
 		local_taken_at?: string;
+		version?: string | null;
 	}
 
 	function showFeaturePreview(instance: MapLibreMap, feature: MapGeoJSONFeature, pinned: boolean) {
@@ -455,7 +457,7 @@
 			const item = document.createElement('div');
 			item.className = 'item';
 			const image = document.createElement('img');
-			image.src = thumbnailUrl(photo.asset_id);
+			image.src = thumbnailUrl(photo.asset_id, 'thumbnail', 0, photo.version ?? null);
 			image.alt = photo.file_name;
 			const name = document.createElement('div');
 			name.className = 'name';

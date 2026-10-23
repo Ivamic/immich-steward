@@ -121,6 +121,7 @@ class TimeNeighbors:
                     camera=camera_label(camera_value(n.camera_make, n.camera_model)),
                     same_camera=has_camera and (n.camera_make, n.camera_model) == camera,
                     estimated=n.id in estimated,
+                    version=n.thumbhash,
                 )
                 for n in neighbors
             ),
@@ -190,6 +191,7 @@ def _evidence(*points: TrackPoint) -> dict[str, object]:
                 "delta_s": p.delta_s,
                 "same_camera": p.same_camera,
                 "estimated": p.estimated,
+                "version": p.version,
             }
             for p in points
         ]

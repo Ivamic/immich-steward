@@ -54,7 +54,8 @@ _SEARCH = text(
         EXISTS (
             SELECT 1 FROM location_change
             WHERE location_change.asset_id = asset.id AND location_change.status = 'applied'
-        ) AS estimated
+        ) AS estimated,
+        asset.thumbhash
     FROM (
         SELECT asset_id, vector FROM embedding
         WHERE located AND account_id = :account_id AND module_id = :module_id
@@ -79,6 +80,8 @@ class Neighbor:
     file_name: str
     # The location was written by this app, not recorded by a camera.
     estimated: bool
+    # Changes with the thumbnails (`AssetItem.version`).
+    version: str | None = None
 
 
 def calibrated(similarity: float) -> float:
@@ -162,6 +165,7 @@ def _evidence(neighbor: Neighbor, taken_at: datetime) -> dict[str, object]:
         "local_taken_at": neighbor.local_taken_at.isoformat(),
         "delta_s": (neighbor.local_taken_at - taken_at).total_seconds(),
         "estimated": neighbor.estimated,
+        "version": neighbor.version,
     }
 
 

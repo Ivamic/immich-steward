@@ -22,6 +22,7 @@ from steward_worker.client import (
     LeasedJob,
     LeaseLost,
     NameTaken,
+    NotSteward,
     WorkerUnknown,
 )
 from steward_worker.load import system_busy
@@ -98,6 +99,16 @@ class Worker:
                     "another running worker is called %s: give this one a name of its own "
                     "(--name or STEWARD_WORKER_NAME); retrying in %.0f s",
                     self._config.name,
+                    ERROR_WAIT_S,
+                )
+                await self._sleep(ERROR_WAIT_S)
+                continue
+            except NotSteward:
+                log.warning(
+                    "%s is not an immich-steward core (no worker API there): check the address "
+                    "and the port (--core / STEWARD_CORE_URL; Immich is usually on 2283, the app "
+                    "on 8780); retrying in %.0f s",
+                    self._client.core_url,
                     ERROR_WAIT_S,
                 )
                 await self._sleep(ERROR_WAIT_S)

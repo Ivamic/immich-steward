@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Pause of a worker module (or of all, `module` null): until resumed or for a while; when
-     paused, the button resumes. -->
+     paused, the button resumes. The list closes on a click outside it and on Esc. -->
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
 	import { PAUSE_LENGTHS } from '#lib/pause.svelte.js';
@@ -25,6 +25,7 @@
 	} = $props();
 
 	let open = $state(false);
+	let menu: HTMLDetailsElement | undefined = $state();
 
 	function lengthLabel(minutes: number | null): string {
 		switch (minutes) {
@@ -41,16 +42,29 @@
 		}
 	}
 
+	function closeOutside(event: PointerEvent) {
+		if (open && menu && !menu.contains(event.target as Node)) open = false;
+	}
+
+	function closeOnEscape(event: KeyboardEvent) {
+		if (!open || event.key !== 'Escape') return;
+		event.preventDefault();
+		open = false;
+		menu?.querySelector('summary')?.focus();
+	}
+
 	function choose(minutes: number | null) {
 		open = false;
 		onpause(minutes);
 	}
 </script>
 
+<svelte:window onpointerdown={closeOutside} onkeydown={closeOnEscape} />
+
 {#if paused}
 	<button type="button" {disabled} onclick={onresume}>{resumeLabel}</button>
 {:else}
-	<details class="menu" bind:open>
+	<details class="menu" bind:open bind:this={menu}>
 		<summary class:disabled>{pauseLabel} ▾</summary>
 		<ul class:right={align === 'right'}>
 			{#each PAUSE_LENGTHS as minutes (minutes)}

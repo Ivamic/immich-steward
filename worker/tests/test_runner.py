@@ -10,7 +10,7 @@ from typing import Any
 import httpx2
 import pytest
 
-from steward_worker.client import CoreClient, ImmichUnreachable, NameTaken
+from steward_worker.client import CoreClient, ImmichUnreachable, NameTaken, NotSteward
 from steward_worker.modules import Candidate, PermanentError
 from steward_worker.runner import Worker, WorkerConfig
 
@@ -287,6 +287,17 @@ def test_taken_name_is_reported() -> None:
     worker, _ = make_worker(FakeCore(name_taken=True), StubModule())
     with pytest.raises(NameTaken):
         asyncio.run(worker.run_once())
+
+
+def test_something_else_at_the_core_address_is_told_apart() -> None:
+    # Immich itself, for example, when the port of the core is mixed up with its port.
+    def immich(_: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(404, json={"message": "Cannot POST /api/worker/register"})
+
+    client = CoreClient("http://immich.test:2283/", TOKEN, transport=httpx2.MockTransport(immich))
+    assert client.core_url == "http://immich.test:2283"
+    with pytest.raises(NotSteward):
+        asyncio.run(client.register("test", ["stub"], "cpu", "0"))
 
 
 def test_one_model_at_a_time() -> None:

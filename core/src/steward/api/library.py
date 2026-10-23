@@ -10,10 +10,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from steward import embeddings, worker_queue
+from steward.config import Settings
 from steward.deps import CurrentAccount, DbDep, SettingsDep
 from steward.errors import ApiError
 from steward.jobs import SYNC, enqueue
-from steward.models import Job, Worker
+from steward.models import Account, Job, Worker
 from steward.modules import REMOTE_MODULES
 from steward.sync import library_counts
 
@@ -52,6 +53,9 @@ class Library(BaseModel):
     albums: int
     synced_at: datetime | None
     full_synced_at: datetime | None
+    # When the automatic syncs are due (the scheduler looks once a minute); None: they are off.
+    next_sync_at: datetime | None = None
+    next_full_sync_at: datetime | None = None
     sync_job: JobOut | None
 
 
@@ -131,18 +135,39 @@ class SyncRequest(BaseModel):
     full: bool | None = None
 
 
+def next_syncs(account: Account, settings: Settings) -> tuple[datetime | None, datetime | None]:
+    """When the next automatic sync and the next full one are due (`JobRunner.schedule_syncs`).
+
+    A due time in the past means the sync is waiting for the scheduler or already running.
+    """
+    if not settings.run_jobs or settings.sync_interval_minutes <= 0:
+        return None, None
+    now = datetime.now(UTC)
+    if account.synced_at is None:
+        return now, now
+    next_sync = account.synced_at + timedelta(minutes=settings.sync_interval_minutes)
+    if account.full_synced_at is None:
+        return next_sync, next_sync
+    # An automatic sync becomes full once the full one is old enough.
+    full_due = account.full_synced_at + timedelta(hours=settings.full_sync_interval_hours)
+    return next_sync, max(next_sync, full_due)
+
+
 @router.get("")
-async def get_library(account: CurrentAccount, db: DbDep) -> Library:
+async def get_library(account: CurrentAccount, db: DbDep, settings: SettingsDep) -> Library:
     job = await db.scalar(
         select(Job)
         .where(Job.account_id == account.id, Job.kind == SYNC)
         .order_by(Job.created_at.desc())
         .limit(1)
     )
+    next_sync_at, next_full_sync_at = next_syncs(account, settings)
     return Library(
         **await library_counts(db, account),
         synced_at=account.synced_at,
         full_synced_at=account.full_synced_at,
+        next_sync_at=next_sync_at,
+        next_full_sync_at=next_full_sync_at,
         sync_job=JobOut.of(job) if job else None,
     )
 

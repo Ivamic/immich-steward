@@ -191,3 +191,14 @@ def test_only_this_camera_needs_a_known_camera(
     result = time_neighbors(signed_in.get(url, params={"same_camera_only": True}).json())
     # Nothing to compare with: the mode is ignored rather than hiding every neighbor.
     assert [p["camera"] for p in result["track"]] == ["Apple iPhone 15 Pro Max"]
+
+
+def test_neighbors_carry_the_version_of_their_thumbnails(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    neighbor = add(fake_immich, "10:00:00", **A)
+    fake_immich.assets[neighbor]["thumbhash"] = "rotated-1"
+    target = add(fake_immich, "10:10:00")
+    result = m1(signed_in, fake_immich, target)
+    assert result["track"][0]["version"] == "rotated-1"
+    assert result["candidates"][0]["evidence"]["neighbors"][0]["version"] == "rotated-1"

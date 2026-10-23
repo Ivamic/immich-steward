@@ -312,6 +312,8 @@ class AlbumOption(BaseModel):
 class FilterOptions(BaseModel):
     cameras: list[CameraOption]
     albums: list[AlbumOption]
+    # Modules whose failed runs the gallery can show (`failed_module`, also `ANY_MODULE`).
+    failed_modules: list[str]
 
 
 @router.get("/months")
@@ -341,6 +343,7 @@ async def filter_options(account: CurrentAccount, db: DbDep) -> FilterOptions:
     return FilterOptions(
         cameras=[CameraOption(**row) for row in await camera_options(db, account)],
         albums=[AlbumOption(**row) for row in await album_options(db, account)],
+        failed_modules=list(REMOTE_MODULES),
     )
 
 

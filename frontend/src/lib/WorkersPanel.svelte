@@ -17,7 +17,12 @@
 	import { failedFilter, filterToUrl } from '#lib/gallery/filter.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
-	import { failureReason, moduleName } from '#lib/suggestions/format.js';
+	import {
+		failureGroup,
+		failureGroupName,
+		failureReason,
+		moduleName
+	} from '#lib/suggestions/format.js';
 
 	const REFRESH_MS = 10_000;
 	// Run statuses in the order the counters and the progress bar show them.
@@ -286,7 +291,10 @@
 							<ul>
 								{#each reasons(failures) as [code, count] (code)}
 									<li>
-										<span>{failureReason(code)} — {number.format(count)}</span>
+										<span>
+											<span class="group">{failureGroupName(failureGroup(code))}:</span>
+											{failureReason(code)} — {number.format(count)}
+										</span>
 										<span class="actions">
 											<a href={resolve(`/${filterToUrl(failedFilter(module.id, code))}`)}>
 												{m.workers_failures_show()}
@@ -463,6 +471,9 @@
 	}
 	.stat-failed dd {
 		color: #cf222e;
+	}
+	.failures .group {
+		opacity: 0.65;
 	}
 	.failures h4 {
 		margin: 0.25rem 0;

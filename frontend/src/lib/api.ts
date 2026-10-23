@@ -144,7 +144,12 @@ export interface AssetItem {
 export interface FilterOptions {
 	cameras: { value: string; make: string; model: string; count: number }[];
 	albums: { id: string; name: string; count: number }[];
+	/** Modules whose failed runs the gallery can show (also ANY_MODULE). */
+	failed_modules: string[];
 }
+
+/** `failed_module` of the gallery filter: the latest run of any module failed. */
+export const ANY_MODULE = 'any';
 
 /** Query string for the gallery filter; default values are left out. */
 export function filterQuery(filter: GalleryFilter, extra: Record<string, string> = {}): string {
@@ -321,7 +326,7 @@ export interface ModuleSuggestions {
 	region: Region | null;
 	/** The run was on the photo turned this way. */
 	turn: Turn;
-	/** The account hides the module in the card (Library page); the module still runs. */
+	/** The account hides the module in the card (Settings page); the module still runs. */
 	hidden: boolean;
 }
 

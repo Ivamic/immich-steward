@@ -98,7 +98,7 @@
 	);
 	// Modules whose weak suggestions the user unfolded; kept while moving between photos.
 	let unfolded = $state<string[]>([]);
-	// Hidden modules (Library page) shown in the card anyway; kept while moving between photos.
+	// Hidden modules (Settings page) shown in the card anyway; kept while moving between photos.
 	let revealed = $state<string[]>([]);
 	// The suggestion under the pointer, in the list or on the map.
 	let highlight = $state<Highlight | null>(null);

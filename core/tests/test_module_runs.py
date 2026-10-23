@@ -328,6 +328,16 @@ def test_failures_by_reason_filter_and_rerun(
     assert {item["id"] for item in found} == {broken, other}
     params["failure"] = "image_invalid"
     assert [item["id"] for item in signed_in.get("/api/assets", params=params).json()] == [broken]
+    # Any module, with or without the reason.
+    any_module = {**params, "failed_module": "any"}
+    assert [item["id"] for item in signed_in.get("/api/assets", params=any_module).json()] == [
+        broken
+    ]
+    del any_module["failure"]
+    found = signed_in.get("/api/assets", params=any_module).json()
+    assert {item["id"] for item in found} == {broken, other}
+    no_failures = {**any_module, "failed_module": "similar"}
+    assert signed_in.get("/api/assets", params=no_failures).json() == []
     # The card steps through the failed photos only.
     detail = signed_in.get(f"/api/assets/{broken}", params=params).json()
     assert (detail["previous_id"], detail["next_id"]) == (None, None)

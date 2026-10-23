@@ -21,6 +21,8 @@ TypeFilter = Literal["all", "image", "video"]
 
 # Separates make and model in the camera filter value.
 CAMERA_SEPARATOR = "\x1f"
+# `failed_module` value: the latest run of any module failed.
+ANY_MODULE = "any"
 
 
 @dataclass(frozen=True)
@@ -36,7 +38,8 @@ class GalleryFilter:
     include_archived: bool = False
     # Only photos without a location that GeoCLIP places with at least this confidence.
     geoclip_confidence: float | None = None
-    # Only photos whose latest run of this module failed (with this failure code, if set).
+    # Only photos whose latest run of this module (`ANY_MODULE`: of any module) failed (with
+    # this failure code, if set).
     failed_module: str | None = None
     failure: str | None = None
 
@@ -72,7 +75,8 @@ class GalleryFilter:
             end = datetime.combine(self.date_to + timedelta(days=1), datetime.min.time())
             result.append(Asset.local_taken_at < end)
         if self.failed_module is not None:
-            result.append(latest_run_failed(self.failed_module, self.failure))
+            module = None if self.failed_module == ANY_MODULE else self.failed_module
+            result.append(latest_run_failed(module, self.failure))
         return result
 
 

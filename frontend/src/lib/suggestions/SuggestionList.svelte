@@ -50,7 +50,7 @@
 		onpartshow
 	}: {
 		modules: ModuleSuggestions[];
-		/** Modules hidden in the card (Library page); a click shows one here. */
+		/** Modules hidden in the card (Settings page); a click shows one here. */
 		hidden: string[];
 		onreveal: (module: string) => void;
 		loading: boolean;

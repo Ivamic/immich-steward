@@ -72,6 +72,7 @@ def test_filter_options_and_camera_album_filters(signed_in: TestClient) -> None:
     assert cameras["EOS 300D"]["count"] == 5  # archived assets count, trashed do not
     assert options["albums"][0]["name"] == "Summer"
     assert options["albums"][0]["count"] == 2
+    assert set(options["failed_modules"]) == {"geoclip", "similar"}
 
     assert months(signed_in, camera=cameras["K800i"]["value"]) == {"2009-08": 1}
     assert months(signed_in, album=options["albums"][0]["id"]) == {"2024-06": 2}

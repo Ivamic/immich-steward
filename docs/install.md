@@ -83,7 +83,7 @@ Open `http://<your-server>:8780` and sign in with your **Immich email and passwo
   an earlier version needs them added in Immich (Account Settings → API Keys → edit the key).
 
 Within a minute after the first sign-in the app reads your library from Immich (a few seconds
-for thousands of photos; the Library page has a button to start it right away). It then checks
+for thousands of photos; the Processing page has a button to start it right away). It then checks
 for changes every 15 minutes.
 
 Nothing is written to Immich until you save a location for a photo. Saved locations get the tag

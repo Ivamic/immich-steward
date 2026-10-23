@@ -37,6 +37,33 @@ export const FAILURE_CODES = [
 	'lease_expired'
 ] as const;
 
+/** Whose trouble a failure is: the photo (or Immich), the worker or the module itself. */
+export const FAILURE_GROUPS = [
+	{ group: 'photo', codes: ['image_unavailable', 'immich_auth', 'image_invalid'] },
+	{ group: 'worker', codes: ['worker_error', 'lease_expired'] },
+	{ group: 'module', codes: ['module_error'] }
+] as const satisfies readonly { group: string; codes: readonly (typeof FAILURE_CODES)[number][] }[];
+
+export type FailureGroup = (typeof FAILURE_GROUPS)[number]['group'];
+
+export function failureGroup(code: string | null): FailureGroup {
+	return (
+		FAILURE_GROUPS.find((g) => (g.codes as readonly string[]).includes(code ?? ''))?.group ??
+		'module'
+	);
+}
+
+export function failureGroupName(group: FailureGroup): string {
+	switch (group) {
+		case 'photo':
+			return m.failure_group_photo();
+		case 'worker':
+			return m.failure_group_worker();
+		default:
+			return m.failure_group_module();
+	}
+}
+
 export function failureReason(code: string | null): string {
 	switch (code) {
 		case 'image_unavailable':

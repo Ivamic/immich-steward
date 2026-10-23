@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
 	import {
+		ANY_MODULE,
 		getFilterOptions,
 		SHOW_CATEGORIES,
 		type FilterOptions,
@@ -8,13 +9,18 @@
 		type ShowCategory
 	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { FAILURE_CODES, failureReason, moduleName } from '#lib/suggestions/format.js';
+	import {
+		FAILURE_GROUPS,
+		failureGroupName,
+		failureReason,
+		moduleName
+	} from '#lib/suggestions/format.js';
 	import { defaultFilter } from './filter.js';
 
 	let { filter, onchange }: { filter: GalleryFilter; onchange: (f: GalleryFilter) => void } =
 		$props();
 
-	let options = $state<FilterOptions>({ cameras: [], albums: [] });
+	let options = $state<FilterOptions>({ cameras: [], albums: [], failed_modules: [] });
 
 	$effect(() => {
 		getFilterOptions()
@@ -32,18 +38,6 @@
 	function toggleShow(category: ShowCategory, checked: boolean) {
 		const chosen = checked ? [...filter.show, category] : filter.show.filter((c) => c !== category);
 		set({ show: SHOW_CATEGORIES.filter((c) => chosen.includes(c)) });
-	}
-	// "", "geoclip" (any reason) or "geoclip:image_unavailable".
-	const failedValue = $derived(
-		filter.failed_module
-			? filter.failure
-				? `${filter.failed_module}:${filter.failure}`
-				: filter.failed_module
-			: ''
-	);
-	function setFailed(value: string) {
-		const [module, failure] = value.split(':');
-		set({ failed_module: module || null, failure: failure || null });
 	}
 	const cameraLabel = (make: string, model: string) =>
 		[make, model].filter(Boolean).join(' ') || m.filter_camera_unknown();
@@ -138,14 +132,35 @@
 
 	<label>
 		{m.filter_failed()}
-		<select value={failedValue} onchange={(e) => setFailed(e.currentTarget.value)}>
+		<select
+			value={filter.failed_module ?? ''}
+			onchange={(e) => set({ failed_module: e.currentTarget.value || null, failure: null })}
+		>
 			<option value="">{m.filter_failed_none()}</option>
-			<option value="geoclip">{moduleName('geoclip')}: {m.filter_failed_any()}</option>
-			{#each FAILURE_CODES as code (code)}
-				<option value="geoclip:{code}">{moduleName('geoclip')}: {failureReason(code)}</option>
+			<option value={ANY_MODULE}>{m.filter_failed_module_any()}</option>
+			{#each options.failed_modules as module (module)}
+				<option value={module}>{moduleName(module)}</option>
 			{/each}
 		</select>
 	</label>
+	{#if filter.failed_module}
+		<label>
+			{m.filter_failed_reason()}
+			<select
+				value={filter.failure ?? ''}
+				onchange={(e) => set({ failure: e.currentTarget.value || null })}
+			>
+				<option value="">{m.filter_failed_any()}</option>
+				{#each FAILURE_GROUPS as { group, codes } (group)}
+					<optgroup label={failureGroupName(group)}>
+						{#each codes as code (code)}
+							<option value={code}>{failureReason(code)}</option>
+						{/each}
+					</optgroup>
+				{/each}
+			</select>
+		</label>
+	{/if}
 
 	<label class="checkbox">
 		<input

@@ -429,9 +429,12 @@ async def failure_counts(db: AsyncSession, account: Account) -> dict[str, dict[s
     return counts
 
 
-def latest_run_failed(module_id: str, code: str | None = None) -> ColumnElement[bool]:
-    """For a query over assets: the asset's latest run of the module failed (with this code)."""
-    conditions = [ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id]
+def latest_run_failed(module_id: str | None, code: str | None = None) -> ColumnElement[bool]:
+    """For a query over assets: the asset's latest run of the module (None: of any module)
+    failed (with this code)."""
+    conditions = [ModuleRun.asset_id == Asset.id]
+    if module_id is not None:
+        conditions.append(ModuleRun.module_id == module_id)
     if code is not None:
         conditions.append(ModuleRun.error_code == code)
     return exists().where(*conditions, _latest_failed())

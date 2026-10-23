@@ -50,7 +50,7 @@
 				: m.pause_bar_modules({ modules: pause.modules.map(pausedModule).join(', ') })}
 		</span>
 		<button type="button" disabled={busy} onclick={resume}>{m.pause_resume()}</button>
-		<a href={resolve('/library')}>{m.pause_manage()}</a>
+		<a href={resolve('/processing')}>{m.pause_manage()}</a>
 		{#if error}<span class="error">{error}</span>{/if}
 	</p>
 {/if}

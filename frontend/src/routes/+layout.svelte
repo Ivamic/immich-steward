@@ -57,10 +57,16 @@
 					{m.nav_gallery()}
 				</a>
 				<a
-					href={resolve('/library')}
-					aria-current={page.route.id === '/library' ? 'page' : undefined}
+					href={resolve('/processing')}
+					aria-current={page.route.id === '/processing' ? 'page' : undefined}
 				>
-					{m.nav_library()}
+					{m.nav_processing()}
+				</a>
+				<a
+					href={resolve('/settings')}
+					aria-current={page.route.id === '/settings' ? 'page' : undefined}
+				>
+					{m.nav_settings()}
 				</a>
 			</nav>
 		{:else}

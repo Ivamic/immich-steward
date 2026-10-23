@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Order of the modules in the photo card of this account and which of them are shown; each
-     change is saved at once. -->
+     change is saved at once. Reordered by dragging the handle (mouse only: touch screens
+     scroll instead) or with the arrows. -->
 <script lang="ts">
 	import { getModuleDisplay, setModuleDisplay, type ModuleDisplay } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -10,6 +11,9 @@
 	let displays = $state<ModuleDisplay[]>([]);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
+	// Dragging: the row taken and where it would go (index of the row it would stand before).
+	let dragged = $state<number | null>(null);
+	let target = $state<number | null>(null);
 
 	$effect(() => {
 		getModuleDisplay()
@@ -38,6 +42,30 @@
 		save(next);
 	}
 
+	function dragOver(event: DragEvent, index: number) {
+		if (dragged === null) return;
+		event.preventDefault();
+		const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		target = event.clientY < box.top + box.height / 2 ? index : index + 1;
+	}
+
+	function drop(event: DragEvent) {
+		// Firefox would otherwise open the dragged text as an address.
+		event.preventDefault();
+		if (dragged !== null && target !== null && target !== dragged && target !== dragged + 1) {
+			const next = [...displays];
+			const [moved] = next.splice(dragged, 1);
+			next.splice(target > dragged ? target - 1 : target, 0, moved);
+			save(next);
+		}
+		dragEnd();
+	}
+
+	function dragEnd() {
+		dragged = null;
+		target = null;
+	}
+
 	function toggle(index: number) {
 		save(displays.map((d, i) => (i === index ? { ...d, hidden: !d.hidden } : d)));
 	}
@@ -49,7 +77,30 @@
 	{#if displays.length}
 		<ol>
 			{#each displays as display, index (display.module)}
-				<li class:hidden={display.hidden}>
+				<li
+					class:hidden={display.hidden}
+					class:dragged={dragged === index}
+					class:drop-before={target === index}
+					class:drop-after={target === index + 1 && index === displays.length - 1}
+					ondragover={(e) => dragOver(e, index)}
+					ondrop={drop}
+				>
+					<span
+						class="handle"
+						draggable={!saving}
+						role="presentation"
+						ondragstart={(e) => {
+							dragged = index;
+							const row = (e.currentTarget as HTMLElement).closest('li');
+							if (row && e.dataTransfer) {
+								// Firefox starts no drag without data.
+								e.dataTransfer.setData('text/plain', display.module);
+								e.dataTransfer.effectAllowed = 'move';
+								e.dataTransfer.setDragImage(row, 12, 12);
+							}
+						}}
+						ondragend={dragEnd}>⠿</span
+					>
 					<span class="arrows">
 						<button
 							type="button"
@@ -109,6 +160,27 @@
 	}
 	li.hidden .name {
 		opacity: 0.5;
+	}
+	li.dragged {
+		opacity: 0.4;
+	}
+	li.drop-before {
+		box-shadow: 0 -2px 0 #0969da;
+	}
+	li.drop-after {
+		box-shadow: 0 2px 0 #0969da;
+	}
+	.handle {
+		cursor: grab;
+		user-select: none;
+		opacity: 0.6;
+		padding: 0 0.1rem;
+	}
+	/* Touch screens: dragging would fight scrolling; the arrows stay. */
+	@media (pointer: coarse) {
+		.handle {
+			display: none;
+		}
 	}
 	.arrows {
 		display: inline-flex;

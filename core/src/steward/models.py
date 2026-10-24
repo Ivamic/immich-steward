@@ -2,7 +2,7 @@
 """ORM models."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, ClassVar
 
 from pgvector.sqlalchemy import HALFVEC
@@ -211,6 +211,62 @@ class ModuleDisplay(Base):
     module_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     position: Mapped[int] = mapped_column(Integer)
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class MapSourceSetting(Base):
+    """A satellite imagery source of the map as an account set it up (`steward.map_sources`):
+    switched on (= the account agrees to the provider's terms), its API key, the own count of
+    tiles and what the provider said about the key."""
+
+    __tablename__ = "map_source_setting"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Encrypted with steward.crypto.SecretBox, like the Immich key.
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text)
+    # A token to read the usage from the provider (MapTiler service token); never sent to the
+    # browser, used by the core only.
+    usage_token_encrypted: Mapped[str | None] = mapped_column(Text)
+    # The own count of tiles starts here (reset by hand or on `reset_day` every month).
+    counted_since: Mapped[datetime] = mapped_column(default=utcnow)
+    # Day of the month the provider starts a new period on; None: reset by hand only.
+    reset_day: Mapped[int | None] = mapped_column(Integer)
+    # `map_sources.KEY_PROBLEMS`, as the key check or the tiles in the browser saw it.
+    key_problem: Mapped[str | None] = mapped_column(String(16))
+    key_problem_at: Mapped[datetime | None]
+    # The last usage the provider reported (`map_sources.ProviderUsage` fields).
+    provider_usage: Mapped[dict[str, Any] | None]
+
+
+class MapTileUsage(Base):
+    """Tiles of a source the browsers of an account loaded, per day (the own count, D-146)."""
+
+    __tablename__ = "map_tile_usage"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    day: Mapped[date] = mapped_column(primary_key=True)
+    tiles: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class MapAuto(Base):
+    """Which source the map of an account shows far out and close up when switching by itself
+    (D-143); whether it switches is kept in the browser."""
+
+    __tablename__ = "map_auto"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    far_source: Mapped[str | None] = mapped_column(String(32))
+    near_source: Mapped[str | None] = mapped_column(String(32))
+    # The near source shows from this zoom on.
+    switch_zoom: Mapped[int] = mapped_column(Integer)
 
 
 class Job(Base):

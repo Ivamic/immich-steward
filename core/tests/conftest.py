@@ -29,7 +29,8 @@ FAKE_IMMICH_URL = "http://immich.test"
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
 TABLES = (
     "account, auth_session, asset, album, asset_album, job, location_change, worker, module_run, "
-    "embedding, module_pause, module_display"
+    "embedding, module_pause, module_display, "
+    "map_source_setting, map_tile_usage, map_auto"
 )
 WORKER_TOKEN = "test-worker-token"
 

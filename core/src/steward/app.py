@@ -82,6 +82,8 @@ def create_app(
     app = FastAPI(title="immich-steward", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.immich_factory = immich_factory
+    # Satellite map providers (key checks, usage); tests replace them with a fake.
+    app.state.map_transport = None
     app.add_exception_handler(ApiError, api_error_handler)
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")

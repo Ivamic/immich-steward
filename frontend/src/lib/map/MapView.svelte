@@ -28,6 +28,9 @@
 	import {
 		thumbnailUrl,
 		type Candidate,
+		type MapAuto,
+		type MapKeyProblem,
+		type MapSourceConfig,
 		type ModuleSuggestions,
 		type TrackPoint
 	} from '#lib/api.js';
@@ -52,10 +55,21 @@
 	} from './trackColors.js';
 	import { moduleColor, moduleOnColor, resolvedColor } from './modulePalette.js';
 	import { markerElement, pinElement, shapeSvg } from './markers.js';
+	import MapSourceSwitcher from './MapSourceSwitcher.svelte';
+	import {
+		attributionHtml,
+		effectiveSource,
+		protocolUrl,
+		SCHEME,
+		shortAttribution
+	} from './sources.js';
+	import { onKeyProblem, registerTileProtocol } from './tileProtocol.js';
 
 	let {
 		styleUrl,
 		styleUrlDark = null,
+		sources = [],
+		auto = null,
 		current,
 		picked,
 		suggestions = [],
@@ -66,6 +80,10 @@
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
 		styleUrlDark?: string | null;
+		/** Satellite imagery sources of the account (D-140). */
+		sources?: MapSourceConfig[];
+		/** Their automatic switching by zoom; null: none. */
+		auto?: MapAuto | null;
 		current: LatLon | null;
 		picked: LatLon | null;
 		suggestions?: ModuleSuggestions[];
@@ -76,6 +94,7 @@
 	} = $props();
 
 	setWorkerUrl(workerUrl);
+	registerTileProtocol();
 
 	// GeoJSON types as MapLibre takes them (the geojson typings are its dependency, not ours).
 	type FeatureCollection = Extract<
@@ -95,9 +114,35 @@
 	let ready = $state(false);
 	// The style follows the theme; switching it keeps the view (no new map).
 	const style = $derived(theme.resolved === 'dark' && styleUrlDark ? styleUrlDark : styleUrl);
+
+	// Satellite imagery: what was picked over the map is remembered in this browser.
+	const SOURCE_KEY = 'steward-map-source';
+	const AUTO_KEY = 'steward-map-auto';
+	const LABELS_KEY = 'steward-map-labels';
+	const IMAGERY = 'steward-imagery';
+	let choice = $state(stored(SOURCE_KEY, SCHEME));
+	let autoOn = $state(stored(AUTO_KEY, 'on') === 'on');
+	let labels = $state(stored(LABELS_KEY, 'on') === 'on');
+	// The latest EOX year unless another is picked in this page (D-146).
+	let eoxYear = $state<string | null>(null);
+	let zoom = $state(3);
+	// Key problems the tiles told in this page: such a source is skipped at once.
+	let problems = $state<Record<string, MapKeyProblem>>({});
+	// Copyright texts the providers gave (Esri), by source.
+	let copyrights = $state<Record<string, string>>({});
+	// "Auto" does nothing until the settings name a far or a near source.
+	const autoActive = $derived(autoOn && auto !== null && (auto.far !== null || auto.near !== null));
+	const active = $derived(
+		effectiveSource(sources, choice, autoActive ? auto : null, zoom, new Set(Object.keys(problems)))
+	);
+	const activeSource = $derived(sources.find((s) => s.id === active) ?? null);
+	const year = $derived(eoxYear ?? sources.find((s) => s.id === 'eox')?.variants[0]?.id ?? '');
 	// Without a dark style of its own, the light map is dimmed in the dark theme (detailed, and
-	// no glaring white); markers and pins are HTML above it and keep their colors.
-	const dimmed = $derived(theme.resolved === 'dark' && !styleUrlDark);
+	// no glaring white); markers and pins are HTML above it and keep their colors. Imagery is not.
+	const dimmed = $derived(theme.resolved === 'dark' && !styleUrlDark && active === SCHEME);
+	let appliedImagery = '';
+	// Label layers the style itself hides; showing the labels again must not show these.
+	let hiddenByStyle = new Set<string>();
 	let appliedStyle = '';
 	let currentMarker: Marker | undefined;
 	let pickedMarker: Marker | undefined;
@@ -169,6 +214,8 @@
 		);
 		instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
 		instance.on('click', (event: MapMouseEvent) => onclick(instance, event));
+		zoom = instance.getZoom();
+		instance.on('zoomend', () => (zoom = instance.getZoom()));
 		instance.on('mousemove', 'steward-track-points', (event) => {
 			instance.getCanvas().style.cursor = 'pointer';
 			if (!popupPinned && event.features?.length)
@@ -181,6 +228,12 @@
 		// Also after a change of the style (theme): it drops the layers of the app.
 		instance.on('style.load', () => {
 			addLayers(instance);
+			hiddenByStyle = new Set(
+				labelLayers(instance).filter(
+					(id) => instance.getLayoutProperty(id, 'visibility') === 'none'
+				)
+			);
+			appliedImagery = '';
 			ready = true;
 		});
 		currentMarker = pickedMarker = undefined;
@@ -200,6 +253,89 @@
 		closePreview();
 		map.setStyle(url, { diff: false });
 	});
+
+	function stored(key: string, fallback: string): string {
+		try {
+			return localStorage.getItem(key) ?? fallback;
+		} catch {
+			return fallback;
+		}
+	}
+
+	function store(key: string, value: string) {
+		try {
+			localStorage.setItem(key, value);
+		} catch {
+			// Private mode or blocked storage: the choice lasts for this page only.
+		}
+	}
+
+	$effect(() =>
+		onKeyProblem((sourceId, problem) => {
+			if (problems[sourceId] !== problem) problems = { ...problems, [sourceId]: problem };
+		})
+	);
+
+	// The provider's copyright text, read once per page where it changes (Esri).
+	$effect(() => {
+		const source = activeSource;
+		if (!source?.copyright_url || source.id in untrack(() => copyrights)) return;
+		const { id, copyright } = source;
+		// Our built-in text when the provider gives none.
+		fetch(source.copyright_url)
+			.then((response) => response.json())
+			.then((body: { copyrightText?: unknown }) =>
+				typeof body.copyrightText === 'string' && body.copyrightText
+					? body.copyrightText
+					: (copyright ?? '')
+			)
+			.catch(() => copyright ?? '')
+			.then((text) => (copyrights = { ...copyrights, [id]: text }));
+	});
+
+	// The imagery under the labels of the style and our layers (D-143); again after a new style.
+	$effect(() => {
+		if (!map || !ready) return;
+		const instance = map;
+		const source = activeSource;
+		const variant = source
+			? (source.variants.find((v) => v.id === (source.id === 'eox' ? year : 'default')) ??
+				source.variants[0])
+			: null;
+		// The tiles wait for the copyright text, so that they are not loaded twice.
+		if (source?.copyright_url && !(source.id in copyrights)) return;
+		const copyright = source ? (copyrights[source.id] ?? source.copyright) : null;
+		const key = variant?.tiles ? `${source?.id}|${variant.id}|${copyright}` : '';
+		if (key !== appliedImagery) {
+			if (instance.getLayer(IMAGERY)) instance.removeLayer(IMAGERY);
+			if (instance.getSource(IMAGERY)) instance.removeSource(IMAGERY);
+			if (source && variant?.tiles) {
+				instance.addSource(IMAGERY, {
+					type: 'raster',
+					tiles: [protocolUrl(source.id, variant.tiles)],
+					tileSize: source.tile_size,
+					maxzoom: source.max_zoom,
+					attribution: attributionHtml(variant.attribution, copyright)
+				});
+				const labelsFrom = labelLayers(instance)[0];
+				instance.addLayer({ id: IMAGERY, type: 'raster', source: IMAGERY }, labelsFrom);
+			}
+			appliedImagery = key;
+		}
+		const showLabels = !key || labels;
+		for (const id of labelLayers(instance)) {
+			if (hiddenByStyle.has(id)) continue;
+			instance.setLayoutProperty(id, 'visibility', showLabels ? 'visible' : 'none');
+		}
+	});
+
+	/** Label layers of the style (not ours), bottom first. */
+	function labelLayers(instance: MapLibreMap): string[] {
+		return instance
+			.getStyle()
+			.layers.filter((l) => l.type === 'symbol' && !l.id.startsWith('steward-'))
+			.map((l) => l.id);
+	}
 
 	function addLayers(instance: MapLibreMap) {
 		for (const id of ['steward-radius', 'steward-track', 'steward-segment']) {
@@ -603,8 +739,46 @@
 	}
 </script>
 
-<div class="wrap" class:dimmed>
+<div
+	class="wrap"
+	class:dimmed
+	class:with-logo={activeSource?.logo_url}
+	style:--_attrib-short={`'${shortAttribution(active)}'`}
+>
 	<div class="map" bind:this={container}></div>
+	{#if sources.length}
+		<div class="sources">
+			<MapSourceSwitcher
+				{sources}
+				{choice}
+				{auto}
+				autoOn={autoActive}
+				{labels}
+				{year}
+				{active}
+				{problems}
+				onchoice={(id) => {
+					choice = id;
+					store(SOURCE_KEY, id);
+				}}
+				onauto={(on) => {
+					autoOn = on;
+					store(AUTO_KEY, on ? 'on' : 'off');
+				}}
+				onlabels={(on) => {
+					labels = on;
+					store(LABELS_KEY, on ? 'on' : 'off');
+				}}
+				onyear={(picked) => (eoxYear = picked)}
+			/>
+		</div>
+	{/if}
+	{#if activeSource?.logo_url}
+		<!-- Required on the map by the free plan of MapTiler; loaded from MapTiler with its tiles. -->
+		<a class="logo" href="https://www.maptiler.com/" target="_blank" rel="noopener">
+			<img src={activeSource.logo_url} alt={activeSource.name} width="67" height="20" />
+		</a>
+	{/if}
 	{#if legend.length || route}
 		<div class="legend st-glass st-legend" aria-hidden="true">
 			{#each legend as row (row.key)}
@@ -644,6 +818,23 @@
 		left: var(--space-2);
 		bottom: var(--space-2);
 		z-index: var(--z-map-ui);
+	}
+	.with-logo .legend {
+		bottom: calc(var(--space-2) * 2 + 20px);
+	}
+	.sources {
+		position: absolute;
+		top: var(--space-2);
+		left: var(--space-2);
+		z-index: calc(var(--z-map-ui) + 1);
+	}
+	.logo {
+		position: absolute;
+		left: var(--space-2);
+		bottom: var(--space-2);
+		z-index: var(--z-map-ui);
+		display: block;
+		line-height: 0;
 	}
 	.st-legend__route.first {
 		padding-top: 0;
@@ -747,7 +938,8 @@
 		background: var(--color-glass);
 		backdrop-filter: var(--blur-glass);
 		color: var(--color-text-muted);
-		font: 0.6875rem / 1.25rem var(--font-sans);
+		/* 12 px: the least Esri allows for its attribution. */
+		font: 0.75rem / 1.25rem var(--font-sans);
 	}
 	.map :global(.maplibregl-ctrl-attrib a) {
 		color: inherit;
@@ -760,7 +952,7 @@
 		min-height: 1.25rem;
 	}
 	.map :global(.maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show))::before {
-		content: '© OpenStreetMap';
+		content: var(--_attrib-short);
 		white-space: nowrap;
 	}
 	/* MapLibre draws its control icons dark: light ones on the dark glass. */

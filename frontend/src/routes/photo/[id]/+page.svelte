@@ -489,6 +489,8 @@
 				bind:this={mapView}
 				styleUrl={mapConfig.style_url}
 				styleUrlDark={mapConfig.style_url_dark}
+				sources={mapConfig.sources}
+				auto={mapConfig.auto}
 				{current}
 				{picked}
 				suggestions={shown}

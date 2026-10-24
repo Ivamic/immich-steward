@@ -29,6 +29,10 @@ export function errorMessage(error: unknown): string {
 			return m.error_immich_invalid_credentials();
 		case 'immich_password_login_failed':
 			return m.error_immich_password_login_failed();
+		case 'map_source_needs_key':
+			return m.error_map_source_needs_key();
+		case 'map_source_not_enabled':
+			return m.error_map_source_not_enabled();
 		case 'immich_error':
 			return m.error_immich_error();
 		case 'location_null_island':

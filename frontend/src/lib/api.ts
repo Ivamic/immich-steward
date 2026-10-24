@@ -237,7 +237,106 @@ export interface MapConfig {
 	/** For the dark theme; null (or absent, older core): `style_url`, dimmed. */
 	style_url_dark?: string | null;
 	geocoder_enabled: boolean;
+	/** Satellite imagery sources (absent: older core). */
+	sources?: MapSourceConfig[];
+	auto?: MapAuto;
 }
+
+/** What the provider thinks of the key: refused, or the access closed (the limit, most likely). */
+export type MapKeyProblem = 'invalid' | 'exhausted';
+export type MapSourceStatus = 'ok' | 'no_key' | MapKeyProblem;
+
+export interface MapVariant {
+	/** A year of EOX; "default" for the others. */
+	id: string;
+	/** With the account's key; null while the source is off. */
+	tiles: string | null;
+	/** HTML; `{copyright}` stands for the provider's copyright text. */
+	attribution: string;
+}
+
+export interface MapSourceConfig {
+	id: string;
+	name: string;
+	enabled: boolean;
+	status: MapSourceStatus;
+	/** The first is the default. */
+	variants: MapVariant[];
+	tile_size: number;
+	max_zoom: number;
+	logo_url: string | null;
+	copyright: string | null;
+	/** JSON with `copyrightText`, read by the browser (Esri). */
+	copyright_url: string | null;
+}
+
+/** Sources the map takes far out and close up when switching by itself; null: the plain map. */
+export interface MapAuto {
+	far: string | null;
+	near: string | null;
+	switch_zoom: number;
+}
+
+export interface ProviderUsage {
+	used: number | null;
+	/** The provider's estimate for the whole period. */
+	estimated: number | null;
+	since: string | null;
+	until: string | null;
+	fetched_at: string;
+	error: 'token_invalid' | 'unreachable' | null;
+}
+
+/** A source in the settings; keys come only masked. */
+export interface MapSourceItem {
+	id: string;
+	name: string;
+	needs_key: boolean;
+	enabled: boolean;
+	status: MapSourceStatus;
+	key: string | null;
+	key_problem_at: string | null;
+	usage_token_supported: boolean;
+	usage_token: string | null;
+	provider_usage: ProviderUsage | null;
+	/** Tiles loaded by this account since `counted_since` (the own count). */
+	tiles: number;
+	counted_since: string;
+	reset_day: number | null;
+	free_quota: number | null;
+	noncommercial: boolean;
+	years: number[];
+	terms_url: string;
+	site_url: string;
+	key_url: string | null;
+	/** After a save or a check: "unreachable" when the provider could not be asked. */
+	key_check: 'unreachable' | null;
+}
+
+export interface MapSourceUpdate {
+	enabled?: boolean;
+	/** Empty or null deletes the key. */
+	api_key?: string | null;
+	usage_token?: string | null;
+	reset_day?: number | null;
+}
+
+export const getMapSources = () =>
+	request<{ sources: MapSourceItem[]; auto: MapAuto }>('GET', '/api/map-sources');
+export const updateMapSource = (id: string, update: MapSourceUpdate) =>
+	request<MapSourceItem>('PUT', `/api/map-sources/${id}`, update);
+export const checkMapKey = (id: string) =>
+	request<MapSourceItem>('POST', `/api/map-sources/${id}/check`);
+export const resetMapCount = (id: string) =>
+	request<MapSourceItem>('POST', `/api/map-sources/${id}/reset-count`);
+export const refreshMapUsage = (id: string) =>
+	request<MapSourceItem>('POST', `/api/map-sources/${id}/refresh-usage`);
+export const setMapAuto = (auto: MapAuto) => request<MapAuto>('PUT', '/api/map-sources/auto', auto);
+export const reportMapTiles = (
+	tiles: Record<string, number>,
+	problems: Record<string, MapKeyProblem>,
+	keepalive = false
+) => request<void>('POST', '/api/map-sources/report', { tiles, problems }, keepalive);
 
 export interface Place {
 	name: string;

@@ -1,0 +1,155 @@
+# Using the app
+
+This page shows how to go through your photos without a location: find them in the gallery,
+look at the suggestions in the photo card, and save the right place. The app is made to be used
+mostly with the keyboard, but everything works with the mouse too.
+
+The pages are at the top: **Gallery**, **Processing** and **Settings**. On the right are the
+language and the theme (light, dark, or as in your system).
+
+## The gallery
+
+The gallery shows your photos by month, newest first. By default it shows the photos
+**without a location**: your to-do list.
+
+- **Filters** are the row of buttons at the top. Which photos to show: *Without location*,
+  *With location*, *Skipped*, *Not applicable* (several can be on at once). *Confident GeoCLIP
+  guess* leaves the photos for which GeoCLIP is fairly sure where they were taken: a good place
+  to start. Then the type (photos, videos), the camera, the album, the **Period** and the
+  **Processing errors** of the modules. *Reset* brings the default filters back.
+- **Badges** in the corner of a photo: a pin means the photo has a location; an orange crosshair
+  means GeoCLIP has a confident guess for it; a play sign marks a video.
+- **The timeline** on the right shows the years. Click or drag on it to jump to a month.
+- Click a photo to open its card. When you come back, the gallery opens at the same place.
+
+The filter is kept in the address of the page, so a filtered view can be bookmarked.
+
+## The photo card
+
+The card has three columns: the **map** on the left, the **panel** with the actions and the
+suggestions in the middle, and the **photo** with its details on the right. On a narrow screen
+the panel and the details share one column with tabs.
+
+### Choose the place
+
+There are several ways to put a point on the map:
+
+- **Choose a suggestion**: the **Choose** button of a suggestion, or its number key **1** to
+  **9**.
+- **Click the map.** Drag the point to correct it.
+- **Search an address or a place** in the search field (e.g. "Kotor, old town").
+- **Type coordinates** in the coordinates field, e.g. `42.4249, 18.7713` (latitude, longitude),
+  and press Enter.
+
+The picked point is a pin with a green dot. The grey pin is the location the photo already has
+in Immich, if any.
+
+### Save, skip or mark as not applicable
+
+| Button | Key | What it does |
+|---|---|---|
+| **Save location** | Enter | Writes the point to Immich and opens the next photo. |
+| **Skip for now** | S | Moves the photo out of the to-do list into *Skipped*; you can come back to it later. |
+| **Location not applicable** | N | For photos where a place makes no sense: documents, screenshots, close-ups. They never come back to the to-do list. |
+| **Back to the to-do list** | U | For a skipped or not applicable photo: puts it back. |
+
+**Saving can be cancelled.** After you save, a notice in the bottom left corner counts down a few
+seconds before the location is written to Immich; **Cancel** stops it. After it is written, the
+notice offers **Undo**, and the card keeps a **Location history** with an **Undo the last change**
+button. Undo puts back the location the photo had before (or none).
+
+Every location the app writes gets the tag `steward/estimated` in Immich, so you can always tell
+them from the ones recorded by a camera.
+
+### Suggestions
+
+Below the actions the modules list where they think the photo was taken. Every module has its
+own color and marker shape on the map, and the suggestions are numbered across all of them: the
+number on the map, in the list and the key are the same.
+
+- **Time neighbors** (blue circles): photos with a location taken shortly before and after this
+  one, usually during the same trip. The map shows their route: purple before the photo, orange
+  after, brighter when closer in time. A suggestion "on the way between" two photos lies on the
+  dashed line between them; a click near that line lands on it. Under **Devices** you can leave
+  out another camera whose clock was wrong, or use **Only this camera**.
+- **Similar photos** (purple diamonds): photos of your own library that look like this one and
+  have a location: the same street, house or view. The thumbnails show which ones; hover a
+  thumbnail to enlarge it.
+- **GeoCLIP** (orange squares): recognizes the place by its look, anywhere in the world. Its
+  answer is an area, so the circle around it is wide.
+
+**Confidence.** The bars next to a suggestion show how sure the module is: one bar is weak, two
+are normal, three (green, with the word *confident*) are confident. The percentage is the
+module's own score and is comparable only within one module. Weak suggestions are folded under
+"*N more weak suggestions*": they usually get only the region right. The circle on the map
+(and the ± distance) is how far off the suggestion may be.
+
+Hover a suggestion in the list to highlight it on the map, and the other way round. Click a
+suggestion (not its **Choose** button), or press **Shift** and its number, to move the map to it
+without picking it.
+
+**Run again** starts a module on this photo once more, ahead of the background queue (for
+example after you excluded a camera). If no worker runs that module right now, the card says so
+and the run waits.
+
+**Recognize a part of the photo** (key **R** for GeoCLIP) runs the module on a frame you draw:
+useful when people or a car cover most of the picture and the place is only in the background.
+
+Modules can be hidden in the card or put in another order on the **Settings** page; a hidden
+module keeps running, and a line under the suggestions lets you show it for a while.
+
+### The photo
+
+Click the photo (or press **Z**) to see it in full size. **[** and **]** rotate it if it is on its
+side: the modules started after that get it rotated. The rotation is kept only in the card until
+you press **Save rotation in Immich** (photos only, not videos); **Undo rotation** turns it back.
+Saving the rotation needs the API key permissions `asset.edit.get`, `asset.edit.create` and
+`asset.edit.delete`; keys created by Steward 0.3.0 and later have them.
+
+The details below the photo show when it was taken, the camera, the albums and its current
+location. **Open in Immich** (the arrow in the top right corner) opens the photo in Immich in a
+new tab.
+
+### Keyboard keys
+
+Press **?** in the card to see them all.
+
+| Key | Action |
+|---|---|
+| 1 … 9 | Choose a suggestion |
+| Shift + 1 … 9 | Show a suggestion on the map without choosing it |
+| Enter | Save the location |
+| ← → | Previous / next photo |
+| S | Skip for now |
+| N | Location not applicable |
+| U | Back to the to-do list |
+| Z | Enlarge the photo |
+| R | Recognize a part of the photo (GeoCLIP) |
+| [ ] | Rotate the photo |
+| Esc | Back to the gallery |
+| ? | The list of keys |
+
+The keys work with any keyboard layout. A typical round: look at the map, press the number of
+the right suggestion, then Enter; the next photo opens.
+
+## Processing
+
+The **Processing** page shows how the work goes:
+
+- **Library**: how many photos and videos there are, how many have no location, when the app
+  last read your library from Immich and when it does next. **Sync now** reads the changes right
+  away; **Full sync** also notices photos deleted in Immich.
+- **Workers**: which [workers](workers.md) are connected and what each is doing now (waiting for
+  jobs, downloading or loading a model, working). A worker that has not been seen for a while can
+  be removed from the list.
+- **Modules**: for GeoCLIP and similar photos, how many photos are done, running, queued and
+  failed. Failures are grouped by reason; **Show** opens those photos in the gallery and **Run
+  again** queues them once more.
+- **Pause**: holds the background runs of one module or of all, until you resume or for a
+  while (30 minutes to a day), for example while you watch a film on the same server. Runs started
+  from a photo card still go.
+
+## Settings
+
+**Settings** holds the order of the modules in the photo card and which of them are shown. Each
+family member has their own.

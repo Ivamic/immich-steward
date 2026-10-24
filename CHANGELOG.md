@@ -240,7 +240,7 @@ and run them again; workers on other computers, with Docker or an NVIDIA GPU, ar
 
 - Installation guide: workers on other computers in the home network, with Docker (Linux,
   Windows) or on an NVIDIA GPU (Windows, Linux), how to check, stop and update them
-  ([docs/install.md](docs/install.md#workers-on-other-computers)).
+  ([docs/workers.md](docs/workers.md#a-worker-on-another-computer)).
 - The Library page lists photos a module failed on by reason, with links to show them and to
   run them again.
 - Gallery filter "Not processed": photos whose latest run of GeoCLIP failed, for any or one
@@ -275,7 +275,7 @@ and run them again; workers on other computers, with Docker or an NVIDIA GPU, ar
 ### Changed
 
 - Updating is now `git pull`, `docker compose pull` and `docker compose up -d`
-  ([docs/install.md](docs/install.md#updating)).
+  ([docs/updating.md](docs/updating.md#updating)).
 
 ## [0.2.1] - 2026-10-18
 

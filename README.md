@@ -123,10 +123,12 @@ GeoCLIP and similar photos run in an optional worker container (2 to 4 GB of RAM
 models loaded): set `STEWARD_WORKER_TOKEN` in `.env` and start with
 `docker compose --profile worker up -d`.
 Workers can also run on other computers in your network
-([how](docs/install.md#workers-on-other-computers)).
+([how](docs/workers.md#a-worker-on-another-computer)).
 
-See [docs/install.md](docs/install.md) for the details: configuration, the worker, Immich
-on the same machine, updating, backup and troubleshooting.
+The [documentation](docs/README.md) explains it all step by step:
+[installation](docs/install.md), [using the app](docs/usage.md), [workers](docs/workers.md),
+[configuration](docs/configuration.md), [updating](docs/updating.md),
+[privacy](docs/privacy.md) and [troubleshooting](docs/troubleshooting.md).
 
 ## Architecture
 
@@ -149,7 +151,7 @@ Repository layout:
 | `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
 | `docker/` | Dockerfiles of the core image (with the built web UI) and of the worker image (CPU); `.github/workflows/release.yml` publishes them for every version tag |
 | `compose.yaml` | Core service, PostgreSQL with pgvector, optional worker (profile `worker`) |
-| `docs/` | User documentation (installation) |
+| `docs/` | User documentation, starting at [docs/README.md](docs/README.md) |
 
 Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 24 with pnpm, Docker.
 Run all commands from the repository root unless stated otherwise.

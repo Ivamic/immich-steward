@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/time-neighbors-route.png" alt="Photo view: the route between photos taken shortly before and after, with two suggested locations on the map">
+  <img src="docs/images/time-neighbors-route.png" alt="Photo card: the route between photos taken shortly before and after, with three suggested locations on the map and in the list">
 </p>
 
 > **Status: under active development.** An early version: reviewing photos without a location,
@@ -72,12 +72,22 @@ New modules can be added later as plugins.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP suggests the Bay of Kotor with 85% confidence"></td>
-    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Suggestions of two modules on one map: a time neighbor from another camera and a GeoCLIP area"></td>
+    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP suggests the Bay of Kotor with 78% confidence, in the dark theme"></td>
+    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Suggestions of three modules on one map: a GeoCLIP area, a time neighbor from another camera and similar photos"></td>
   </tr>
   <tr>
-    <td>GeoCLIP recognizes the place from the image alone: a confident guess for a camera without GPS.</td>
-    <td>Several modules at once: a phone photo taken two hours later and the GeoCLIP area agree on the city.</td>
+    <td>GeoCLIP recognizes the place from the image alone: a confident guess for a camera without GPS (dark theme).</td>
+    <td>Several modules at once: the GeoCLIP area, a phone photo taken two hours later and similar photos agree on the city.</td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/gallery.png" alt="Gallery of photos without a location, filtered to confident GeoCLIP guesses, with the filter chips and the timeline"></td>
+  </tr>
+  <tr>
+    <td colspan="2">The gallery: filters as chips, a badge on every photo with a location or a confident guess, the timeline on the right.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/processing.png" alt="Processing page: library counts, workers and the progress of each module"></td>
+    <td>Processing: the library and its sync, the workers and what they do, and the progress and failures of each module, with a pause for the background runs.</td>
   </tr>
 </table>
 

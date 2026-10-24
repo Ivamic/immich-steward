@@ -7,6 +7,22 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Satellite imagery on the map**: Sentinel-2 cloudless by EOX (no key, a layer per year
+  2016–2025), Esri World Imagery and MapTiler Satellite (with your own key). All off by default;
+  set up in **Settings → Map sources** with a short summary of each provider's terms, the key
+  (stored encrypted, shown masked, checked with the provider on saving), the tiles the app loaded
+  with a reset (by hand or monthly), and for MapTiler optionally the exact usage with a service
+  token. Over the map: choose the plain map or a source, **Auto by zoom** (a far and a near source)
+  and labels over the imagery. A source whose key is refused or whose limit is used up is skipped.
+  The browser loads the tiles straight from the provider; see
+  [Privacy](docs/privacy.md) and [Configuration](docs/configuration.md#satellite-imagery-in-settings).
+
+### Changed
+
+- The map attribution is 12 px (Esri's minimum) and names the satellite source shown.
+
 ## [0.4.0] - 2026-10-24
 
 A new look: the app is now called **Steward for Immich**, has a new logo, light and dark themes,

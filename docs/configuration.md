@@ -39,6 +39,59 @@ homes.
 | `STEWARD_MAP_STYLE_URL_DARK` | empty | A map style for the dark theme of the app. Empty: the map above, dimmed. |
 | `STEWARD_GEOCODER_URL` | `https://photon.komoot.io` | The [Photon](https://github.com/komoot/photon) geocoder for the address search. Empty: the search field is turned off. A self-hosted Photon also works. |
 
+## Satellite imagery (in Settings)
+
+Satellite imagery is set up in the app, not in `.env`: **Settings → Map sources**. Each family
+member has their own sources and keys. Everything is off until switched on; switching a source on
+means accepting the provider's terms (a short summary and a link are next to the switch). Keys are
+stored encrypted with `STEWARD_SECRET_KEY` and shown masked; changing that secret makes them
+unreadable, so they would have to be entered again.
+
+| Source | Key | Free | Note |
+|---|---|---|---|
+| Sentinel-2 cloudless (EOX) | none | non-commercial use | 10 m per pixel, a layer per year (2016–2025) |
+| Esri World Imagery | ArcGIS Location Platform | 2 million tiles a month | without pay-as-you-go the access closes until the next month, no bill |
+| MapTiler Satellite | MapTiler Cloud | 100,000 requests a month, non-commercial | the service pauses until the next month; the MapTiler logo is shown on the map |
+
+The browser loads the tiles straight from the provider, so **the key is visible in the browser**.
+Restrict it to the address you open the app at (below, `http://192.168.1.10:8080` stands for
+it), so that nobody else can use it.
+
+### Esri World Imagery key
+
+1. Create an account at [ArcGIS Location Platform](https://location.arcgis.com/) (an ArcGIS
+   Online account does not work). No payment method is needed.
+2. Open **Developer credentials → New developer credential → API key**.
+3. Privileges: **Location services → Basemaps**.
+4. Referrers: add the address of the app, for example `http://192.168.1.10:8080`.
+5. Copy the key, paste it in **Settings → Map sources → Esri World Imagery → Key**, press
+   **Save**, then switch the source on.
+
+Esri counts its month from the day your account's billing started; set that day in **Reset
+monthly on day**, so that the count of the app starts anew with Esri's.
+
+### MapTiler Satellite key
+
+1. Create an account at [MapTiler Cloud](https://cloud.maptiler.com/) (the free plan is enough
+   for non-commercial use).
+2. Open **Account → API keys → New key**.
+3. **Allowed HTTP origins**: add the address of the app, for example `http://192.168.1.10:8080`.
+4. Copy the key, paste it in **Settings → Map sources → MapTiler Satellite → Key**, press
+   **Save**, then switch the source on.
+
+Optionally, the exact usage can come from MapTiler: create a service token at **Account →
+Credentials** and paste it under **Exact usage from MapTiler**. The token gives full access to
+the MapTiler account; it stays on the app server, is never sent to the browser and is used only
+to read the usage, at most every three hours or when **Refresh** is pressed.
+
+### What the app counts
+
+The app counts the tiles your browser loads for each source ("loaded by us"). It does not know
+about other apps that use the same key, and tiles from the browser cache are counted too, so it
+is only a guide. A percentage of the limit is shown only when the provider tells the usage
+(MapTiler with a service token). When a provider refuses the key or closes the access, the source
+is marked in Settings and over the map, and **Auto** takes the next source.
+
 ## Suggestions
 
 | Setting | Default | Meaning |

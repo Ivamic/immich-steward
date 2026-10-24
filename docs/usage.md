@@ -44,6 +44,21 @@ There are several ways to put a point on the map:
 The picked point is a pin with a green dot. The grey pin is the location the photo already has
 in Immich, if any.
 
+### Satellite imagery
+
+Once a satellite source is switched on in **Settings → Map sources**, the button in the top left
+corner of the map chooses what the map shows: the plain **Map** or a satellite source (for
+Sentinel-2 also the year; the latest is shown first). Sources that cannot be used are greyed out
+with the reason (no key, key not accepted, limit used up).
+
+- **Auto by zoom** shows the "far" source when zoomed out and the "near" one from the zoom set in
+  Settings (by default Sentinel-2 up to zoom 13, Esri or MapTiler from 14). This saves the
+  limited tiles of the sharper sources. A source that does not work is skipped for the next one.
+  Choosing a source by hand turns Auto off.
+- **Labels over imagery** keeps the place names and roads of the map over the photo.
+
+The choice is remembered in the browser. In the dark theme the imagery is not dimmed.
+
 ### Save, skip or mark as not applicable
 
 | Button | Key | What it does |
@@ -151,5 +166,7 @@ The **Processing** page shows how the work goes:
 
 ## Settings
 
-**Settings** holds the order of the modules in the photo card and which of them are shown. Each
-family member has their own.
+**Settings** holds the order of the modules in the photo card and which of them are shown, and
+the **map sources**: satellite imagery, their keys, how many tiles the app loaded, and which
+sources Auto uses far out and close up. Each family member has their own. How to get the keys:
+[Configuration](configuration.md#satellite-imagery-in-settings).

@@ -6,6 +6,12 @@
   computer). Location suggestions are computed from your own library and by local models.
 - **Map tiles** are loaded by your browser from OpenFreeMap (no account, no key): it sees which
   part of the map you look at. Another tile server can be set with `STEWARD_MAP_STYLE_URL`.
+- **Satellite imagery** is off until you switch a source on in **Settings → Map sources**. Then,
+  while a satellite source is shown, your browser loads its tiles straight from the provider
+  (EOX, Esri or MapTiler): the provider sees your IP address and the area you look at, under your
+  own key. No photos are sent, the app server neither relays nor stores the tiles, and the tiles
+  are not used by any module. The app server contacts the provider itself only to check a key when
+  you save it and, if you gave a MapTiler service token, to read the usage.
 - **Address search** sends the typed text and the approximate map position from the app server to
   the public Photon geocoder (`photon.komoot.io`). Set `STEWARD_GEOCODER_URL=` (empty) to turn the
   search off, or point it to your own Photon.
@@ -13,7 +19,8 @@
   (`huggingface.co`) when a worker loads them for the first time; later loads only check for
   updates there.
 - The **fonts and icons** of the web page come with the app; nothing else is loaded from other
-  sites.
+  sites, except from the satellite source you chose (its tiles, the MapTiler logo, the Esri
+  copyright text).
 
 Modules that send a photo to an outside service may be added in the future. They will never run
 on their own: you will start them for a photo yourself, and the app will show what is sent and

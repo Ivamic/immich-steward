@@ -61,11 +61,23 @@ it), so that nobody else can use it.
 
 1. Create an account at [ArcGIS Location Platform](https://location.arcgis.com/) (an ArcGIS
    Online account does not work). No payment method is needed.
-2. Open **Developer credentials → New developer credential → API key**.
-3. Privileges: **Location services → Basemaps**.
-4. Referrers: add the address of the app, for example `http://192.168.1.10:8080`.
-5. Copy the key, paste it in **Settings → Map sources → Esri World Imagery → Key**, press
-   **Save**, then switch the source on.
+2. Open **Developer credentials → New developer credential**, type **API key**.
+3. Where it is used: **Public application** (access to ArcGIS Location Services). Not one of the
+   private applications: their tokens act with the rights of your account and must not reach a
+   browser.
+4. Item access: **No item access**.
+5. Privileges: **Location services → Basemaps**, nothing else.
+6. Expiration: the latest date allowed (one year ahead). Note it down: on that day the key stops
+   working and a new one is needed. The tiles of Esri may still load with an expired key, but
+   **Check** in the settings will say the key is not accepted.
+7. Referrer URLs: the address you open the app at, exactly as in the address bar of the browser,
+   for example `http://192.168.1.10:8080`; add each address you use (home network, VPN, a host
+   name).
+8. Item details: any title, e.g. `Steward for Immich — World Imagery`, and the expiration date in
+   the summary to find it again in a year.
+9. Copy the key, paste it in **Settings → Map sources → Esri World Imagery → Key**, press
+   **Save**, then switch the source on. Save it from the address added in step 7: the app checks
+   the key as from there.
 
 Esri counts its month from the day your account's billing started; set that day in **Reset
 monthly on day**, so that the count of the app starts anew with Esri's.

@@ -351,13 +351,15 @@ async def update(
     source_id: str,
     *,
     transport: httpx2.AsyncBaseTransport | None = None,
+    site: str | None = None,
     enabled: bool = UNSET,
     api_key: str | None = UNSET,
     usage_token: str | None = UNSET,
     reset_day: int | None = UNSET,
 ) -> str | None:
     """Changes the settings of a source; an empty or null key or token deletes it. A new key is
-    checked with the provider; returns "unreachable" when that could not be done."""
+    checked with the provider, as if asked from `site` (the address of the app in the browser,
+    for keys restricted to it); returns "unreachable" when that could not be done."""
     src = source(source_id)
     rows = await _rows(db, account_id)
     row = _row(rows, account_id, source_id)
@@ -370,7 +372,7 @@ async def update(
         if api_key is None:
             row.enabled = False
         elif src.key_check_url:
-            check = await _check_and_store(row, src, api_key, transport)
+            check = await _check_and_store(row, src, api_key, site, transport)
     if usage_token is not UNSET:
         if not src.usage_token:
             raise ApiError(422, "map_source_no_usage_token")
@@ -397,6 +399,7 @@ async def check_key(
     account_id: UUID,
     source_id: str,
     transport: httpx2.AsyncBaseTransport | None = None,
+    site: str | None = None,
 ) -> str | None:
     """Asks the provider about the stored key again (after a problem); "unreachable" or None."""
     src = source(source_id)
@@ -408,7 +411,7 @@ async def check_key(
         row.key_problem = row.key_problem_at = None
         await db.commit()
         return None
-    check = await _check_and_store(row, src, key, transport)
+    check = await _check_and_store(row, src, key, site, transport)
     await db.commit()
     return check
 
@@ -417,10 +420,11 @@ async def _check_and_store(
     row: MapSourceSetting,
     src: Source,
     key: str,
+    site: str | None,
     transport: httpx2.AsyncBaseTransport | None,
 ) -> str | None:
     try:
-        problem = await _ask_about_key(src, key, transport)
+        problem = await _ask_about_key(src, key, site, transport)
     except httpx2.HTTPError:
         return "unreachable"
     row.key_problem = problem
@@ -434,13 +438,16 @@ def _client(transport: httpx2.AsyncBaseTransport | None) -> httpx2.AsyncClient:
 
 
 async def _ask_about_key(
-    src: Source, key: str, transport: httpx2.AsyncBaseTransport | None
+    src: Source, key: str, site: str | None, transport: httpx2.AsyncBaseTransport | None
 ) -> str | None:
     """None when the provider accepts the key, else the problem. Raises on network errors and
-    on answers that tell nothing (a server error)."""
+    on answers that tell nothing (a server error). A key restricted to the address of the app
+    (Esri referrers, MapTiler allowed origins) is checked with that address, as the browser sends
+    it with the tiles; without it the provider would refuse the key."""
     assert src.key_check_url
+    headers = {"Origin": site, "Referer": site + "/"} if site else {}
     async with _client(transport) as http:
-        response = await http.get(fill(src.key_check_url, key))
+        response = await http.get(fill(src.key_check_url, key), headers=headers)
     if response.status_code in (401, 403):
         return INVALID
     if response.status_code == 429:

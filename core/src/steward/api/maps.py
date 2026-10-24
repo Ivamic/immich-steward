@@ -4,6 +4,7 @@ Photon geocoder)."""
 
 from datetime import datetime
 from typing import Annotated, Any
+from urllib.parse import urlsplit
 
 import httpx2
 from fastapi import APIRouter, Depends, Query, Request, Response
@@ -225,6 +226,16 @@ async def report_map_tiles(body: TileReport, account: CurrentAccount, db: DbDep)
     return Response(status_code=204)
 
 
+def _site(request: Request) -> str | None:
+    """The address of the app in the browser (scheme, host, port), from which the settings were
+    saved: a key restricted to it is checked as from there."""
+    origin = request.headers.get("origin")
+    if origin and origin != "null":
+        return origin.rstrip("/")
+    referer = urlsplit(request.headers.get("referer", ""))
+    return f"{referer.scheme}://{referer.netloc}" if referer.scheme and referer.netloc else None
+
+
 class MapSourceUpdate(BaseModel):
     """Only the fields that are given change; an empty or null key or token deletes it."""
 
@@ -238,6 +249,7 @@ class MapSourceUpdate(BaseModel):
 async def update_map_source(
     source_id: str,
     body: MapSourceUpdate,
+    request: Request,
     account: CurrentAccount,
     db: DbDep,
     box: SecretBoxDep,
@@ -247,19 +259,23 @@ async def update_map_source(
     fields = {name: getattr(body, name) for name in body.model_fields_set}
     if "enabled" in fields and fields["enabled"] is None:
         raise ApiError(422, "map_source_enabled_invalid")
-    check = await map_sources.update(db, box, account.id, source_id, transport=transport, **fields)
+    site = _site(request)
+    check = await map_sources.update(
+        db, box, account.id, source_id, transport=transport, site=site, **fields
+    )
     return await _one(db, box, account, source_id, check)
 
 
 @router.post("/map-sources/{source_id}/check")
 async def check_map_key(
     source_id: str,
+    request: Request,
     account: CurrentAccount,
     db: DbDep,
     box: SecretBoxDep,
     transport: MapTransportDep,
 ) -> MapSourceItem:
-    check = await map_sources.check_key(db, box, account.id, source_id, transport)
+    check = await map_sources.check_key(db, box, account.id, source_id, transport, _site(request))
     return await _one(db, box, account, source_id, check)
 
 

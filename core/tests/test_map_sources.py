@@ -26,6 +26,8 @@ class FakeProviders:
     esri_keys: set[str] = field(default_factory=lambda: {ESRI_KEY})
     maptiler_keys: set[str] = field(default_factory=lambda: {MAPTILER_KEY})
     down: bool = False
+    # Keys restricted to an address of the app: accepted only with it as the referrer.
+    referrers: dict[str, str] = field(default_factory=dict)
     requests: list[httpx2.Request] = field(default_factory=list)
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
@@ -34,7 +36,12 @@ class FakeProviders:
             raise httpx2.ConnectError("no network", request=request)
         url = request.url
         if url.host == "basemapstyles-api.arcgis.com":
-            if url.params.get("token") in self.esri_keys:
+            token = url.params.get("token", "")
+            allowed = self.referrers.get(token)
+            if allowed and not request.headers.get("referer", "").startswith(allowed):
+                error = {"code": 403, "message": "Invalid referer", "details": []}
+                return httpx2.Response(403, json={"error": error})
+            if token in self.esri_keys:
                 return httpx2.Response(200, json={"version": 8, "sources": {}})
             error = {"code": 498, "message": "Token Invalid.", "details": []}
             return httpx2.Response(401, json={"error": error})
@@ -182,6 +189,19 @@ def test_esri_reports_errors_in_the_body(signed_in: TestClient, providers: FakeP
 
     signed_in.app.state.map_transport = httpx2.MockTransport(ok_with_error)  # type: ignore[attr-defined]
     assert put(signed_in, "esri", api_key=ESRI_KEY).json()["status"] == "invalid"
+
+
+def test_key_restricted_to_the_app_address(signed_in: TestClient, providers: FakeProviders) -> None:
+    providers.referrers[ESRI_KEY] = "http://192.168.1.10:8080"
+    # The browser says where the settings were saved from; the check goes as from there.
+    origin = {"origin": "http://192.168.1.10:8080"}
+    response = signed_in.put("/api/map-sources/esri", json={"api_key": ESRI_KEY}, headers=origin)
+    assert response.json()["status"] == "ok"
+    assert providers.requests[-1].headers["referer"] == "http://192.168.1.10:8080/"
+
+    other = {"referer": "http://steward.lan/settings"}
+    response = signed_in.post("/api/map-sources/esri/check", headers=other)
+    assert response.json()["status"] == "invalid"
 
 
 def test_provider_unreachable(signed_in: TestClient, providers: FakeProviders) -> None:

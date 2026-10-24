@@ -62,6 +62,24 @@ def test_crop_refuses_what_is_no_image() -> None:
         crop(b"not an image", LEFT_HALF)
 
 
+def saved_as(image_format: str) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", (40, 20), "red").save(out, image_format)
+    return out.getvalue()
+
+
+@pytest.mark.parametrize("image_format", ["PNG", "WEBP", "AVIF", "GIF", "BMP"])
+def test_crop_reads_photo_formats(image_format: str) -> None:
+    assert is_red(crop(saved_as(image_format), LEFT_HALF))
+
+
+@pytest.mark.parametrize("image_format", ["TIFF", "PDF", "PCX", "PPM"])
+def test_crop_does_not_decode_rare_formats(image_format: str) -> None:
+    # Pillow can read these, but the app does not let it: they are no photos.
+    with pytest.raises(UnreadableImage):
+        crop(saved_as(image_format), LEFT_HALF)
+
+
 @pytest.fixture
 def photo(signed_in: TestClient, fake_immich: FakeImmich) -> tuple[str, str]:
     """Local and Immich id of a photo without a location."""

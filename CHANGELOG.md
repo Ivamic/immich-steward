@@ -7,6 +7,21 @@ between releases.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-24
+
+### Security
+
+- **Pillow 13.0.0** (was 12.3.0) in the core and worker images: it fixes many vulnerabilities in
+  the image decoders (among them CVE-2026-112393, CVE-2026-112398, CVE-2026-112403,
+  CVE-2026-112900 and CVE-2026-96639), reachable because the app decodes photos it gets from
+  Immich. GeoCLIP 1.2.3 asks for Pillow below 13 only as a precaution; the app overrides that.
+  Thanks to the user who reported it.
+- The core and the worker decode only the formats Immich can send them: JPEG, PNG, WebP, AVIF,
+  GIF and BMP in the core (Immich sends other originals, such as HEIC, RAW or TIFF, as a JPEG or
+  WebP copy), JPEG, WebP and PNG in the worker (it gets only previews and parts cut by the
+  core). Other formats that Pillow could open (TIFF, PDF, EPS, FlashPix and others) are refused
+  as unreadable images.
+
 ## [0.4.0] - 2026-10-24
 
 A new look: the app is now called **Steward for Immich**, has a new logo, light and dark themes,
@@ -351,7 +366,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Ivamic/immich-steward/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Ivamic/immich-steward/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Ivamic/immich-steward/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Ivamic/immich-steward/compare/v0.3.0...v0.3.1

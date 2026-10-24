@@ -16,7 +16,7 @@ import warnings
 from dataclasses import dataclass
 from typing import Any
 
-from steward_worker.modules.base import Candidate, PermanentError
+from steward_worker.modules.base import IMAGE_FORMATS, Candidate, PermanentError
 from steward_worker.modules.clustering import cluster_points
 
 log = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class GeoClipModule:
 
         assert self._model is not None, "load() first"
         try:
-            with Image.open(io.BytesIO(image)) as opened:
+            with Image.open(io.BytesIO(image), formats=IMAGE_FORMATS) as opened:
                 pixels = self._model.image_encoder.preprocess_image(opened.convert("RGB"))
         except (UnidentifiedImageError, OSError) as exc:
             raise PermanentError(f"cannot read the image: {exc}") from exc

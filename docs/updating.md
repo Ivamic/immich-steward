@@ -49,7 +49,7 @@ doesn't touch. Then undo your changes to `compose.yaml` (`git checkout compose.y
 
 ### Staying on a version
 
-To keep a version while `compose.yaml` moves on, set it in `.env`, e.g. `STEWARD_VERSION=0.4.0`.
+To keep a version while `compose.yaml` moves on, set it in `.env`, e.g. `STEWARD_VERSION=0.4.1`.
 
 `STEWARD_VERSION=latest` (or `0.4` for the newest 0.4.x) makes `docker compose pull` fetch new
 images without `git pull`. We don't recommend it while the project is at an early stage: a new

@@ -16,7 +16,7 @@ import struct
 from collections.abc import Sequence
 from typing import Any
 
-from steward_worker.modules.base import Embedding, PermanentError
+from steward_worker.modules.base import IMAGE_FORMATS, Embedding, PermanentError
 from steward_worker.modules.geoclip import ModuleOptions, resolve_device
 
 log = logging.getLogger(__name__)
@@ -82,7 +82,7 @@ class SimilarModule:
 
         assert self._model is not None, "load() first"
         try:
-            with Image.open(io.BytesIO(image)) as opened:
+            with Image.open(io.BytesIO(image), formats=IMAGE_FORMATS) as opened:
                 rgb = opened.convert("RGB").resize(
                     (INPUT_SIZE, INPUT_SIZE), Image.Resampling.BICUBIC
                 )

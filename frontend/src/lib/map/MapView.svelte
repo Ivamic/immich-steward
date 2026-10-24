@@ -121,7 +121,8 @@
 	const LABELS_KEY = 'steward-map-labels';
 	const IMAGERY = 'steward-imagery';
 	let choice = $state(stored(SOURCE_KEY, SCHEME));
-	let autoOn = $state(stored(AUTO_KEY, 'on') === 'on');
+	// The plain map until something else is picked; auto switching only when turned on.
+	let autoOn = $state(stored(AUTO_KEY, 'off') === 'on');
 	let labels = $state(stored(LABELS_KEY, 'on') === 'on');
 	// The latest EOX year unless another is picked in this page (D-146).
 	let eoxYear = $state<string | null>(null);
@@ -141,7 +142,7 @@
 	// no glaring white); markers and pins are HTML above it and keep their colors. Imagery is not.
 	const dimmed = $derived(theme.resolved === 'dark' && !styleUrlDark && active === SCHEME);
 	let appliedImagery = '';
-	// Label layers the style itself hides; showing the labels again must not show these.
+	// Layers the style itself hides; showing them again after the imagery must not show these.
 	let hiddenByStyle = new Set<string>();
 	let appliedStyle = '';
 	let currentMarker: Marker | undefined;
@@ -228,10 +229,9 @@
 		// Also after a change of the style (theme): it drops the layers of the app.
 		instance.on('style.load', () => {
 			addLayers(instance);
+			const { labels: named, over } = styleLayers(instance);
 			hiddenByStyle = new Set(
-				labelLayers(instance).filter(
-					(id) => instance.getLayoutProperty(id, 'visibility') === 'none'
-				)
+				[...named, ...over].filter((id) => instance.getLayoutProperty(id, 'visibility') === 'none')
 			);
 			appliedImagery = '';
 			ready = true;
@@ -317,24 +317,42 @@
 					maxzoom: source.max_zoom,
 					attribution: attributionHtml(variant.attribution, copyright)
 				});
-				const labelsFrom = labelLayers(instance)[0];
+				const labelsFrom = styleLayers(instance).firstLabel;
 				instance.addLayer({ id: IMAGERY, type: 'raster', source: IMAGERY }, labelsFrom);
 			}
 			appliedImagery = key;
 		}
-		const showLabels = !key || labels;
-		for (const id of labelLayers(instance)) {
-			if (hiddenByStyle.has(id)) continue;
-			instance.setLayoutProperty(id, 'visibility', showLabels ? 'visible' : 'none');
-		}
+		const { labels: named, over } = styleLayers(instance);
+		const show = (id: string, visible: boolean) => {
+			if (!hiddenByStyle.has(id))
+				instance.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+		};
+		for (const id of named) show(id, !key || labels);
+		for (const id of over) show(id, !key);
 	});
 
-	/** Label layers of the style (not ours), bottom first. */
-	function labelLayers(instance: MapLibreMap): string[] {
-		return instance
-			.getStyle()
-			.layers.filter((l) => l.type === 'symbol' && !l.id.startsWith('steward-'))
+	/**
+	 * Layers of the style (not ours) as the imagery sees them: `labels` are the names of places,
+	 * roads and water, kept over the imagery when wanted; `over` would cover the imagery and go
+	 * while it is shown: what the style draws above its first label (bridges, buildings, their 3D
+	 * shapes, borders) and the icons of places of interest.
+	 */
+	function styleLayers(instance: MapLibreMap): {
+		labels: string[];
+		over: string[];
+		firstLabel: string | undefined;
+	} {
+		const layers = instance.getStyle().layers.filter((l) => !l.id.startsWith('steward-'));
+		const first = layers.findIndex((l) => l.type === 'symbol');
+		const poi = (l: (typeof layers)[number]) => 'source-layer' in l && l['source-layer'] === 'poi';
+		const labels = layers.filter((l) => l.type === 'symbol' && !poi(l)).map((l) => l.id);
+		const over = layers
+			.filter(
+				(l, i) =>
+					(l.type !== 'symbol' && first >= 0 && i > first) || (l.type === 'symbol' && poi(l))
+			)
 			.map((l) => l.id);
+		return { labels, over, firstLabel: first >= 0 ? layers[first].id : undefined };
 	}
 
 	function addLayers(instance: MapLibreMap) {
@@ -739,79 +757,86 @@
 	}
 </script>
 
-<div
-	class="wrap"
-	class:dimmed
-	class:with-logo={activeSource?.logo_url}
-	style:--_attrib-short={`'${shortAttribution(active)}'`}
->
-	<div class="map" bind:this={container}></div>
-	{#if sources.length}
-		<div class="sources">
-			<MapSourceSwitcher
-				{sources}
-				{choice}
-				{auto}
-				autoOn={autoActive}
-				{labels}
-				{year}
-				{active}
-				{problems}
-				onchoice={(id) => {
-					choice = id;
-					store(SOURCE_KEY, id);
-				}}
-				onauto={(on) => {
-					autoOn = on;
-					store(AUTO_KEY, on ? 'on' : 'off');
-				}}
-				onlabels={(on) => {
-					labels = on;
-					store(LABELS_KEY, on ? 'on' : 'off');
-				}}
-				onyear={(picked) => (eoxYear = picked)}
-			/>
-		</div>
+<div class="frame">
+	<!-- Only for an account that switched a satellite source on: no bar for the others. -->
+	{#if sources.some((s) => s.enabled)}
+		<MapSourceSwitcher
+			{sources}
+			{auto}
+			autoOn={autoActive}
+			{labels}
+			{year}
+			{active}
+			{problems}
+			onchoice={(id) => {
+				choice = id;
+				store(SOURCE_KEY, id);
+			}}
+			onauto={(on) => {
+				autoOn = on;
+				store(AUTO_KEY, on ? 'on' : 'off');
+			}}
+			onlabels={(on) => {
+				labels = on;
+				store(LABELS_KEY, on ? 'on' : 'off');
+			}}
+			onyear={(picked) => (eoxYear = picked)}
+		/>
 	{/if}
-	{#if activeSource?.logo_url}
-		<!-- Required on the map by the free plan of MapTiler; loaded from MapTiler with its tiles. -->
-		<a class="logo" href="https://www.maptiler.com/" target="_blank" rel="noopener">
-			<img src={activeSource.logo_url} alt={activeSource.name} width="67" height="20" />
-		</a>
-	{/if}
-	{#if legend.length || route}
-		<div class="legend st-glass st-legend" aria-hidden="true">
-			{#each legend as row (row.key)}
-				<div class="st-legend__row">
-					<span
-						class="st-marker st-marker--sm st-marker--{row.shape}"
-						style:--_c={row.color}
-						style:--_on="var(--gray-0)"
-					>
-						<!-- eslint-disable-next-line svelte/no-at-html-tags -- fixed markup from markers.ts -->
-						{@html shapeSvg(row.shape)}
-					</span>
-					<span class="st-legend__name">{row.name}</span>
-					<span class="st-legend__count">{row.count}</span>
-				</div>
-			{/each}
-			{#if route}
-				<div class="st-legend__route" class:first={!legend.length}>
-					<span>{m.map_before()}</span>
-					<span class="ramp" style:background={legendRamp}></span>
-					<span>{m.map_after()}</span>
-				</div>
-				<div class="st-legend__note">{m.map_legend_closer()}</div>
-			{/if}
-		</div>
-	{/if}
+	<div
+		class="wrap"
+		class:dimmed
+		class:with-logo={activeSource?.logo_url}
+		style:--_attrib-short={`'${shortAttribution(active)}'`}
+	>
+		<div class="map" bind:this={container}></div>
+		{#if activeSource?.logo_url}
+			<!-- Required on the map by the free plan of MapTiler; loaded from MapTiler with its tiles. -->
+			<a class="logo" href="https://www.maptiler.com/" target="_blank" rel="noopener">
+				<img src={activeSource.logo_url} alt={activeSource.name} width="67" height="20" />
+			</a>
+		{/if}
+		{#if legend.length || route}
+			<div class="legend st-glass st-legend" aria-hidden="true">
+				{#each legend as row (row.key)}
+					<div class="st-legend__row">
+						<span
+							class="st-marker st-marker--sm st-marker--{row.shape}"
+							style:--_c={row.color}
+							style:--_on="var(--gray-0)"
+						>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -- fixed markup from markers.ts -->
+							{@html shapeSvg(row.shape)}
+						</span>
+						<span class="st-legend__name">{row.name}</span>
+						<span class="st-legend__count">{row.count}</span>
+					</div>
+				{/each}
+				{#if route}
+					<div class="st-legend__route" class:first={!legend.length}>
+						<span>{m.map_before()}</span>
+						<span class="ramp" style:background={legendRamp}></span>
+						<span>{m.map_after()}</span>
+					</div>
+					<div class="st-legend__note">{m.map_legend_closer()}</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </div>
 
 <style>
-	.wrap {
-		position: relative;
+	.frame {
+		display: flex;
+		flex-direction: column;
 		width: 100%;
 		height: 100%;
+	}
+	.wrap {
+		position: relative;
+		flex: 1;
+		min-height: 0;
+		width: 100%;
 	}
 	.legend {
 		position: absolute;
@@ -821,12 +846,6 @@
 	}
 	.with-logo .legend {
 		bottom: calc(var(--space-2) * 2 + 20px);
-	}
-	.sources {
-		position: absolute;
-		top: var(--space-2);
-		left: var(--space-2);
-		z-index: calc(var(--z-map-ui) + 1);
 	}
 	.logo {
 		position: absolute;

@@ -46,16 +46,18 @@ in Immich, if any.
 
 ### Satellite imagery
 
-Once a satellite source is switched on in **Settings → Map sources**, the button in the top left
-corner of the map chooses what the map shows: the plain **Map** or a satellite source (for
-Sentinel-2 also the year; the latest is shown first). Sources that cannot be used are greyed out
-with the reason (no key, key not accepted, limit used up).
+Once a satellite source is switched on in **Settings → Map sources**, a bar above the map
+chooses the **base map**: the plain **Map** (the default) or a satellite source (for Sentinel-2
+also the year; the latest is shown first). Sources that cannot be used are greyed out; hover them
+for the reason (no key, key not accepted, limit used up).
 
-- **Auto by zoom** shows the "far" source when zoomed out and the "near" one from the zoom set in
-  Settings (by default Sentinel-2 up to zoom 13, Esri or MapTiler from 14). This saves the
-  limited tiles of the sharper sources. A source that does not work is skipped for the next one.
-  Choosing a source by hand turns Auto off.
-- **Labels over imagery** keeps the place names and roads of the map over the photo.
+- **Auto** on the right of the bar shows whether the base map switches by itself. When on, the
+  map shows the "far" source when zoomed out and the "near" one from the zoom set in Settings
+  (by default Sentinel-2 up to zoom 13, Esri or MapTiler from 14), and the bar highlights the
+  source shown now. This saves the limited tiles of the sharper sources. A source that does not
+  work is skipped for the next one. Choosing a base map by hand turns Auto off.
+- **Labels over imagery** keeps the names of places, streets and water over the photo. Buildings,
+  bridges, borders and the icons of shops and the like are not drawn over imagery.
 
 The choice is remembered in the browser. In the dark theme the imagery is not dimmed.
 

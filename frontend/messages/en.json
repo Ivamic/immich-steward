@@ -317,9 +317,6 @@
 	"device_same_only": "Only this camera",
 	"device_same_only_hint": "Count only photos of the same camera as this one; holds for the next photos too",
 	"mapsrc_scheme": "Map",
-	"mapsrc_button": "Map source: {name}",
-	"mapsrc_auto_badge": "auto",
-	"mapsrc_auto": "Auto by zoom",
 	"mapsrc_auto_hint": "Far out: {far}; from zoom {zoom}: {near}",
 	"mapsrc_auto_unset": "Choose the far and near sources in Settings.",
 	"mapsrc_labels": "Labels over imagery",
@@ -328,7 +325,6 @@
 	"mapsrc_turn_on": "turn it on in Settings",
 	"mapsrc_invalid": "key not accepted",
 	"mapsrc_exhausted": "access closed (limit)",
-	"mapsrc_settings": "Map source settings",
 	"mapsrc_heading": "Map sources",
 	"mapsrc_hint": "Satellite imagery under the map labels. Everything is off until you switch a source on, which means you accept its terms. The browser loads the tiles straight from the provider: it sees your address and the area you look at. Each account has its own keys.",
 	"mapsrc_enable": "On",
@@ -379,5 +375,8 @@
 	"mapsrc_option_off": "off",
 	"mapsrc_auto_none": "Switch a source on above to choose it here.",
 	"error_map_source_needs_key": "Enter the key of this source first.",
-	"error_map_source_not_enabled": "Only a source that is on can be chosen."
+	"error_map_source_not_enabled": "Only a source that is on can be chosen.",
+	"mapsrc_basemap": "Base map",
+	"mapsrc_auto_on": "Auto: on",
+	"mapsrc_auto_off": "Auto: off"
 }

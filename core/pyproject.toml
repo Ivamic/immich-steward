@@ -2,7 +2,7 @@
 
 [project]
 name = "steward"
-version = "0.4.0"
+version = "0.4.1"
 description = "Core service of immich-steward: a companion app that restores missing metadata in an Immich library."
 license = "AGPL-3.0-or-later"
 authors = [{ name = "Ivamic" }]
@@ -14,7 +14,7 @@ dependencies = [
     "fastapi>=0.115",
     "httpx2>=2.13",
     "pgvector>=0.5.1",
-    "pillow>=12",
+    "pillow>=13",
     "pydantic-settings>=2.8",
     "sqlalchemy[asyncio]>=2.0.40",
     "uvicorn>=0.34",

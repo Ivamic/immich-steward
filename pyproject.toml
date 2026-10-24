@@ -4,6 +4,11 @@
 [tool.uv.workspace]
 members = ["core", "worker"]
 
+[tool.uv]
+# geoclip 1.2.3 caps Pillow below 13 ahead of time; it only opens images with it. Pillow 13 fixes
+# security issues in the decoders, so it is used anyway (drop this once geoclip allows it).
+override-dependencies = ["pillow>=13"]
+
 [tool.uv.sources]
 steward = { workspace = true }
 steward-worker = { workspace = true }

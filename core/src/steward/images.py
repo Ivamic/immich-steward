@@ -11,6 +11,11 @@ MAX_SIDE = 1440
 # The long side of a turned photo shown in full size.
 MAX_TURNED_SIDE = 4096
 JPEG_QUALITY = 92
+# What Immich can send: the original only when it is a web image (Immich's own list of them),
+# else its JPEG or WebP copy (HEIC, RAW, TIFF, ...). Multi-picture JPEGs (MPO) open as JPEG.
+# Pillow tries every format it knows otherwise, and the others (TIFF, PDF, EPS, FlashPix, ...)
+# have had most of the decoder bugs.
+FORMATS = ("JPEG", "PNG", "WEBP", "AVIF", "GIF", "BMP")
 
 # Turns the user can give a photo, clockwise in degrees.
 TURNS = (0, 90, 180, 270)
@@ -48,7 +53,7 @@ def turned(content: bytes, turn: int, max_side: int = MAX_TURNED_SIDE) -> bytes:
 
 def _opened(content: bytes, turn: int) -> Image.Image:
     try:
-        with Image.open(io.BytesIO(content)) as image:
+        with Image.open(io.BytesIO(content), formats=FORMATS) as image:
             # Originals keep their orientation in EXIF; the user sees the photo turned by it.
             photo = ImageOps.exif_transpose(image).convert("RGB")
     except (OSError, ValueError, Image.DecompressionBombError) as exc:

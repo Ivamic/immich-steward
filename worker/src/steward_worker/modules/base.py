@@ -4,6 +4,10 @@
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+# What the core sends: the previews of Immich (JPEG or WebP) or parts it cut (JPEG). Pillow would
+# try every format it knows otherwise, and the rare ones have had most of the decoder bugs.
+IMAGE_FORMATS = ("JPEG", "WEBP", "PNG")
+
 
 @dataclass(frozen=True)
 class Candidate:

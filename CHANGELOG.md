@@ -7,7 +7,7 @@ between releases.
 
 ## [Unreleased]
 
-## [0.4.1] - 2026-10-24
+## [0.4.1] - 2026-10-25
 
 ### Security
 

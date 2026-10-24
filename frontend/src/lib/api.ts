@@ -234,7 +234,7 @@ export interface AssetDetail {
 
 export interface MapConfig {
 	style_url: string;
-	/** For the dark theme; null (or absent, older core): `style_url` in both themes. */
+	/** For the dark theme; null (or absent, older core): `style_url`, dimmed. */
 	style_url_dark?: string | null;
 	geocoder_enabled: boolean;
 }

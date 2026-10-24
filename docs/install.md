@@ -399,8 +399,8 @@ passes through the app when you sign in), and set `STEWARD_COOKIE_SECURE=true` i
 ## What leaves your server
 
 - **Map tiles** are loaded by your browser from OpenFreeMap (no account, no key). Another tile
-  server can be set with `STEWARD_MAP_STYLE_URL` (and `STEWARD_MAP_STYLE_URL_DARK` for the dark
-  theme; empty: the dark theme uses the same map).
+  server can be set with `STEWARD_MAP_STYLE_URL`. In the dark theme the same map is shown dimmed;
+  `STEWARD_MAP_STYLE_URL_DARK` sets a dark style of its own instead.
 - **Address search** sends the typed text and the approximate map position from the app server
   to the public Photon geocoder (`photon.komoot.io`). Set `STEWARD_GEOCODER_URL=` (empty) to turn
   address search off, or point it to your own Photon.

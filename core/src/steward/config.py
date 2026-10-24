@@ -38,8 +38,8 @@ class Settings(BaseSettings):
 
     # MapLibre style for the base map. OpenFreeMap needs no API key; data © OpenStreetMap.
     map_style_url: str = "https://tiles.openfreemap.org/styles/liberty"
-    # The style for the dark theme of the web UI; empty: the dark theme uses the style above.
-    map_style_url_dark: str = "https://tiles.openfreemap.org/styles/dark"
+    # The style for the dark theme of the web UI; empty: the style above, dimmed.
+    map_style_url_dark: str = ""
     # Photon geocoder for address search (https://photon.komoot.io or a self-hosted one);
     # an empty value disables address search.
     geocoder_url: str = "https://photon.komoot.io"

@@ -21,7 +21,7 @@ MAX_RESULTS = 8
 
 class MapConfig(BaseModel):
     style_url: str
-    # For the dark theme of the web UI; null: the same as `style_url`.
+    # For the dark theme of the web UI; null: `style_url`, dimmed.
     style_url_dark: str | None
     geocoder_enabled: bool
 

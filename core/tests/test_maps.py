@@ -29,10 +29,11 @@ def test_map_config_requires_sign_in(client: TestClient) -> None:
 def test_map_config(signed_in: TestClient) -> None:
     config = signed_in.get("/api/config/map").json()
     assert config["style_url"].startswith("https://")
-    assert config["style_url_dark"].startswith("https://")
+    assert config["style_url_dark"] is None  # the light map, dimmed
     assert config["geocoder_enabled"] is True
 
 
-def test_map_config_without_dark_style(signed_in: TestClient) -> None:
-    signed_in.app.state.settings.map_style_url_dark = ""  # type: ignore[attr-defined]
-    assert signed_in.get("/api/config/map").json()["style_url_dark"] is None
+def test_map_config_with_dark_style(signed_in: TestClient) -> None:
+    url = "https://tiles.openfreemap.org/styles/fiord"
+    signed_in.app.state.settings.map_style_url_dark = url  # type: ignore[attr-defined]
+    assert signed_in.get("/api/config/map").json()["style_url_dark"] == url

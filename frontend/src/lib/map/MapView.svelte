@@ -64,7 +64,7 @@
 		onhighlight = () => {}
 	}: {
 		styleUrl: string;
-		/** The map style for the dark theme; null: `styleUrl` in both themes. */
+		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
 		styleUrlDark?: string | null;
 		current: LatLon | null;
 		picked: LatLon | null;
@@ -95,6 +95,9 @@
 	let ready = $state(false);
 	// The style follows the theme; switching it keeps the view (no new map).
 	const style = $derived(theme.resolved === 'dark' && styleUrlDark ? styleUrlDark : styleUrl);
+	// Without a dark style of its own, the light map is dimmed in the dark theme (detailed, and
+	// no glaring white); markers and pins are HTML above it and keep their colors.
+	const dimmed = $derived(theme.resolved === 'dark' && !styleUrlDark);
 	let appliedStyle = '';
 	let currentMarker: Marker | undefined;
 	let pickedMarker: Marker | undefined;
@@ -600,7 +603,7 @@
 	}
 </script>
 
-<div class="wrap">
+<div class="wrap" class:dimmed>
 	<div class="map" bind:this={container}></div>
 	{#if legend.length || route}
 		<div class="legend st-glass st-legend" aria-hidden="true">
@@ -656,6 +659,9 @@
 		width: 100%;
 		height: 100%;
 		min-height: 20rem;
+	}
+	.dimmed .map :global(.maplibregl-canvas) {
+		filter: brightness(0.7) contrast(1.05) saturate(0.85);
 	}
 	/* Markers and popups are created outside the component markup, so their styles are global. */
 	.map :global(.steward-candidate) {

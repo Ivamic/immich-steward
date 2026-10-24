@@ -7,6 +7,48 @@ between releases.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-24
+
+A new look: the app is now called **Steward for Immich**, has a new logo, light and dark themes,
+and every screen is redesigned. What the app does and how it works stays the same.
+
+### Added
+
+- **Themes**: light, dark, or as in the system, switched in the header and remembered in the
+  browser. In the dark theme the map is shown dimmed.
+- **Keyboard shortcuts window**: press `?` in the photo card (or the keyboard button).
+- **Shift+1…9** in the photo card shows a suggestion on the map without picking it.
+- A **legend** of the modules on the map, and loading placeholders and empty states in the
+  gallery and the suggestions.
+- `STEWARD_MAP_STYLE_URL_DARK`: an own map style for the dark theme (by default the map is
+  dimmed instead).
+
+### Changed
+
+- **New name and logo** shown in the app and in the README: "Steward for Immich". The
+  repository, images, compose project and the `STEWARD_*` settings keep their names.
+- **New design** of every screen: the gallery filters are a row of chips (the period and the
+  processing errors open a small panel), the photo card has a toolbar with labelled previous /
+  next buttons, the save, skip and not applicable buttons with their keys, and the suggestions
+  show a confidence meter. The markers of the modules have their own shape and color; the
+  similar photos module is now purple (green marks a confirmed location).
+- Fonts (IBM Plex) and icons (Lucide) come with the app; nothing is loaded from other sites
+  except the map tiles.
+- After rotating a photo, a block under it saves the rotation in Immich or undoes it; for a
+  video it explains that the rotation works in the card only.
+- Camera names no longer repeat the make ("Canon EOS 550D", not "Canon Canon EOS 550D").
+
+### Fixed
+
+- Year labels of the timeline mark where the year begins; when there is no room, the label is
+  left out instead of moving to a later month.
+- Month titles in Russian ("Август 2019 г.", not "Август 2019 Г.").
+
+### Upgrading
+
+No database changes. Workers of 0.3.x work with this version; there is nothing new for them, so
+updating them is optional.
+
 ## [0.3.2] - 2026-10-23
 
 Smaller improvements: the modules in the photo card can be ordered and hidden, the failures of
@@ -309,7 +351,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Ivamic/immich-steward/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Ivamic/immich-steward/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Ivamic/immich-steward/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Ivamic/immich-steward/compare/v0.2.5...v0.3.0

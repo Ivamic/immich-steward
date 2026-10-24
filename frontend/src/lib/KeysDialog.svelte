@@ -9,6 +9,7 @@
 
 	const rows: [string[], () => string][] = [
 		[['1–9'], m.keys_choose],
+		[['Shift', '1–9'], m.keys_locate],
 		[['Enter'], m.keys_save],
 		[['←', '→'], m.keys_previous_next],
 		[['S'], m.keys_skip],

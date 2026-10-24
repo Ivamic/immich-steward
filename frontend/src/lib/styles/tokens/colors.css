@@ -118,22 +118,24 @@
 	--module-8-on: var(--gray-0);
 }
 /* ── Semantic: dark — explicit choice ── */
+/* Dark surfaces are spread wider than in the design system (0.175/0.195/0.215): on TN and
+   other low-contrast screens the panels merged into one black. */
 [data-theme='dark'] {
 	color-scheme: dark;
-	--color-bg: var(--gray-975);
-	--color-surface: var(--gray-950);
-	--color-surface-raised: var(--gray-925);
-	--color-surface-sunken: oklch(0.16 0 0);
-	--color-surface-hover: oklch(1 0 0 / 0.06);
-	--color-surface-active: oklch(1 0 0 / 0.1);
+	--color-bg: oklch(0.155 0 0);
+	--color-surface: oklch(0.215 0 0);
+	--color-surface-raised: oklch(0.25 0 0);
+	--color-surface-sunken: oklch(0.125 0 0);
+	--color-surface-hover: oklch(1 0 0 / 0.08);
+	--color-surface-active: oklch(1 0 0 / 0.14);
 	--color-surface-selected: oklch(0.3 0.045 148);
-	--color-glass: oklch(0.2 0 0 / 0.78);
-	--color-stage: oklch(0.16 0 0);
+	--color-glass: oklch(0.23 0 0 / 0.85);
+	--color-stage: oklch(0.125 0 0);
 	--color-scrim: oklch(0 0 0 / 0.6);
-	--color-skeleton: var(--gray-900);
-	--color-border: oklch(1 0 0 / 0.1);
-	--color-border-strong: oklch(1 0 0 / 0.2);
-	--color-border-input: oklch(1 0 0 / 0.22);
+	--color-skeleton: oklch(0.27 0 0);
+	--color-border: oklch(1 0 0 / 0.16);
+	--color-border-strong: oklch(1 0 0 / 0.28);
+	--color-border-input: oklch(1 0 0 / 0.32);
 	--color-text: var(--gray-100);
 	--color-text-muted: var(--gray-400);
 	--color-text-subtle: oklch(0.64 0 0);
@@ -191,20 +193,20 @@
 @media (prefers-color-scheme: dark) {
 	:root {
 		color-scheme: dark;
-		--color-bg: var(--gray-975);
-		--color-surface: var(--gray-950);
-		--color-surface-raised: var(--gray-925);
-		--color-surface-sunken: oklch(0.16 0 0);
-		--color-surface-hover: oklch(1 0 0 / 0.06);
-		--color-surface-active: oklch(1 0 0 / 0.1);
+		--color-bg: oklch(0.155 0 0);
+		--color-surface: oklch(0.215 0 0);
+		--color-surface-raised: oklch(0.25 0 0);
+		--color-surface-sunken: oklch(0.125 0 0);
+		--color-surface-hover: oklch(1 0 0 / 0.08);
+		--color-surface-active: oklch(1 0 0 / 0.14);
 		--color-surface-selected: oklch(0.3 0.045 148);
-		--color-glass: oklch(0.2 0 0 / 0.78);
-		--color-stage: oklch(0.16 0 0);
+		--color-glass: oklch(0.23 0 0 / 0.85);
+		--color-stage: oklch(0.125 0 0);
 		--color-scrim: oklch(0 0 0 / 0.6);
-		--color-skeleton: var(--gray-900);
-		--color-border: oklch(1 0 0 / 0.1);
-		--color-border-strong: oklch(1 0 0 / 0.2);
-		--color-border-input: oklch(1 0 0 / 0.22);
+		--color-skeleton: oklch(0.27 0 0);
+		--color-border: oklch(1 0 0 / 0.16);
+		--color-border-strong: oklch(1 0 0 / 0.28);
+		--color-border-input: oklch(1 0 0 / 0.32);
 		--color-text: var(--gray-100);
 		--color-text-muted: var(--gray-400);
 		--color-text-subtle: oklch(0.64 0 0);

@@ -42,7 +42,9 @@
 	import {
 		displayedModules,
 		hiddenModules,
+		cameraName,
 		numberCandidates,
+		PART_KEY_MODULE,
 		visibleSuggestions
 	} from '#lib/suggestions/format.js';
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
@@ -99,7 +101,7 @@
 			: ''
 	);
 	const camera = $derived(
-		[asset?.camera_make, asset?.camera_model].filter(Boolean).join(' ') || m.photo_no_camera()
+		cameraName(asset?.camera_make ?? null, asset?.camera_model ?? null) || m.photo_no_camera()
 	);
 	// Modules whose weak suggestions the user unfolded; kept while moving between photos.
 	let unfolded = $state<string[]>([]);
@@ -186,10 +188,10 @@
 	// chosen last time.
 	function pickPart() {
 		if (!asset) return;
-		const block = suggestions.find((s) => s.module === 'geoclip' && s.region);
+		const block = suggestions.find((s) => s.module === PART_KEY_MODULE && s.region);
 		// One part at a time: wait until the run on the last one is over.
 		if (block && isPending(block)) return;
-		startPart('geoclip', block?.region ?? null);
+		startPart(PART_KEY_MODULE, block?.region ?? null);
 	}
 
 	/** The last part is a start only when it was chosen on the photo turned as it is now. */
@@ -216,6 +218,11 @@
 		} finally {
 			busy = false;
 		}
+	}
+
+	function resetRotation() {
+		turn = 0;
+		shownPart = null;
 	}
 
 	function rotate(by: 90 | -90) {
@@ -275,6 +282,13 @@
 			})),
 			...module.track.filter((p) => p.role).map((p) => ({ lat: p.latitude, lon: p.longitude }))
 		]);
+	}
+
+	function locate(module: string, candidate: Candidate) {
+		mapView?.fitTo([
+			{ lat: candidate.latitude, lon: candidate.longitude, radius_m: candidate.radius_m }
+		]);
+		highlight = { module, rank: candidate.rank, from: 'map' };
 	}
 
 	function choose(candidate: Candidate) {
@@ -378,7 +392,10 @@
 		const suggestion = numbered.find((item) => String(item.key) === key);
 		if (suggestion) {
 			event.preventDefault();
-			choose(suggestion.candidate);
+			// Shift + number: show the suggestion on the map (and its row in the list), without
+			// picking it, as a click on its row does.
+			if (event.shiftKey) locate(suggestion.module.key, suggestion.candidate);
+			else choose(suggestion.candidate);
 			return;
 		}
 		// Enter on a button or link reached with the keyboard belongs to that control.
@@ -413,26 +430,26 @@
 	<Tooltip text={m.photo_previous()} keys="←" below>
 		<button
 			type="button"
-			class="st-iconbtn"
-			aria-label={m.photo_previous()}
+			class="st-btn st-btn--sm"
 			disabled={!asset?.previous_id}
 			onclick={() => open(asset?.previous_id)}
 		>
-			<Icon name="chevron-left" size={18} />
+			<Icon name="chevron-left" />
+			{m.photo_previous()}
 		</button>
 	</Tooltip>
 	<Tooltip text={m.photo_next()} keys="→" below>
 		<button
 			type="button"
-			class="st-iconbtn"
-			aria-label={m.photo_next()}
+			class="st-btn st-btn--sm"
 			disabled={!asset?.next_id}
 			onclick={() => open(asset?.next_id)}
 		>
-			<Icon name="chevron-right" size={18} />
+			{m.photo_next()}
+			<Icon name="chevron-right" />
 		</button>
 	</Tooltip>
-	<Tooltip text={m.photo_keys()} keys="?" below end>
+	<Tooltip text={m.photo_keys()} keys="?" below>
 		<button
 			type="button"
 			class="st-iconbtn"
@@ -443,7 +460,7 @@
 		</button>
 	</Tooltip>
 	{#if asset?.immich_url}
-		<Tooltip text={m.photo_open_in_immich()} below end>
+		<Tooltip text={m.photo_open_in_immich()} below>
 			<!-- eslint-disable svelte/no-navigation-without-resolve -- external link -->
 			<a
 				class="st-iconbtn"
@@ -471,6 +488,7 @@
 			<MapView
 				bind:this={mapView}
 				styleUrl={mapConfig.style_url}
+				styleUrlDark={mapConfig.style_url_dark}
 				{current}
 				{picked}
 				suggestions={shown}
@@ -504,7 +522,7 @@
 					<input
 						type="text"
 						bind:value={coordinatesText}
-						placeholder="42.4249, 18.7713"
+						placeholder={m.photo_coordinates()}
 						aria-label={m.photo_coordinates()}
 						aria-invalid={coordinatesInvalid}
 						onchange={applyCoordinatesText}
@@ -682,18 +700,32 @@
 				</div>
 			</div>
 		</figure>
-		{#if turn || rotationNotice}
-			<p class="turned">
-				{#if turn}
-					{m.photo_turned_note()}
-					{#if asset?.type === 'IMAGE'}
-						<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={saveRotation}>
-							{m.photo_rotation_save()}
+		{#if turn}
+			<div class="st-banner st-banner--info rotation" role="status">
+				<Icon name="rotate-cw" />
+				<div class="st-banner__body">
+					{asset?.type === 'IMAGE' ? m.photo_turned_note() : m.photo_rotation_video()}
+					<div class="rotation-actions">
+						{#if asset?.type === 'IMAGE'}
+							<button
+								type="button"
+								class="st-btn st-btn--primary st-btn--sm"
+								disabled={busy}
+								onclick={saveRotation}
+							>
+								<Icon name="check" size={14} />
+								{m.photo_rotation_save()}
+							</button>
+						{/if}
+						<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={resetRotation}>
+							{m.photo_rotation_reset()}
 						</button>
-					{/if}
-				{/if}
-				{#if rotationNotice}<span role="status">{rotationNotice}</span>{/if}
-			</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+		{#if rotationNotice}
+			<p class="turned" role="status">{rotationNotice}</p>
 		{/if}
 		{#if asset?.type === 'VIDEO'}
 			<p class="turned">{m.photo_video_note()}</p>
@@ -771,7 +803,7 @@
 		alt={asset?.file_name ?? ''}
 		initial={partPicker.region}
 		onrun={(region) => {
-			const module = partPicker?.module ?? 'geoclip';
+			const module = partPicker?.module ?? PART_KEY_MODULE;
 			partPicker = null;
 			run(module, region);
 		}}
@@ -847,6 +879,7 @@
 	.info {
 		grid-area: info;
 	}
+	/* Each column is a surface of its own, so that it stands out from the page in both themes. */
 	.panel,
 	.info {
 		display: flex;
@@ -855,7 +888,10 @@
 		min-width: 0;
 		min-height: 0;
 		overflow-y: auto;
-		padding-right: var(--space-1);
+		padding: var(--space-3);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 	/* Medium screens: one side column, with tabs. */
 	@media (max-width: 80rem) {
@@ -900,14 +936,16 @@
 	}
 	.pinned {
 		position: sticky;
-		top: 0;
+		top: calc(var(--space-3) * -1);
+		margin-top: calc(var(--space-3) * -1);
+		padding-top: var(--space-3);
 		z-index: 2;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-2);
 		padding-bottom: var(--space-3);
 		border-bottom: var(--border-width) solid var(--color-border);
-		background: var(--color-bg);
+		background: var(--color-surface);
 	}
 	.point.picked {
 		border-color: var(--color-accent);
@@ -995,6 +1033,12 @@
 	}
 	.tools .st-iconbtn {
 		color: var(--color-text);
+	}
+	.rotation-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		margin-top: var(--space-2);
 	}
 	.turned {
 		display: flex;

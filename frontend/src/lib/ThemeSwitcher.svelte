@@ -16,7 +16,7 @@
 
 <div class="st-seg st-seg--icons" role="radiogroup" aria-label={m.theme()}>
 	{#each THEME_CHOICES as choice (choice)}
-		<Tooltip text={labels[choice]()} below end={choice !== 'light'}>
+		<Tooltip text={labels[choice]()} below>
 			<button
 				type="button"
 				role="radio"

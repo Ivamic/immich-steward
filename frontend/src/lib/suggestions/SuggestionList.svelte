@@ -37,6 +37,7 @@
 		neighborMeta,
 		noCandidates,
 		numberCandidates,
+		PART_KEY_MODULE,
 		visibleSuggestions
 	} from './format.js';
 
@@ -221,7 +222,7 @@
 								>
 									<Icon name="square-dashed" size={14} />
 									{m.module_part_run()}
-									<Kbd>R</Kbd>
+									{#if module.module === PART_KEY_MODULE}<Kbd>R</Kbd>{/if}
 								</button>
 							</Tooltip>
 						{/if}
@@ -422,6 +423,9 @@
 	}
 	.st-sgroup__head {
 		margin: 0;
+	}
+	.st-sgroup__fold {
+		text-align: start;
 	}
 	.swatch {
 		width: 0.75rem;

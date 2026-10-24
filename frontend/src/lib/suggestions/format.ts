@@ -211,3 +211,12 @@ export function numberCandidates(modules: ModuleSuggestions[]): Numbered[] {
 		.flatMap((module) => module.candidates.map((candidate) => ({ module, candidate })))
 		.map((item, index) => ({ ...item, number: index + 1, key: index < 9 ? index + 1 : null }));
 }
+
+/** The module whose recognition on a part of the photo the R key starts. */
+export const PART_KEY_MODULE = 'geoclip';
+
+/** "Canon EOS 550D" rather than "Canon Canon EOS 550D": many models already name the make. */
+export function cameraName(make: string | null, model: string | null): string {
+	if (make && model?.toLowerCase().startsWith(make.toLowerCase())) return model;
+	return [make, model].filter(Boolean).join(' ');
+}

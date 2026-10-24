@@ -13,6 +13,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import {
+		cameraName,
 		FAILURE_GROUPS,
 		failureGroupName,
 		failureReason,
@@ -63,7 +64,7 @@
 		set({ show: SHOW_CATEGORIES.filter((c) => chosen.includes(c)) });
 	}
 	const cameraLabel = (make: string, model: string) =>
-		[make, model].filter(Boolean).join(' ') || m.filter_camera_unknown();
+		cameraName(make, model) || m.filter_camera_unknown();
 
 	const dayFormat = $derived(new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium' }));
 	function day(value: string): string {

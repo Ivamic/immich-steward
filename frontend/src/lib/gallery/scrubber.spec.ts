@@ -17,6 +17,19 @@ describe('scrubber marks', () => {
 		]);
 	});
 
+	it('never moves a crowded year label to a later month of the year', () => {
+		// 2017 begins right above the 2016 label: no room for it at January, so no label at all
+		// (Immich would put it at March, the first month far enough).
+		const segments: Segment[] = [
+			{ month: '2017-03', top: 0, height: 100 },
+			{ month: '2017-02', top: 100, height: 20 },
+			{ month: '2017-01', top: 120, height: 4 },
+			{ month: '2016-12', top: 124, height: 4 }
+		];
+		const marks = scrubberMarks(segments, (px) => px);
+		expect(marks.years.map((label) => label.year)).toEqual(['2016']);
+	});
+
 	it('leaves out labels that would crowd the previous one', () => {
 		// The bar is 10 times shorter than the timeline: 3 px per month.
 		const marks = scrubberMarks(months('2018-01', '2017-01', '2016-01'), (px) => px / 10);

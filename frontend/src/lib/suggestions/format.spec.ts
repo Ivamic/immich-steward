@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Candidate, ModuleSuggestions, NeighborEvidence } from '#lib/api.js';
 import {
+	cameraName,
 	candidateLabel,
 	candidateRemarks,
 	displayedModules,
@@ -125,5 +126,14 @@ describe('suggestion formatting', () => {
 			estimated: false
 		};
 		expect(neighborMeta(neighbor, 'Canon EOS')).toBe(`${formatDelta(-720)} · Canon EOS`);
+	});
+});
+
+describe('camera name', () => {
+	it('does not repeat the make', () => {
+		expect(cameraName('Canon', 'Canon EOS 550D')).toBe('Canon EOS 550D');
+		expect(cameraName('samsung', 'SM-S9010')).toBe('samsung SM-S9010');
+		expect(cameraName(null, 'iPhone 5')).toBe('iPhone 5');
+		expect(cameraName(null, null)).toBe('');
 	});
 });

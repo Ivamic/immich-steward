@@ -55,6 +55,7 @@
 
 	let {
 		styleUrl,
+		styleUrlDark = null,
 		current,
 		picked,
 		suggestions = [],
@@ -63,6 +64,8 @@
 		onhighlight = () => {}
 	}: {
 		styleUrl: string;
+		/** The map style for the dark theme; null: `styleUrl` in both themes. */
+		styleUrlDark?: string | null;
 		current: LatLon | null;
 		picked: LatLon | null;
 		suggestions?: ModuleSuggestions[];
@@ -90,6 +93,9 @@
 	let container: HTMLDivElement;
 	let map = $state.raw<MapLibreMap>();
 	let ready = $state(false);
+	// The style follows the theme; switching it keeps the view (no new map).
+	const style = $derived(theme.resolved === 'dark' && styleUrlDark ? styleUrlDark : styleUrl);
+	let appliedStyle = '';
 	let currentMarker: Marker | undefined;
 	let pickedMarker: Marker | undefined;
 	let overlayMarkers: Marker[] = [];
@@ -144,9 +150,10 @@
 	$effect(() => {
 		// Only the initial view depends on the points; later changes just move the markers.
 		const start = untrack(() => picked ?? current);
+		appliedStyle = untrack(() => style);
 		const instance = new MapLibreMap({
 			container,
-			style: styleUrl,
+			style: appliedStyle,
 			center: start ? [start.lon, start.lat] : WORLD,
 			zoom: start ? CLOSE_ZOOM : 3,
 			attributionControl: { compact: true }
@@ -168,7 +175,8 @@
 			instance.getCanvas().style.cursor = '';
 			if (!popupPinned) closePreview();
 		});
-		instance.on('load', () => {
+		// Also after a change of the style (theme): it drops the layers of the app.
+		instance.on('style.load', () => {
 			addLayers(instance);
 			ready = true;
 		});
@@ -179,6 +187,15 @@
 			instance.remove();
 			map = undefined;
 		};
+	});
+
+	$effect(() => {
+		const url = style;
+		if (!map || url === appliedStyle) return;
+		appliedStyle = url;
+		ready = false;
+		closePreview();
+		map.setStyle(url, { diff: false });
 	});
 
 	function addLayers(instance: MapLibreMap) {

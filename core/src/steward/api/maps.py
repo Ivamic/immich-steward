@@ -21,6 +21,8 @@ MAX_RESULTS = 8
 
 class MapConfig(BaseModel):
     style_url: str
+    # For the dark theme of the web UI; null: the same as `style_url`.
+    style_url_dark: str | None
     geocoder_enabled: bool
 
 
@@ -35,7 +37,11 @@ class Place(BaseModel):
 
 @router.get("/config/map")
 async def map_config(settings: SettingsDep, _: CurrentAccount) -> MapConfig:
-    return MapConfig(style_url=settings.map_style_url, geocoder_enabled=bool(settings.geocoder_url))
+    return MapConfig(
+        style_url=settings.map_style_url,
+        style_url_dark=settings.map_style_url_dark or None,
+        geocoder_enabled=bool(settings.geocoder_url),
+    )
 
 
 @router.get("/geocode")

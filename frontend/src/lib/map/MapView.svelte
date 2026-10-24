@@ -763,6 +763,11 @@
 		content: '© OpenStreetMap';
 		white-space: nowrap;
 	}
+	/* MapLibre draws its control icons dark: light ones on the dark glass. */
+	:global([data-theme='dark']) .map :global(.maplibregl-ctrl-icon),
+	:global([data-theme='dark']) .map :global(.maplibregl-ctrl-attrib-button) {
+		filter: invert(1);
+	}
 	.map :global(.maplibregl-ctrl-attrib-button) {
 		top: 0;
 		right: 0;

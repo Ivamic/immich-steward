@@ -6,8 +6,10 @@
 	import PauseBar from '#lib/PauseBar.svelte';
 	import MonthSection from '#lib/gallery/MonthSection.svelte';
 	import Scrubber from '#lib/gallery/Scrubber.svelte';
-	import { filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import { defaultFilter, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import Skeleton from '#lib/ui/Skeleton.svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -26,7 +28,9 @@
 
 	const filter = $derived(filterFromUrl(page.url.searchParams));
 	const query = $derived(filterToUrl(filter));
-	const total = $derived(months?.reduce((sum, b) => sum + b.count, 0) ?? 0);
+	const total = $derived(months?.reduce((sum, b) => sum + b.count, 0) ?? null);
+	// Nothing left to do, rather than nothing matching a narrowed filter.
+	const allDone = $derived(query === filterToUrl(defaultFilter));
 
 	// Only a change of the filter reloads the months, not `at` added to the URL.
 	$effect(() => {
@@ -82,17 +86,35 @@
 	}
 </script>
 
-<FilterBar {filter} onchange={changeFilter} />
+<FilterBar {filter} {total} onchange={changeFilter} />
 <PauseBar />
 
 {#if error}
 	<p class="error" role="alert">{error}</p>
 {:else if months === null}
-	<p>{m.status_loading()}</p>
+	<div class="loading" aria-busy="true" aria-label={m.status_loading()}>
+		<Skeleton width="8rem" height="1rem" />
+		<div class="skeleton-grid">
+			{#each { length: 18 }, i (i)}
+				<Skeleton width="160px" height="160px" radius="2px" />
+			{/each}
+		</div>
+	</div>
 {:else if months.length === 0}
-	<p>{m.gallery_empty()}</p>
+	{#if allDone}
+		<EmptyState
+			icon="map-pin-check"
+			title={m.gallery_all_done()}
+			text={m.gallery_all_done_text()}
+		/>
+	{:else}
+		<EmptyState icon="filter" title={m.gallery_empty()} text={m.gallery_empty_text()}>
+			<button type="button" class="st-btn st-btn--sm" onclick={() => changeFilter(defaultFilter)}>
+				{m.filter_reset()}
+			</button>
+		</EmptyState>
+	{/if}
 {:else}
-	<p class="total">{m.gallery_total({ count: new Intl.NumberFormat().format(total) })}</p>
 	<div id="timeline" class="timeline" bind:this={timeline}>
 		<div bind:clientWidth={width}>
 			<!-- Re-created when the filter changes, so that no month keeps stale items. -->
@@ -113,10 +135,18 @@
 		/* room for the scrubber on the right */
 		padding-right: 3.5rem;
 	}
-	.total {
-		opacity: 0.7;
+	.loading {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding-top: var(--space-2);
+	}
+	.skeleton-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, 160px);
+		gap: 4px;
 	}
 	.error {
-		color: #cf222e;
+		color: var(--color-danger-text);
 	}
 </style>

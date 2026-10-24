@@ -29,6 +29,7 @@
 	import { errorMessage } from '#lib/errors.js';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import KeysDialog from '#lib/KeysDialog.svelte';
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
 	import PhotoViewer from '#lib/PhotoViewer.svelte';
@@ -45,6 +46,9 @@
 		visibleSuggestions
 	} from '#lib/suggestions/format.js';
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
+	import Kbd from '#lib/ui/Kbd.svelte';
+	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -66,6 +70,7 @@
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let viewerOpen = $state(false);
+	let keysOpen = $state(false);
 	// The module to choose a part of the photo for, and the part to start from (FR-35).
 	let partPicker = $state<{ module: string; region: Region | null } | null>(null);
 	// The part outlined on the photo while its suggestions are hovered.
@@ -351,8 +356,8 @@
 
 	function onkeydown(event: KeyboardEvent) {
 		if (event.key === 'Tab') pointerControl = null;
-		// The viewer handles its own keys (Esc closes it).
-		if (viewerOpen || partPicker) return;
+		// The viewer and the windows handle their own keys (Esc closes them).
+		if (viewerOpen || partPicker || keysOpen) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		if ((event.target as HTMLElement).closest('input, textarea, select')) return;
 		const actions: Record<string, () => void> = {
@@ -366,7 +371,8 @@
 			z: () => (viewerOpen = true),
 			r: pickPart,
 			'[': () => rotate(-90),
-			']': () => rotate(90)
+			']': () => rotate(90),
+			'?': () => (keysOpen = true)
 		};
 		const key = shortcutKey(event);
 		const suggestion = numbered.find((item) => String(item.key) === key);
@@ -390,14 +396,67 @@
 <svelte:document {onvisibilitychange} />
 
 <nav class="toolbar">
-	<a href={backUrl}>← {m.photo_back()}</a>
+	<Tooltip text={m.photo_back()} keys="Esc" below>
+		<a class="st-iconbtn" href={backUrl} aria-label={m.photo_back()}>
+			<Icon name="arrow-left" size={18} />
+		</a>
+	</Tooltip>
+	{#if asset}
+		<div class="title">
+			<strong>{asset.file_name}</strong>
+			<span
+				>{takenAt}{#if asset.time_zone}&nbsp;({asset.time_zone}){/if}</span
+			>
+		</div>
+	{/if}
 	<span class="spacer"></span>
-	<button type="button" disabled={!asset?.previous_id} onclick={() => open(asset?.previous_id)}>
-		← {m.photo_previous()}
-	</button>
-	<button type="button" disabled={!asset?.next_id} onclick={() => open(asset?.next_id)}>
-		{m.photo_next()} →
-	</button>
+	<Tooltip text={m.photo_previous()} keys="←" below>
+		<button
+			type="button"
+			class="st-iconbtn"
+			aria-label={m.photo_previous()}
+			disabled={!asset?.previous_id}
+			onclick={() => open(asset?.previous_id)}
+		>
+			<Icon name="chevron-left" size={18} />
+		</button>
+	</Tooltip>
+	<Tooltip text={m.photo_next()} keys="→" below>
+		<button
+			type="button"
+			class="st-iconbtn"
+			aria-label={m.photo_next()}
+			disabled={!asset?.next_id}
+			onclick={() => open(asset?.next_id)}
+		>
+			<Icon name="chevron-right" size={18} />
+		</button>
+	</Tooltip>
+	<Tooltip text={m.photo_keys()} keys="?" below end>
+		<button
+			type="button"
+			class="st-iconbtn"
+			aria-label={m.photo_keys()}
+			onclick={() => (keysOpen = true)}
+		>
+			<Icon name="keyboard" size={18} />
+		</button>
+	</Tooltip>
+	{#if asset?.immich_url}
+		<Tooltip text={m.photo_open_in_immich()} below end>
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external link -->
+			<a
+				class="st-iconbtn"
+				href={asset.immich_url}
+				target="_blank"
+				rel="noopener"
+				aria-label={m.photo_open_in_immich()}
+			>
+				<Icon name="external-link" size={18} />
+			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+		</Tooltip>
+	{/if}
 </nav>
 
 <PauseBar />
@@ -422,7 +481,7 @@
 		{/if}
 	</div>
 
-	<div class="tabs" role="tablist">
+	<div class="tabs st-tabs" role="tablist">
 		<button type="button" role="tab" aria-selected={tab === 'place'} onclick={() => (tab = 'place')}
 			>{m.photo_tab_place()}</button
 		>
@@ -435,78 +494,110 @@
 		<!-- Stays in view: only the search and the suggestions below scroll. -->
 		<div class="pinned">
 			{#if asset}
-				<div class="actions">
-					<!-- Re-created for every new point, so that it catches the eye each time. -->
-					{#key picked}
+				<label
+					class="point st-input st-input--mono"
+					class:picked
+					data-invalid={coordinatesInvalid}
+					title={m.photo_coordinates()}
+				>
+					<Icon name="locate-fixed" />
+					<input
+						type="text"
+						bind:value={coordinatesText}
+						placeholder="42.4249, 18.7713"
+						aria-label={m.photo_coordinates()}
+						aria-invalid={coordinatesInvalid}
+						onchange={applyCoordinatesText}
+						onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
+					/>
+					{#if picked}
 						<button
 							type="button"
-							class="save"
-							class:ready={picked}
-							disabled={!picked}
-							onclick={save}
+							class="st-iconbtn st-iconbtn--sm"
+							aria-label={m.photo_clear()}
+							title={m.photo_clear()}
+							onclick={clearPicked}
 						>
-							{m.photo_save()} <kbd>Enter</kbd>
+							<Icon name="x" />
 						</button>
-					{/key}
+					{/if}
+				</label>
+				{#if coordinatesInvalid}
+					<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
+				{/if}
+				<!-- Re-created for every new point, so that it catches the eye each time. -->
+				{#key picked}
+					<button
+						type="button"
+						class="save st-btn st-btn--primary st-btn--lg st-btn--block"
+						class:ready={picked}
+						disabled={!picked}
+						onclick={save}
+					>
+						<Icon name="map-pin-check" />
+						{m.photo_save()}
+						<Kbd>Enter</Kbd>
+					</button>
+				{/key}
+				<div class="actions">
 					{#if asset.review_status === 'new'}
-						<button type="button" disabled={busy} onclick={() => review('skipped')}>
-							{m.photo_skip()} <kbd>S</kbd>
+						<button
+							type="button"
+							class="st-btn st-btn--block"
+							disabled={busy}
+							onclick={() => review('skipped')}
+						>
+							<Icon name="skip-forward" />
+							{m.photo_skip()}
+							<Kbd>S</Kbd>
 						</button>
-						<button type="button" disabled={busy} onclick={() => review('not_applicable')}>
-							{m.photo_not_applicable()} <kbd>N</kbd>
+						<button
+							type="button"
+							class="st-btn st-btn--block"
+							disabled={busy}
+							onclick={() => review('not_applicable')}
+						>
+							<Icon name="ban" />
+							{m.photo_not_applicable()}
+							<Kbd>N</Kbd>
 						</button>
 					{:else}
-						<button type="button" disabled={busy} onclick={() => review('new')}>
-							{m.photo_back_to_todo()} <kbd>U</kbd>
+						<button
+							type="button"
+							class="st-btn st-btn--block"
+							disabled={busy}
+							onclick={() => review('new')}
+						>
+							<Icon name="undo-2" />
+							{m.photo_back_to_todo()}
+							<Kbd>U</Kbd>
 						</button>
 					{/if}
 				</div>
-			{/if}
-			{#if picked}
-				<p class="picked">
-					{m.photo_picked({ coordinates: formatCoordinates(picked) })}
-					<button type="button" onclick={clearPicked}>{m.photo_clear()}</button>
-				</p>
-			{/if}
-			{#if pending}
-				<p class="pending">
-					{m.photo_pending()}
-					<button type="button" onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button>
-				</p>
+				{#if pending}
+					<div class="st-banner st-banner--warning" role="status">
+						<Icon name="clock" />
+						<span class="st-banner__body">{m.photo_pending()}</span>
+						<span class="st-banner__actions">
+							<button
+								type="button"
+								class="st-btn st-btn--sm"
+								onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button
+							>
+						</span>
+					</div>
+				{/if}
 			{/if}
 		</div>
 
-		<div class="picker">
-			{#if mapConfig?.geocoder_enabled}
-				<GeocoderSearch
-					near={picked ?? current}
-					onselect={(point) => {
-						pick(point);
-						mapView?.flyTo(point);
-					}}
-				/>
-			{/if}
-			<label class="coordinates">
-				{m.photo_coordinates()}
-				<input
-					type="text"
-					bind:value={coordinatesText}
-					placeholder="42.4249, 18.7713"
-					aria-invalid={coordinatesInvalid}
-					onchange={applyCoordinatesText}
-					onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
-				/>
-			</label>
-		</div>
-		{#if coordinatesInvalid}
-			<p class="error">{m.photo_coordinates_invalid()}</p>
-		{/if}
-
-		{#if asset}
-			<details class="keys">
-				<summary>{m.photo_keys()}</summary>
-				<p class="muted hint">{m.photo_save_note()} {m.photo_keys_hint()}</p>
-			</details>
+		{#if mapConfig?.geocoder_enabled}
+			<GeocoderSearch
+				near={picked ?? current}
+				onselect={(point) => {
+					pick(point);
+					mapView?.flyTo(point);
+				}}
+			/>
 		{/if}
 
 		<SuggestionList
@@ -535,12 +626,14 @@
 			<button
 				type="button"
 				class="zoom"
-				title={m.photo_zoom()}
 				aria-label={m.photo_zoom()}
 				onclick={() => (viewerOpen = true)}
 			>
 				<span class="framed">
-					<img src={thumbnailUrl(id, 'preview', turn, version)} alt={asset?.file_name ?? ''} />
+					<!-- Re-created for each photo and turn, so that the new one fades in. -->
+					{#key `${id}:${turn}`}
+						<img src={thumbnailUrl(id, 'preview', turn, version)} alt={asset?.file_name ?? ''} />
+					{/key}
 					{#if shownPart}
 						<span
 							class="part"
@@ -551,51 +644,65 @@
 						></span>
 					{/if}
 				</span>
-				<span class="zoom-label">⤢ {m.photo_zoom()} <kbd>Z</kbd></span>
 			</button>
-			<div class="turns">
-				<button type="button" title="{m.photo_turn_left()} [" onclick={() => rotate(-90)}>
-					⟲ <span class="sr-only">{m.photo_turn_left()}</span>
-				</button>
-				<button type="button" title="{m.photo_turn_right()} ]" onclick={() => rotate(90)}>
-					⟳ <span class="sr-only">{m.photo_turn_right()}</span>
-				</button>
-				{#if turn && asset?.type === 'IMAGE'}
-					<button type="button" disabled={busy} onclick={saveRotation}>
-						{m.photo_rotation_save()}
-					</button>
-				{/if}
-				{#if turn}
-					<span class="muted turned">{m.photo_turned_note()}</span>
-				{/if}
-				{#if rotationNotice}
-					<span class="muted turned" role="status">{rotationNotice}</span>
-				{/if}
+			<div class="tools">
+				<div class="st-glass group">
+					<Tooltip text={m.photo_turn_left()} keys="[">
+						<button
+							type="button"
+							class="st-iconbtn st-iconbtn--sm"
+							aria-label={m.photo_turn_left()}
+							onclick={() => rotate(-90)}
+						>
+							<Icon name="rotate-ccw" />
+						</button>
+					</Tooltip>
+					<Tooltip text={m.photo_turn_right()} keys="]">
+						<button
+							type="button"
+							class="st-iconbtn st-iconbtn--sm"
+							aria-label={m.photo_turn_right()}
+							onclick={() => rotate(90)}
+						>
+							<Icon name="rotate-cw" />
+						</button>
+					</Tooltip>
+				</div>
+				<div class="st-glass group">
+					<Tooltip text={m.photo_zoom()} keys="Z">
+						<button
+							type="button"
+							class="st-iconbtn st-iconbtn--sm"
+							aria-label={m.photo_zoom()}
+							onclick={() => (viewerOpen = true)}
+						>
+							<Icon name="maximize-2" />
+						</button>
+					</Tooltip>
+				</div>
 			</div>
-			{#if asset?.type === 'VIDEO'}
-				<figcaption class="muted">{m.photo_video_note()}</figcaption>
-			{/if}
 		</figure>
+		{#if turn || rotationNotice}
+			<p class="turned">
+				{#if turn}
+					{m.photo_turned_note()}
+					{#if asset?.type === 'IMAGE'}
+						<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={saveRotation}>
+							{m.photo_rotation_save()}
+						</button>
+					{/if}
+				{/if}
+				{#if rotationNotice}<span role="status">{rotationNotice}</span>{/if}
+			</p>
+		{/if}
+		{#if asset?.type === 'VIDEO'}
+			<p class="turned">{m.photo_video_note()}</p>
+		{/if}
 
 		{#if asset}
 			<dl class="details">
-				<dt>{m.photo_taken_at()}</dt>
-				<dd>
-					{takenAt}
-					{#if asset.time_zone}<span class="muted">({asset.time_zone})</span>{/if}
-				</dd>
 				<dt>{m.photo_camera()}</dt>
 				<dd>{camera}</dd>
-				<dt>{m.photo_file()}</dt>
-				<dd class="file">
-					{asset.file_name}
-					{#if asset.immich_url}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external link -->
-						<br /><a href={asset.immich_url} target="_blank" rel="noopener"
-							>{m.photo_open_in_immich()} ↗</a
-						>
-					{/if}
-				</dd>
 				{#if asset.albums.length}
 					<dt>{m.photo_albums()}</dt>
 					<dd>{asset.albums.join(', ')}</dd>
@@ -604,7 +711,7 @@
 				<dd>
 					{#if current}
 						{#if place}{place}<br />{/if}
-						<span class="coords">{formatCoordinates(current)}</span>
+						<span class="st-coords">{formatCoordinates(current)}</span>
 					{:else}
 						<span class="muted">{m.photo_no_location()}</span>
 					{/if}
@@ -625,11 +732,12 @@
 					<ol>
 						{#each asset.location_history as change (change.id)}
 							<li class:undone={change.status === 'undone'}>
-								<span>{changedAt.format(new Date(change.created_at))}</span>
-								<strong>
+								<span class="st-coords coords">
 									{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
-								</strong>
+								</span>
 								<span class="muted">
+									{changedAt.format(new Date(change.created_at))}
+									·
 									{change.source === 'manual' ? m.photo_history_manual() : change.source}
 									·
 									{change.prev_latitude != null && change.prev_longitude != null
@@ -646,7 +754,10 @@
 						{/each}
 					</ol>
 					{#if asset.can_undo}
-						<button type="button" disabled={busy} onclick={undo}>{m.photo_undo()}</button>
+						<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
+							<Icon name="undo-2" />
+							{m.photo_undo()}
+						</button>
 					{/if}
 				</section>
 			{/if}
@@ -668,6 +779,10 @@
 	/>
 {/if}
 
+{#if keysOpen}
+	<KeysDialog onclose={() => (keysOpen = false)} />
+{/if}
+
 {#if viewerOpen}
 	<PhotoViewer
 		src={thumbnailUrl(id, asset?.type === 'VIDEO' ? 'preview' : 'fullsize', turn, version)}
@@ -680,33 +795,51 @@
 	.toolbar {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		margin-bottom: 1rem;
+		gap: var(--space-1);
+		margin: calc(var(--space-3) * -1) 0 var(--space-3);
+	}
+	.title {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		margin-inline-start: var(--space-1);
+		line-height: var(--leading-snug);
+	}
+	.title strong {
+		overflow: hidden;
+		font-weight: var(--weight-semibold);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.title span {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
 	}
 	.spacer {
 		flex: 1;
 	}
+	a.st-iconbtn {
+		text-decoration: none;
+	}
 	/* The page fits the window: only the panels scroll, the map stays in view. */
 	.card {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) 23rem 19rem;
+		grid-template-columns: minmax(0, 1fr) 24rem 19rem;
 		grid-template-areas: 'map panel info';
-		gap: 1rem;
-		height: calc(100dvh - 9rem);
+		gap: var(--space-4);
+		height: calc(100dvh - 8.5rem);
 		min-height: 30rem;
 	}
 	.map {
 		grid-area: map;
 		min-height: 0;
+		overflow: hidden;
+		border-radius: var(--radius-lg);
+		background: var(--color-stage);
 	}
 	.tabs {
 		grid-area: tabs;
 		display: none;
-		gap: 0.25rem;
-	}
-	.tabs button[aria-selected='true'] {
-		font-weight: 600;
-		border-bottom: 2px solid #0969da;
 	}
 	.panel {
 		grid-area: panel;
@@ -718,11 +851,11 @@
 	.info {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--space-3);
 		min-width: 0;
 		min-height: 0;
 		overflow-y: auto;
-		padding-right: 0.25rem;
+		padding-right: var(--space-1);
 	}
 	/* Medium screens: one side column, with tabs. */
 	@media (max-width: 80rem) {
@@ -765,21 +898,59 @@
 			overflow: visible;
 		}
 	}
-	.picker {
+	.pinned {
+		position: sticky;
+		top: 0;
+		z-index: 2;
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: var(--space-2);
+		padding-bottom: var(--space-3);
+		border-bottom: var(--border-width) solid var(--color-border);
+		background: var(--color-bg);
 	}
-	.keys summary {
-		cursor: pointer;
-		font-size: 0.85rem;
-		opacity: 0.75;
+	.point.picked {
+		border-color: var(--color-accent);
+		background: var(--color-surface-selected);
+	}
+	.point .st-iconbtn {
+		margin-inline-end: calc(var(--space-1) * -1);
+	}
+	/* Long labels (other languages) wrap the buttons onto two lines rather than overflow. */
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+	}
+	.actions .st-btn {
+		flex: 1 1 auto;
+		width: auto;
+	}
+	/* A point is picked: saving is the next step, do not forget it. */
+	.save.ready {
+		animation: attention 1.2s var(--ease-out) 1;
+	}
+	@keyframes attention {
+		0% {
+			box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-accent), transparent 40%);
+		}
+		100% {
+			box-shadow: 0 0 0 12px color-mix(in oklab, var(--color-accent), transparent 100%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.save.ready {
+			animation: none;
+		}
 	}
 	.preview {
+		position: relative;
 		margin: 0;
+		overflow: hidden;
+		border-radius: var(--radius-lg);
+		background: var(--color-stage);
 	}
 	.zoom {
-		position: relative;
 		display: block;
 		width: 100%;
 		padding: 0;
@@ -798,155 +969,90 @@
 	.zoom img {
 		display: block;
 		max-width: 100%;
-		max-height: 16rem;
+		max-height: 17rem;
+		/* Only opacity: cheap, and the next key can interrupt it. */
+		animation: st-fade var(--motion-photo-swap) var(--ease-out);
 	}
 	.part {
 		position: absolute;
-		outline: 2px dashed #fff;
-		box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.45);
+		outline: 2px dashed var(--gray-0);
+		box-shadow: 0 0 0 100vmax oklch(0 0 0 / 0.45);
 		pointer-events: none;
 	}
-	.turns {
+	.tools {
+		position: absolute;
+		inset-inline: var(--space-2);
+		bottom: var(--space-2);
+		display: flex;
+		justify-content: space-between;
+		pointer-events: none;
+	}
+	.tools .group {
+		display: flex;
+		gap: 2px;
+		padding: 2px;
+		pointer-events: auto;
+	}
+	.tools .st-iconbtn {
+		color: var(--color-text);
+	}
+	.turned {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem;
-		margin-top: 0.4rem;
-	}
-	.turns .turned {
-		font-size: 0.8rem;
-	}
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
-	}
-	.zoom-label {
-		position: absolute;
-		right: 0.4rem;
-		bottom: 0.4rem;
-		padding: 0.15rem 0.45rem;
-		border-radius: 0.3rem;
-		background: rgb(0 0 0 / 0.6);
-		color: #fff;
-		font-size: 0.8rem;
+		gap: var(--space-2);
+		margin: 0;
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
 	}
 	.details {
 		display: grid;
-		grid-template-columns: max-content 1fr;
-		gap: 0.3rem 1rem;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: var(--space-1-5) var(--space-4);
 		margin: 0;
+		font-size: var(--text-sm);
 	}
 	dt {
-		font-weight: 600;
+		color: var(--color-text-muted);
 	}
 	dd {
 		margin: 0;
-	}
-	.file {
-		word-break: break-all;
-	}
-	.coords {
-		font-variant-numeric: tabular-nums;
-	}
-	.coordinates {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	.coordinates input[aria-invalid='true'] {
-		outline: 2px solid #cf222e;
-	}
-	.picked {
-		margin: 0;
-	}
-	.pinned {
-		position: sticky;
-		top: 0;
-		z-index: 2;
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-		padding-bottom: 0.6rem;
-		border-bottom: 1px solid rgb(127 127 127 / 0.25);
-		background: #f6f8fa;
-	}
-	@media (prefers-color-scheme: dark) {
-		.pinned {
-			background: #0d1117;
-		}
-	}
-	.actions {
-		display: flex;
-		gap: 0.75rem;
-		flex-wrap: wrap;
+		overflow-wrap: anywhere;
 	}
 	.muted {
-		opacity: 0.65;
-	}
-	.hint {
-		font-size: 0.85rem;
-		margin: 0;
+		color: var(--color-text-muted);
 	}
 	.error {
-		color: #cf222e;
+		color: var(--color-danger-text);
 	}
-	kbd {
-		font-size: 0.75em;
-		opacity: 0.7;
-	}
-	/* The main actions, at the top of the panel and bigger than other buttons. */
-	.actions button {
-		padding: 0.45rem 0.8rem;
-		font-size: 0.95rem;
-	}
-	.save {
-		font-weight: 600;
-	}
-	/* A point is picked: saving is the next step, do not forget it. */
-	.save.ready {
-		border-color: #1a7f37;
-		background: #1f883d;
-		color: #fff;
-		animation: attention 1.2s ease-out 1;
-	}
-	.save.ready kbd {
-		opacity: 0.85;
-	}
-	@keyframes attention {
-		0% {
-			box-shadow: 0 0 0 0 rgb(31 136 61 / 0.6);
-		}
-		100% {
-			box-shadow: 0 0 0 12px rgb(31 136 61 / 0);
-		}
-	}
-	.pending {
-		margin: 0;
-		padding: 0.5rem 0.75rem;
-		border-left: 3px solid #bf8700;
-		background: rgb(191 135 0 / 0.1);
-	}
-	.history h2 {
-		font-size: 1rem;
-		margin: 0.5rem 0;
-	}
-	.history ol {
-		list-style: none;
-		padding: 0;
-		margin: 0 0 0.5rem;
+	.history {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		align-items: flex-start;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
+	}
+	.history h2 {
+		margin: var(--space-2) 0 0;
+		font-size: var(--text-base);
+	}
+	.history ol {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
 	.history li {
 		display: flex;
 		flex-direction: column;
+		gap: 2px;
 	}
-	.history li.undone strong {
+	.history .muted {
+		font-size: var(--text-xs);
+	}
+	.history li.undone .coords {
 		text-decoration: line-through;
 	}
 </style>

@@ -13,10 +13,11 @@
 		type MonthBucket
 	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { getLocale } from '#lib/paraglide/runtime.js';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { atPhoto, type FilterQuery } from './filter.js';
+	import { monthTitle } from './month.js';
 
 	const TILE = 160; // px, keep in sync with the grid CSS below
 	const GAP = 4;
@@ -36,11 +37,14 @@
 
 	const columns = $derived(Math.max(1, Math.floor((width + GAP) / (TILE + GAP))));
 	const estimatedHeight = $derived(Math.ceil(bucket.count / columns) * (TILE + GAP) - GAP);
-	const title = $derived(
-		new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(
-			new Date(`${bucket.month}-01T00:00:00`)
-		)
-	);
+	const title = $derived(monthTitle(bucket.month));
+
+	/** Shows the thumbnail once loaded; it may already be loaded (cache) when this runs. */
+	function fadeIn(img: HTMLImageElement) {
+		const show = () => img.classList.add('loaded');
+		if (img.complete) show();
+		else img.addEventListener('load', show, { once: true });
+	}
 
 	$effect(() => {
 		const observer = new IntersectionObserver(([entry]) => (near = entry.isIntersecting), {
@@ -75,9 +79,12 @@
 						alt={item.file_name}
 						loading="lazy"
 						decoding="async"
+						use:fadeIn
 					/>
 					{#if item.type === 'VIDEO'}
-						<span class="badge video" aria-label={m.asset_video()}>▶</span>
+						<span class="video" role="img" aria-label={m.asset_video()}>
+							<Icon name="play" size={11} strokeWidth={2.25} />
+						</span>
 					{/if}
 					{#if item.has_location}
 						<span
@@ -86,26 +93,17 @@
 							aria-label={m.asset_has_location()}
 							title={m.asset_has_location()}
 						>
-							<!-- Map pin -->
-							<svg viewBox="0 0 24 24" aria-hidden="true">
-								<path
-									d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"
-								/>
-							</svg>
+							<Icon name="map-pin" size={13} strokeWidth={2.25} />
 						</span>
 					{:else if item.geoclip_confident}
+						<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
 						<span
 							class="marker geoclip"
 							role="img"
 							aria-label={m.asset_geoclip_confident()}
 							title={m.asset_geoclip_confident()}
 						>
-							<!-- Crosshair: a guess to check -->
-							<svg viewBox="0 0 24 24" aria-hidden="true">
-								<circle cx="12" cy="12" r="6.5" fill="none" stroke-width="2.4" />
-								<circle cx="12" cy="12" r="2.2" />
-								<path d="M12 2v4.5M12 17.5V22M2 12h4.5M17.5 12H22" fill="none" stroke-width="2.4" />
-							</svg>
+							<Icon name="crosshair" size={13} strokeWidth={2.25} />
 						</span>
 					{/if}
 				</a>
@@ -118,18 +116,21 @@
 
 <style>
 	section {
-		margin-bottom: 1.5rem;
+		margin-bottom: var(--space-6);
 	}
 	h2 {
-		font-size: 1.05rem;
-		font-weight: 600;
-		margin: 0 0 0.5rem;
-		text-transform: capitalize;
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-2);
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-md);
+		font-weight: var(--weight-semibold);
 	}
 	.count {
-		font-weight: 400;
-		opacity: 0.6;
-		margin-left: 0.4rem;
+		font-size: var(--text-sm);
+		font-weight: var(--weight-regular);
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
 	}
 	.grid {
 		display: grid;
@@ -141,59 +142,74 @@
 		display: block;
 		width: 160px;
 		height: 160px;
-		background: color-mix(in srgb, currentColor 8%, transparent);
+		overflow: hidden;
+		border-radius: 2px;
+		background: var(--color-skeleton);
+		outline: none;
 	}
-	.tile:focus-visible {
-		outline: 3px solid #0969da;
-		outline-offset: 1px;
+	.tile::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		border-radius: inherit;
+	}
+	.tile:focus-visible::after {
+		box-shadow:
+			inset 0 0 0 3px var(--color-focus),
+			inset 0 0 0 5px var(--color-bg);
 	}
 	img {
+		display: block;
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-		display: block;
+		opacity: 0;
+		transition:
+			opacity var(--motion-base) var(--ease-out),
+			transform var(--motion-fast) var(--ease-out);
 	}
-	.badge {
-		position: absolute;
-		font-size: 0.75rem;
-		line-height: 1;
-		color: white;
-		text-shadow: 0 0 3px black;
+	img:global(.loaded) {
+		opacity: 1;
+	}
+	.tile:hover img {
+		transform: scale(1.02);
 	}
 	.video {
+		position: absolute;
 		top: 6px;
 		right: 6px;
+		display: grid;
+		place-items: center;
+		width: 20px;
+		height: 20px;
+		border-radius: var(--radius-full);
+		background: oklch(0 0 0 / 0.55);
+		color: var(--gray-0);
 	}
 	/* White disc with a shadow: visible on snow and sky as well as on dark photos. */
 	.marker {
 		position: absolute;
 		bottom: 6px;
 		right: 6px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		display: grid;
+		place-items: center;
 		width: 22px;
 		height: 22px;
 		border-radius: 50%;
-		background: #fff;
-		box-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+		background: var(--gray-0);
+		box-shadow: var(--shadow-badge);
 	}
-	.marker svg {
-		width: 16px;
-		height: 16px;
+	.location {
+		color: var(--moss-600);
 	}
-	.location svg {
-		fill: #1a7f37;
-	}
-	/* GeoCLIP's color, as on the map. */
 	.geoclip {
-		background: #bc4c00;
-	}
-	.geoclip svg {
-		fill: #fff;
-		stroke: #fff;
+		background: var(--module-2);
+		color: var(--gray-0);
 	}
 	.placeholder {
-		background: color-mix(in srgb, currentColor 4%, transparent);
+		border-radius: 2px;
+		background: var(--color-skeleton);
+		opacity: 0.5;
 	}
 </style>

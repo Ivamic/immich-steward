@@ -7,6 +7,8 @@
 	import { login, loginWithPassword, type Me } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import Brand from '#lib/ui/Brand.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { session } from '#lib/session.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -53,84 +55,162 @@
 	}
 </script>
 
-<h1>{m.auth_heading()}</h1>
-<p>{m.auth_intro()}</p>
+<div class="login">
+	<!-- A coordinate graticule fading out from the middle: the one cartographic ornament. -->
+	<div class="graticule" aria-hidden="true"></div>
+	<div class="card">
+		<Brand large />
+		<h1>{m.auth_heading()}</h1>
+		<p class="intro">{m.auth_intro()}</p>
 
-<form class="password" onsubmit={(e) => signIn(e, () => loginWithPassword(email, password))}>
-	<label>
-		{m.auth_email()}
-		<input type="email" bind:value={email} autocomplete="username" required disabled={busy} />
-	</label>
-	<label>
-		{m.auth_password()}
-		<input
-			type="password"
-			bind:value={password}
-			autocomplete="current-password"
-			required
-			disabled={busy}
-		/>
-	</label>
-	<button type="submit" disabled={busy || !email.trim() || !password}>{m.auth_sign_in()}</button>
-</form>
-<p class="muted">{m.auth_password_note()}</p>
+		{#if error}
+			<div class="st-banner st-banner--danger" role="alert">
+				<Icon name="circle-alert" />
+				<span class="st-banner__body">{error}</span>
+			</div>
+		{/if}
 
-{#if error}
-	<p class="error" role="alert">{error}</p>
-{/if}
+		<form class="password" onsubmit={(e) => signIn(e, () => loginWithPassword(email, password))}>
+			<label class="st-field">
+				<span class="st-field__label">{m.auth_email()}</span>
+				<input type="email" bind:value={email} autocomplete="username" required disabled={busy} />
+			</label>
+			<label class="st-field">
+				<span class="st-field__label">{m.auth_password()}</span>
+				<input
+					type="password"
+					bind:value={password}
+					autocomplete="current-password"
+					required
+					disabled={busy}
+				/>
+			</label>
+			<button
+				type="submit"
+				class="st-btn st-btn--primary st-btn--lg st-btn--block"
+				aria-busy={busy}
+				disabled={busy || !email.trim() || !password}
+			>
+				{#if busy}<span class="st-spin"><Icon name="loader-circle" /></span>{/if}
+				{m.auth_sign_in()}
+			</button>
+		</form>
+		<p class="note">{m.auth_password_note()}</p>
 
-<details>
-	<summary>{m.auth_key_summary()}</summary>
-	<p>{m.auth_key_intro()}</p>
-	<form class="key" onsubmit={(e) => signIn(e, () => login(apiKey))}>
-		<label>
-			{m.auth_api_key()}
-			<input
-				type="password"
-				bind:value={apiKey}
-				autocomplete="off"
-				spellcheck="false"
-				required
-				disabled={busy}
-			/>
-		</label>
-		<button type="submit" disabled={busy || !apiKey.trim()}>{m.auth_sign_in()}</button>
-	</form>
-	<p>{m.auth_help_steps()}</p>
-	<p>{m.auth_help_permissions()}</p>
-	<ul>
-		{#each permissions as permission (permission)}
-			<li><code>{permission}</code></li>
-		{/each}
-		{#each optionalPermissions as [permission, purpose] (permission)}
-			<li><code>{permission}</code> — {purpose()}</li>
-		{/each}
-	</ul>
-	<p>{m.auth_help_storage()}</p>
-</details>
+		<details>
+			<summary>{m.auth_key_summary()}</summary>
+			<div class="key-body">
+				<p>{m.auth_key_intro()}</p>
+				<form class="key" onsubmit={(e) => signIn(e, () => login(apiKey))}>
+					<label class="st-field">
+						<span class="st-field__label">{m.auth_api_key()}</span>
+						<input
+							class="mono"
+							type="password"
+							bind:value={apiKey}
+							autocomplete="off"
+							spellcheck="false"
+							required
+							disabled={busy}
+						/>
+					</label>
+					<button type="submit" class="st-btn" disabled={busy || !apiKey.trim()}>
+						{m.auth_sign_in()}
+					</button>
+				</form>
+				<p>{m.auth_help_steps()}</p>
+				<p>{m.auth_help_permissions()}</p>
+				<ul>
+					{#each permissions as permission (permission)}
+						<li><code>{permission}</code></li>
+					{/each}
+					{#each optionalPermissions as [permission, purpose] (permission)}
+						<li><code>{permission}</code> — {purpose()}</li>
+					{/each}
+				</ul>
+				<p>{m.auth_help_storage()}</p>
+			</div>
+		</details>
+	</div>
+</div>
 
 <style>
-	form {
-		display: flex;
-		gap: 0.75rem;
-		align-items: end;
-		flex-wrap: wrap;
+	.login {
+		position: relative;
+		display: grid;
+		place-items: start center;
+		min-height: calc(100dvh - var(--header-height) - var(--space-12));
+		padding-top: var(--space-8);
 	}
-	label {
+	.graticule {
+		position: fixed;
+		inset: var(--header-height) 0 0;
+		background-image:
+			linear-gradient(var(--color-border) 1px, transparent 1px),
+			linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+		background-size: 48px 48px;
+		mask-image: radial-gradient(ellipse at center, #000 10%, transparent 70%);
+		pointer-events: none;
+	}
+	.card {
+		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 0.25rem;
-		flex: 1;
-		min-width: 14rem;
+		gap: var(--space-4);
+		width: min(100%, 26rem);
+		padding: var(--space-6);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-sm);
 	}
-	.muted {
-		opacity: 0.7;
-		font-size: 0.9rem;
+	h1 {
+		margin: var(--space-2) 0 0;
 	}
-	.error {
-		color: #cf222e;
+	.intro,
+	.note {
+		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		text-wrap: pretty;
+	}
+	.note {
+		font-size: var(--text-xs);
+	}
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	input {
+		min-height: var(--control-md);
+	}
+	.mono {
+		font-family: var(--font-mono);
 	}
 	details {
-		margin-top: 2rem;
+		font-size: var(--text-sm);
+	}
+	summary {
+		color: var(--color-text-muted);
+	}
+	summary:hover {
+		color: var(--color-text);
+	}
+	.key-body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin-top: var(--space-3);
+	}
+	.key-body p {
+		margin: 0;
+	}
+	.key-body ul {
+		margin: 0;
+		padding-inline-start: var(--space-5);
+	}
+	.st-spin {
+		display: inline-flex;
 	}
 </style>

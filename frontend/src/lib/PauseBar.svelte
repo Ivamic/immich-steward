@@ -6,6 +6,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { formatUntil, pause } from '#lib/pause.svelte.js';
 	import { moduleName } from '#lib/suggestions/format.js';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	const REFRESH_MS = 60_000;
 
@@ -41,37 +42,37 @@
 </script>
 
 {#if pause.any}
-	<p class="bar" role="status">
-		<span>
+	<div class="bar st-banner st-banner--warning" role="status">
+		<Icon name="pause" />
+		<span class="st-banner__body">
 			{pause.all
 				? pause.allUntil
 					? m.pause_bar_all_until({ time: formatUntil(pause.allUntil) })
 					: m.pause_bar_all()
 				: m.pause_bar_modules({ modules: pause.modules.map(pausedModule).join(', ') })}
+			{#if error}<span class="error">{error}</span>{/if}
 		</span>
-		<button type="button" disabled={busy} onclick={resume}>{m.pause_resume()}</button>
-		<a href={resolve('/processing')}>{m.pause_manage()}</a>
-		{#if error}<span class="error">{error}</span>{/if}
-	</p>
+		<span class="st-banner__actions">
+			<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={resume}>
+				<Icon name="play" size={14} />
+				{m.pause_resume()}
+			</button>
+			<a class="st-btn st-btn--ghost st-btn--sm" href={resolve('/processing')}>{m.pause_manage()}</a
+			>
+		</span>
+	</div>
 {/if}
 
 <style>
 	.bar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.25rem 0.75rem;
-		margin: 0 0 0.5rem;
-		padding: 0.2rem 0.75rem;
-		border-left: 3px solid #bf8700;
-		background: rgb(191 135 0 / 0.12);
-		font-size: 0.9rem;
+		margin: 0 0 var(--space-3);
+		padding-block: var(--space-1-5);
 	}
-	button {
-		padding: 0.1rem 0.6rem;
-		font-size: 0.85rem;
+	a.st-btn {
+		text-decoration: none;
 	}
 	.error {
-		color: #cf222e;
+		display: block;
+		color: var(--color-danger-text);
 	}
 </style>

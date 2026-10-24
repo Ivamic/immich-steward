@@ -1,6 +1,6 @@
 # Third-party notices
 
-immich-steward is licensed under the [GNU AGPL v3.0 or later](LICENSE). Its Docker images
+Steward for Immich (immich-steward) is licensed under the [GNU AGPL v3.0 or later](LICENSE). Its Docker images
 also contain third-party software under its own licenses, all compatible with the AGPL. This
 file summarizes them; the license texts are included in the packages themselves.
 
@@ -31,6 +31,15 @@ Python packages (in `/app/venv`):
 Web UI (bundled JavaScript in `/app/static`): Svelte and SvelteKit (MIT),
 [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) (BSD-3-Clause), Paraglide JS (MIT)
 and their dependencies (MIT, ISC, BSD, Apache-2.0, MPL-2.0, BlueOak-1.0.0).
+
+Fonts and icons of the web UI (copied into the source, `frontend/src/lib/assets/fonts/` and
+`frontend/src/lib/ui/icons.ts`):
+
+- [IBM Plex Sans and IBM Plex Mono](https://github.com/IBM/plex) — © 2017 IBM Corp. with Reserved
+  Font Name "Plex", SIL Open Font License 1.1 (OFL-1.1). WOFF2 subsets as published by
+  [Fontsource](https://fontsource.org); the license text is next to the font files (`OFL.txt`).
+- [Lucide](https://lucide.dev) icons (lucide-static 0.460.0) — ISC License; © Lucide
+  Contributors 2022, portions © Cole Bemis 2013–2022 (Feather, MIT).
 
 ## Worker image (`immich-steward-worker`)
 

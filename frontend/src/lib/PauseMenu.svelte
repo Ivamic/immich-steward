@@ -4,6 +4,7 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
 	import { PAUSE_LENGTHS } from '#lib/pause.svelte.js';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	let {
 		paused,
@@ -62,14 +63,21 @@
 <svelte:window onpointerdown={closeOutside} onkeydown={closeOnEscape} />
 
 {#if paused}
-	<button type="button" {disabled} onclick={onresume}>{resumeLabel}</button>
+	<button type="button" class="st-btn st-btn--sm" {disabled} onclick={onresume}>
+		<Icon name="play" size={14} />
+		{resumeLabel}
+	</button>
 {:else}
 	<details class="menu" bind:open bind:this={menu}>
-		<summary class:disabled>{pauseLabel} ▾</summary>
-		<ul class:right={align === 'right'}>
+		<summary class="st-btn st-btn--sm" class:disabled>
+			<Icon name="pause" size={14} />
+			{pauseLabel}
+			<Icon name="chevron-down" size={14} />
+		</summary>
+		<ul class="st-menu" class:right={align === 'right'}>
 			{#each PAUSE_LENGTHS as minutes (minutes)}
 				<li>
-					<button type="button" {disabled} onclick={() => choose(minutes)}>
+					<button type="button" class="st-menu__item" {disabled} onclick={() => choose(minutes)}>
 						{lengthLabel(minutes)}
 					</button>
 				</li>
@@ -85,12 +93,6 @@
 	}
 	summary {
 		list-style: none;
-		cursor: pointer;
-		padding: 0.2rem 0.6rem;
-		border: 1px solid rgb(127 127 127 / 0.5);
-		border-radius: 0.3rem;
-		background: rgb(127 127 127 / 0.08);
-		user-select: none;
 	}
 	summary::-webkit-details-marker {
 		display: none;
@@ -101,16 +103,11 @@
 	}
 	ul {
 		position: absolute;
-		z-index: 5;
+		top: calc(100% + 4px);
 		left: 0;
-		min-width: 12rem;
-		margin: 0.25rem 0 0;
-		padding: 0.25rem;
+		margin: 0;
 		list-style: none;
-		border: 1px solid rgb(127 127 127 / 0.4);
-		border-radius: 0.4rem;
-		background: #fff;
-		box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+		animation: menu-in var(--motion-fast) var(--ease-out);
 	}
 	ul.right {
 		right: 0;
@@ -118,19 +115,11 @@
 	}
 	li button {
 		width: 100%;
-		padding: 0.35rem 0.6rem;
-		border: none;
-		background: none;
-		color: inherit;
-		text-align: left;
-		cursor: pointer;
 	}
-	li button:hover {
-		background: rgb(127 127 127 / 0.12);
-	}
-	@media (prefers-color-scheme: dark) {
-		ul {
-			background: #161b22;
+	@keyframes menu-in {
+		from {
+			opacity: 0;
+			transform: translateY(calc(var(--motion-distance) * -1));
 		}
 	}
 </style>

@@ -88,9 +88,9 @@
 	}
 	dd {
 		margin: 0;
-		color: #1a7f37;
+		color: var(--color-success-text);
 	}
 	dd.bad {
-		color: #cf222e;
+		color: var(--color-danger-text);
 	}
 </style>

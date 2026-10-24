@@ -431,7 +431,7 @@
 		font-size: 0.85rem;
 	}
 	.warning {
-		color: #ffb86b;
+		color: var(--amber-400);
 	}
 	.primary {
 		font-weight: 600;

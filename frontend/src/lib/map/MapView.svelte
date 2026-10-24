@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-  Map of the photo card. Grey marker: the location currently stored in Immich. Red marker:
-  the point the user picked (click on the map or drag the marker). Module suggestions: numbered
-  markers in the module color with an error circle; time neighbors also draw the route of the
+  Map of the photo card. Grey pin: the location currently stored in Immich. Dark pin with a
+  green dot: the point the user picked (click on the map or drag the pin). Module suggestions:
+  numbered markers in the module color and shape with an error circle; time neighbors also draw the route of the
   located photos around the photo, with the "before" and "after" photos labelled and the segment
   between them dashed. A click close to that segment snaps onto it. Hovering a photo of the route
   shows its preview; a click pins the preview, which links to the photo (opens a new tab).
@@ -33,7 +33,13 @@
 	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
 	import { m } from '#lib/paraglide/messages.js';
-	import { formatDelta, neighborMeta, numberCandidates } from '#lib/suggestions/format.js';
+	import {
+		formatDelta,
+		moduleName,
+		neighborMeta,
+		numberCandidates
+	} from '#lib/suggestions/format.js';
+	import { theme } from '#lib/theme.svelte.js';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
 	import { resolve } from '$app/paths';
 	import {
@@ -44,6 +50,8 @@
 		trackColor,
 		trackGradient
 	} from './trackColors.js';
+	import { moduleColor, moduleOnColor, resolvedColor } from './modulePalette.js';
+	import { markerElement, pinElement, shapeSvg } from './markers.js';
 
 	let {
 		styleUrl,
@@ -92,6 +100,20 @@
 	let popupPinned = false;
 
 	const route = $derived(suggestions.find((s) => s.track.length) ?? null);
+	// Modules with suggestions on the map, in the order of the list.
+	const legend = $derived(
+		suggestions
+			.filter((s) => s.candidates.length)
+			.map((s) => ({
+				key: s.key,
+				shape: s.shape,
+				color: moduleColor(s.module, s.color),
+				name: s.region
+					? m.module_part_title({ module: moduleName(s.module) })
+					: moduleName(s.module),
+				count: s.candidates.length
+			}))
+	);
 	// Legend: faded long before → bright at the photo → faded long after.
 	const legendRamp = `linear-gradient(to right, ${rgba(BEFORE_RGB, 0.12)}, ${rgba(BEFORE_RGB, 1)} 50%, ${rgba(AFTER_RGB, 1)} 50%, ${rgba(AFTER_RGB, 0.12)})`;
 	const segment = $derived.by(() => {
@@ -129,6 +151,12 @@
 			zoom: start ? CLOSE_ZOOM : 3,
 			attributionControl: { compact: true }
 		});
+		// The full attribution opens with (i); the short one (CSS) is always visible.
+		instance.once('idle', () =>
+			container
+				.querySelector('.maplibregl-ctrl-attrib')
+				?.classList.remove('maplibregl-compact-show')
+		);
 		instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
 		instance.on('click', (event: MapMouseEvent) => onclick(instance, event));
 		instance.on('mousemove', 'steward-track-points', (event) => {
@@ -209,7 +237,9 @@
 		if (!map) return;
 		currentMarker?.remove();
 		currentMarker = current
-			? new Marker({ color: '#6e7781' }).setLngLat([current.lon, current.lat]).addTo(map)
+			? new Marker({ element: pinElement('current', m.map_current()), anchor: 'bottom' })
+					.setLngLat([current.lon, current.lat])
+					.addTo(map)
 			: undefined;
 	});
 
@@ -221,7 +251,11 @@
 			return;
 		}
 		if (!pickedMarker) {
-			pickedMarker = new Marker({ color: '#cf222e', draggable: true })
+			pickedMarker = new Marker({
+				element: pinElement('picked', m.map_picked()),
+				anchor: 'bottom',
+				draggable: true
+			})
 				.setLngLat([picked.lon, picked.lat])
 				.addTo(map);
 			pickedMarker.on('dragend', () => {
@@ -236,6 +270,8 @@
 	// Suggestions, route and their HTML markers.
 	$effect(() => {
 		if (!map || !ready) return;
+		// Layer colors are computed from the theme: redraw when it changes.
+		void theme.resolved;
 		const instance = map;
 		for (const marker of overlayMarkers) marker.remove();
 		overlayMarkers = [];
@@ -251,7 +287,7 @@
 							c.latitude,
 							c.longitude,
 							c.radius_m ?? 0,
-							module.color,
+							resolvedColor(moduleColor(module.module, module.color)),
 							`${module.key}:${c.rank}`
 						)
 					)
@@ -309,14 +345,17 @@
 		for (const module of suggestions) {
 			// Lowest rank on top.
 			for (const c of [...module.candidates].reverse()) {
-				const pin = document.createElement('div');
-				// Shape tells modules apart without relying on color (FR-31).
-				pin.className = `steward-candidate steward-shape-${module.shape}`;
-				// A guess from a part of the photo: same module, dashed rim.
-				if (module.region) pin.classList.add('steward-part');
-				pin.style.background = module.color;
-				pin.style.setProperty('--marker-color', module.color);
-				pin.textContent = String(numbers.get(c) ?? c.rank);
+				// Shape tells modules apart without relying on color (FR-31); a guess from a part of
+				// the photo has a dashed rim.
+				const pin = markerElement({
+					shape: module.shape,
+					number: numbers.get(c) ?? c.rank,
+					color: moduleColor(module.module, module.color),
+					on: moduleOnColor(module.module),
+					part: Boolean(module.region),
+					weak: c.tier === 'weak',
+					label: `${moduleName(module.module)} ${numbers.get(c) ?? c.rank}`
+				});
 				pin.dataset.lat = String(c.latitude);
 				pin.dataset.lon = String(c.longitude);
 				pin.dataset.candidate = `${module.key}:${c.rank}`;
@@ -348,8 +387,14 @@
 			map.setPaintProperty('steward-radius-fill', 'fill-opacity', radiusOpacity(key));
 		for (const marker of overlayMarkers) {
 			const element = marker.getElement();
-			if (element.dataset.candidate) {
-				element.classList.toggle('steward-highlight', element.dataset.candidate === key);
+			const shape = element.querySelector<HTMLElement>('.st-marker');
+			if (element.dataset.candidate && shape) {
+				const highlighted = element.dataset.candidate === key;
+				if (highlighted) shape.dataset.state = 'highlight';
+				else if (shape.dataset.weak) shape.dataset.state = 'weak';
+				else delete shape.dataset.state;
+				// Above the other markers while highlighted.
+				element.style.zIndex = highlighted ? '2' : '';
 			}
 		}
 	});
@@ -540,12 +585,30 @@
 
 <div class="wrap">
 	<div class="map" bind:this={container}></div>
-	{#if route}
-		<div class="legend" aria-hidden="true">
-			<span>{m.map_before()}</span>
-			<span class="ramp" style:background={legendRamp}></span>
-			<span>{m.map_after()}</span>
-			<span class="note">{m.map_legend_closer()}</span>
+	{#if legend.length || route}
+		<div class="legend st-glass st-legend" aria-hidden="true">
+			{#each legend as row (row.key)}
+				<div class="st-legend__row">
+					<span
+						class="st-marker st-marker--sm st-marker--{row.shape}"
+						style:--_c={row.color}
+						style:--_on="var(--gray-0)"
+					>
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- fixed markup from markers.ts -->
+						{@html shapeSvg(row.shape)}
+					</span>
+					<span class="st-legend__name">{row.name}</span>
+					<span class="st-legend__count">{row.count}</span>
+				</div>
+			{/each}
+			{#if route}
+				<div class="st-legend__route" class:first={!legend.length}>
+					<span>{m.map_before()}</span>
+					<span class="ramp" style:background={legendRamp}></span>
+					<span>{m.map_after()}</span>
+				</div>
+				<div class="st-legend__note">{m.map_legend_closer()}</div>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -558,120 +621,130 @@
 	}
 	.legend {
 		position: absolute;
-		left: 0.5rem;
-		bottom: 0.5rem;
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.25rem 0.5rem;
-		border-radius: 0.3rem;
-		background: rgb(255 255 255 / 0.9);
-		color: #24292f;
-		font-size: 0.75rem;
+		left: var(--space-2);
+		bottom: var(--space-2);
+		z-index: var(--z-map-ui);
+	}
+	.st-legend__route.first {
+		padding-top: 0;
+		border-top: 0;
 	}
 	.ramp {
-		width: 6rem;
-		height: 0.4rem;
-		border-radius: 0.2rem;
-	}
-	.note {
-		opacity: 0.75;
+		flex: 1;
+		min-width: 3rem;
+		height: 0.375rem;
+		border-radius: var(--radius-full);
 	}
 	.map {
 		width: 100%;
 		height: 100%;
 		min-height: 20rem;
-		border-radius: 0.375rem;
-		overflow: hidden;
 	}
-	/* Markers are created outside the component markup, so their styles are global. */
-	:global(.steward-candidate) {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.6rem;
-		height: 1.6rem;
-		border-radius: 50%;
-		border: 2px solid #fff;
-		box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
-		color: #fff;
-		font:
-			700 0.85rem/1 system-ui,
-			sans-serif;
+	/* Markers and popups are created outside the component markup, so their styles are global. */
+	.map :global(.steward-candidate) {
 		cursor: pointer;
 	}
-	:global(.steward-preview) {
+	.map :global(.st-pin) {
+		cursor: grab;
+	}
+	.map :global(.st-pin--current) {
+		cursor: default;
+	}
+	.map :global(.maplibregl-popup-content) {
+		padding: var(--space-2);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-raised);
+		color: var(--color-text);
+		box-shadow: var(--shadow-md);
+	}
+	.map :global(.maplibregl-popup-tip) {
+		border-top-color: var(--color-surface-raised);
+		border-bottom-color: var(--color-surface-raised);
+	}
+	.map :global(.maplibregl-popup-close-button) {
+		color: var(--color-text-muted);
+	}
+	.map :global(.steward-preview) {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
-		color: #24292f;
-		font:
-			0.8rem/1.3 system-ui,
-			sans-serif;
+		gap: var(--space-1);
+		font: var(--text-xs) / var(--leading-snug) var(--font-sans);
 	}
-	:global(.steward-preview .item) {
+	.map :global(.steward-preview .item) {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		gap: var(--space-1);
 	}
-	:global(.steward-preview .item + .item) {
-		margin-top: 0.4rem;
-		padding-top: 0.4rem;
-		border-top: 1px solid #d0d7de;
+	.map :global(.steward-preview .item + .item) {
+		margin-top: var(--space-1-5);
+		padding-top: var(--space-1-5);
+		border-top: var(--border-width) solid var(--color-border);
 	}
-	:global(.steward-preview img) {
+	.map :global(.steward-preview img) {
 		width: 100%;
 		max-height: 9rem;
 		object-fit: cover;
-		border-radius: 0.25rem;
+		border-radius: var(--radius-xs);
 	}
-	:global(.steward-preview .name) {
-		font-weight: 600;
+	.map :global(.steward-preview .name) {
+		font-weight: var(--weight-semibold);
 		word-break: break-all;
 	}
-	/* The marker of the suggestion hovered in the list. Not a transform: MapLibre positions
-	   markers with it. */
-	:global(.steward-candidate.steward-part) {
-		border-style: dashed;
+	.map :global(.steward-preview a) {
+		color: var(--color-accent-text);
 	}
-	:global(.steward-candidate.steward-highlight) {
-		z-index: 5;
-		outline: 3px solid #0969da;
-		outline-offset: 2px;
-	}
-	:global(.steward-candidate.steward-shape-square) {
-		border-radius: 0.3rem;
-	}
-	/* A square turned behind the number, so that the number stays upright. */
-	:global(.steward-candidate.steward-shape-diamond) {
-		position: relative;
-		border: none;
-		box-shadow: none;
-		background: none !important;
-	}
-	:global(.steward-candidate.steward-shape-diamond::before) {
-		content: '';
-		position: absolute;
-		inset: 0.2rem;
-		z-index: -1;
-		transform: rotate(45deg);
-		background: var(--marker-color);
-		border: 2px solid #fff;
-		border-radius: 0.15rem;
-		box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
-	}
-	:global(.steward-candidate.steward-shape-diamond.steward-part::before) {
-		border-style: dashed;
-	}
-	:global(.steward-tag) {
-		padding: 0.1rem 0.35rem;
-		border-radius: 0.25rem;
-		background: rgb(36 41 47 / 0.85);
-		color: #fff;
-		font:
-			0.75rem/1.3 system-ui,
-			sans-serif;
+	/* "Before" / "after" labels of the route. */
+	.map :global(.steward-tag) {
+		padding: 0.1rem var(--space-1-5);
+		border-radius: var(--radius-xs);
+		background: oklch(0.2 0 0 / 0.86);
+		color: var(--gray-0);
+		font: var(--weight-medium) var(--text-xs) / 1.4 var(--font-sans);
+		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
 		cursor: pointer;
+		box-shadow: var(--shadow-sm);
+	}
+	/* Map controls and attribution on glass, as the other panels over the map. */
+	.map :global(.maplibregl-ctrl-group) {
+		overflow: hidden;
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-glass);
+		backdrop-filter: var(--blur-glass);
+		box-shadow: var(--shadow-sm);
+	}
+	.map :global(.maplibregl-ctrl-group button + button) {
+		border-top: var(--border-width) solid var(--color-border);
+	}
+	.map :global(.maplibregl-ctrl-attrib) {
+		margin: 0 var(--space-2) var(--space-2) 0;
+		border-radius: var(--radius-xs);
+		background: var(--color-glass);
+		backdrop-filter: var(--blur-glass);
+		color: var(--color-text-muted);
+		font: 0.6875rem / 1.25rem var(--font-sans);
+	}
+	.map :global(.maplibregl-ctrl-attrib a) {
+		color: inherit;
+	}
+	/* Collapsed: the short attribution stays visible next to (i). */
+	.map :global(.maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show)) {
+		display: flex;
+		align-items: center;
+		padding: 0 1.5rem 0 var(--space-1-5);
+		min-height: 1.25rem;
+	}
+	.map :global(.maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show))::before {
+		content: '© OpenStreetMap';
+		white-space: nowrap;
+	}
+	.map :global(.maplibregl-ctrl-attrib-button) {
+		top: 0;
+		right: 0;
+		width: 1.25rem;
+		height: 1.25rem;
+		background-size: 1rem;
 	}
 </style>

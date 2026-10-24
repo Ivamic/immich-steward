@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
 	import { saves, type Save } from '#lib/saves.svelte.js';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	let now = $state(Date.now());
 	let expanded = $state(false);
@@ -52,32 +53,61 @@
 {#if saves.items.length}
 	<div class="notices" role="status" aria-live="polite">
 		{#if hidden || expanded}
-			<button type="button" class="more" onclick={() => (expanded = !expanded)}>
+			<button type="button" class="st-btn st-btn--sm" onclick={() => (expanded = !expanded)}>
+				<Icon name={expanded ? 'chevron-down' : 'chevron-up'} size={14} />
 				{expanded ? m.save_notices_fewer() : m.save_notices_more({ count: String(hidden) })}
 			</button>
 		{/if}
 		{#each shown as save (save.key)}
-			<div class="notice" class:failed={save.phase === 'failed'}>
-				<span class="text">
+			<div
+				class="st-toast"
+				class:st-toast--saved={save.phase === 'saved'}
+				class:st-toast--failed={save.phase === 'failed'}
+			>
+				<span class="st-toast__icon">
+					{#if save.phase === 'pending'}
+						<Icon name="clock" />
+					{:else if save.phase === 'saving'}
+						<span class="st-spin"><Icon name="loader-circle" /></span>
+					{:else if save.phase === 'saved'}
+						<!-- The check is drawn once: the one playful moment of the app. -->
+						<span class="st-draw"><Icon name="circle-check" /></span>
+					{:else if save.phase === 'failed'}
+						<Icon name="circle-alert" />
+					{:else}
+						<Icon name="undo-2" />
+					{/if}
+				</span>
+				<span class="st-toast__text">
 					{text(save)}
 					{#if save.error && save.phase !== 'failed'}<span class="error">{save.error}</span>{/if}
 				</span>
-				{#if save.phase === 'pending'}
-					<button type="button" onclick={() => saves.cancel(save.key)}>{m.save_cancel()}</button>
-				{:else if save.phase === 'failed'}
-					<button type="button" onclick={() => saves.send(save.key)}>{m.save_retry()}</button>
-				{:else if save.phase === 'saved' && save.canUndo}
-					<button type="button" onclick={() => saves.undo(save.key)}>{m.save_undo()}</button>
-				{/if}
-				{#if save.phase !== 'pending' && save.phase !== 'saving'}
-					<button
-						type="button"
-						class="close"
-						aria-label={m.save_dismiss()}
-						title={m.save_dismiss()}
-						onclick={() => saves.dismiss(save.key)}>×</button
-					>
-				{/if}
+				<span class="st-toast__actions">
+					{#if save.phase === 'pending'}
+						<button type="button" class="st-btn st-btn--sm" onclick={() => saves.cancel(save.key)}
+							>{m.save_cancel()}</button
+						>
+					{:else if save.phase === 'failed'}
+						<button type="button" class="st-btn st-btn--sm" onclick={() => saves.send(save.key)}
+							>{m.save_retry()}</button
+						>
+					{:else if save.phase === 'saved' && save.canUndo}
+						<button type="button" class="st-btn st-btn--sm" onclick={() => saves.undo(save.key)}
+							>{m.save_undo()}</button
+						>
+					{/if}
+					{#if save.phase !== 'pending' && save.phase !== 'saving'}
+						<button
+							type="button"
+							class="st-iconbtn st-iconbtn--sm"
+							aria-label={m.save_dismiss()}
+							title={m.save_dismiss()}
+							onclick={() => saves.dismiss(save.key)}
+						>
+							<Icon name="x" />
+						</button>
+					{/if}
+				</span>
 			</div>
 		{/each}
 	</div>
@@ -88,51 +118,24 @@
 		/* Bottom left, over the empty corner of the map: away from the suggestions the user
 		   picks from on the right. */
 		position: fixed;
-		left: 1rem;
-		bottom: 1rem;
-		z-index: 10;
+		left: var(--space-4);
+		bottom: var(--space-4);
+		z-index: var(--z-toast);
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: var(--space-2);
 		align-items: flex-start;
-		max-width: min(28rem, calc(100vw - 2rem));
+		width: min(28rem, calc(100vw - 2rem));
 	}
-	.more {
-		padding: 0.25rem 0.6rem;
-		border: none;
-		border-radius: 0.4rem;
-		background: #24292f;
-		color: #fff;
-		font-size: 0.85rem;
-		opacity: 0.85;
-		cursor: pointer;
+	.st-toast {
+		width: 100%;
 	}
-	.notice {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.6rem 0.8rem;
-		border-radius: 0.4rem;
-		background: #24292f;
-		color: #fff;
-		box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
-	}
-	.notice.failed {
-		background: #82071e;
-	}
-	.text {
-		flex: 1;
-		word-break: break-word;
+	.st-spin,
+	.st-draw {
+		display: inline-flex;
 	}
 	.error {
 		display: block;
-		opacity: 0.85;
-	}
-	.close {
-		background: none;
-		border: none;
-		color: inherit;
-		font-size: 1.2rem;
-		cursor: pointer;
+		color: var(--color-text-muted);
 	}
 </style>

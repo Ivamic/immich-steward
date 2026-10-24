@@ -6,6 +6,7 @@
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	let { near, onselect }: { near: LatLon | null; onselect: (point: LatLon) => void } = $props();
 
@@ -41,8 +42,8 @@
 </script>
 
 <div class="geocoder">
-	<label>
-		{m.photo_search_address()}
+	<label class="st-input">
+		<Icon name="search" />
 		<input
 			type="search"
 			bind:value={text}
@@ -53,58 +54,46 @@
 					choose(results[0]);
 				}
 			}}
+			aria-label={m.photo_search_address()}
 			placeholder={m.photo_search_placeholder()}
 		/>
 	</label>
 	{#if results.length}
-		<ul>
+		<ul class="st-menu">
 			{#each results as place, index (index)}
 				<li>
-					<button type="button" onclick={() => choose(place)}>
-						<strong>{place.name}</strong>
-						{#if place.label}<span>{place.label}</span>{/if}
+					<button type="button" class="st-menu__item" onclick={() => choose(place)}>
+						<Icon name="map-pin" />
+						<span class="place">
+							<strong>{place.name}</strong>
+							{#if place.label}<span class="st-menu__hint">{place.label}</span>{/if}
+						</span>
 					</button>
 				</li>
 			{/each}
 		</ul>
 	{/if}
-	{#if error}<p class="error">{error}</p>{/if}
+	{#if error}<p class="st-field__error">{error}</p>{/if}
 </div>
 
 <style>
-	label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
 	ul {
+		max-width: none;
+		margin: var(--space-1) 0 0;
 		list-style: none;
-		margin: 0.25rem 0 0;
-		padding: 0;
-		border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
-		border-radius: 0.375rem;
+		box-shadow: none;
 	}
-	li button {
+	.st-menu__item {
+		width: 100%;
+		min-height: var(--control-lg);
+	}
+	.place {
 		display: flex;
 		flex-direction: column;
-		align-items: start;
-		width: 100%;
-		padding: 0.4rem 0.6rem;
-		border: 0;
-		background: none;
-		color: inherit;
-		text-align: left;
-		cursor: pointer;
+		min-width: 0;
+		line-height: var(--leading-snug);
 	}
-	li button:hover,
-	li button:focus-visible {
-		background: color-mix(in srgb, currentColor 10%, transparent);
-	}
-	li span {
-		font-size: 0.85rem;
-		opacity: 0.7;
-	}
-	.error {
-		color: #cf222e;
+	strong {
+		font-weight: var(--weight-medium);
 	}
 </style>

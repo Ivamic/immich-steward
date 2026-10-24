@@ -17,7 +17,13 @@
 		type Region
 	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import ConfidenceMeter from '#lib/ui/ConfidenceMeter.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
+	import Kbd from '#lib/ui/Kbd.svelte';
+	import Skeleton from '#lib/ui/Skeleton.svelte';
+	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import { resolve } from '$app/paths';
+	import { moduleColor, moduleOnColor } from '#lib/map/modulePalette.js';
 	import { cameraFilter, setCameraExcluded } from './cameraFilter.svelte.js';
 	import type { Highlight } from './highlight.js';
 	import {
@@ -154,77 +160,111 @@
 <section class="suggestions" aria-busy={loading} bind:this={list}>
 	<h2>{m.suggestions_heading()}</h2>
 	{#if loading && !modules.length}
-		<p class="muted">{m.suggestions_loading()}</p>
+		{#each { length: 2 }, i (i)}
+			<div class="skeleton" role="status" aria-label={m.suggestions_loading()}>
+				<Skeleton width="8rem" />
+				<div class="skeleton-row">
+					<Skeleton width="1.5rem" height="1.5rem" radius="50%" />
+					<span class="skeleton-lines"
+						><Skeleton width="75%" /><Skeleton width="45%" height="0.625rem" /></span
+					>
+					<Skeleton width="4.5rem" height="1.75rem" />
+				</div>
+			</div>
+		{/each}
 	{/if}
 	{#each shown as module, index (module.key)}
 		{@const weak = weakCount(modules[index])}
 		<div
-			class="module"
+			class="st-sgroup"
 			role="group"
 			onmouseenter={() => module.region && onpartshow(module.region, module.turn)}
 			onmouseleave={() => module.region && onpartshow(null, 0)}
 		>
-			<h3>
-				<span class="swatch shape-{module.shape}" style:background={module.color}></span>
-				{module.region
-					? m.module_part_title({ module: moduleName(module.module) })
-					: moduleName(module.module)}
+			<!-- A button that does not fit goes to the next line whole, so buttons keep one height. -->
+			<h3 class="st-sgroup__head">
+				<span
+					class="swatch shape-{module.shape}"
+					style:background={moduleColor(module.module, module.color)}
+				></span>
+				<span class="st-sgroup__name">
+					{module.region
+						? m.module_part_title({ module: moduleName(module.module) })
+						: moduleName(module.module)}
+				</span>
 				{#if module.turn}
-					<span class="muted turned">· {m.module_turned({ degrees: String(module.turn) })}</span>
+					<span class="st-sgroup__sub">· {m.module_turned({ degrees: String(module.turn) })}</span>
 				{/if}
 				{#if module.runnable}
-					<button
-						type="button"
-						class="run"
-						disabled={isPending(module)}
-						onclick={() =>
-							module.region ? onpart(module.module, module.region) : onrun(module.module)}
-					>
-						{module.region
-							? m.module_part_change()
-							: module.status === 'not_run'
-								? m.module_run()
-								: m.module_rerun()}
-					</button>
-					{#if !module.region}
+					<span class="st-sgroup__actions">
 						<button
 							type="button"
-							class="run"
-							title={m.module_part_hint()}
-							disabled={partPending(module.module)}
-							onclick={() => onpart(module.module, lastPart(module.module))}
+							class="st-btn st-btn--ghost st-btn--sm"
+							disabled={isPending(module)}
+							onclick={() =>
+								module.region ? onpart(module.module, module.region) : onrun(module.module)}
 						>
-							{m.module_part_run()} <kbd>R</kbd>
+							<Icon name={module.region ? 'square-dashed' : 'refresh-cw'} size={14} />
+							{module.region
+								? m.module_part_change()
+								: module.status === 'not_run'
+									? m.module_run()
+									: m.module_rerun()}
 						</button>
-					{/if}
+						{#if !module.region}
+							<Tooltip text={m.module_part_hint()}>
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									disabled={partPending(module.module)}
+									onclick={() => onpart(module.module, lastPart(module.module))}
+								>
+									<Icon name="square-dashed" size={14} />
+									{m.module_part_run()}
+									<Kbd>R</Kbd>
+								</button>
+							</Tooltip>
+						{/if}
+					</span>
 				{/if}
 			</h3>
 			{#if status(module)}
 				<p
-					class="muted"
-					class:pending={isPending(module)}
+					class="st-sgroup__note"
+					class:failed={module.status === 'failed'}
 					title={module.status === 'failed' ? (module.error ?? undefined) : undefined}
 				>
-					{status(module)}
+					{#if isPending(module)}
+						<span class="st-spin"><Icon name="loader-circle" size={14} /></span>
+					{:else if module.status === 'failed'}
+						<Icon name="circle-alert" size={14} />
+					{:else}
+						<Icon name="info" size={14} />
+					{/if}
+					<span>{status(module)}</span>
 				</p>
 				{#if module.status === 'failed' && module.error_code === 'lease_expired'}
-					<p class="muted">{m.failure_lease_expired_hint()}</p>
+					<p class="st-sgroup__note">{m.failure_lease_expired_hint()}</p>
 				{/if}
 			{/if}
 			{#if module.worker_loading && isPending(module)}
-				<p class="muted">{m.module_worker_loading()}</p>
+				<p class="st-sgroup__note">
+					<Icon name="hard-drive" size={14} />{m.module_worker_loading()}
+				</p>
 			{/if}
 			{#if module.paused && (module.status === 'not_run' || module.status === 'queued')}
-				<p class="muted">{m.module_paused()}</p>
+				<p class="st-sgroup__note"><Icon name="pause" size={14} />{m.module_paused()}</p>
 			{/if}
 			{#if module.runnable && !module.worker_available && module.status !== 'done'}
-				<p class="warning">{m.module_no_worker()}</p>
+				<p class="st-sgroup__note warning">
+					<Icon name="triangle-alert" size={14} />{m.module_no_worker()}
+				</p>
 			{/if}
 			<!-- Shown in "only this device" mode even without neighbors, so that it can be undone. -->
 			{#if module.cameras.length || (module.module === 'time_neighbors' && cameraFilter.sameOnly)}
 				<fieldset class="devices">
 					<legend>{m.suggestions_devices()}</legend>
-					<label class="same-only" title={m.device_same_only_hint()}>
+					<label class="st-check st-check--sm" title={m.device_same_only_hint()}>
 						<input
 							type="checkbox"
 							checked={cameraFilter.sameOnly}
@@ -233,95 +273,109 @@
 						{m.device_same_only()}
 					</label>
 					{#each module.cameras as camera (camera.value)}
-						<label>
+						<label class="st-check st-check--sm">
 							<input
 								type="checkbox"
 								checked={!camera.excluded}
 								disabled={cameraFilter.sameOnly && !camera.same_camera}
 								onchange={(e) => setCameraExcluded(camera.value, !e.currentTarget.checked)}
 							/>
-							{camera.label || m.device_unknown()}
-							<span class="muted">
-								({camera.count}{camera.same_camera ? `, ${m.device_this()}` : ''})
+							<span>
+								{camera.label || m.device_unknown()}
+								<span class="st-check__meta">
+									({camera.count}{camera.same_camera ? `, ${m.device_this()}` : ''})
+								</span>
 							</span>
 						</label>
 					{/each}
 				</fieldset>
 			{/if}
 			{#if module.note && !module.candidates.length}
-				<p class="muted">{moduleNote(module.note)}</p>
+				<p class="st-sgroup__note"><Icon name="info" size={14} />{moduleNote(module.note)}</p>
 			{/if}
-			<ol>
+			<ol class="st-sgroup__list">
 				{#each module.candidates as candidate (candidate.rank)}
 					{@const key = numbered.get(candidate)?.key}
 					<!-- The row is a shortcut for the mouse; keyboard users have the label button. -->
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 					<li
+						class="st-cand"
+						style:--_c={moduleColor(module.module, module.color)}
+						data-state={isHighlighted(module.key, candidate.rank)
+							? 'highlight'
+							: candidate.tier === 'weak'
+								? 'weak'
+								: undefined}
 						onclick={(e) => rowClick(e, candidate)}
-						class:weak={candidate.tier === 'weak'}
-						class:highlight={isHighlighted(module.key, candidate.rank)}
 						data-candidate="{module.key}:{candidate.rank}"
 						onmouseenter={() =>
 							onhighlight({ module: module.key, rank: candidate.rank, from: 'list' })}
 						onmouseleave={() => onhighlight(null)}
 					>
-						<span class="rank shape-{module.shape}" style:background={module.color}
+						<span
+							class="rank shape-{module.shape}"
+							style:background={moduleColor(module.module, module.color)}
+							style:color={moduleOnColor(module.module)}
 							>{numbered.get(candidate)?.number ?? candidate.rank}</span
 						>
-						<div class="body">
+						<div class="st-cand__body">
 							<button
 								type="button"
-								class="label"
+								class="st-cand__label"
 								title={candidateDetails(candidate) ?? m.candidate_locate()}
 								onclick={() => onlocate(candidate)}
 							>
 								{candidateLabel(candidate)}
 							</button>
-							<div class="meta">
-								<span
-									class="score"
+							<div class="st-cand__meta">
+								<ConfidenceMeter
+									score={candidate.score}
+									tier={candidate.tier}
+									label={candidate.tier === 'confident' ? m.candidate_confident() : undefined}
 									title={m.candidate_score({ percent: String(Math.round(candidate.score * 100)) })}
-								>
-									<span style:width="{Math.round(candidate.score * 100)}%"></span>
-								</span>
-								<span class="percent">{Math.round(candidate.score * 100)}%</span>
-								{#if candidate.tier === 'confident'}
-									<span class="confident">{m.candidate_confident()}</span>
-								{/if}
+								/>
 								{#if candidate.radius_m}
-									<span>±{formatDistance(candidate.radius_m)}</span>
+									<span class="st-cand__radius">±{formatDistance(candidate.radius_m)}</span>
 								{/if}
 								{#each candidateRemarks(candidate) as remark (remark)}
-									<span class="remark">{remark}</span>
+									<span class="st-cand__remark">{remark}</span>
 								{/each}
-								{#each candidate.evidence.neighbors ?? [] as neighbor (neighbor.asset_id)}
-									<a
-										class="neighbor"
-										href={resolve('/photo/[id]', { id: neighbor.asset_id })}
-										target="_blank"
-										rel="noopener"
-										aria-label="{neighbor.file_name} — {m.photo_open_new_tab()}"
-										onmouseenter={(e) => showPeek(e, module, neighbor)}
-										onmouseleave={() => (peek = null)}
-									>
-										<img
-											src={thumbnailUrl(neighbor.asset_id, 'thumbnail', 0, neighbor.version)}
-											alt={neighbor.file_name}
-											loading="lazy"
-										/>
-									</a>
-								{/each}
+								{#if candidate.evidence.neighbors?.length}
+									<span class="st-cand__thumbs">
+										{#each candidate.evidence.neighbors as neighbor (neighbor.asset_id)}
+											<a
+												href={resolve('/photo/[id]', { id: neighbor.asset_id })}
+												target="_blank"
+												rel="noopener"
+												aria-label="{neighbor.file_name} — {m.photo_open_new_tab()}"
+												onmouseenter={(e) => showPeek(e, module, neighbor)}
+												onmouseleave={() => (peek = null)}
+											>
+												<img
+													src={thumbnailUrl(neighbor.asset_id, 'thumbnail', 0, neighbor.version)}
+													alt={neighbor.file_name}
+													loading="lazy"
+												/>
+											</a>
+										{/each}
+									</span>
+								{/if}
 							</div>
 						</div>
-						<button type="button" class="choose" onclick={() => onchoose(candidate)}>
+						<button
+							type="button"
+							class="st-btn st-btn--sm choose"
+							onclick={() => onchoose(candidate)}
+						>
 							{m.candidate_choose()}
-							{#if key}<kbd>{key}</kbd>{/if}
+							{#if key}<Kbd>{key}</Kbd>{/if}
 						</button>
 					</li>
 				{/each}
 			</ol>
 			{#if weak}
-				<button type="button" class="fold" onclick={() => ontoggle(module.key)}>
+				<button type="button" class="st-sgroup__fold" onclick={() => ontoggle(module.key)}>
+					<Icon name={unfolded.includes(module.key) ? 'chevron-up' : 'chevron-down'} size={14} />
 					{unfolded.includes(module.key)
 						? m.suggestions_weak_hide()
 						: m.suggestions_weak_more({ count: String(weak) })}
@@ -331,10 +385,15 @@
 	{/each}
 	{#if hidden.length}
 		<p class="hidden-modules">
-			{m.suggestions_hidden()}
-			{#each hidden as module, i (module)}
-				{#if i}·{/if}
-				<button type="button" title={m.suggestions_reveal_title()} onclick={() => onreveal(module)}>
+			<span>{m.suggestions_hidden()}</span>
+			{#each hidden as module (module)}
+				<button
+					type="button"
+					class="st-chip"
+					title={m.suggestions_reveal_title()}
+					onclick={() => onreveal(module)}
+				>
+					<Icon name="eye" size={14} />
 					{moduleName(module)}
 				</button>
 			{/each}
@@ -352,18 +411,17 @@
 {/if}
 
 <style>
-	h2 {
-		font-size: 1rem;
-		margin: 0.25rem 0;
-	}
-	/* A button that does not fit goes to the next line whole, so buttons keep one height. */
-	h3 {
+	.suggestions {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.4rem;
-		font-size: 0.9rem;
-		margin: 0.5rem 0 0.25rem;
+		flex-direction: column;
+		gap: var(--space-4);
+	}
+	h2 {
+		margin: 0;
+		font-size: var(--text-md);
+	}
+	.st-sgroup__head {
+		margin: 0;
 	}
 	.swatch {
 		width: 0.75rem;
@@ -379,50 +437,11 @@
 		clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 	}
 	.rank.shape-diamond {
-		width: 1.7rem;
-		height: 1.7rem;
-	}
-	.turned {
-		font-weight: normal;
-		font-size: 0.8rem;
-	}
-	.run {
-		margin-left: 0.5rem;
-		font-size: 0.8rem;
-		white-space: nowrap;
-	}
-	.pending::before {
-		content: '⏳ ';
-	}
-	.warning {
-		color: #9a6700;
-		font-size: 0.85rem;
-		margin: 0 0 0.4rem;
-	}
-	ol {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	li {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr) auto;
-		gap: 0.5rem;
-		align-items: center;
-		padding: 0.3rem 0.4rem;
-		border: 1px solid rgb(127 127 127 / 0.25);
-		border-radius: 0.4rem;
-		font-size: 0.9rem;
-	}
-	li.highlight {
-		border-color: #0969da;
-		box-shadow: 0 0 0 2px rgb(9 105 218 / 0.25);
+		width: 1.75rem;
+		height: 1.75rem;
 	}
 	.rank.shape-square {
-		border-radius: 0.3rem;
+		border-radius: var(--radius-xs);
 	}
 	.rank {
 		display: inline-flex;
@@ -431,144 +450,99 @@
 		width: 1.5rem;
 		height: 1.5rem;
 		border-radius: 50%;
-		color: #fff;
-		font-weight: 700;
-		font-size: 0.85rem;
+		color: var(--gray-0);
+		font-size: var(--text-sm);
+		font-weight: var(--weight-bold);
+		font-variant-numeric: tabular-nums;
 	}
-	li {
-		cursor: pointer;
+	.st-sgroup__note.failed {
+		color: var(--color-danger-text);
 	}
-	.label {
+	.st-sgroup__note.warning {
+		color: var(--color-warning-text);
+	}
+	.st-sgroup__note :global(svg) {
+		margin-top: 0.125rem;
+	}
+	.st-spin {
+		display: inline-flex;
+	}
+	.choose {
+		white-space: nowrap;
+	}
+	.devices {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1) var(--space-4);
+		margin: 0 0 var(--space-1);
 		padding: 0;
 		border: none;
-		background: none;
-		color: inherit;
-		font: inherit;
-		text-align: left;
-		cursor: pointer;
-		word-break: break-word;
-		/* Two lines at most; the full text is in the title. */
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
+		font-size: var(--text-sm);
+	}
+	.devices legend {
+		float: left;
+		margin-inline-end: var(--space-2);
+		font-weight: var(--weight-medium);
+		color: var(--color-text-muted);
+	}
+	.st-cand__thumbs a {
+		display: block;
 	}
 	.peek {
 		position: fixed;
-		z-index: 20;
+		z-index: var(--z-tooltip);
 		width: 240px;
-		padding: 0.4rem;
-		border-radius: 0.4rem;
-		background: #fff;
-		color: #24292f;
-		box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
-		font-size: 0.8rem;
+		padding: var(--space-1-5);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-raised);
+		color: var(--color-text);
+		box-shadow: var(--shadow-md);
+		font-size: var(--text-xs);
 		pointer-events: none;
 	}
 	.peek img {
 		display: block;
 		width: 100%;
 		max-height: 160px;
+		margin-bottom: var(--space-1);
 		object-fit: cover;
-		border-radius: 0.25rem;
-		margin-bottom: 0.3rem;
+		border-radius: var(--radius-xs);
 	}
 	.peek .name {
-		font-weight: 600;
+		font-weight: var(--weight-semibold);
 		word-break: break-all;
 	}
-	.choose {
-		font-size: 0.8rem;
-		white-space: nowrap;
+	.muted {
+		color: var(--color-text-muted);
 	}
-	.meta {
+	.hidden-modules {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.2rem 0.6rem;
-		font-size: 0.8rem;
-	}
-	.score {
-		display: inline-block;
-		width: 3rem;
-		height: 0.4rem;
-		border-radius: 0.2rem;
-		background: rgb(127 127 127 / 0.25);
-		overflow: hidden;
-	}
-	.score span {
-		display: block;
-		height: 100%;
-		background: #1a7f37;
-	}
-	li.weak {
-		opacity: 0.65;
-	}
-	.percent {
-		margin-left: -0.4rem;
-		font-variant-numeric: tabular-nums;
-	}
-	.confident {
-		color: #1a7f37;
-		font-weight: 600;
-	}
-	.fold {
-		display: block;
-		text-align: left;
-		margin-top: 0.4rem;
-		border: none;
-		background: none;
-		padding: 0;
-		color: #0969da;
-		cursor: pointer;
-		text-decoration: underline;
-		font-size: 0.85rem;
-	}
-	.remark {
-		color: #9a6700;
-	}
-	.devices {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem 1rem;
-		margin: 0 0 0.5rem;
-		padding: 0;
-		border: none;
-		font-size: 0.85rem;
-	}
-	.devices legend {
-		float: left;
-		margin-right: 0.5rem;
-		font-weight: 600;
-	}
-	.neighbor img {
-		display: block;
-		width: 1.75rem;
-		height: 1.75rem;
-		object-fit: cover;
-		border-radius: 0.2rem;
-	}
-	.muted {
-		opacity: 0.65;
+		gap: var(--space-2);
 		margin: 0;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
 	}
-	.hidden-modules {
-		margin: 0.5rem 0 0;
-		font-size: 0.8rem;
-		opacity: 0.65;
+	.skeleton {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
 	}
-	.hidden-modules button {
-		border: none;
-		background: none;
-		padding: 0;
-		color: inherit;
-		font: inherit;
-		text-decoration: underline dotted;
-		cursor: pointer;
+	.skeleton-row {
+		display: grid;
+		grid-template-columns: 1.5rem minmax(0, 1fr) 4.5rem;
+		gap: var(--space-3);
+		align-items: center;
+		padding: var(--space-3);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
 	}
-	kbd {
-		font-size: 0.75em;
-		opacity: 0.7;
+	.skeleton-lines {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
 	}
 </style>

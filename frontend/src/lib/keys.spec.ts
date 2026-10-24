@@ -20,6 +20,12 @@ describe('shortcut keys', () => {
 		expect(shortcutKey({ key: ']', code: 'BracketRight' })).toBe(']');
 	});
 
+	it('takes Shift + slash as "?" in any layout', () => {
+		expect(shortcutKey({ key: '?', code: 'Slash', shiftKey: true })).toBe('?');
+		expect(shortcutKey({ key: ',', code: 'Slash', shiftKey: true })).toBe('?');
+		expect(shortcutKey({ key: '.', code: 'Slash' })).toBe('.');
+	});
+
 	it('keeps named keys', () => {
 		expect(shortcutKey({ key: 'Enter', code: 'Enter' })).toBe('enter');
 		expect(shortcutKey({ key: 'ArrowLeft', code: 'ArrowLeft' })).toBe('arrowleft');

@@ -6,7 +6,7 @@
 -->
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
-	import { getLocale } from '#lib/paraglide/runtime.js';
+	import { monthTitle } from './month.js';
 	import { scrubberMarks, type Segment } from './scrubber.js';
 
 	let { timeline }: { timeline: HTMLElement } = $props();
@@ -18,11 +18,6 @@
 	let scrollRatio = $state(0);
 	let hover = $state<{ y: number; month: string } | null>(null);
 	let dragging = false;
-
-	const monthLabel = (month: string) =>
-		new Intl.DateTimeFormat(getLocale(), { month: 'long', year: 'numeric' }).format(
-			new Date(`${month}-01T00:00:00`)
-		);
 
 	function measure() {
 		const base = timeline.offsetTop;
@@ -109,7 +104,7 @@
 	<span class="position" style:top="{scrollRatio * barHeight}px"></span>
 	{#if hover}
 		<span class="hover-line" style:top="{hover.y}px"></span>
-		<span class="hover-label" style:top="{hover.y}px">{monthLabel(hover.month)}</span>
+		<span class="hover-label" style:top="{hover.y}px">{monthTitle(hover.month)}</span>
 	{/if}
 </div>
 
@@ -123,7 +118,8 @@
 		cursor: row-resize;
 		user-select: none;
 		touch-action: none;
-		z-index: 10;
+		/* under the sticky filter bar */
+		z-index: calc(var(--z-sticky) - 1);
 	}
 	/* Dots and labels end at the bottom of their month, as in Immich. */
 	.dot {
@@ -133,42 +129,46 @@
 		height: 4px;
 		border-radius: 50%;
 		transform: translateY(-100%);
-		background: currentColor;
-		opacity: 0.3;
+		background: var(--color-border-strong);
 	}
 	.year {
 		position: absolute;
 		right: 1.1rem;
 		transform: translateY(-100%);
-		font-family: ui-monospace, monospace;
-		font-size: 0.75rem;
+		font-size: var(--text-xs);
 		line-height: 1;
-		opacity: 0.8;
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
 	}
 	.position {
 		position: absolute;
 		right: 0;
 		width: 100%;
 		height: 2px;
-		background: #0969da;
+		background: var(--color-accent);
 	}
 	.hover-line {
 		position: absolute;
 		right: 0;
 		width: 100%;
 		height: 1px;
-		background: #cf222e;
+		background: var(--color-text);
 	}
 	.hover-label {
 		position: absolute;
 		right: 3.5rem;
 		transform: translateY(-50%);
 		white-space: nowrap;
-		padding: 0.2rem 0.5rem;
-		border-radius: 0.25rem;
-		font-size: 0.8rem;
-		color: white;
-		background: rgb(0 0 0 / 0.8);
+		padding: var(--space-1) var(--space-2);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-sm);
+		font-size: var(--text-sm);
+		font-weight: var(--weight-medium);
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text);
+		background: var(--color-surface-raised);
+		box-shadow: var(--shadow-md);
+		z-index: var(--z-dropdown);
 		pointer-events: none;
 	}
 </style>

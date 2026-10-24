@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/images/logo.svg" width="96" height="96" alt="immich-steward logo">
+  <img src="docs/images/logo.svg" width="96" height="96" alt="Steward for Immich logo">
 </p>
 
-<h1 align="center">immich-steward</h1>
+<h1 align="center">Steward for Immich</h1>
 
 <p align="center">
   Find out where your photos without GPS were taken — and write it back to <a href="https://immich.app">Immich</a> only when you say so.
@@ -95,7 +95,7 @@ New modules can be added later as plugins.
 
 ## Installation
 
-immich-steward runs with Docker Compose next to your Immich server (Immich v3.x):
+Steward runs with Docker Compose next to your Immich server (Immich v3.x):
 
 ```sh
 git clone https://github.com/Ivamic/immich-steward.git
@@ -188,7 +188,7 @@ have the same keys and placeholders.
 ## Feedback and contributing
 
 - **Bugs** — open an [issue](https://github.com/Ivamic/immich-steward/issues) with the versions
-  of immich-steward and Immich and the steps to reproduce.
+  of Steward and Immich and the steps to reproduce.
 - **Ideas and questions** — start a thread in
   [Discussions](https://github.com/Ivamic/immich-steward/discussions). Stories of how you use the
   app and which photos it fails on are welcome too.
@@ -198,7 +198,7 @@ have the same keys and placeholders.
 
 ## Support the project
 
-immich-steward is free and developed in spare time. If it saved you hours of manual tagging,
+Steward is free and developed in spare time. If it saved you hours of manual tagging,
 you can support its development with a donation in cryptocurrency. Starring the repository,
 reporting bugs and sharing the project help too.
 
@@ -216,6 +216,11 @@ Please double-check the network before sending: funds sent over a different netw
 Copyright (C) 2026 Ivamic.
 
 [GNU Affero General Public License v3.0 or later](LICENSE) (`AGPL-3.0-or-later`).
+
+**Name and logo.** The name "Steward for Immich" and its logo (`docs/images/logo.svg`,
+`frontend/src/lib/assets/favicon.svg` and the mark drawn in `frontend/src/lib/ui/Brand.svelte`)
+are not licensed under the AGPL; all rights are reserved by the author. You may use them to refer
+to this project. Forks and modified versions must use a different name and logo.
 
 ## AI assistance
 

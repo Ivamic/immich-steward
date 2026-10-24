@@ -4,6 +4,7 @@
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	const POLL_MS = 1500;
 	// The next sync times are shown relative to now.
@@ -77,15 +78,27 @@
 	<h1>{m.library_heading()}</h1>
 
 	{#if library}
-		<dl>
-			<dt>{m.library_assets()}</dt>
-			<dd>{count(library.assets)} ({m.library_videos({ count: count(library.videos) })})</dd>
-			<dt>{m.library_without_gps()}</dt>
-			<dd><strong>{count(library.without_gps)}</strong></dd>
-			<dt>{m.library_with_gps()}</dt>
-			<dd>{count(library.with_gps)}</dd>
-			<dt>{m.library_albums()}</dt>
-			<dd>{count(library.albums)}</dd>
+		<dl class="st-mcard__stats">
+			<div class="st-stat">
+				<dt class="st-stat__label">{m.library_assets()}</dt>
+				<dd class="st-stat__value">{count(library.assets)}</dd>
+				<dd class="sub">{m.library_videos({ count: count(library.videos) })}</dd>
+			</div>
+			<div class="st-stat">
+				<dt class="st-stat__label">{m.library_without_gps()}</dt>
+				<dd class="st-stat__value">{count(library.without_gps)}</dd>
+			</div>
+			<div class="st-stat">
+				<dt class="st-stat__label">{m.library_with_gps()}</dt>
+				<dd class="st-stat__value">{count(library.with_gps)}</dd>
+			</div>
+			<div class="st-stat">
+				<dt class="st-stat__label">{m.library_albums()}</dt>
+				<dd class="st-stat__value">{count(library.albums)}</dd>
+			</div>
+		</dl>
+
+		<dl class="sync">
 			<dt>{m.library_synced_at()}</dt>
 			<dd>
 				{library.synced_at ? dates.format(new Date(library.synced_at)) : m.library_never_synced()}
@@ -104,9 +117,12 @@
 		</dl>
 
 		{#if syncing}
-			<p role="status">
-				{m.library_syncing({ count: count(Number(job?.progress.assets ?? 0)) })}
-			</p>
+			<div class="st-progress st-progress--indeterminate" role="status">
+				<div class="st-progress__row">
+					{m.library_syncing({ count: count(Number(job?.progress.assets ?? 0)) })}
+				</div>
+				<div class="st-progress__track"><div class="st-progress__bar"></div></div>
+			</div>
 		{:else if job?.status === 'failed'}
 			<p class="error" role="alert">
 				{m.library_sync_failed({ reason: errorMessage(new ApiError(0, job.error ?? '')) })}
@@ -114,10 +130,16 @@
 		{/if}
 
 		<div class="buttons">
-			<button type="button" onclick={() => sync(null)} disabled={syncing}>
+			<button type="button" class="st-btn" onclick={() => sync(null)} disabled={syncing}>
+				<Icon name="refresh-cw" />
 				{m.library_sync()}
 			</button>
-			<button type="button" onclick={() => sync(true)} disabled={syncing}>
+			<button
+				type="button"
+				class="st-btn st-btn--ghost"
+				onclick={() => sync(true)}
+				disabled={syncing}
+			>
 				{m.library_sync_full()}
 			</button>
 		</div>
@@ -129,25 +151,39 @@
 </section>
 
 <style>
-	dl {
-		display: grid;
-		grid-template-columns: max-content 1fr;
-		gap: 0.5rem 1.5rem;
+	section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		margin-bottom: var(--space-10);
 	}
-	dt {
-		font-weight: 600;
+	h1 {
+		margin: 0;
 	}
+	dl,
 	dd {
 		margin: 0;
 	}
+	.sub {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+	}
+	.sync {
+		display: grid;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: var(--space-1) var(--space-4);
+		font-size: var(--text-sm);
+	}
+	.sync dt {
+		color: var(--color-text-muted);
+	}
 	.buttons {
 		display: flex;
-		gap: 0.75rem;
+		flex-wrap: wrap;
+		gap: var(--space-2);
 	}
 	.error {
-		color: #cf222e;
-	}
-	section {
-		margin-bottom: 2.5rem;
+		margin: 0;
+		color: var(--color-danger-text);
 	}
 </style>

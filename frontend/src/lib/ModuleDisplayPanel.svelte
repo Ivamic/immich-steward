@@ -7,6 +7,7 @@
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { moduleName } from '#lib/suggestions/format.js';
+	import Icon from '#lib/ui/Icon.svelte';
 
 	let displays = $state<ModuleDisplay[]>([]);
 	let saving = $state(false);
@@ -99,7 +100,7 @@
 								e.dataTransfer.setDragImage(row, 12, 12);
 							}
 						}}
-						ondragend={dragEnd}>⠿</span
+						ondragend={dragEnd}><Icon name="grip-vertical" /></span
 					>
 					<span class="arrows">
 						<button
@@ -107,18 +108,20 @@
 							title={m.display_up()}
 							aria-label={m.display_up()}
 							disabled={saving || index === 0}
-							onclick={() => move(index, -1)}>↑</button
+							class="st-iconbtn st-iconbtn--sm"
+							onclick={() => move(index, -1)}><Icon name="chevron-up" /></button
 						>
 						<button
 							type="button"
 							title={m.display_down()}
 							aria-label={m.display_down()}
 							disabled={saving || index === displays.length - 1}
-							onclick={() => move(index, 1)}>↓</button
+							class="st-iconbtn st-iconbtn--sm"
+							onclick={() => move(index, 1)}><Icon name="chevron-down" /></button
 						>
 					</span>
 					<span class="name">{moduleName(display.module)}</span>
-					<label>
+					<label class="st-check st-check--sm">
 						<input
 							type="checkbox"
 							checked={!display.hidden}
@@ -138,43 +141,55 @@
 
 <style>
 	section {
-		margin-bottom: 2.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+		margin-bottom: var(--space-10);
+	}
+	h2,
+	.hint {
+		margin: 0;
 	}
 	.hint {
-		margin-top: 0;
-		opacity: 0.7;
-		font-size: 0.9rem;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
 	}
 	ol {
+		max-width: 32rem;
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		display: grid;
-		gap: 0.35rem;
-		max-width: 28rem;
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
 	}
 	li {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
+		gap: var(--space-2);
+		padding: var(--space-1-5) var(--space-3) var(--space-1-5) var(--space-1-5);
+	}
+	li + li {
+		border-top: var(--border-width) solid var(--color-border);
 	}
 	li.hidden .name {
-		opacity: 0.5;
+		color: var(--color-text-subtle);
 	}
 	li.dragged {
 		opacity: 0.4;
 	}
 	li.drop-before {
-		box-shadow: 0 -2px 0 #0969da;
+		box-shadow: inset 0 2px 0 var(--color-accent);
 	}
 	li.drop-after {
-		box-shadow: 0 2px 0 #0969da;
+		box-shadow: inset 0 -2px 0 var(--color-accent);
 	}
 	.handle {
+		display: inline-flex;
+		padding: var(--space-1) 0;
+		color: var(--color-text-subtle);
 		cursor: grab;
 		user-select: none;
-		opacity: 0.6;
-		padding: 0 0.1rem;
 	}
 	/* Touch screens: dragging would fight scrolling; the arrows stay. */
 	@media (pointer: coarse) {
@@ -184,22 +199,14 @@
 	}
 	.arrows {
 		display: inline-flex;
-		gap: 0.2rem;
-	}
-	.arrows button {
-		width: 1.8rem;
-		padding: 0.1rem 0;
+		gap: 2px;
 	}
 	.name {
 		flex: 1;
-	}
-	label {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		cursor: pointer;
+		font-weight: var(--weight-medium);
 	}
 	.error {
-		color: #cf222e;
+		margin: 0;
+		color: var(--color-danger-text);
 	}
 </style>

@@ -7,6 +7,10 @@
 	import { session } from '#lib/session.svelte.js';
 	import LanguageSwitcher from '#lib/LanguageSwitcher.svelte';
 	import SaveNotices from '#lib/SaveNotices.svelte';
+	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
+	import Brand from '#lib/ui/Brand.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
+	import '#lib/styles/index.css';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -48,37 +52,39 @@
 	<title>{m.app_title()}</title>
 </svelte:head>
 
-<header>
-	<div class="brand">
-		<strong>{m.app_title()}</strong>
+<header class="st-header">
+	<Brand href={session.user ? resolve('/') : undefined} />
+	{#if session.user}
+		<nav class="st-header__nav">
+			<a href={resolve('/')} aria-current={page.route.id === '/' ? 'page' : undefined}>
+				{m.nav_gallery()}
+			</a>
+			<a
+				href={resolve('/processing')}
+				aria-current={page.route.id === '/processing' ? 'page' : undefined}
+			>
+				{m.nav_processing()}
+			</a>
+			<a
+				href={resolve('/settings')}
+				aria-current={page.route.id === '/settings' ? 'page' : undefined}
+			>
+				{m.nav_settings()}
+			</a>
+		</nav>
+	{:else}
+		<span class="tagline">{m.app_tagline()}</span>
+	{/if}
+	<div class="st-header__end">
 		{#if session.user}
-			<nav>
-				<a href={resolve('/')} aria-current={page.route.id === '/' ? 'page' : undefined}>
-					{m.nav_gallery()}
-				</a>
-				<a
-					href={resolve('/processing')}
-					aria-current={page.route.id === '/processing' ? 'page' : undefined}
-				>
-					{m.nav_processing()}
-				</a>
-				<a
-					href={resolve('/settings')}
-					aria-current={page.route.id === '/settings' ? 'page' : undefined}
-				>
-					{m.nav_settings()}
-				</a>
-			</nav>
-		{:else}
-			<span class="tagline">{m.app_tagline()}</span>
-		{/if}
-	</div>
-	<div class="actions">
-		{#if session.user}
-			<span>{session.user.name}</span>
-			<button type="button" onclick={signOut}>{m.auth_sign_out()}</button>
+			<span class="st-header__user">{session.user.name}</span>
+			<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={signOut}>
+				<Icon name="log-out" size={14} />
+				{m.auth_sign_out()}
+			</button>
 		{/if}
 		<LanguageSwitcher />
+		<ThemeSwitcher />
 	</div>
 </header>
 
@@ -91,68 +97,17 @@
 <SaveNotices />
 
 <style>
-	:global(body) {
-		margin: 0;
-		font-family: system-ui, sans-serif;
-		color: #1f2328;
-		background: #f6f8fa;
-	}
-	@media (prefers-color-scheme: dark) {
-		:global(body) {
-			color: #e6edf3;
-			background: #0d1117;
-		}
-	}
-	/* Stays in view: from far down the gallery the menu is one click away. */
-	header {
-		position: sticky;
-		top: 0;
-		z-index: 20;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.75rem 1.5rem;
-		border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
-		background: #f6f8fa;
-	}
-	@media (prefers-color-scheme: dark) {
-		header {
-			background: #0d1117;
-		}
-	}
 	.tagline {
-		margin-left: 0.75rem;
-		opacity: 0.7;
-	}
-	.actions {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-	.brand {
-		display: flex;
-		align-items: center;
-		gap: 1.5rem;
-	}
-	nav {
-		display: flex;
-		gap: 1rem;
-	}
-	nav a {
-		color: inherit;
-		text-decoration: none;
-		opacity: 0.75;
-	}
-	nav a[aria-current='page'] {
-		opacity: 1;
-		font-weight: 600;
-		text-decoration: underline;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	main {
 		max-width: 48rem;
 		margin: 0 auto;
-		padding: 1.5rem;
+		padding: var(--space-6);
 	}
 	main.wide {
 		max-width: none;

@@ -12,11 +12,13 @@
 		type WorkersOverview
 	} from '#lib/api.js';
 	import PauseMenu from '#lib/PauseMenu.svelte';
+	import StatusBadge from '#lib/ui/StatusBadge.svelte';
 	import { formatUntil, pause } from '#lib/pause.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { failedFilter, filterToUrl } from '#lib/gallery/filter.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import { moduleColor } from '#lib/map/modulePalette.js';
 	import {
 		failureGroup,
 		failureGroupName,
@@ -171,11 +173,14 @@
 							<span class="muted">{worker.version}</span>
 							<span class="spacer"></span>
 							{#if worker.active}
-								<span class="active">{m.workers_active()}</span>
+								<StatusBadge tone="success" dot>{m.workers_active()}</StatusBadge>
 							{:else}
-								<span class="muted">{m.workers_seen({ when: ago(worker.last_seen_at) })}</span>
+								<StatusBadge outline
+									>{m.workers_seen({ when: ago(worker.last_seen_at) })}</StatusBadge
+								>
 								<button
 									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
 									title={m.workers_forget_hint()}
 									disabled={forgetting !== null}
 									onclick={() => forget(worker.id)}
@@ -185,7 +190,18 @@
 							{/if}
 						</header>
 						{#if worker.active && stateText(worker)}
-							<p class="state" class:slow={slow(worker)}>{stateText(worker)}</p>
+							<p class="state">
+								<StatusBadge
+									tone={slow(worker)
+										? 'warning'
+										: worker.state === 'working'
+											? 'accent'
+											: 'neutral'}
+									live={worker.state === 'working' || slow(worker)}
+								>
+									{stateText(worker)}
+								</StatusBadge>
+							</p>
 						{/if}
 						<p class="muted">
 							{m.workers_modules({ modules: worker.modules.map(moduleName).join(', ') })}
@@ -222,20 +238,23 @@
 				{@const failures = overview.failures[module.id]}
 				<article class="module" class:paused>
 					<header>
-						<span class="swatch shape-{module.shape}" style:background={module.color}></span>
+						<span
+							class="swatch shape-{module.shape}"
+							style:background={moduleColor(module.id, module.color)}
+						></span>
 						<h3>{moduleName(module.id)}</h3>
 						{#if paused}
 							{@const until = pause.untilOf(module.id)}
-							<span class="badge paused-badge">
+							<StatusBadge tone="warning">
 								{pause.all ? m.module_card_paused_all() : m.module_card_paused()}
 								{#if until}· {m.pause_until({ time: formatUntil(until) })}{/if}
-							</span>
+							</StatusBadge>
 						{/if}
-						<span class="badge">
+						<StatusBadge>
 							{overview.auto_modules.includes(module.id)
 								? m.module_card_auto()
 								: m.module_card_manual()}
-						</span>
+						</StatusBadge>
 						<span class="spacer"></span>
 						{#if !pause.all}
 							<PauseMenu
@@ -267,11 +286,11 @@
 							{/each}
 						</div>
 					{/if}
-					<dl class="stats">
+					<dl class="st-mcard__stats">
 						{#each STATUSES as status (status)}
-							<div class="stat stat-{status}">
-								<dt>{statusLabel(status)}</dt>
-								<dd>{number.format(counts[status] ?? 0)}</dd>
+							<div class="st-stat" class:st-stat--danger={status === 'failed' && counts[status]}>
+								<dt class="st-stat__label">{statusLabel(status)}</dt>
+								<dd class="st-stat__value">{number.format(counts[status] ?? 0)}</dd>
 							</div>
 						{/each}
 					</dl>
@@ -301,6 +320,7 @@
 											</a>
 											<button
 												type="button"
+												class="st-btn st-btn--sm"
 												disabled={rerunning !== null}
 												onclick={() => rerun(module.id, code)}
 											>
@@ -323,94 +343,103 @@
 
 <style>
 	section {
-		margin-bottom: 2.5rem;
-	}
-	.failures ul {
-		list-style: none;
-		padding: 0;
-		margin: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
+		gap: var(--space-3);
+		margin-bottom: var(--space-10);
+	}
+	h2 {
+		margin: 0;
+	}
+	.failures ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1-5);
+		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
 	.workers {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
-		margin-bottom: 1rem;
+		margin: 0;
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
 	}
 	.worker {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
-		padding: 0.6rem 1rem;
-		border: 1px solid rgb(127 127 127 / 0.3);
-		border-radius: 0.5rem;
+		gap: var(--space-1);
+		padding: var(--space-3) var(--space-4);
+		font-size: var(--text-sm);
 	}
-	.worker.gone {
-		opacity: 0.6;
-		border-style: dashed;
+	.worker + .worker {
+		border-top: var(--border-width) solid var(--color-border);
+	}
+	.worker.gone h3,
+	.worker.gone .muted {
+		color: var(--color-text-subtle);
 	}
 	.worker header {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2);
 	}
 	.worker h3 {
 		margin: 0;
-		font-size: 1rem;
+		font-size: var(--text-base);
 	}
 	.device {
-		display: inline-block;
-		padding: 0 0.35rem;
-		border-radius: 0.25rem;
-		background: rgb(127 127 127 / 0.15);
-		font-size: 0.8rem;
-		text-transform: uppercase;
+		padding: 0 var(--space-1-5);
+		border-radius: var(--radius-xs);
+		background: var(--color-surface-sunken);
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
 	}
 	.pause-all {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.4rem 0.75rem;
-		margin-bottom: 1rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: 0.4rem;
-		background: rgb(127 127 127 / 0.08);
+		gap: var(--space-2) var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-sunken);
 	}
 	.pause-all.on {
-		background: rgb(191 135 0 / 0.15);
+		background: var(--color-warning-subtle);
 	}
 	.pause-all .muted {
 		flex: 1 1 16rem;
-		font-size: 0.9rem;
+		font-size: var(--text-sm);
 	}
 	.modules {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--space-4);
 	}
 	.module {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
-		padding: 0.9rem 1rem;
-		border: 1px solid rgb(127 127 127 / 0.3);
-		border-radius: 0.5rem;
+		gap: var(--space-3);
+		padding: var(--space-4);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
 	}
 	.module.paused {
-		border-color: #bf8700;
+		border-color: color-mix(in oklab, var(--color-warning), transparent 40%);
 	}
 	.module header {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-2) var(--space-3);
 	}
 	.module h3 {
 		margin: 0;
-		font-size: 1.05rem;
+		font-size: var(--text-md);
 	}
 	.spacer {
 		flex: 1;
@@ -426,96 +455,68 @@
 	.shape-diamond {
 		transform: rotate(45deg) scale(0.85);
 	}
-	.badge {
-		padding: 0.05rem 0.45rem;
-		border-radius: 1rem;
-		background: rgb(127 127 127 / 0.15);
-		font-size: 0.8rem;
-	}
-	.paused-badge {
-		background: rgb(191 135 0 / 0.2);
-	}
 	.progress {
 		display: flex;
-		height: 0.4rem;
+		height: 0.375rem;
 		overflow: hidden;
-		border-radius: 0.2rem;
-		background: rgb(127 127 127 / 0.15);
+		border-radius: var(--radius-full);
+		background: var(--color-confidence-track);
 	}
 	.bar-done {
-		background: #1a7f37;
+		background: var(--color-success);
 	}
 	.bar-running {
-		background: #0969da;
+		background: var(--color-info);
 	}
 	.bar-queued {
-		background: rgb(127 127 127 / 0.45);
+		background: var(--color-text-subtle);
 	}
 	.bar-failed {
-		background: #cf222e;
+		background: var(--color-danger);
 	}
-	.stats {
+	.st-mcard__stats {
+		margin: 0;
+	}
+	.st-stat dd {
+		margin: 0;
+	}
+	.failures {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem 1.5rem;
-		margin: 0;
-	}
-	.stat dt {
-		font-size: 0.8rem;
-		opacity: 0.7;
-	}
-	.stat dd {
-		margin: 0;
-		font-size: 1.1rem;
-		font-variant-numeric: tabular-nums;
-	}
-	.stat-failed dd {
-		color: #cf222e;
+		flex-direction: column;
+		gap: var(--space-2);
+		font-size: var(--text-sm);
 	}
 	.failures .group {
-		opacity: 0.65;
+		color: var(--color-text-muted);
 	}
 	.failures h4 {
-		margin: 0.25rem 0;
-		font-size: 0.95rem;
+		margin: 0;
+		font-size: var(--text-sm);
 	}
 	.failures li {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
-		gap: 0.25rem 0.75rem;
+		align-items: center;
+		gap: var(--space-1) var(--space-3);
 	}
 	/* The link and the button stay together when the reason is long. */
 	.failures .actions {
 		display: inline-flex;
-		align-items: baseline;
-		gap: 0.75rem;
+		align-items: center;
+		gap: var(--space-3);
 		white-space: nowrap;
 	}
-	.active {
-		color: #1a7f37;
-		opacity: 1;
-	}
-	.state.slow {
-		color: #9a6700;
-	}
 	.muted {
-		opacity: 0.7;
+		color: var(--color-text-muted);
 	}
 	.warning {
 		margin: 0;
-		color: #9a6700;
+		color: var(--color-warning-text);
 	}
 	.error {
-		color: #cf222e;
+		color: var(--color-danger-text);
 	}
 	p {
 		margin: 0;
-	}
-	@media (prefers-color-scheme: dark) {
-		.state.slow,
-		.warning {
-			color: #d29922;
-		}
 	}
 </style>

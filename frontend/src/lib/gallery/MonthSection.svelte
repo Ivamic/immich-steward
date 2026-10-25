@@ -236,6 +236,9 @@
 		place-items: center;
 		width: 22px;
 		height: 22px;
+		/* Buttons have a minimum height (elements.css): this one is a circle. */
+		min-height: 0;
+		aspect-ratio: 1;
 		padding: 0;
 		border: 2px solid var(--gray-0);
 		border-radius: 50%;

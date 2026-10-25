@@ -256,12 +256,6 @@
 			{#if coordinatesInvalid}
 				<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
 			{/if}
-			{#if located}
-				<label class="st-check st-check--sm overwrite">
-					<input type="checkbox" bind:checked={overwrite} />
-					{m.selection_overwrite({ count: located, total: items.length })}
-				</label>
-			{/if}
 			<button
 				type="button"
 				class="st-btn st-btn--primary st-btn--lg st-btn--block"
@@ -272,6 +266,13 @@
 				{m.selection_save({ count: writes })}
 				<Kbd>Enter</Kbd>
 			</button>
+			{#if located}
+				<!-- Below the button and framed, so that it is not missed; warm while on. -->
+				<label class="st-check st-check--sm overwrite" class:on={overwrite}>
+					<input type="checkbox" bind:checked={overwrite} />
+					{m.selection_overwrite({ count: located, total: items.length })}
+				</label>
+			{/if}
 			{#if error}<p class="error" role="alert">{error}</p>{/if}
 		</div>
 
@@ -416,6 +417,15 @@
 	}
 	.overwrite {
 		align-items: flex-start;
+		padding: var(--space-2) var(--space-3);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface-sunken);
+	}
+	.overwrite.on {
+		border-color: var(--color-warning);
+		background: var(--color-warning-subtle);
+		color: var(--color-warning-text);
 	}
 	.note {
 		margin: 0;

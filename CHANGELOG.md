@@ -7,6 +7,10 @@ between releases.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-25
+
+The user interface in German, French and Italian.
+
 ### Added
 
 - **German, French and Italian user interface.** The language follows the browser (`de-CH`,
@@ -19,6 +23,11 @@ between releases.
 - Keyboard shortcuts `[`, `]` (rotate) and `?` (list of shortcuts) on keyboards where these
   symbols are typed on another key: `[` and `]` with AltGr + 8 and 9 on a German keyboard chose
   suggestion 8 or 9 instead, `?` did nothing on a French one.
+
+### Upgrading
+
+Nothing to do besides updating the core: no database changes, nothing new in `.env`. Workers of
+0.4.x and 0.5.0 work with this version.
 
 ## [0.5.0] - 2026-10-25
 
@@ -428,7 +437,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/Ivamic/immich-steward/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Ivamic/immich-steward/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Ivamic/immich-steward/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Ivamic/immich-steward/compare/v0.3.2...v0.4.0

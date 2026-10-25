@@ -412,391 +412,397 @@
 <svelte:window {onkeydown} {onpointerdown} />
 <svelte:document {onvisibilitychange} />
 
-<nav class="toolbar">
-	<Tooltip text={m.photo_back()} keys="Esc" below>
-		<a class="st-iconbtn" href={backUrl} aria-label={m.photo_back()}>
-			<Icon name="arrow-left" size={18} />
-		</a>
-	</Tooltip>
-	{#if asset}
-		<div class="title">
-			<strong>{asset.file_name}</strong>
-			<span
-				>{takenAt}{#if asset.time_zone}&nbsp;({asset.time_zone}){/if}</span
-			>
-		</div>
-	{/if}
-	<span class="spacer"></span>
-	<Tooltip text={m.photo_previous()} keys="←" below>
-		<button
-			type="button"
-			class="st-btn st-btn--sm"
-			disabled={!asset?.previous_id}
-			onclick={() => open(asset?.previous_id)}
-		>
-			<Icon name="chevron-left" />
-			{m.photo_previous()}
-		</button>
-	</Tooltip>
-	<Tooltip text={m.photo_next()} keys="→" below>
-		<button
-			type="button"
-			class="st-btn st-btn--sm"
-			disabled={!asset?.next_id}
-			onclick={() => open(asset?.next_id)}
-		>
-			{m.photo_next()}
-			<Icon name="chevron-right" />
-		</button>
-	</Tooltip>
-	<Tooltip text={m.photo_keys()} keys="?" below>
-		<button
-			type="button"
-			class="st-iconbtn"
-			aria-label={m.photo_keys()}
-			onclick={() => (keysOpen = true)}
-		>
-			<Icon name="keyboard" size={18} />
-		</button>
-	</Tooltip>
-	{#if asset?.immich_url}
-		<Tooltip text={m.photo_open_in_immich()} below>
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- external link -->
-			<a
-				class="st-iconbtn"
-				href={asset.immich_url}
-				target="_blank"
-				rel="noopener"
-				aria-label={m.photo_open_in_immich()}
-			>
-				<Icon name="external-link" size={18} />
+<!-- Fills the window under the header: the card takes what the bars above it leave. -->
+<div class="page">
+	<nav class="toolbar">
+		<Tooltip text={m.photo_back()} keys="Esc" below>
+			<a class="st-iconbtn" href={backUrl} aria-label={m.photo_back()}>
+				<Icon name="arrow-left" size={18} />
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</Tooltip>
-	{/if}
-</nav>
-
-<PauseBar />
-
-{#if error}
-	<p class="error" role="alert">{error}</p>
-{/if}
-
-<div class="card" class:show-info={tab === 'info'}>
-	<div class="map">
-		{#if mapConfig}
-			<MapView
-				bind:this={mapView}
-				styleUrl={mapConfig.style_url}
-				styleUrlDark={mapConfig.style_url_dark}
-				sources={mapConfig.sources}
-				auto={mapConfig.auto}
-				{current}
-				{picked}
-				suggestions={shown}
-				onpick={pick}
-				{highlight}
-				onhighlight={(h) => (highlight = h)}
-			/>
-		{/if}
-	</div>
-
-	<div class="tabs st-tabs" role="tablist">
-		<button type="button" role="tab" aria-selected={tab === 'place'} onclick={() => (tab = 'place')}
-			>{m.photo_tab_place()}</button
-		>
-		<button type="button" role="tab" aria-selected={tab === 'info'} onclick={() => (tab = 'info')}
-			>{m.photo_tab_info()}</button
-		>
-	</div>
-
-	<section class="panel">
-		<!-- Stays in view: only the search and the suggestions below scroll. -->
-		<div class="pinned">
-			{#if asset}
-				<label
-					class="point st-input st-input--mono"
-					class:picked
-					data-invalid={coordinatesInvalid}
-					title={m.photo_coordinates()}
+		{#if asset}
+			<div class="title">
+				<strong>{asset.file_name}</strong>
+				<span
+					>{takenAt}{#if asset.time_zone}&nbsp;({asset.time_zone}){/if}</span
 				>
-					<Icon name="locate-fixed" />
-					<input
-						type="text"
-						bind:value={coordinatesText}
-						placeholder={m.photo_coordinates()}
-						aria-label={m.photo_coordinates()}
-						aria-invalid={coordinatesInvalid}
-						onchange={applyCoordinatesText}
-						onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
-					/>
-					{#if picked}
-						<button
-							type="button"
-							class="st-iconbtn st-iconbtn--sm"
-							aria-label={m.photo_clear()}
-							title={m.photo_clear()}
-							onclick={clearPicked}
-						>
-							<Icon name="x" />
-						</button>
-					{/if}
-				</label>
-				{#if coordinatesInvalid}
-					<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
-				{/if}
-				<!-- Re-created for every new point, so that it catches the eye each time. -->
-				{#key picked}
-					<button
-						type="button"
-						class="save st-btn st-btn--primary st-btn--lg st-btn--block"
-						class:ready={picked}
-						disabled={!picked}
-						onclick={save}
-					>
-						<Icon name="map-pin-check" />
-						{m.photo_save()}
-						<Kbd>Enter</Kbd>
-					</button>
-				{/key}
-				<div class="actions">
-					{#if asset.review_status === 'new'}
-						<button
-							type="button"
-							class="st-btn st-btn--block"
-							disabled={busy}
-							onclick={() => review('skipped')}
-						>
-							<Icon name="skip-forward" />
-							{m.photo_skip()}
-							<Kbd>S</Kbd>
-						</button>
-						<button
-							type="button"
-							class="st-btn st-btn--block"
-							disabled={busy}
-							onclick={() => review('not_applicable')}
-						>
-							<Icon name="ban" />
-							{m.photo_not_applicable()}
-							<Kbd>N</Kbd>
-						</button>
-					{:else}
-						<button
-							type="button"
-							class="st-btn st-btn--block"
-							disabled={busy}
-							onclick={() => review('new')}
-						>
-							<Icon name="undo-2" />
-							{m.photo_back_to_todo()}
-							<Kbd>U</Kbd>
-						</button>
-					{/if}
-				</div>
-				{#if pending}
-					<div class="st-banner st-banner--warning" role="status">
-						<Icon name="clock" />
-						<span class="st-banner__body">{m.photo_pending()}</span>
-						<span class="st-banner__actions">
-							<button
-								type="button"
-								class="st-btn st-btn--sm"
-								onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button
-							>
-						</span>
-					</div>
-				{/if}
-			{/if}
-		</div>
-
-		{#if mapConfig?.geocoder_enabled}
-			<GeocoderSearch
-				near={picked ?? current}
-				onselect={(point) => {
-					pick(point);
-					mapView?.flyTo(point);
-				}}
-			/>
+			</div>
 		{/if}
-
-		<SuggestionList
-			modules={listed}
-			hidden={hiddenModules(suggestions, revealed)}
-			onreveal={(module) => (revealed = [...revealed, module])}
-			loading={suggestionsLoading}
-			onchoose={choose}
-			onrun={run}
-			{highlight}
-			onhighlight={(h) => (highlight = h)}
-			{unfolded}
-			ontoggle={(module) =>
-				(unfolded = unfolded.includes(module)
-					? unfolded.filter((m) => m !== module)
-					: [...unfolded, module])}
-			onlocate={(c) =>
-				mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
-			onpart={startPart}
-			onpartshow={(region, partTurn) => (shownPart = partTurn === turn ? region : null)}
-		/>
-	</section>
-
-	<aside class="info">
-		<figure class="preview">
+		<span class="spacer"></span>
+		<Tooltip text={m.photo_previous()} keys="←" below>
 			<button
 				type="button"
-				class="zoom"
-				aria-label={m.photo_zoom()}
-				onclick={() => (viewerOpen = true)}
+				class="st-btn st-btn--sm"
+				disabled={!asset?.previous_id}
+				onclick={() => open(asset?.previous_id)}
 			>
-				<span class="framed">
-					<!-- Re-created for each photo and turn, so that the new one fades in. -->
-					{#key `${id}:${turn}`}
-						<img src={thumbnailUrl(id, 'preview', turn, version)} alt={asset?.file_name ?? ''} />
-					{/key}
-					{#if shownPart}
-						<span
-							class="part"
-							style:left="{shownPart.x * 100}%"
-							style:top="{shownPart.y * 100}%"
-							style:width="{shownPart.w * 100}%"
-							style:height="{shownPart.h * 100}%"
-						></span>
-					{/if}
-				</span>
+				<Icon name="chevron-left" />
+				{m.photo_previous()}
 			</button>
-			<div class="tools">
-				<div class="st-glass group">
-					<Tooltip text={m.photo_turn_left()} keys="[">
-						<button
-							type="button"
-							class="st-iconbtn st-iconbtn--sm"
-							aria-label={m.photo_turn_left()}
-							onclick={() => rotate(-90)}
-						>
-							<Icon name="rotate-ccw" />
-						</button>
-					</Tooltip>
-					<Tooltip text={m.photo_turn_right()} keys="]">
-						<button
-							type="button"
-							class="st-iconbtn st-iconbtn--sm"
-							aria-label={m.photo_turn_right()}
-							onclick={() => rotate(90)}
-						>
-							<Icon name="rotate-cw" />
-						</button>
-					</Tooltip>
-				</div>
-				<div class="st-glass group">
-					<Tooltip text={m.photo_zoom()} keys="Z">
-						<button
-							type="button"
-							class="st-iconbtn st-iconbtn--sm"
-							aria-label={m.photo_zoom()}
-							onclick={() => (viewerOpen = true)}
-						>
-							<Icon name="maximize-2" />
-						</button>
-					</Tooltip>
-				</div>
-			</div>
-		</figure>
-		{#if turn}
-			<div class="st-banner st-banner--info rotation" role="status">
-				<Icon name="rotate-cw" />
-				<div class="st-banner__body">
-					{asset?.type === 'IMAGE' ? m.photo_turned_note() : m.photo_rotation_video()}
-					<div class="rotation-actions">
-						{#if asset?.type === 'IMAGE'}
+		</Tooltip>
+		<Tooltip text={m.photo_next()} keys="→" below>
+			<button
+				type="button"
+				class="st-btn st-btn--sm"
+				disabled={!asset?.next_id}
+				onclick={() => open(asset?.next_id)}
+			>
+				{m.photo_next()}
+				<Icon name="chevron-right" />
+			</button>
+		</Tooltip>
+		<Tooltip text={m.photo_keys()} keys="?" below>
+			<button
+				type="button"
+				class="st-iconbtn"
+				aria-label={m.photo_keys()}
+				onclick={() => (keysOpen = true)}
+			>
+				<Icon name="keyboard" size={18} />
+			</button>
+		</Tooltip>
+		{#if asset?.immich_url}
+			<Tooltip text={m.photo_open_in_immich()} below>
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- external link -->
+				<a
+					class="st-iconbtn"
+					href={asset.immich_url}
+					target="_blank"
+					rel="noopener"
+					aria-label={m.photo_open_in_immich()}
+				>
+					<Icon name="external-link" size={18} />
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			</Tooltip>
+		{/if}
+	</nav>
+
+	<PauseBar />
+
+	{#if error}
+		<p class="error" role="alert">{error}</p>
+	{/if}
+
+	<div class="card" class:show-info={tab === 'info'}>
+		<div class="map">
+			{#if mapConfig}
+				<MapView
+					bind:this={mapView}
+					styleUrl={mapConfig.style_url}
+					styleUrlDark={mapConfig.style_url_dark}
+					sources={mapConfig.sources}
+					auto={mapConfig.auto}
+					{current}
+					{picked}
+					suggestions={shown}
+					onpick={pick}
+					{highlight}
+					onhighlight={(h) => (highlight = h)}
+				/>
+			{/if}
+		</div>
+
+		<div class="tabs st-tabs" role="tablist">
+			<button
+				type="button"
+				role="tab"
+				aria-selected={tab === 'place'}
+				onclick={() => (tab = 'place')}>{m.photo_tab_place()}</button
+			>
+			<button type="button" role="tab" aria-selected={tab === 'info'} onclick={() => (tab = 'info')}
+				>{m.photo_tab_info()}</button
+			>
+		</div>
+
+		<section class="panel">
+			<!-- Stays in view: only the search and the suggestions below scroll. -->
+			<div class="pinned">
+				{#if asset}
+					<label
+						class="point st-input st-input--mono"
+						class:picked
+						data-invalid={coordinatesInvalid}
+						title={m.photo_coordinates()}
+					>
+						<Icon name="locate-fixed" />
+						<input
+							type="text"
+							bind:value={coordinatesText}
+							placeholder={m.photo_coordinates()}
+							aria-label={m.photo_coordinates()}
+							aria-invalid={coordinatesInvalid}
+							onchange={applyCoordinatesText}
+							onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
+						/>
+						{#if picked}
 							<button
 								type="button"
-								class="st-btn st-btn--primary st-btn--sm"
-								disabled={busy}
-								onclick={saveRotation}
+								class="st-iconbtn st-iconbtn--sm"
+								aria-label={m.photo_clear()}
+								title={m.photo_clear()}
+								onclick={clearPicked}
 							>
-								<Icon name="check" size={14} />
-								{m.photo_rotation_save()}
+								<Icon name="x" />
 							</button>
 						{/if}
-						<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={resetRotation}>
-							{m.photo_rotation_reset()}
+					</label>
+					{#if coordinatesInvalid}
+						<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
+					{/if}
+					<!-- Re-created for every new point, so that it catches the eye each time. -->
+					{#key picked}
+						<button
+							type="button"
+							class="save st-btn st-btn--primary st-btn--lg st-btn--block"
+							class:ready={picked}
+							disabled={!picked}
+							onclick={save}
+						>
+							<Icon name="map-pin-check" />
+							{m.photo_save()}
+							<Kbd>Enter</Kbd>
 						</button>
+					{/key}
+					<div class="actions">
+						{#if asset.review_status === 'new'}
+							<button
+								type="button"
+								class="st-btn st-btn--block"
+								disabled={busy}
+								onclick={() => review('skipped')}
+							>
+								<Icon name="skip-forward" />
+								{m.photo_skip()}
+								<Kbd>S</Kbd>
+							</button>
+							<button
+								type="button"
+								class="st-btn st-btn--block"
+								disabled={busy}
+								onclick={() => review('not_applicable')}
+							>
+								<Icon name="ban" />
+								{m.photo_not_applicable()}
+								<Kbd>N</Kbd>
+							</button>
+						{:else}
+							<button
+								type="button"
+								class="st-btn st-btn--block"
+								disabled={busy}
+								onclick={() => review('new')}
+							>
+								<Icon name="undo-2" />
+								{m.photo_back_to_todo()}
+								<Kbd>U</Kbd>
+							</button>
+						{/if}
+					</div>
+					{#if pending}
+						<div class="st-banner st-banner--warning" role="status">
+							<Icon name="clock" />
+							<span class="st-banner__body">{m.photo_pending()}</span>
+							<span class="st-banner__actions">
+								<button
+									type="button"
+									class="st-btn st-btn--sm"
+									onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button
+								>
+							</span>
+						</div>
+					{/if}
+				{/if}
+			</div>
+
+			{#if mapConfig?.geocoder_enabled}
+				<GeocoderSearch
+					near={picked ?? current}
+					onselect={(point) => {
+						pick(point);
+						mapView?.flyTo(point);
+					}}
+				/>
+			{/if}
+
+			<SuggestionList
+				modules={listed}
+				hidden={hiddenModules(suggestions, revealed)}
+				onreveal={(module) => (revealed = [...revealed, module])}
+				loading={suggestionsLoading}
+				onchoose={choose}
+				onrun={run}
+				{highlight}
+				onhighlight={(h) => (highlight = h)}
+				{unfolded}
+				ontoggle={(module) =>
+					(unfolded = unfolded.includes(module)
+						? unfolded.filter((m) => m !== module)
+						: [...unfolded, module])}
+				onlocate={(c) =>
+					mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
+				onpart={startPart}
+				onpartshow={(region, partTurn) => (shownPart = partTurn === turn ? region : null)}
+			/>
+		</section>
+
+		<aside class="info">
+			<figure class="preview">
+				<button
+					type="button"
+					class="zoom"
+					aria-label={m.photo_zoom()}
+					onclick={() => (viewerOpen = true)}
+				>
+					<span class="framed">
+						<!-- Re-created for each photo and turn, so that the new one fades in. -->
+						{#key `${id}:${turn}`}
+							<img src={thumbnailUrl(id, 'preview', turn, version)} alt={asset?.file_name ?? ''} />
+						{/key}
+						{#if shownPart}
+							<span
+								class="part"
+								style:left="{shownPart.x * 100}%"
+								style:top="{shownPart.y * 100}%"
+								style:width="{shownPart.w * 100}%"
+								style:height="{shownPart.h * 100}%"
+							></span>
+						{/if}
+					</span>
+				</button>
+				<div class="tools">
+					<div class="st-glass group">
+						<Tooltip text={m.photo_turn_left()} keys="[">
+							<button
+								type="button"
+								class="st-iconbtn st-iconbtn--sm"
+								aria-label={m.photo_turn_left()}
+								onclick={() => rotate(-90)}
+							>
+								<Icon name="rotate-ccw" />
+							</button>
+						</Tooltip>
+						<Tooltip text={m.photo_turn_right()} keys="]">
+							<button
+								type="button"
+								class="st-iconbtn st-iconbtn--sm"
+								aria-label={m.photo_turn_right()}
+								onclick={() => rotate(90)}
+							>
+								<Icon name="rotate-cw" />
+							</button>
+						</Tooltip>
+					</div>
+					<div class="st-glass group">
+						<Tooltip text={m.photo_zoom()} keys="Z">
+							<button
+								type="button"
+								class="st-iconbtn st-iconbtn--sm"
+								aria-label={m.photo_zoom()}
+								onclick={() => (viewerOpen = true)}
+							>
+								<Icon name="maximize-2" />
+							</button>
+						</Tooltip>
 					</div>
 				</div>
-			</div>
-		{/if}
-		{#if rotationNotice}
-			<p class="turned" role="status">{rotationNotice}</p>
-		{/if}
-		{#if asset?.type === 'VIDEO'}
-			<p class="turned">{m.photo_video_note()}</p>
-		{/if}
-
-		{#if asset}
-			<dl class="details">
-				<dt>{m.photo_camera()}</dt>
-				<dd>{camera}</dd>
-				{#if asset.albums.length}
-					<dt>{m.photo_albums()}</dt>
-					<dd>{asset.albums.join(', ')}</dd>
-				{/if}
-				<dt>{m.photo_location()}</dt>
-				<dd>
-					{#if current}
-						{#if place}{place}<br />{/if}
-						<span class="st-coords">{formatCoordinates(current)}</span>
-					{:else}
-						<span class="muted">{m.photo_no_location()}</span>
-					{/if}
-				</dd>
-				{#if asset.review_status !== 'new'}
-					<dt>{m.photo_status()}</dt>
-					<dd>
-						{asset.review_status === 'skipped'
-							? m.photo_status_skipped()
-							: m.photo_status_not_applicable()}
-					</dd>
-				{/if}
-			</dl>
-
-			{#if asset.location_history.length}
-				<section class="history">
-					<h2>{m.photo_history()}</h2>
-					<ol>
-						{#each asset.location_history as change (change.id)}
-							<li class:undone={change.status === 'undone'}>
-								<span class="st-coords coords">
-									{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
-								</span>
-								<span class="muted">
-									{changedAt.format(new Date(change.created_at))}
-									·
-									{change.source === 'manual' ? m.photo_history_manual() : change.source}
-									·
-									{change.prev_latitude != null && change.prev_longitude != null
-										? m.photo_history_was({
-												coordinates: formatCoordinates({
-													lat: change.prev_latitude,
-													lon: change.prev_longitude
-												})
-											})
-										: m.photo_history_was_empty()}
-									{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
-								</span>
-							</li>
-						{/each}
-					</ol>
-					{#if asset.can_undo}
-						<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
-							<Icon name="undo-2" />
-							{m.photo_undo()}
-						</button>
-					{/if}
-				</section>
+			</figure>
+			{#if turn}
+				<div class="st-banner st-banner--info rotation" role="status">
+					<Icon name="rotate-cw" />
+					<div class="st-banner__body">
+						{asset?.type === 'IMAGE' ? m.photo_turned_note() : m.photo_rotation_video()}
+						<div class="rotation-actions">
+							{#if asset?.type === 'IMAGE'}
+								<button
+									type="button"
+									class="st-btn st-btn--primary st-btn--sm"
+									disabled={busy}
+									onclick={saveRotation}
+								>
+									<Icon name="check" size={14} />
+									{m.photo_rotation_save()}
+								</button>
+							{/if}
+							<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={resetRotation}>
+								{m.photo_rotation_reset()}
+							</button>
+						</div>
+					</div>
+				</div>
 			{/if}
-		{/if}
-	</aside>
+			{#if rotationNotice}
+				<p class="turned" role="status">{rotationNotice}</p>
+			{/if}
+			{#if asset?.type === 'VIDEO'}
+				<p class="turned">{m.photo_video_note()}</p>
+			{/if}
+
+			{#if asset}
+				<dl class="details">
+					<dt>{m.photo_camera()}</dt>
+					<dd>{camera}</dd>
+					{#if asset.albums.length}
+						<dt>{m.photo_albums()}</dt>
+						<dd>{asset.albums.join(', ')}</dd>
+					{/if}
+					<dt>{m.photo_location()}</dt>
+					<dd>
+						{#if current}
+							{#if place}{place}<br />{/if}
+							<span class="st-coords">{formatCoordinates(current)}</span>
+						{:else}
+							<span class="muted">{m.photo_no_location()}</span>
+						{/if}
+					</dd>
+					{#if asset.review_status !== 'new'}
+						<dt>{m.photo_status()}</dt>
+						<dd>
+							{asset.review_status === 'skipped'
+								? m.photo_status_skipped()
+								: m.photo_status_not_applicable()}
+						</dd>
+					{/if}
+				</dl>
+
+				{#if asset.location_history.length}
+					<section class="history">
+						<h2>{m.photo_history()}</h2>
+						<ol>
+							{#each asset.location_history as change (change.id)}
+								<li class:undone={change.status === 'undone'}>
+									<span class="st-coords coords">
+										{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
+									</span>
+									<span class="muted">
+										{changedAt.format(new Date(change.created_at))}
+										·
+										{change.source === 'manual' ? m.photo_history_manual() : change.source}
+										·
+										{change.prev_latitude != null && change.prev_longitude != null
+											? m.photo_history_was({
+													coordinates: formatCoordinates({
+														lat: change.prev_latitude,
+														lon: change.prev_longitude
+													})
+												})
+											: m.photo_history_was_empty()}
+										{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
+									</span>
+								</li>
+							{/each}
+						</ol>
+						{#if asset.can_undo}
+							<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
+								<Icon name="undo-2" />
+								{m.photo_undo()}
+							</button>
+						{/if}
+					</section>
+				{/if}
+			{/if}
+		</aside>
+	</div>
 </div>
 
 {#if partPicker}
@@ -855,13 +861,20 @@
 	a.st-iconbtn {
 		text-decoration: none;
 	}
-	/* The page fits the window: only the panels scroll, the map stays in view. */
+	/* The page fits the window: only the panels scroll, the map stays in view. The pause bar or
+	   an error above the card make the card lower, not the page longer. */
+	.page {
+		display: flex;
+		flex-direction: column;
+		/* The header is its height plus its bottom border. */
+		height: calc(100dvh - var(--header-height) - var(--border-width) - 2 * var(--space-6));
+	}
 	.card {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) 24rem 19rem;
 		grid-template-areas: 'map panel info';
 		gap: var(--space-4);
-		height: calc(100dvh - 8.5rem);
+		flex: 1;
 		min-height: 30rem;
 	}
 	.map {
@@ -916,6 +929,9 @@
 	}
 	/* Small screens: everything stacked, the page scrolls. */
 	@media (max-width: 50rem) {
+		.page {
+			height: auto;
+		}
 		.card {
 			display: flex;
 			flex-direction: column;

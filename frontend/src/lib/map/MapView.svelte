@@ -854,11 +854,13 @@
 </div>
 
 <style>
+	/* The bar above the map fits itself to the width of the map (a container query). */
 	.frame {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
+		container-type: inline-size;
 	}
 	.wrap {
 		position: relative;

@@ -51,7 +51,9 @@ how many are videos) and what can be done with all of them:
   since (in Immich or here).
 - **Rotate left**, **Rotate right**, **Rotate 180°** turn the chosen photos in Immich, as **Save
   rotation in Immich** in the card does (an Immich edit; the original file is not changed). It runs
-  in the background with its progress in a notice; you can go on working. Videos are not turned:
+  in the background with its progress in a notice; you can go on working. The photos being turned
+  are dimmed with a spinner in the gallery, as are the photos whose location is being saved (a
+  clock while the save can still be cancelled). Videos are not turned:
   the notice says how many were left out. The API key needs the `asset.edit` permissions.
 - **Skip for now** and **Location not applicable** mark all the chosen photos.
 

@@ -133,7 +133,8 @@
 <svelte:window {onkeydown} />
 
 <FilterBar {filter} {total} onchange={changeFilter} />
-<PauseBar />
+<!-- Beside the timeline of years on the right, as the photos are. -->
+<div class="beside-scrubber"><PauseBar /></div>
 
 {#if error}
 	<p class="error" role="alert">{error}</p>
@@ -199,9 +200,13 @@
 {/if}
 
 <style>
+	.beside-scrubber,
 	.timeline {
-		/* room for the scrubber on the right, and for the bar of actions below the last photos */
+		/* room for the scrubber on the right */
 		padding-right: 3.5rem;
+	}
+	.timeline {
+		/* room for the bar of actions below the last photos */
 		padding-bottom: 5rem;
 	}
 	.loading {

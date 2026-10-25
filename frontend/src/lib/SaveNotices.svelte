@@ -79,6 +79,13 @@
 				</span>
 				<span class="st-toast__text">
 					{notice.text}
+					{#if notice.progress}
+						<progress
+							class="progress"
+							max={Math.max(1, notice.progress.total)}
+							value={notice.progress.done}
+						></progress>
+					{/if}
 					{#each notice.details as detail (detail)}<span class="error">{detail}</span>{/each}
 				</span>
 				<span class="st-toast__actions">
@@ -182,5 +189,27 @@
 	.error {
 		display: block;
 		color: var(--color-text-muted);
+	}
+	.progress {
+		display: block;
+		width: 100%;
+		height: 4px;
+		margin-top: var(--space-1-5);
+		border: none;
+		border-radius: var(--radius-full);
+		background: var(--color-border);
+		accent-color: var(--color-accent);
+		appearance: none;
+		overflow: hidden;
+	}
+	.progress::-webkit-progress-bar {
+		background: var(--color-border);
+	}
+	.progress::-webkit-progress-value {
+		background: var(--color-accent);
+		transition: width var(--motion-base) var(--ease-out);
+	}
+	.progress::-moz-progress-bar {
+		background: var(--color-accent);
 	}
 </style>

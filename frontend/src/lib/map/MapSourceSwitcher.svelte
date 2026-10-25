@@ -126,28 +126,31 @@
 			</select>
 		{/if}
 		{#if active !== SCHEME}
-			<label class="st-check st-check--sm">
+			<label class="st-check st-check--sm" title={m.mapsrc_labels()}>
 				<input
 					type="checkbox"
 					checked={labels}
 					onchange={(e) => onlabels((e.currentTarget as HTMLInputElement).checked)}
 				/>
-				{m.mapsrc_labels()}
+				<span class="long">{m.mapsrc_labels()}</span>
+				<span class="short">{m.mapsrc_labels_short()}</span>
 			</label>
 		{/if}
 	{/if}
 	{#if hasAreas}
-		<span class="title" class:apart={sources.length > 0}>{m.map_areas()}</span>
-		<div class="st-seg" role="radiogroup" aria-label={m.map_areas()} title={m.map_areas_hint()}>
-			{#each AREA_MODES as mode (mode)}
-				<button
-					type="button"
-					role="radio"
-					aria-checked={areas === mode}
-					onclick={() => onareas(mode)}>{AREA_LABEL[mode]()}</button
-				>
-			{/each}
-		</div>
+		<span class="group" class:apart={sources.length > 0}>
+			<span class="title">{m.map_areas()}</span>
+			<div class="st-seg" role="radiogroup" aria-label={m.map_areas()} title={m.map_areas_hint()}>
+				{#each AREA_MODES as mode (mode)}
+					<button
+						type="button"
+						role="radio"
+						aria-checked={areas === mode}
+						onclick={() => onareas(mode)}>{AREA_LABEL[mode]()}</button
+					>
+				{/each}
+			</div>
+		</span>
 	{/if}
 	<!-- Floored, as the switching by zoom compares it. -->
 	<span class="zoom" title={m.mapsrc_zoom_scale()}
@@ -211,6 +214,22 @@
 	.title {
 		color: var(--color-text-muted);
 	}
+	.short {
+		display: none;
+	}
+	/* A narrower map: shorter, so that the bar stays on one line. The groups keep their names
+	   for screen readers (aria-label) and in their hints. */
+	@container (max-width: 78rem) {
+		.title {
+			display: none;
+		}
+		.long {
+			display: none;
+		}
+		.short {
+			display: inline;
+		}
+	}
 	.year {
 		width: auto;
 		height: var(--control-sm);
@@ -218,6 +237,11 @@
 		font-size: var(--text-sm);
 	}
 	/* Set off from what is before it in the bar. */
+	.group {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
 	.apart {
 		margin-inline-start: var(--space-2);
 		padding-inline-start: var(--space-3);

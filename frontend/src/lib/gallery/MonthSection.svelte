@@ -22,6 +22,7 @@
 	import { untrack } from 'svelte';
 	import { atPhoto, type FilterQuery } from './filter.js';
 	import { monthTitle } from './month.js';
+	import { photoWork } from './bulk.svelte.js';
 	import { galleryChanges, type Selection } from './selection.svelte.js';
 
 	const TILE = 160; // px, keep in sync with the grid CSS below
@@ -112,6 +113,7 @@
 		<div class="grid">
 			{#each items as item (item.id)}
 				{@const chosen = selection.has(item.id)}
+				{@const work = photoWork(item.id)}
 				<div class="cell" class:chosen class:choosing={selection.size > 0}>
 					<a
 						class="tile"
@@ -153,6 +155,21 @@
 							</span>
 						{/if}
 					</a>
+					{#if work}
+						<!-- Saved with others or being turned: shown on the photo itself. -->
+						<span
+							class="work"
+							role="img"
+							aria-label={work === 'waiting' ? m.photo_work_waiting() : m.photo_work_working()}
+							title={work === 'waiting' ? m.photo_work_waiting() : m.photo_work_working()}
+						>
+							{#if work === 'waiting'}
+								<Icon name="clock" size={22} />
+							{:else}
+								<span class="st-spin"><Icon name="loader-circle" size={22} /></span>
+							{/if}
+						</span>
+					{/if}
 					<button
 						type="button"
 						class="check"
@@ -196,6 +213,19 @@
 	}
 	.cell {
 		position: relative;
+	}
+	.work {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		border-radius: 2px;
+		background: oklch(0 0 0 / 0.45);
+		color: var(--gray-0);
+		pointer-events: none;
+	}
+	.work .st-spin {
+		display: inline-flex;
 	}
 	/* The check: on hover, and on every photo while some are chosen. */
 	.check {

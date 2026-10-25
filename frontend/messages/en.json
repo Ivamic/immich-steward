@@ -358,6 +358,7 @@
 	"map_areas_fill": "Fill",
 	"map_areas_line": "Outline",
 	"map_areas_none": "None",
+	"map_zoom_now": "Zoom {zoom}",
 	"mapsrc_period_esri": "Esri counts its month from the day your account's billing started (Location Platform → Usage).",
 	"mapsrc_period_maptiler": "MapTiler counts by the billing period of your plan (Cloud → Analytics).",
 	"mapsrc_reset": "Reset the count",

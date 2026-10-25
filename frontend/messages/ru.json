@@ -358,6 +358,7 @@
 	"map_areas_fill": "Заливка",
 	"map_areas_line": "Контур",
 	"map_areas_none": "Нет",
+	"map_zoom_now": "Масштаб {zoom}",
 	"mapsrc_period_esri": "Esri отсчитывает месяц от даты начала расчётов вашего аккаунта (Location Platform → Usage).",
 	"mapsrc_period_maptiler": "MapTiler считает по расчётному периоду вашего плана (Cloud → Analytics).",
 	"mapsrc_reset": "Сбросить счётчик",

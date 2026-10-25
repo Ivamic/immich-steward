@@ -56,8 +56,8 @@ for the reason (no key, key not accepted, limit used up).
   (by default Sentinel-2 up to zoom 13, Esri or MapTiler from 14), and the bar highlights the
   source shown now. This saves the limited tiles of the sharper sources. A source that does not
   work is skipped for the next one. Choosing a base map by hand turns Auto off. Before **Auto**
-  the bar shows what it switches between ("Map → MapTiler from zoom 14"), and the gear after it
-  opens these settings.
+  the bar shows the current zoom and what Auto switches between ("Zoom 15 · Map → MapTiler from
+  zoom 14"); hover them for what a zoom level shows. The gear after it opens these settings.
 - **Labels over imagery** keeps the names of places, streets and water over the photo. Buildings,
   bridges, borders and the icons of shops and the like are not drawn over imagery.
 

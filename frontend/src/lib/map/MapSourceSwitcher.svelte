@@ -137,7 +137,7 @@
 		{/if}
 	{/if}
 	{#if hasAreas}
-		<span class="title">{m.map_areas()}</span>
+		<span class="title" class:apart={sources.length > 0}>{m.map_areas()}</span>
 		<div class="st-seg" role="radiogroup" aria-label={m.map_areas()} title={m.map_areas_hint()}>
 			{#each AREA_MODES as mode (mode)}
 				<button
@@ -149,6 +149,10 @@
 			{/each}
 		</div>
 	{/if}
+	<!-- Floored, as the switching by zoom compares it. -->
+	<span class="zoom" title={m.mapsrc_zoom_scale()}
+		>{m.map_zoom_now({ zoom: Math.floor(zoom) })}</span
+	>
 	{#if sources.length}
 		{#if auto && autoSet}
 			<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
@@ -166,7 +170,6 @@
 		<button
 			type="button"
 			class="auto"
-			class:push={!autoSet}
 			aria-pressed={autoOn}
 			disabled={!autoSet}
 			title={auto && autoSet
@@ -185,7 +188,6 @@
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved, with an anchor added -->
 	<a
 		class="gear"
-		class:push={!sources.length}
 		href={`${resolve('/settings')}#${AUTO_ANCHOR}`}
 		title={m.mapsrc_auto_settings_link()}
 		aria-label={m.mapsrc_auto_settings_link()}
@@ -215,8 +217,19 @@
 		padding-block: 0;
 		font-size: var(--text-sm);
 	}
-	.summary {
+	/* Set off from the settings of the base map before it. */
+	.apart {
+		margin-inline-start: var(--space-2);
+		padding-inline-start: var(--space-3);
+		border-inline-start: var(--border-width) solid var(--color-border);
+	}
+	/* Starts the group at the end of the bar. */
+	.zoom {
 		margin-inline-start: auto;
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.summary {
 		color: var(--color-text-disabled);
 	}
 	.summary.on {
@@ -257,10 +270,6 @@
 	}
 	.auto[aria-pressed='true'] .dot {
 		background: currentColor;
-	}
-	/* Without the summary, "Auto" starts the group at the end of the bar. */
-	.push {
-		margin-inline-start: auto;
 	}
 	.gear {
 		display: inline-flex;

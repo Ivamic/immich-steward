@@ -124,9 +124,10 @@ class TimeNeighbors:
                     file_name=n.original_file_name,
                     camera=camera_label(camera_value(n.camera_make, n.camera_model)),
                     same_camera=has_camera and (n.camera_make, n.camera_model) == camera,
+                    # Saved a moment ago: shown as it will be once sent, so that nothing
+                    # changes on the screen when it is.
                     estimated=n.id in estimated or n.id in ctx.pending,
                     version=n.thumbhash,
-                    pending=n.id in ctx.pending,
                 )
                 for n in neighbors
             ),
@@ -197,7 +198,6 @@ def _evidence(*points: TrackPoint) -> dict[str, object]:
                 "same_camera": p.same_camera,
                 "estimated": p.estimated,
                 "version": p.version,
-                "pending": p.pending,
             }
             for p in points
         ]

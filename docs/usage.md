@@ -128,8 +128,7 @@ number on the map, in the list and the key are the same.
   after, brighter when closer in time. A suggestion "on the way between" two photos lies on the
   dashed line between them; a click near that line lands on it. Under **Devices** you can leave
   out another camera whose clock was wrong, or use **Only this camera**. A photo you saved a
-  moment ago counts at once, while its save can still be cancelled (marked *saved a moment ago,
-  not sent yet*).
+  moment ago counts at once, while its save can still be cancelled.
 - **Similar photos** (purple diamonds): photos of your own library that look like this one and
   have a location: the same street, house or view. The thumbnails show which ones; hover a
   thumbnail to enlarge it.

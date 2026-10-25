@@ -218,8 +218,9 @@ def test_a_location_saved_a_moment_ago_counts_at_once(
     result = time_neighbors(signed_in.get(url, params={"pending": pending}).json())
     [candidate] = result["candidates"]
     assert (candidate["latitude"], candidate["longitude"]) == (A["latitude"], A["longitude"])
-    assert candidate["evidence"]["neighbors"][0]["pending"] is True
-    assert result["track"][0]["pending"] is True
+    # Shown as it will be once sent: nothing changes on the screen when it is.
+    assert candidate["evidence"]["neighbors"][0]["estimated"] is True
+    assert result["track"][0]["estimated"] is True
     # Nothing is written: without the parameter the photo is still without a location.
     assert time_neighbors(signed_in.get(url).json())["note"] == "no_neighbors"
 

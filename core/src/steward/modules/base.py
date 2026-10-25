@@ -51,9 +51,6 @@ class TrackPoint:
     role: Literal["before", "after"] | None = None
     # Changes with the thumbnails (`AssetItem.version`).
     version: str | None = None
-    # The location the user saved a moment ago, not yet sent to Immich (it can still be
-    # cancelled): taken as it is, marked as such.
-    pending: bool = False
 
 
 @dataclass(frozen=True)

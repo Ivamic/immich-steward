@@ -297,6 +297,7 @@
 			<ol class="st-sgroup__list">
 				{#each module.candidates as candidate (candidate.rank)}
 					{@const key = numbered.get(candidate)?.key}
+					{@const remarks = candidateRemarks(candidate)}
 					<!-- The row is a shortcut for the mouse; keyboard users have the label button. -->
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 					<li
@@ -338,9 +339,6 @@
 								{#if candidate.radius_m}
 									<span class="st-cand__radius">±{formatDistance(candidate.radius_m)}</span>
 								{/if}
-								{#each candidateRemarks(candidate) as remark (remark)}
-									<span class="st-cand__remark">{remark}</span>
-								{/each}
 								{#if candidate.evidence.neighbors?.length}
 									<span class="st-cand__thumbs">
 										{#each candidate.evidence.neighbors as neighbor (neighbor.asset_id)}
@@ -360,6 +358,12 @@
 											</a>
 										{/each}
 									</span>
+								{/if}
+								{#if remarks.length}
+									<!-- One line, cut short: the whole text on hover. -->
+									<span class="st-cand__remark remarks" title={remarks.join(' · ')}
+										>{remarks.join(' · ')}</span
+									>
 								{/if}
 							</div>
 						</div>
@@ -412,6 +416,14 @@
 {/if}
 
 <style>
+	/* The remarks take what is left of the line and are cut short there. */
+	.remarks {
+		flex: 1 1 0;
+		min-width: 4rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 	.suggestions {
 		display: flex;
 		flex-direction: column;

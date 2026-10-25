@@ -357,8 +357,6 @@ export interface NeighborEvidence {
 	same_camera?: boolean;
 	/** The neighbor's location was written by this app, not recorded by a camera. */
 	estimated: boolean;
-	/** Time neighbors only: its location was saved a moment ago and is not sent yet. */
-	pending?: boolean;
 	/** Changes with the neighbor's thumbnails (absent in results stored by older versions). */
 	version?: string | null;
 	/** Similar photos only: 0..1, and when the photo was taken (local time). */

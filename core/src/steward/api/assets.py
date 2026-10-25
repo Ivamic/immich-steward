@@ -248,8 +248,6 @@ class TrackPointItem(BaseModel):
     estimated: bool
     role: Literal["before", "after"] | None
     version: str | None = None
-    # Saved a moment ago in the browser, not sent to Immich yet.
-    pending: bool = False
 
 
 class CameraCountItem(BaseModel):

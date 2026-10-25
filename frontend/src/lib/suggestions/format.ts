@@ -113,8 +113,7 @@ export function neighborMeta(neighbor: NeighborEvidence, camera: string): string
 					m.neighbor_similarity({ percent: String(Math.round(neighbor.similarity * 100)) }),
 					neighbor.local_taken_at?.slice(0, 10) ?? ''
 				];
-	if (neighbor.pending) parts.push(m.candidate_pending());
-	else if (neighbor.estimated) parts.push(m.candidate_estimated());
+	if (neighbor.estimated) parts.push(m.candidate_estimated());
 	return parts.filter(Boolean).join(' · ');
 }
 
@@ -187,8 +186,7 @@ export function candidateRemarks(candidate: Candidate): string[] {
 	const neighbors = candidate.evidence.neighbors ?? [];
 	const remarks: string[] = [];
 	if (neighbors.some((n) => n.same_camera === false)) remarks.push(m.candidate_other_camera());
-	if (neighbors.some((n) => n.pending)) remarks.push(m.candidate_pending());
-	else if (neighbors.some((n) => n.estimated)) remarks.push(m.candidate_estimated());
+	if (neighbors.some((n) => n.estimated)) remarks.push(m.candidate_estimated());
 	return remarks;
 }
 

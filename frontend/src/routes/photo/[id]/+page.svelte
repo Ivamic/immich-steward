@@ -131,12 +131,14 @@
 		load(id, filter);
 	});
 
-	// A save sent from the notices (after the card moved on) may concern the photo shown now.
+	// A save sent from the notices (after the card moved on) may concern the photo shown now. Any
+	// other photo saved may be its neighbor in time: the suggestions are fetched again (the map
+	// stays where it is, the picked point too).
 	$effect(() => {
 		const changed = saves.changed;
-		if (changed && changed.assetId === untrack(() => asset?.id)) {
-			untrack(() => load(id, filter));
-		}
+		if (!changed) return;
+		if (changed.assetId === untrack(() => asset?.id)) untrack(() => load(id, filter));
+		else if (untrack(() => asset)) untrack(() => fetchSuggestions(id));
 	});
 
 	// Cameras excluded or included again: recompute the suggestions of this photo.

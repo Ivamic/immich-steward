@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MapAuto, MapSourceConfig } from '#lib/api.js';
 import {
+	areaMode,
 	attributionHtml,
 	effectiveSource,
 	parseProtocolUrl,
@@ -104,5 +105,13 @@ describe('attributionHtml', () => {
 			'Powered by Esri | Esri, Vantor &amp; &lt;b&gt;x&lt;/b&gt;'
 		);
 		expect(attributionHtml('© EOX', null)).toBe('© EOX');
+	});
+});
+
+describe('areaMode', () => {
+	it('keeps a known mode and falls back to the fill', () => {
+		expect(areaMode('line')).toBe('line');
+		expect(areaMode('none')).toBe('none');
+		expect(areaMode('outline')).toBe('fill');
 	});
 });

@@ -154,10 +154,12 @@ Esri and MapTiler stay sharp much further.
 ### What the app counts
 
 The app counts the tiles your browser loads for each source ("loaded by us"). It does not know
-about other apps that use the same key, and tiles from the browser cache are counted too, so it
-is only a guide. A percentage of the limit is shown only when the provider tells the usage
-(MapTiler with a service token). When a provider refuses the key or closes the access, the source
-is marked in Settings and over the map, and **Auto** takes the next source.
+about other apps that use the same key, and tiles from the browser cache are counted too, so it is
+only a rough estimate: the provider counts in its own way and its numbers may differ (for Esri,
+for example, the app may count more). The exact usage is on the provider's own page (**Check your
+limits** next to the source). A percentage of the limit is shown only when the provider tells the
+usage (MapTiler with a service token). When a provider refuses the key or closes the access, the
+source is marked in Settings and over the map, and **Auto** takes the next source.
 
 ## Suggestions
 

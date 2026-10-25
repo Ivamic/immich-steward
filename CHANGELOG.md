@@ -16,7 +16,8 @@ between releases.
   with a reset (by hand or monthly), and for MapTiler optionally the exact usage with a service
   token. Over the map: choose the plain map or a source, **Auto by zoom** (a far and a near source)
   and labels over the imagery; the bar shows what **Auto** switches between, with a gear to its
-  settings, and the settings explain what a zoom level shows. A source whose key is refused or whose limit is used up is skipped.
+  settings, and the settings explain what a zoom level shows. **Areas** in the same bar draws the
+  circles of the suggestions filled, as an outline or not at all. A source whose key is refused or whose limit is used up is skipped.
   The browser loads the tiles straight from the provider; see
   [Privacy](docs/privacy.md) and [Configuration](docs/configuration.md#satellite-imagery-in-settings).
 

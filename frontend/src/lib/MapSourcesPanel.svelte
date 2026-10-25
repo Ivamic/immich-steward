@@ -243,14 +243,13 @@
 					</label>
 				{/if}
 			</div>
-			{#if periodRule(source.id) || source.usage_url}
-				<p class="note">
-					{periodRule(source.id) ?? ''}
-					{#if source.usage_url}
-						<a href={source.usage_url} target="_blank" rel="noopener">{m.mapsrc_usage_link()}</a>
-					{/if}
-				</p>
-			{/if}
+			<p class="note">
+				{m.mapsrc_own_count_estimate()}
+				{periodRule(source.id) ?? ''}
+				{#if source.usage_url}
+					<a href={source.usage_url} target="_blank" rel="noopener">{m.mapsrc_usage_link()}</a>
+				{/if}
+			</p>
 
 			{#if source.usage_token_supported}
 				<details class="usage" open={Boolean(source.usage_token)}>

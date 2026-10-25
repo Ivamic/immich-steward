@@ -1,17 +1,20 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The bar above the map: the plain map or a satellite source (a year for EOX), what "Auto"
      switches between and "Auto" itself with its state always visible (switch by zoom as the
-     settings say, linked by the gear), labels over the imagery. Sources
-     that cannot be used are greyed with the reason; they are switched on in the settings. -->
+     settings say, linked by the gear), labels over the imagery, how the likely areas are drawn.
+     Sources that cannot be used are greyed with the reason; they are switched on in the
+     settings. -->
 <script lang="ts">
 	import type { MapAuto, MapKeyProblem, MapSourceConfig, MapSourceStatus } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { resolve } from '$app/paths';
-	import { AUTO_ANCHOR, SCHEME } from './sources.js';
+	import { AREA_MODES, AUTO_ANCHOR, SCHEME, type AreaMode } from './sources.js';
 
 	let {
 		sources,
+		areas,
+		hasAreas,
 		auto,
 		autoOn,
 		labels,
@@ -22,9 +25,14 @@
 		onchoice,
 		onauto,
 		onlabels,
+		onareas,
 		onyear
 	}: {
+		/** The satellite sources; none: the bar shows only the areas. */
 		sources: MapSourceConfig[];
+		areas: AreaMode;
+		/** Whether the map has likely areas to draw. */
+		hasAreas: boolean;
 		/** The auto switching of the settings; null: none. */
 		auto: MapAuto | null;
 		autoOn: boolean;
@@ -40,6 +48,7 @@
 		onchoice: (id: string) => void;
 		onauto: (on: boolean) => void;
 		onlabels: (on: boolean) => void;
+		onareas: (mode: AreaMode) => void;
 		onyear: (year: string) => void;
 	} = $props();
 
@@ -52,6 +61,11 @@
 	const autoSet = $derived(auto !== null && (auto.far !== null || auto.near !== null));
 	const near = $derived(auto !== null && zoom >= auto.switch_zoom);
 	const eox = $derived(sources.find((s) => s.id === 'eox') ?? null);
+	const AREA_LABEL: Record<AreaMode, () => string> = {
+		fill: m.map_areas_fill,
+		line: m.map_areas_line,
+		none: m.map_areas_none
+	};
 
 	/** Why a source cannot be picked; null: it can. */
 	function blocked(source: MapSourceConfig): string | null {
@@ -73,80 +87,105 @@
 </script>
 
 <div class="bar">
-	<span class="title">{m.mapsrc_basemap()}</span>
-	<div class="st-seg" role="radiogroup" aria-label={m.mapsrc_basemap()}>
-		<button type="button" role="radio" aria-checked={active === SCHEME} onclick={() => pick(SCHEME)}
-			>{m.mapsrc_scheme()}</button
-		>
-		{#each sources as source (source.id)}
-			{@const reason = blocked(source)}
+	{#if sources.length}
+		<span class="title">{m.mapsrc_basemap()}</span>
+		<div class="st-seg" role="radiogroup" aria-label={m.mapsrc_basemap()}>
 			<button
 				type="button"
 				role="radio"
-				aria-checked={active === source.id}
-				disabled={reason !== null}
-				title={reason ? `${source.name}: ${reason}` : source.name}
-				onclick={() => pick(source.id)}
+				aria-checked={active === SCHEME}
+				onclick={() => pick(SCHEME)}>{m.mapsrc_scheme()}</button
 			>
-				{short(source.id)}
-				{#if problems[source.id] === 'exhausted' || source.status === 'exhausted'}
-					<Icon name="triangle-alert" size={12} />
-				{/if}
-			</button>
-		{/each}
-	</div>
-	{#if eox && active === 'eox'}
-		<select
-			class="st-select year"
-			aria-label={m.mapsrc_year()}
-			value={year}
-			onchange={(e) => onyear((e.currentTarget as HTMLSelectElement).value)}
-		>
-			{#each eox.variants as variant (variant.id)}
-				<option value={variant.id}>{variant.id}</option>
+			{#each sources as source (source.id)}
+				{@const reason = blocked(source)}
+				<button
+					type="button"
+					role="radio"
+					aria-checked={active === source.id}
+					disabled={reason !== null}
+					title={reason ? `${source.name}: ${reason}` : source.name}
+					onclick={() => pick(source.id)}
+				>
+					{short(source.id)}
+					{#if problems[source.id] === 'exhausted' || source.status === 'exhausted'}
+						<Icon name="triangle-alert" size={12} />
+					{/if}
+				</button>
 			{/each}
-		</select>
+		</div>
+		{#if eox && active === 'eox'}
+			<select
+				class="st-select year"
+				aria-label={m.mapsrc_year()}
+				value={year}
+				onchange={(e) => onyear((e.currentTarget as HTMLSelectElement).value)}
+			>
+				{#each eox.variants as variant (variant.id)}
+					<option value={variant.id}>{variant.id}</option>
+				{/each}
+			</select>
+		{/if}
+		{#if active !== SCHEME}
+			<label class="st-check st-check--sm">
+				<input
+					type="checkbox"
+					checked={labels}
+					onchange={(e) => onlabels((e.currentTarget as HTMLInputElement).checked)}
+				/>
+				{m.mapsrc_labels()}
+			</label>
+		{/if}
 	{/if}
-	{#if active !== SCHEME}
-		<label class="st-check st-check--sm">
-			<input
-				type="checkbox"
-				checked={labels}
-				onchange={(e) => onlabels((e.currentTarget as HTMLInputElement).checked)}
-			/>
-			{m.mapsrc_labels()}
-		</label>
+	{#if hasAreas}
+		<span class="title">{m.map_areas()}</span>
+		<div class="st-seg" role="radiogroup" aria-label={m.map_areas()} title={m.map_areas_hint()}>
+			{#each AREA_MODES as mode (mode)}
+				<button
+					type="button"
+					role="radio"
+					aria-checked={areas === mode}
+					onclick={() => onareas(mode)}>{AREA_LABEL[mode]()}</button
+				>
+			{/each}
+		</div>
 	{/if}
-	{#if auto && autoSet}
-		<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
-		<span class="summary" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
-			{#if auto.far === auto.near}
-				<span class:now={autoOn}>{short(auto.far)}</span>
-			{:else}
-				<span class:now={autoOn && !near}>{short(auto.far)}</span>
-				→
-				<span class:now={autoOn && near}>{short(auto.near)}</span>
-				{m.mapsrc_auto_summary_zoom({ zoom: auto.switch_zoom })}
-			{/if}
-		</span>
+	{#if sources.length}
+		{#if auto && autoSet}
+			<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
+			<span class="summary" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
+				{#if auto.far === auto.near}
+					<span class:now={autoOn}>{short(auto.far)}</span>
+				{:else}
+					<span class:now={autoOn && !near}>{short(auto.far)}</span>
+					→
+					<span class:now={autoOn && near}>{short(auto.near)}</span>
+					{m.mapsrc_auto_summary_zoom({ zoom: auto.switch_zoom })}
+				{/if}
+			</span>
+		{/if}
+		<button
+			type="button"
+			class="auto"
+			class:push={!autoSet}
+			aria-pressed={autoOn}
+			disabled={!autoSet}
+			title={auto && autoSet
+				? m.mapsrc_auto_hint({
+						far: short(auto.far),
+						near: short(auto.near),
+						zoom: auto.switch_zoom
+					})
+				: m.mapsrc_auto_unset()}
+			onclick={() => onauto(!autoOn)}
+		>
+			<span class="dot" aria-hidden="true"></span>
+			{autoOn ? m.mapsrc_auto_on() : m.mapsrc_auto_off()}
+		</button>
 	{/if}
-	<button
-		type="button"
-		class="auto"
-		class:push={!autoSet}
-		aria-pressed={autoOn}
-		disabled={!autoSet}
-		title={auto && autoSet
-			? m.mapsrc_auto_hint({ far: short(auto.far), near: short(auto.near), zoom: auto.switch_zoom })
-			: m.mapsrc_auto_unset()}
-		onclick={() => onauto(!autoOn)}
-	>
-		<span class="dot" aria-hidden="true"></span>
-		{autoOn ? m.mapsrc_auto_on() : m.mapsrc_auto_off()}
-	</button>
 	<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved, with an anchor added -->
 	<a
 		class="gear"
+		class:push={!sources.length}
 		href={`${resolve('/settings')}#${AUTO_ANCHOR}`}
 		title={m.mapsrc_auto_settings_link()}
 		aria-label={m.mapsrc_auto_settings_link()}

@@ -57,6 +57,7 @@
 	import { markerElement, pinElement, shapeSvg } from './markers.js';
 	import MapSourceSwitcher from './MapSourceSwitcher.svelte';
 	import {
+		areaMode,
 		attributionHtml,
 		effectiveSource,
 		protocolUrl,
@@ -119,11 +120,14 @@
 	const SOURCE_KEY = 'steward-map-source';
 	const AUTO_KEY = 'steward-map-auto';
 	const LABELS_KEY = 'steward-map-labels';
+	const AREAS_KEY = 'steward-map-areas';
 	const IMAGERY = 'steward-imagery';
 	let choice = $state(stored(SOURCE_KEY, SCHEME));
 	// The plain map until something else is picked; auto switching only when turned on.
 	let autoOn = $state(stored(AUTO_KEY, 'off') === 'on');
 	let labels = $state(stored(LABELS_KEY, 'on') === 'on');
+	// The fill of the areas may hide the imagery: it can be left out, or the areas altogether.
+	let areas = $state(areaMode(stored(AREAS_KEY, 'fill')));
 	// The latest EOX year unless another is picked in this page (D-146).
 	let eoxYear = $state<string | null>(null);
 	let zoom = $state(3);
@@ -155,6 +159,8 @@
 	let popupPinned = false;
 
 	const route = $derived(suggestions.find((s) => s.track.length) ?? null);
+	const hasAreas = $derived(suggestions.some((s) => s.candidates.some((c) => c.radius_m)));
+	const hasSources = $derived(sources.some((s) => s.enabled));
 	// Modules with suggestions on the map, in the order of the list.
 	const legend = $derived(
 		suggestions
@@ -553,6 +559,21 @@
 		untrack(() => overlayVersion++);
 	});
 
+	// Also after a change of the style, which adds the layers again.
+	$effect(() => {
+		if (!map || !ready) return;
+		map.setLayoutProperty(
+			'steward-radius-fill',
+			'visibility',
+			areas === 'fill' ? 'visible' : 'none'
+		);
+		map.setLayoutProperty(
+			'steward-radius-line',
+			'visibility',
+			areas === 'none' ? 'none' : 'visible'
+		);
+	});
+
 	// Outline the highlighted marker; the markers themselves are not recreated.
 	$effect(() => {
 		void overlayVersion;
@@ -758,10 +779,12 @@
 </script>
 
 <div class="frame">
-	<!-- Only for an account that switched a satellite source on: no bar for the others. -->
-	{#if sources.some((s) => s.enabled)}
+	<!-- For an account that switched a satellite source on, or when there are areas to draw. -->
+	{#if hasSources || hasAreas}
 		<MapSourceSwitcher
-			{sources}
+			sources={hasSources ? sources : []}
+			{areas}
+			{hasAreas}
 			{auto}
 			autoOn={autoActive}
 			{labels}
@@ -780,6 +803,10 @@
 			onlabels={(on) => {
 				labels = on;
 				store(LABELS_KEY, on ? 'on' : 'off');
+			}}
+			onareas={(mode) => {
+				areas = mode;
+				store(AREAS_KEY, mode);
 			}}
 			onyear={(picked) => (eoxYear = picked)}
 		/>

@@ -55,9 +55,15 @@ for the reason (no key, key not accepted, limit used up).
   map shows the "far" source when zoomed out and the "near" one from the zoom set in Settings
   (by default Sentinel-2 up to zoom 13, Esri or MapTiler from 14), and the bar highlights the
   source shown now. This saves the limited tiles of the sharper sources. A source that does not
-  work is skipped for the next one. Choosing a base map by hand turns Auto off.
+  work is skipped for the next one. Choosing a base map by hand turns Auto off. Before **Auto**
+  the bar shows what it switches between ("Map → MapTiler from zoom 14"), and the gear after it
+  opens these settings.
 - **Labels over imagery** keeps the names of places, streets and water over the photo. Buildings,
   bridges, borders and the icons of shops and the like are not drawn over imagery.
+
+- **Areas** sets how the circles of the suggestions are drawn: **Fill** (tinted, as by
+  default), **Outline** (only the border, so the imagery under it stays clear) or **None**. It is
+  in the bar whenever the map has such circles, also without satellite sources.
 
 The choice is remembered in the browser. In the dark theme the imagery is not dimmed.
 

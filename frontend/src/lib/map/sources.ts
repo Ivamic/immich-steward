@@ -8,6 +8,14 @@ import type { MapAuto, MapSourceConfig } from '#lib/api.js';
 /** The plain map (the vector style), no imagery. */
 export const SCHEME = 'scheme';
 
+/** How the likely areas of the suggestions are drawn: filled, outlined only or not at all. */
+export const AREA_MODES = ['fill', 'line', 'none'] as const;
+export type AreaMode = (typeof AREA_MODES)[number];
+
+export function areaMode(value: string): AreaMode {
+	return (AREA_MODES as readonly string[]).includes(value) ? (value as AreaMode) : 'fill';
+}
+
 /** The id of the switching by zoom in the settings, linked from the bar above the map. */
 export const AUTO_ANCHOR = 'map-auto';
 

@@ -154,6 +154,11 @@ class ImmichClient:
         body = {"latitude": latitude, "longitude": longitude}
         await self._request("PUT", f"/assets/{asset_id}", json=body)
 
+    async def set_locations(self, asset_ids: list[UUID], latitude: float, longitude: float) -> None:
+        """Writes the same coordinates to several assets in one request."""
+        body = {"ids": [str(i) for i in asset_ids], "latitude": latitude, "longitude": longitude}
+        await self._request("PUT", "/assets", json=body)
+
     async def asset_edits(self, asset_id: UUID) -> list[dict[str, Any]]:
         """Edits (crop, rotate, mirror) Immich applies to the photo, in order (Immich 2.5+)."""
         data = await self._request("GET", f"/assets/{asset_id}/edits")
@@ -173,14 +178,21 @@ class ImmichClient:
 
     async def tag_asset(self, tag_id: UUID, asset_id: UUID) -> bool:
         """Adds the tag; False when the asset already had it."""
-        return await self._bulk_ids("PUT", f"/tags/{tag_id}/assets", asset_id)
+        return asset_id in await self.tag_assets(tag_id, [asset_id])
 
     async def untag_asset(self, tag_id: UUID, asset_id: UUID) -> bool:
-        return await self._bulk_ids("DELETE", f"/tags/{tag_id}/assets", asset_id)
+        return asset_id in await self.untag_assets(tag_id, [asset_id])
 
-    async def _bulk_ids(self, method: str, path: str, asset_id: UUID) -> bool:
-        results = await self._request(method, path, json={"ids": [str(asset_id)]})
-        return any(r["id"] == str(asset_id) and r["success"] for r in results)
+    async def tag_assets(self, tag_id: UUID, asset_ids: list[UUID]) -> set[UUID]:
+        """Adds the tag; returns the assets that did not have it yet."""
+        return await self._bulk_ids("PUT", f"/tags/{tag_id}/assets", asset_ids)
+
+    async def untag_assets(self, tag_id: UUID, asset_ids: list[UUID]) -> set[UUID]:
+        return await self._bulk_ids("DELETE", f"/tags/{tag_id}/assets", asset_ids)
+
+    async def _bulk_ids(self, method: str, path: str, asset_ids: list[UUID]) -> set[UUID]:
+        results = await self._request(method, path, json={"ids": [str(i) for i in asset_ids]})
+        return {UUID(r["id"]) for r in results if r["success"]}
 
     async def _get[M: BaseModel](self, path: str, model: type[M]) -> M:
         return model.model_validate(await self._request("GET", path))

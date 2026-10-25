@@ -24,6 +24,37 @@ The gallery shows your photos by month, newest first. By default it shows the ph
 
 The filter is kept in the address of the page, so a filtered view can be bookmarked.
 
+### Several photos at once
+
+Hover a photo and click the circle in its top left corner to choose it. While some photos are
+chosen, a click on another photo chooses it too instead of opening it; **Shift** + click chooses
+everything from the photo clicked before (for example a series taken in a row). **Esc** or the
+cross in the bar clears the choice.
+
+A bar at the bottom shows how many photos are chosen (how many of them already have a location,
+how many are videos) and what can be done with all of them:
+
+- **Set location** opens a map like the one in the photo card: click the map, type coordinates,
+  search an address, or pick a suggestion (keys **1–9**, **Enter** saves). The suggestions come
+  only from what the app already knows, so they appear at once for any number of photos:
+  - the places of the chosen photos that already have a location (several close to each other
+    are one suggestion, "4 of the chosen photos are here");
+  - the photos with a location taken just before the first chosen photo and just after the
+    last one;
+  - the **confident** results of the modules that already ran on the chosen photos; the same
+    place for several photos is one suggestion, "for 3 photos". Nothing is run for this.
+
+  Photos that already have a location keep it, unless you tick **Overwrite it also on the … that
+  already have a location**: then the dialog is a tool to correct a wrong place on many photos.
+  The save waits a few seconds, as in the card, and can be cancelled. Once saved, **Undo** in its
+  notice puts back what each photo had before, except for photos whose location was changed
+  since (in Immich or here).
+- **Rotate left**, **Rotate right**, **Rotate 180°** turn the chosen photos in Immich, as **Save
+  rotation in Immich** in the card does (an Immich edit; the original file is not changed). It runs
+  in the background with its progress in a notice; you can go on working. Videos are not turned:
+  the notice says how many were left out. The API key needs the `asset.edit` permissions.
+- **Skip for now** and **Location not applicable** mark all the chosen photos.
+
 ## The photo card
 
 The card has three columns: the **map** on the left, the **panel** with the actions and the

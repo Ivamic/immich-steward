@@ -5,7 +5,9 @@
 const SLOTS: Record<string, number> = {
 	time_neighbors: 1,
 	geoclip: 2,
-	similar: 3
+	similar: 3,
+	// The chosen photos' own locations (several photos at once, D-149).
+	selection: 4
 };
 
 /** Palette slot of a module (1–8), or null for a module without one. */

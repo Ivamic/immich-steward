@@ -1,12 +1,21 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-	import { getAsset, getMonths, type GalleryFilter, type MonthBucket } from '#lib/api.js';
+	import {
+		getAsset,
+		getMonths,
+		type AssetItem,
+		type GalleryFilter,
+		type MonthBucket
+	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import FilterBar from '#lib/gallery/FilterBar.svelte';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import MonthSection from '#lib/gallery/MonthSection.svelte';
 	import Scrubber from '#lib/gallery/Scrubber.svelte';
+	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
+	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
 	import { defaultFilter, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import { galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Skeleton from '#lib/ui/Skeleton.svelte';
@@ -14,6 +23,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	// How long to wait for the photo to return to, and where to put it on the screen.
 	const AT_TIMEOUT_MS = 5000;
@@ -25,6 +35,11 @@
 	let timeline = $state<HTMLElement>();
 	// `?at=<photo>` of the last navigation, until the timeline is scrolled to it.
 	let pendingAt = $state<string | null>(null);
+	// Photos chosen for an action on all of them (D-149), and the photos of the loaded months, in
+	// the order of the gallery, for choosing a range with Shift.
+	const selection = new Selection();
+	const loaded = new SvelteMap<string, AssetItem[]>();
+	let locationOpen = $state(false);
 
 	const filter = $derived(filterFromUrl(page.url.searchParams));
 	const query = $derived(filterToUrl(filter));
@@ -38,10 +53,39 @@
 		const current = untrack(() => filter);
 		months = null;
 		error = null;
+		selection.clear();
+		loaded.clear();
 		getMonths(current)
 			.then((result) => (months = result))
 			.catch((e) => (error = errorMessage(e)));
 	});
+
+	// Photos changed (a location saved, photos marked or turned): the month counts too.
+	let seenChanges = galleryChanges.count;
+	$effect(() => {
+		const count = galleryChanges.count;
+		if (count === seenChanges) return;
+		seenChanges = count;
+		getMonths(untrack(() => filter))
+			.then((result) => (months = result))
+			.catch((e) => (error = errorMessage(e)));
+	});
+
+	function pick(item: AssetItem, range: boolean) {
+		if (!range || !selection.anchor) {
+			selection.toggle(item);
+			return;
+		}
+		const ordered = (months ?? []).flatMap((bucket) => loaded.get(bucket.month) ?? []);
+		selection.extend(item, ordered);
+	}
+
+	function onkeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape' && selection.size && !locationOpen) {
+			event.preventDefault();
+			selection.clear();
+		}
+	}
 
 	afterNavigate(({ to }) => {
 		pendingAt = to?.url.searchParams.get('at') ?? null;
@@ -86,6 +130,8 @@
 	}
 </script>
 
+<svelte:window {onkeydown} />
+
 <FilterBar {filter} {total} onchange={changeFilter} />
 <PauseBar />
 
@@ -120,7 +166,15 @@
 			<!-- Re-created when the filter changes, so that no month keeps stale items. -->
 			{#key query}
 				{#each months as bucket (bucket.month)}
-					<MonthSection {bucket} {filter} {width} {query} />
+					<MonthSection
+						{bucket}
+						{filter}
+						{width}
+						{query}
+						{selection}
+						onitems={(month, items) => loaded.set(month, items)}
+						onpick={pick}
+					/>
 				{/each}
 			{/key}
 		</div>
@@ -130,10 +184,25 @@
 	{/if}
 {/if}
 
+{#if selection.size}
+	<SelectionBar {selection} onlocation={() => (locationOpen = true)} />
+{/if}
+{#if locationOpen}
+	<SelectionLocation
+		items={[...selection.items.values()]}
+		onsaved={() => {
+			locationOpen = false;
+			selection.clear();
+		}}
+		onclose={() => (locationOpen = false)}
+	/>
+{/if}
+
 <style>
 	.timeline {
-		/* room for the scrubber on the right */
+		/* room for the scrubber on the right, and for the bar of actions below the last photos */
 		padding-right: 3.5rem;
+		padding-bottom: 5rem;
 	}
 	.loading {
 		display: flex;

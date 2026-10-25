@@ -92,6 +92,8 @@ export function moduleName(id: string): string {
 			return m.module_geoclip();
 		case 'similar':
 			return m.module_similar();
+		case 'selection':
+			return m.module_selection();
 		default:
 			return id;
 	}
@@ -121,6 +123,8 @@ export function moduleNote(note: string): string {
 			return m.module_note_no_neighbors();
 		case 'scanner':
 			return m.module_note_scanner();
+		case 'none_located':
+			return m.module_note_none_located();
 		default:
 			return note;
 	}
@@ -130,7 +134,22 @@ const neighborRef = (n: NeighborEvidence) =>
 	m.neighbor_ref({ file: n.file_name, delta: formatDelta(n.delta_s) });
 
 export function candidateLabel(candidate: Candidate): string {
+	const label = singleLabel(candidate);
+	// Several chosen photos with the same suggestion (D-149).
+	const photos = candidate.evidence.photos;
+	return candidate.kind !== 'selected' && typeof photos === 'number' && photos > 1
+		? m.candidate_photos({ label, count: photos })
+		: label;
+}
+
+function singleLabel(candidate: Candidate): string {
 	const neighbors = candidate.evidence.neighbors ?? [];
+	if (candidate.kind === 'selected') {
+		const photos = typeof candidate.evidence.photos === 'number' ? candidate.evidence.photos : 1;
+		return photos === 1 && neighbors.length
+			? m.candidate_selected_one({ file: neighbors[0].file_name })
+			: m.candidate_selected({ count: photos });
+	}
 	if (candidate.kind === 'between' && neighbors.length === 2) {
 		return m.candidate_between({
 			before: neighborRef(neighbors[0]),

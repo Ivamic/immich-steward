@@ -17,9 +17,17 @@ between releases.
   token. Over the map: choose the plain map or a source, **Auto by zoom** (a far and a near source)
   and labels over the imagery; the bar shows what **Auto** switches between, with a gear to its
   settings, and the settings explain what a zoom level shows. **Areas** in the same bar draws the
-  circles of the suggestions filled, as an outline or not at all. A source whose key is refused or whose limit is used up is skipped.
-  The browser loads the tiles straight from the provider; see
-  [Privacy](docs/privacy.md) and [Configuration](docs/configuration.md#satellite-imagery-in-settings).
+  circles of the suggestions filled, as an outline or not at all. A source whose key is refused
+  or whose limit is used up is skipped. The browser loads the tiles straight from the provider;
+  see [Privacy](docs/privacy.md) and
+  [Configuration](docs/configuration.md#satellite-imagery-in-settings).
+- **Several photos at once** in the gallery: choose photos with the circle in their corner
+  (Shift + click for a range), then in the bar at the bottom **Set location** for all of them
+  (a map as in the photo card, with suggestions from what is already known: the places of the
+  chosen photos, the photos just before and after them, confident module results; photos with a
+  location are overwritten only when asked; undone together), **Rotate** them in Immich in the
+  background (videos are left as they are), **Skip for now** or **Location not applicable**. See
+  [Using the app](docs/usage.md#several-photos-at-once).
 
 ### Changed
 

@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Notices about saved locations: countdown with cancel, then result with undo or retry. -->
+<!-- Notices about saved locations: countdown with cancel, then result with undo or retry. Also
+     the actions on several photos chosen in the gallery (turning them, marking them). -->
 <script lang="ts">
+	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { saves, type Save } from '#lib/saves.svelte.js';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -46,12 +48,54 @@
 				return m.save_failed({ file, error: save.error ?? '' });
 		}
 	}
+
+	/** For a batch: the photos left as they were. */
+	function note(save: Save): string | null {
+		if (save.phase === 'saved' && save.skipped)
+			return m.save_skipped_located({ count: save.skipped });
+		if (save.phase === 'undone' && save.kept) return m.save_kept({ count: save.kept });
+		return null;
+	}
 </script>
 
 <svelte:window onpagehide={() => saves.flush()} />
 
-{#if saves.items.length}
+{#if saves.items.length || bulkNotices.items.length}
 	<div class="notices" role="status" aria-live="polite">
+		{#each bulkNotices.items as notice (notice.key)}
+			<div
+				class="st-toast"
+				class:st-toast--saved={notice.phase === 'done'}
+				class:st-toast--failed={notice.phase === 'failed'}
+			>
+				<span class="st-toast__icon">
+					{#if notice.phase === 'running'}
+						<span class="st-spin"><Icon name="loader-circle" /></span>
+					{:else if notice.phase === 'done'}
+						<span class="st-draw"><Icon name="circle-check" /></span>
+					{:else}
+						<Icon name="circle-alert" />
+					{/if}
+				</span>
+				<span class="st-toast__text">
+					{notice.text}
+					{#each notice.details as detail (detail)}<span class="error">{detail}</span>{/each}
+				</span>
+				<span class="st-toast__actions">
+					{#if notice.phase !== 'running'}
+						<button
+							type="button"
+							class="st-iconbtn st-iconbtn--sm"
+							aria-label={m.save_dismiss()}
+							title={m.save_dismiss()}
+							onclick={() => bulkNotices.dismiss(notice.key)}
+						>
+							<Icon name="x" />
+						</button>
+					{/if}
+				</span>
+			</div>
+		{/each}
 		{#if hidden || expanded}
 			<button type="button" class="st-btn st-btn--sm" onclick={() => (expanded = !expanded)}>
 				<Icon name={expanded ? 'chevron-down' : 'chevron-up'} size={14} />
@@ -80,6 +124,7 @@
 				</span>
 				<span class="st-toast__text">
 					{text(save)}
+					{#if note(save)}<span class="error">{note(save)}</span>{/if}
 					{#if save.error && save.phase !== 'failed'}<span class="error">{save.error}</span>{/if}
 				</span>
 				<span class="st-toast__actions">

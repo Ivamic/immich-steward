@@ -17,17 +17,23 @@ from uuid import UUID
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import worker_queue
+from steward import rotation, worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
-from steward.immich import ImmichAuthError, ImmichPermissionError, ImmichUnreachableError
-from steward.models import Account, Job
+from steward.immich import (
+    ImmichAuthError,
+    ImmichError,
+    ImmichPermissionError,
+    ImmichUnreachableError,
+)
+from steward.models import Account, Asset, Job
 from steward.sync import sync_account
 
 log = logging.getLogger(__name__)
 
 SYNC = "sync"
+ROTATE = "rotate"
 ACTIVE_STATUSES = ("queued", "running")
 IDLE_POLL_S = 2.0
 SCHEDULE_EVERY_S = 60.0
@@ -45,6 +51,20 @@ async def enqueue(
     if existing is not None:
         return existing
     job = Job(kind=kind, account_id=account_id, payload=payload or {})
+    db.add(job)
+    await db.commit()
+    return job
+
+
+async def add(
+    db: AsyncSession,
+    kind: str,
+    account_id: UUID,
+    payload: dict[str, Any],
+    priority: int = 0,
+) -> Job:
+    """Adds a job even when one of the same kind is already queued (each has its own photos)."""
+    job = Job(kind=kind, account_id=account_id, payload=payload, priority=priority)
     db.add(job)
     await db.commit()
     return job
@@ -88,11 +108,75 @@ async def run_sync(ctx: JobContext) -> dict[str, Any]:
     return stats.as_dict()
 
 
+# Photos turned before waiting for their new thumbnails together.
+ROTATE_CHUNK = 8
+
+
+async def run_rotate(ctx: JobContext) -> dict[str, Any]:
+    """Turns the photos of the payload in Immich (`rotation`); videos are left as they are.
+
+    The progress keeps the photos already turned: a job run again after a restart does not turn
+    them twice.
+    """
+    settings = ctx.settings
+    if settings.immich_url is None or settings.secret_key is None:
+        raise JobError("server_not_configured")
+    account = await ctx.db.get(Account, ctx.job.account_id)
+    if account is None:
+        raise JobError("account_not_found")
+    turn = int(ctx.job.payload["turn"])
+    ids = [UUID(i) for i in ctx.job.payload["asset_ids"]]
+    done_before = set(ctx.job.progress.get("done_ids", []))
+    assets = {
+        a.id: a
+        for a in await ctx.db.scalars(
+            select(Asset).where(Asset.id.in_(ids), Asset.account_id == account.id)
+        )
+    }
+    photos = [assets[i] for i in ids if i in assets and assets[i].type == "IMAGE"]
+    progress: dict[str, Any] = {
+        "total": len(photos),
+        "videos": sum(1 for a in assets.values() if a.type != "IMAGE"),
+        "missing": len(ids) - len(assets),
+        "failed": 0,
+        "done_ids": sorted(done_before),
+    }
+    progress["done"] = len(progress["done_ids"])
+    await ctx.report(progress)
+    todo = [a for a in photos if str(a.id) not in done_before]
+    api_key = SecretBox(settings.secret_key.get_secret_value()).decrypt(account.api_key_encrypted)
+    try:
+        async with ctx.immich_factory(settings.immich_url, api_key) as client:
+            for start in range(0, len(todo), ROTATE_CHUNK):
+                before: dict[Asset, str | None] = {}
+                for asset in todo[start : start + ROTATE_CHUNK]:
+                    try:
+                        before[asset] = await rotation.apply_turn(ctx.db, client, asset, turn)
+                    except (ImmichAuthError, ImmichPermissionError, ImmichUnreachableError):
+                        raise
+                    except ImmichError:
+                        log.warning("could not turn asset %s", asset.id, exc_info=True)
+                        progress["failed"] += 1
+                        continue
+                    progress["done_ids"].append(str(asset.id))
+                    progress["done"] += 1
+                    await ctx.report(progress)
+                if before:
+                    await rotation.await_thumbnails(ctx.db, client, before)
+    except ImmichAuthError as exc:
+        raise JobError("immich_invalid_api_key") from exc
+    except ImmichPermissionError as exc:
+        raise JobError("immich_missing_permissions") from exc
+    except ImmichUnreachableError as exc:
+        raise JobError("immich_unreachable") from exc
+    return progress
+
+
 class JobError(Exception):
     """Expected failure; the message is an error code shown (translated) in the UI."""
 
 
-HANDLERS: dict[str, JobHandler] = {SYNC: run_sync}
+HANDLERS: dict[str, JobHandler] = {SYNC: run_sync, ROTATE: run_rotate}
 
 
 class JobRunner:

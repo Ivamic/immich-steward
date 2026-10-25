@@ -136,6 +136,8 @@ class LocationChange(Base):
     status: Mapped[str] = mapped_column(String(16), default="applied")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     undone_at: Mapped[datetime | None]
+    # The changes of one write to several photos, undone together.
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(index=True)
 
 
 class Album(Base):

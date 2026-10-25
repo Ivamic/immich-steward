@@ -128,17 +128,17 @@ class TimeNeighbors:
             key=lambda p: p.delta_s,
         )
 
-        before = _nearest([p for p in track if p.delta_s <= 0])
-        after = _nearest([p for p in track if p.delta_s > 0])
+        before = nearest([p for p in track if p.delta_s <= 0])
+        after = nearest([p for p in track if p.delta_s > 0])
         track = [
             _with_role(p, "before" if p is before else "after" if p is after else None)
             for p in track
         ]
-        candidates = [_single(p) for p in (before, after) if p is not None]
+        candidates = [single(p) for p in (before, after) if p is not None]
         between = _between(before, after) if before and after else None
         if between:
             candidates.append(between)
-        return ModuleResult(candidates=_merge(candidates), track=track, cameras=cameras)
+        return ModuleResult(candidates=merge(candidates), track=track, cameras=cameras)
 
 
 def camera_value(make: str | None, model: str | None) -> str:
@@ -157,7 +157,7 @@ def is_scanner(make: str | None, model: str | None) -> bool:
     return bool(SCANNER.search(f"{make or ''} {model or ''}"))
 
 
-def _nearest(points: list[TrackPoint]) -> TrackPoint | None:
+def nearest(points: list[TrackPoint]) -> TrackPoint | None:
     """The closest point in time, preferring the same camera."""
     same = [p for p in points if p.same_camera]
     pool = same or points
@@ -198,7 +198,7 @@ def _evidence(*points: TrackPoint) -> dict[str, object]:
     }
 
 
-def _single(point: TrackPoint) -> Candidate:
+def single(point: TrackPoint) -> Candidate:
     return Candidate(
         latitude=point.latitude,
         longitude=point.longitude,
@@ -227,7 +227,7 @@ def _between(before: TrackPoint, after: TrackPoint) -> Candidate | None:
     )
 
 
-def _merge(candidates: list[Candidate]) -> list[Candidate]:
+def merge(candidates: list[Candidate]) -> list[Candidate]:
     """Best first; drops candidates within MERGE_DISTANCE_M of a better one."""
     kept: list[Candidate] = []
     for candidate in sorted(candidates, key=lambda c: c.score, reverse=True):

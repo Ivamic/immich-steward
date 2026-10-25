@@ -3,6 +3,9 @@
   One month of the timeline. Its photos are fetched and rendered only while the section is
   near the viewport; otherwise it is an empty block of the estimated height. This keeps the
   page light for libraries with tens of thousands of photos.
+
+  Photos are chosen with the check in their corner; once one is chosen, a click on a photo
+  chooses it too (Shift: everything from the photo clicked before), instead of opening it.
 -->
 <script lang="ts">
 	import {
@@ -16,8 +19,10 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { untrack } from 'svelte';
 	import { atPhoto, type FilterQuery } from './filter.js';
 	import { monthTitle } from './month.js';
+	import { galleryChanges, type Selection } from './selection.svelte.js';
 
 	const TILE = 160; // px, keep in sync with the grid CSS below
 	const GAP = 4;
@@ -27,8 +32,21 @@
 		bucket,
 		filter,
 		width,
-		query
-	}: { bucket: MonthBucket; filter: GalleryFilter; width: number; query: FilterQuery } = $props();
+		query,
+		selection,
+		onitems,
+		onpick
+	}: {
+		bucket: MonthBucket;
+		filter: GalleryFilter;
+		width: number;
+		query: FilterQuery;
+		selection: Selection;
+		/** The photos of the month, once fetched: for choosing a range across months. */
+		onitems: (month: string, items: AssetItem[]) => void;
+		/** Choose or unchoose the photo; `range`: everything from the photo clicked before. */
+		onpick: (item: AssetItem, range: boolean) => void;
+	} = $props();
 
 	let section: HTMLElement;
 	let near = $state(false);
@@ -56,10 +74,36 @@
 
 	$effect(() => {
 		if (!near || items !== null || failed) return;
-		getMonthAssets(bucket.month, filter)
-			.then((result) => (items = result))
-			.catch(() => (failed = true));
+		fetchItems();
 	});
+
+	// Photos changed (e.g. a location saved for the chosen ones): fetch the loaded month again.
+	let seenChanges = galleryChanges.count;
+	$effect(() => {
+		const count = galleryChanges.count;
+		if (count === seenChanges) return;
+		seenChanges = count;
+		if (untrack(() => items) !== null) untrack(fetchItems);
+	});
+
+	function fetchItems() {
+		getMonthAssets(bucket.month, filter)
+			.then((result) => {
+				items = result;
+				onitems(bucket.month, result);
+			})
+			.catch(() => (failed = true));
+	}
+
+	/** While photos are being chosen, a click chooses rather than opens. */
+	function onclick(event: MouseEvent, item: AssetItem) {
+		if (selection.size || event.shiftKey) {
+			event.preventDefault();
+			onpick(item, event.shiftKey);
+			return;
+		}
+		replaceState(resolve(`/${atPhoto(query, item.id)}`), {});
+	}
 </script>
 
 <section bind:this={section} data-month={bucket.month}>
@@ -67,46 +111,59 @@
 	{#if near && items}
 		<div class="grid">
 			{#each items as item (item.id)}
-				<a
-					class="tile"
-					href={resolve(`/photo/[id]${query}`, { id: item.id })}
-					title={item.file_name}
-					data-asset={item.id}
-					onclick={() => replaceState(resolve(`/${atPhoto(query, item.id)}`), {})}
-				>
-					<img
-						src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)}
-						alt={item.file_name}
-						loading="lazy"
-						decoding="async"
-						use:fadeIn
-					/>
-					{#if item.type === 'VIDEO'}
-						<span class="video" role="img" aria-label={m.asset_video()}>
-							<Icon name="play" size={11} strokeWidth={2.25} />
-						</span>
-					{/if}
-					{#if item.has_location}
-						<span
-							class="marker location"
-							role="img"
-							aria-label={m.asset_has_location()}
-							title={m.asset_has_location()}
-						>
-							<Icon name="map-pin" size={13} strokeWidth={2.25} />
-						</span>
-					{:else if item.geoclip_confident}
-						<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
-						<span
-							class="marker geoclip"
-							role="img"
-							aria-label={m.asset_geoclip_confident()}
-							title={m.asset_geoclip_confident()}
-						>
-							<Icon name="crosshair" size={13} strokeWidth={2.25} />
-						</span>
-					{/if}
-				</a>
+				{@const chosen = selection.has(item.id)}
+				<div class="cell" class:chosen class:choosing={selection.size > 0}>
+					<a
+						class="tile"
+						href={resolve(`/photo/[id]${query}`, { id: item.id })}
+						title={item.file_name}
+						data-asset={item.id}
+						onclick={(e) => onclick(e, item)}
+					>
+						<img
+							src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)}
+							alt={item.file_name}
+							loading="lazy"
+							decoding="async"
+							use:fadeIn
+						/>
+						{#if item.type === 'VIDEO'}
+							<span class="video" role="img" aria-label={m.asset_video()}>
+								<Icon name="play" size={11} strokeWidth={2.25} />
+							</span>
+						{/if}
+						{#if item.has_location}
+							<span
+								class="marker location"
+								role="img"
+								aria-label={m.asset_has_location()}
+								title={m.asset_has_location()}
+							>
+								<Icon name="map-pin" size={13} strokeWidth={2.25} />
+							</span>
+						{:else if item.geoclip_confident}
+							<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
+							<span
+								class="marker geoclip"
+								role="img"
+								aria-label={m.asset_geoclip_confident()}
+								title={m.asset_geoclip_confident()}
+							>
+								<Icon name="crosshair" size={13} strokeWidth={2.25} />
+							</span>
+						{/if}
+					</a>
+					<button
+						type="button"
+						class="check"
+						aria-pressed={chosen}
+						aria-label={m.select_photo({ file: item.file_name })}
+						title={m.select_photo_hint()}
+						onclick={(e) => onpick(item, e.shiftKey)}
+					>
+						<Icon name="check" size={14} strokeWidth={3} />
+					</button>
+				</div>
 			{/each}
 		</div>
 	{:else}
@@ -136,6 +193,53 @@
 		display: grid;
 		grid-template-columns: repeat(auto-fill, 160px);
 		gap: 4px;
+	}
+	.cell {
+		position: relative;
+	}
+	/* The check: on hover, and on every photo while some are chosen. */
+	.check {
+		position: absolute;
+		top: 6px;
+		left: 6px;
+		display: grid;
+		place-items: center;
+		width: 22px;
+		height: 22px;
+		padding: 0;
+		border: 2px solid var(--gray-0);
+		border-radius: 50%;
+		background: oklch(0 0 0 / 0.3);
+		color: transparent;
+		box-shadow: var(--shadow-badge);
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity var(--motion-fast) var(--ease-out);
+	}
+	.cell:hover .check,
+	.cell.choosing .check,
+	.check:focus-visible {
+		opacity: 1;
+	}
+	.check:hover {
+		background: oklch(0 0 0 / 0.5);
+		color: var(--gray-0);
+	}
+	.chosen .check {
+		border-color: var(--color-accent);
+		background: var(--color-accent);
+		color: var(--color-on-accent);
+	}
+	/* A chosen photo shrinks into a frame of the accent color. */
+	.chosen .tile {
+		box-shadow: inset 0 0 0 3px var(--color-accent);
+	}
+	.chosen img {
+		transform: scale(0.88);
+		border-radius: 4px;
+	}
+	.chosen .tile:hover img {
+		transform: scale(0.88);
 	}
 	.tile {
 		position: relative;

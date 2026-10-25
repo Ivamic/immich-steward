@@ -7,6 +7,7 @@ from them. Only called when the user asks for it.
 
 import asyncio
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,6 +47,13 @@ async def save_turn(db: AsyncSession, client: ImmichClient, asset: Asset, turn: 
     """Turns the photo in Immich, keeping its other edits. True when Immich made the new
     thumbnails in time: the results of the worker modules are then dropped at once (otherwise the
     next sync does it, D-111)."""
+    before = await apply_turn(db, client, asset, turn)
+    return asset.id in await await_thumbnails(db, client, {asset: before})
+
+
+async def apply_turn(db: AsyncSession, client: ImmichClient, asset: Asset, turn: int) -> str | None:
+    """Turns the photo in Immich, keeping its other edits; returns its thumbhash from before, for
+    `await_thumbnails`."""
     if asset.type != "IMAGE":
         raise ApiError(422, "rotate_not_supported")
     before = (await client.asset(asset.immich_id)).thumbhash
@@ -56,13 +64,28 @@ async def save_turn(db: AsyncSession, client: ImmichClient, asset: Asset, turn: 
         await client.remove_asset_edits(asset.immich_id)
     asset.is_edited = bool(edits)
     await db.commit()
+    return before
+
+
+async def await_thumbnails(
+    db: AsyncSession, client: ImmichClient, before: dict[Asset, str | None]
+) -> set[UUID]:
+    """Waits until Immich makes the new thumbnails of the turned photos; for those that come in
+    time, the results of the worker modules are dropped at once. Returns their ids."""
+    waiting = dict(before)
+    done: set[UUID] = set()
     for _ in range(THUMBNAIL_ATTEMPTS):
         await asyncio.sleep(THUMBNAIL_POLL_S)
-        fresh = await client.asset(asset.immich_id)
-        if fresh.thumbhash != before:
-            await worker_queue.forget_results(db, [asset.id])
-            asset.thumbhash = fresh.thumbhash
-            asset.immich_updated_at = fresh.updated_at
-            await db.commit()
-            return True
-    return False
+        for asset, thumbhash in list(waiting.items()):
+            fresh = await client.asset(asset.immich_id)
+            if fresh.thumbhash != thumbhash:
+                asset.thumbhash = fresh.thumbhash
+                asset.immich_updated_at = fresh.updated_at
+                done.add(asset.id)
+                del waiting[asset]
+        if not waiting:
+            break
+    if done:
+        await worker_queue.forget_results(db, list(done))
+        await db.commit()
+    return done

@@ -8,7 +8,9 @@ const point = { lat: 42.42, lon: 18.77 };
 function fakeApi(canUndo = true) {
 	return {
 		save: vi.fn(async () => ({ can_undo: canUndo }) as AssetDetail),
-		undo: vi.fn(async () => ({ can_undo: false }) as AssetDetail)
+		undo: vi.fn(async () => ({ can_undo: false }) as AssetDetail),
+		saveBatch: vi.fn(async () => ({ batch_id: 'b1', written: 2, skipped_located: 1 })),
+		undoBatch: vi.fn(async () => ({ undone: 1, changed: 1, failed: 0 }))
 	};
 }
 
@@ -89,6 +91,27 @@ describe('Saves', () => {
 		await vi.advanceTimersByTimeAsync(GRACE_MS);
 		expect(saves.items[0].canUndo).toBe(false);
 		await saves.undo(saves.items[0].key);
+		expect(api.undo).not.toHaveBeenCalled();
+	});
+
+	it('saves one location for several photos and undoes them together', async () => {
+		const api = fakeApi();
+		const saves = new Saves(api);
+		const batch = { ids: ['a', 'b', 'c'], overwrite: false };
+		saves.scheduleBatch(batch, '3 photos', point);
+		await vi.advanceTimersByTimeAsync(GRACE_MS);
+		expect(api.saveBatch).toHaveBeenCalledWith(batch, point, false);
+		const [save] = saves.items;
+		expect([save.phase, save.batchId, save.skipped, save.canUndo]).toEqual([
+			'saved',
+			'b1',
+			1,
+			true
+		]);
+
+		await saves.undo(save.key);
+		expect(api.undoBatch).toHaveBeenCalledWith('b1');
+		expect([save.phase, save.kept]).toEqual(['undone', 1]);
 		expect(api.undo).not.toHaveBeenCalled();
 	});
 });

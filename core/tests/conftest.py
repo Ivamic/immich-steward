@@ -75,6 +75,7 @@ class FakeImmich:
     tags: dict[str, str] = field(default_factory=dict)
     asset_tags: dict[str, set[str]] = field(default_factory=dict)
     location_writes: int = 0
+    bulk_location_writes: int = 0
     # Password sign-in: open sessions and API keys created through them (secret -> key).
     email: str = "test@example.com"
     password: str = "secret-password"
@@ -159,6 +160,17 @@ class FakeImmich:
                 point = {"latitude": None, "longitude": None}
             asset["exifInfo"] |= point
         return _json(asset)
+
+    def _bulk_update(self, body: dict[str, Any]) -> httpx2.Response:
+        """PUT /assets: Immich answers 204 and ignores ids it does not know."""
+        self.bulk_location_writes += 1
+        point = {"latitude": body["latitude"], "longitude": body["longitude"]}
+        if self.clears_null_island and point == {"latitude": 0, "longitude": 0}:
+            point = {"latitude": None, "longitude": None}
+        for asset_id in body["ids"]:
+            if asset_id in self.assets:
+                self.assets[asset_id]["exifInfo"] |= point
+        return httpx2.Response(204)
 
     def _upsert_tags(self, values: list[str]) -> httpx2.Response:
         by_value = {value: tag_id for tag_id, value in self.tags.items()}
@@ -268,6 +280,8 @@ class FakeImmich:
         parts = path.split("/")
         if len(parts) == 5 and parts[2] == "assets" and parts[4] == "edits":
             return self._edits(request, parts[3])
+        if path == "/api/assets" and request.method == "PUT":
+            return self._bulk_update(json.loads(request.content))
         if len(parts) == 4 and parts[2] == "assets" and request.method in ("GET", "PUT"):
             return self._asset(request, parts[3])
         if path == "/api/tags" and request.method == "PUT":

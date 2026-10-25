@@ -4,9 +4,21 @@
 // A save waits a few seconds before it is sent: until then it can be cancelled without touching
 // Immich at all. After that it can still be undone through the history. Saves outlive the photo card (the card moves on to the
 // next photo right away) and are shown as notices by SaveNotices.svelte.
-import { setLocation, undoLocation, type AssetDetail } from '#lib/api.js';
+//
+// A save may be for several photos chosen in the gallery (a batch, D-149): one location for all,
+// undone together.
+import {
+	setLocation,
+	setSelectionLocation,
+	undoLocation,
+	undoSelectionLocation,
+	type AssetDetail,
+	type SelectionUndone,
+	type SelectionWritten
+} from '#lib/api.js';
 import type { LatLon } from '#lib/coords.js';
 import { errorMessage } from '#lib/errors.js';
+import { galleryChanged } from '#lib/gallery/selection.svelte.js';
 
 export const GRACE_MS = 5000;
 // How long a notice about a finished save stays on screen.
@@ -14,11 +26,25 @@ export const NOTICE_MS = 8000;
 
 export type SavePhase = 'pending' | 'saving' | 'saved' | 'undone' | 'failed';
 
+export interface Batch {
+	ids: string[];
+	/** Also the photos that already have a location. */
+	overwrite: boolean;
+}
+
 export interface Save {
 	key: number;
+	/** The photo; '' for a batch. */
 	assetId: string;
+	/** The file name, or "12 photos" for a batch. */
 	fileName: string;
 	point: LatLon;
+	batch: Batch | null;
+	/** A batch once saved: what to undo, and the photos left as they were. */
+	batchId: string | null;
+	skipped: number;
+	/** A batch undone: the photos changed since, left as they are. */
+	kept: number;
 	phase: SavePhase;
 	/** When a pending save is sent (ms since epoch). */
 	sendAt: number;
@@ -30,11 +56,16 @@ export interface Save {
 interface Api {
 	save: (id: string, point: LatLon, keepalive: boolean) => Promise<AssetDetail>;
 	undo: (id: string) => Promise<AssetDetail>;
+	saveBatch: (batch: Batch, point: LatLon, keepalive: boolean) => Promise<SelectionWritten>;
+	undoBatch: (batchId: string) => Promise<SelectionUndone>;
 }
 
 const realApi: Api = {
 	save: (id, point, keepalive) => setLocation(id, point, null, keepalive),
-	undo: (id) => undoLocation(id)
+	undo: (id) => undoLocation(id),
+	saveBatch: (batch, point, keepalive) =>
+		setSelectionLocation(batch.ids, point, batch.overwrite, keepalive),
+	undoBatch: (batchId) => undoSelectionLocation(batchId)
 };
 
 export class Saves {
@@ -55,11 +86,21 @@ export class Saves {
 		for (const item of this.items) {
 			if (item.assetId === assetId && item.phase === 'pending') this.cancel(item.key);
 		}
+		this.#add({ assetId, fileName, point, batch: null });
+	}
+
+	/** Queues one location for several photos (`label`: "12 photos"). */
+	scheduleBatch(batch: Batch, label: string, point: LatLon) {
+		this.#add({ assetId: '', fileName: label, point, batch });
+	}
+
+	#add(fields: Pick<Save, 'assetId' | 'fileName' | 'point' | 'batch'>) {
 		const save: Save = {
 			key: this.#nextKey++,
-			assetId,
-			fileName,
-			point,
+			...fields,
+			batchId: null,
+			skipped: 0,
+			kept: 0,
 			phase: 'pending',
 			sendAt: Date.now() + GRACE_MS,
 			canUndo: false,
@@ -91,9 +132,15 @@ export class Saves {
 		save.phase = 'saving';
 		save.error = null;
 		try {
-			const detail = await this.api.save(save.assetId, save.point, keepalive);
+			if (save.batch) {
+				const written = await this.api.saveBatch(save.batch, save.point, keepalive);
+				save.batchId = written.batch_id;
+				save.skipped = written.skipped_located;
+				save.canUndo = written.batch_id !== null;
+			} else {
+				save.canUndo = (await this.api.save(save.assetId, save.point, keepalive)).can_undo;
+			}
 			save.phase = 'saved';
-			save.canUndo = detail.can_undo;
 			this.#markChanged(save.assetId);
 			this.#later(key, NOTICE_MS, () => this.dismiss(key));
 		} catch (error) {
@@ -107,7 +154,8 @@ export class Saves {
 		if (!save || save.phase !== 'saved' || !save.canUndo) return;
 		this.#clearTimer(key);
 		try {
-			await this.api.undo(save.assetId);
+			if (save.batchId) save.kept = (await this.api.undoBatch(save.batchId)).changed;
+			else await this.api.undo(save.assetId);
 			save.phase = 'undone';
 			this.#markChanged(save.assetId);
 		} catch (error) {
@@ -129,6 +177,7 @@ export class Saves {
 
 	#markChanged(assetId: string) {
 		this.changed = { assetId, count: ++this.#count };
+		galleryChanged();
 	}
 
 	#later(key: number, ms: number, action: () => void) {

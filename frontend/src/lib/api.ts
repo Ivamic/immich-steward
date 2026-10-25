@@ -563,6 +563,45 @@ export const undoLocation = (id: string, filter: GalleryFilter | null = null) =>
 		'POST',
 		`/api/assets/${id}/location/undo${filter ? filterQuery(filter) : ''}`
 	);
+/** Several photos chosen in the gallery (D-149). */
+export interface SelectionWritten {
+	/** null when nothing was written: all had a location already. */
+	batch_id: string | null;
+	written: number;
+	skipped_located: number;
+}
+
+export interface SelectionUndone {
+	undone: number;
+	/** Changed since the write (in Immich or here): left as they are. */
+	changed: number;
+	failed: number;
+}
+
+/** Suggestions from what is already known for the photos; nothing is run. */
+export const getSelectionSuggestions = (ids: string[]) =>
+	request<ModuleSuggestions[]>('POST', '/api/selection/suggestions', { ids });
+export const setSelectionLocation = (
+	ids: string[],
+	point: { lat: number; lon: number },
+	overwrite: boolean,
+	keepalive = false
+) =>
+	request<SelectionWritten>(
+		'POST',
+		'/api/selection/location',
+		{ ids, latitude: point.lat, longitude: point.lon, overwrite },
+		keepalive
+	);
+export const undoSelectionLocation = (batchId: string) =>
+	request<SelectionUndone>('POST', '/api/selection/location/undo', { batch_id: batchId });
+export const setSelectionReview = (ids: string[], status: ReviewStatus) =>
+	request<{ changed: number }>('PUT', '/api/selection/review', { ids, status });
+/** Turns the photos in Immich in the background; the job tells the progress. */
+export const rotateSelection = (ids: string[], turn: Exclude<Turn, 0>) =>
+	request<Job>('POST', '/api/selection/rotate', { ids, turn });
+export const getSelectionJob = (id: string) => request<Job>('GET', `/api/selection/jobs/${id}`);
+
 export const getMapConfig = () => request<MapConfig>('GET', '/api/config/map');
 export function geocode(q: string, lang: string, near: { lat: number; lon: number } | null) {
 	const params = new URLSearchParams({ q, lang });

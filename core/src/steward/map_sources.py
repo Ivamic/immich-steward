@@ -66,6 +66,8 @@ class Source:
     site_url: str
     # Where the account gets a key.
     key_url: str | None = None
+    # Where the account sees the provider's own count of its usage and the limits.
+    usage_url: str | None = None
     # Tiles (requests) a month on the free plan, to put the provider's usage against.
     free_quota: int | None = None
     # The free use allows no commercial use.
@@ -137,6 +139,7 @@ SOURCES: tuple[Source, ...] = (
         terms_url="https://www.esri.com/en-us/legal/terms/full-master-agreement",
         site_url="https://location.arcgis.com/",
         key_url="https://location.arcgis.com/",
+        usage_url="https://location.arcgis.com/usage/",
         free_quota=2_000_000,
         copyright=(
             "Source: Esri, Vantor, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS,"

@@ -378,5 +378,6 @@
 	"error_map_source_not_enabled": "Only a source that is on can be chosen.",
 	"mapsrc_basemap": "Base map",
 	"mapsrc_auto_on": "Auto: on",
-	"mapsrc_auto_off": "Auto: off"
+	"mapsrc_auto_off": "Auto: off",
+	"mapsrc_usage_link": "Check your limits"
 }

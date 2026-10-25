@@ -121,6 +121,7 @@ def test_all_off_by_default(signed_in: TestClient, providers: FakeProviders) -> 
     }
     assert items["eox"]["years"][0] == 2025  # the latest is the default
     assert items["maptiler"]["usage_token_supported"] is True
+    assert items["esri"]["usage_url"] == "https://location.arcgis.com/usage/"
     # Nothing to load: no tile addresses while a source is off, and no requests to providers.
     for src in config_sources(signed_in).values():
         assert all(v["tiles"] is None for v in src["variants"])
@@ -238,9 +239,10 @@ def test_own_tile_count(signed_in: TestClient, providers: FakeProviders) -> None
         assert response.status_code == 204
     assert sources(signed_in)["eox"]["tiles"] == 15
 
+    before = datetime.now(UTC)
     reset = signed_in.post("/api/map-sources/eox/reset-count").json()
     assert reset["tiles"] == 0
-    assert datetime.fromisoformat(reset["counted_since"]) > datetime.now(UTC).replace(hour=0)
+    assert datetime.fromisoformat(reset["counted_since"]) >= before
 
 
 def test_bad_reports(signed_in: TestClient) -> None:

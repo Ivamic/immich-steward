@@ -82,6 +82,19 @@ it), so that nobody else can use it.
 Esri counts its month from the day your account's billing started; set that day in **Reset
 monthly on day**, so that the count of the app starts anew with Esri's.
 
+**How much is used.** Esri's own numbers are on the **Usage** page of Location Platform
+(**Check your limits** in Settings opens it): **All services → Mapping → Basemap tiles** shows the
+tiles of the current billing cycle and the share of the free tier used; the **Developer
+credentials** tab shows them per key. The latest hours may come later. Esri gives no way for the
+app to read these numbers, so Settings shows only the tiles the app itself loaded.
+
+**Over the free 2 million tiles.** Pay-as-you-go is off for a new account and can be turned on
+only with a payment method. While it is off there is **no bill**: Esri closes the access to the
+basemaps until the next billing cycle, and the app moves to the next source. If you turn
+pay-as-you-go on, there is no spending cap: tiles over the free amount cost $0.15 per 1,000.
+
+**When the key expires**, create a new one the same way and save it in Settings.
+
 ### MapTiler Satellite key
 
 1. Create an account at [MapTiler Cloud](https://cloud.maptiler.com/) (the free plan is enough
@@ -90,6 +103,12 @@ monthly on day**, so that the count of the app starts anew with Esri's.
 3. **Allowed HTTP origins**: add the address of the app, for example `http://192.168.1.10:8080`.
 4. Copy the key, paste it in **Settings → Map sources → MapTiler Satellite → Key**, press
    **Save**, then switch the source on.
+
+**How much is used.** MapTiler shows it under **Analytics** in
+[MapTiler Cloud](https://cloud.maptiler.com/), per day (today only the next day). On the free
+plan the service pauses when the monthly requests are used up, until the next month; there is
+no bill. With MapLibre every tile counts as a request: map sessions apply only to MapTiler's own
+SDK.
 
 Optionally, the exact usage can come from MapTiler: create a service token at **Account →
 Credentials** and paste it under **Exact usage from MapTiler**. The token gives full access to

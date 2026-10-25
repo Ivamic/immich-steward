@@ -309,6 +309,8 @@ export interface MapSourceItem {
 	terms_url: string;
 	site_url: string;
 	key_url: string | null;
+	/** The provider's page with its own count of the usage and the limits. */
+	usage_url: string | null;
 	/** After a save or a check: "unreachable" when the provider could not be asked. */
 	key_check: 'unreachable' | null;
 }

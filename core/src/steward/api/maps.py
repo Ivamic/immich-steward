@@ -152,6 +152,7 @@ class MapSourceItem(BaseModel):
     terms_url: str
     site_url: str
     key_url: str | None
+    usage_url: str | None
     # After a save or a check: "unreachable" when the provider could not be asked.
     key_check: str | None = None
 
@@ -183,6 +184,7 @@ def _item(state: map_sources.State, key_check: str | None = None) -> MapSourceIt
         terms_url=src.terms_url,
         site_url=src.site_url,
         key_url=src.key_url,
+        usage_url=src.usage_url,
         key_check=key_check,
     )
 

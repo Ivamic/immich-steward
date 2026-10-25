@@ -378,5 +378,6 @@
 	"error_map_source_not_enabled": "Выбрать можно только включённый источник.",
 	"mapsrc_basemap": "Подложка",
 	"mapsrc_auto_on": "Авто: вкл",
-	"mapsrc_auto_off": "Авто: выкл"
+	"mapsrc_auto_off": "Авто: выкл",
+	"mapsrc_usage_link": "Проверить свои лимиты"
 }

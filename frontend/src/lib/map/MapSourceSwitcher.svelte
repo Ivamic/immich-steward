@@ -156,7 +156,7 @@
 	{#if sources.length}
 		{#if auto && autoSet}
 			<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
-			<span class="summary" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
+			<span class="summary apart" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
 				{#if auto.far === auto.near}
 					<span class:now={autoOn}>{short(auto.far)}</span>
 				{:else}
@@ -217,7 +217,7 @@
 		padding-block: 0;
 		font-size: var(--text-sm);
 	}
-	/* Set off from the settings of the base map before it. */
+	/* Set off from what is before it in the bar. */
 	.apart {
 		margin-inline-start: var(--space-2);
 		padding-inline-start: var(--space-3);

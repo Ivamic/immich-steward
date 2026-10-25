@@ -127,8 +127,12 @@
 			.catch((e) => (error = errorMessage(e)));
 	});
 
+	// Only another photo or filter loads the card again: what `load` reads on the way (the camera
+	// filter, the saves waiting to be sent) must not, or every notice would reload it.
 	$effect(() => {
-		load(id, filter);
+		const assetId = id;
+		const currentFilter = filter;
+		untrack(() => load(assetId, currentFilter));
 	});
 
 	// A save sent from the notices (after the card moved on) may concern the photo shown now. Any

@@ -7,6 +7,10 @@ between releases.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-25
+
+Satellite imagery under the map, and actions on several photos at once in the gallery.
+
 ### Added
 
 - **Satellite imagery on the map**: Sentinel-2 cloudless by EOX (no key, a layer per year
@@ -28,10 +32,29 @@ between releases.
   location are overwritten only when asked; undone together), **Rotate** them in Immich in the
   background (videos are left as they are), **Skip for now** or **Location not applicable**. See
   [Using the app](docs/usage.md#several-photos-at-once).
+- A photo whose location you saved a moment ago counts as a **time neighbor** of the next photo
+  at once, while its save can still be cancelled.
 
 ### Changed
 
 - The map attribution is 12 px (Esri's minimum) and names the satellite source shown.
+- The remarks under a suggestion ("another camera", "neighbor's location was set by hand") take
+  one line; the whole text is shown on hover.
+
+### Fixed
+
+- The photo card no longer scrolls the page when the pause bar or an error is shown above it.
+- The pause bar in the gallery no longer runs under the timeline of years.
+- The photo card fetches its suggestions again once a location saved on another photo reaches
+  Immich, so that photo shows up among the time neighbors without waiting for a sync.
+
+### Upgrading
+
+The database is updated by itself when the core starts (map sources per account, and a batch id
+in the location history). Nothing new in `.env`: the map sources are set up in **Settings**.
+Workers of 0.4.x work with this version; there is nothing new for them, so updating them is
+optional. Rotating several photos uses the same `asset.edit` permissions of the Immich API key as
+rotating one.
 
 ## [0.4.1] - 2026-10-25
 
@@ -392,7 +415,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/Ivamic/immich-steward/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Ivamic/immich-steward/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Ivamic/immich-steward/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Ivamic/immich-steward/compare/v0.3.1...v0.3.2

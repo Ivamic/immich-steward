@@ -141,6 +141,21 @@
 		else if (untrack(() => asset)) untrack(() => fetchSuggestions(id));
 	});
 
+	/** Locations of other photos saved a moment ago: they are time neighbors at once. */
+	function pendingOthers(assetId: string) {
+		return saves.pendingPoints.filter((p) => p.assetId !== assetId);
+	}
+
+	// A save of another photo queued, cancelled or sent: the neighbors change.
+	const pendingKey = $derived(JSON.stringify(pendingOthers(id)));
+	let seenPending = '';
+	$effect(() => {
+		const key = pendingKey;
+		if (key === seenPending) return;
+		seenPending = key;
+		if (untrack(() => asset)) untrack(() => fetchSuggestions(id));
+	});
+
 	// Cameras excluded or included again: recompute the suggestions of this photo.
 	$effect(() => {
 		void cameraFilter.excluded;
@@ -235,12 +250,15 @@
 
 	function fetchSuggestions(assetId: string): Promise<ModuleSuggestions[]> {
 		suggestionsLoading = true;
-		const found = getSuggestions(assetId, cameraFilter.excluded, cameraFilter.sameOnly).then(
-			(result) => {
-				setSuggestions(assetId, result);
-				return result;
-			}
-		);
+		const found = getSuggestions(
+			assetId,
+			cameraFilter.excluded,
+			cameraFilter.sameOnly,
+			pendingOthers(assetId)
+		).then((result) => {
+			setSuggestions(assetId, result);
+			return result;
+		});
 		found.catch((e) => (error = errorMessage(e))).finally(() => (suggestionsLoading = false));
 		return found;
 	}

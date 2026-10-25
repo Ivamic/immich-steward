@@ -135,7 +135,11 @@
 			return;
 		}
 		saves.scheduleBatch(
-			{ ids: items.map((item) => item.id), overwrite },
+			{
+				ids: items.map((item) => item.id),
+				overwrite,
+				keep: items.filter((item) => item.has_location).map((item) => item.id)
+			},
 			m.selection_photos({ count: items.length }),
 			picked
 		);

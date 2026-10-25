@@ -13,6 +13,7 @@ import {
 	undoLocation,
 	undoSelectionLocation,
 	type AssetDetail,
+	type PendingPoint,
 	type SelectionUndone,
 	type SelectionWritten
 } from '#lib/api.js';
@@ -30,6 +31,8 @@ export interface Batch {
 	ids: string[];
 	/** Also the photos that already have a location. */
 	overwrite: boolean;
+	/** Without `overwrite`: the photos that keep their location (not sent as pending). */
+	keep?: string[];
 }
 
 export interface Save {
@@ -108,6 +111,20 @@ export class Saves {
 		};
 		this.items.push(save);
 		this.#later(save.key, GRACE_MS, () => this.send(save.key));
+	}
+
+	/** Locations not in Immich yet (waiting or being sent), photo by photo: other photos count
+	 * them as their time neighbors at once. */
+	get pendingPoints(): PendingPoint[] {
+		return this.items
+			.filter((item) => item.phase === 'pending' || item.phase === 'saving')
+			.flatMap((item) => {
+				if (!item.batch) return [{ assetId: item.assetId, point: item.point }];
+				const keep = item.batch.overwrite ? [] : (item.batch.keep ?? []);
+				return item.batch.ids
+					.filter((id) => !keep.includes(id))
+					.map((assetId) => ({ assetId, point: item.point }));
+			});
 	}
 
 	pendingFor(assetId: string): Save | undefined {

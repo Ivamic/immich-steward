@@ -202,3 +202,26 @@ def test_neighbors_carry_the_version_of_their_thumbnails(
     result = m1(signed_in, fake_immich, target)
     assert result["track"][0]["version"] == "rotated-1"
     assert result["candidates"][0]["evidence"]["neighbors"][0]["version"] == "rotated-1"
+
+
+def test_a_location_saved_a_moment_ago_counts_at_once(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    before = add(fake_immich, "09:50:00")
+    target = add(fake_immich, "10:00:00")
+    sync(signed_in)
+    before_id = local_id(signed_in, fake_immich, before)
+    url = f"/api/assets/{local_id(signed_in, fake_immich, target)}/suggestions"
+    assert time_neighbors(signed_in.get(url).json())["note"] == "no_neighbors"
+
+    pending = f"{before_id},{A['latitude']},{A['longitude']}"
+    result = time_neighbors(signed_in.get(url, params={"pending": pending}).json())
+    [candidate] = result["candidates"]
+    assert (candidate["latitude"], candidate["longitude"]) == (A["latitude"], A["longitude"])
+    assert candidate["evidence"]["neighbors"][0]["pending"] is True
+    assert result["track"][0]["pending"] is True
+    # Nothing is written: without the parameter the photo is still without a location.
+    assert time_neighbors(signed_in.get(url).json())["note"] == "no_neighbors"
+
+    bad = signed_in.get(url, params={"pending": "x,1,2"})
+    assert (bad.status_code, bad.json()["code"]) == (422, "pending_invalid")

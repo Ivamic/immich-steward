@@ -181,6 +181,7 @@
 	"candidate_same_place": "Where {photo} was taken",
 	"candidate_other_camera": "another camera",
 	"candidate_estimated": "neighbor's location was set by hand",
+	"candidate_pending": "saved a moment ago, not sent yet",
 	"candidate_score": "Confidence {percent}%",
 	"candidate_choose": "Choose",
 	"map_before": "before",

@@ -12,7 +12,7 @@ from collections import Counter
 from datetime import timedelta
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 
 from steward.gallery import CAMERA_SEPARATOR
 from steward.models import Asset, LocationChange
@@ -61,8 +61,10 @@ class TimeNeighbors:
                 .where(
                     Asset.account_id == ctx.account.id,
                     Asset.is_trashed.is_(False),
-                    Asset.latitude.is_not(None),
-                    Asset.longitude.is_not(None),
+                    or_(
+                        and_(Asset.latitude.is_not(None), Asset.longitude.is_not(None)),
+                        Asset.id.in_(list(ctx.pending)),
+                    ),
                     Asset.id != asset.id,
                     Asset.local_taken_at.between(
                         asset.local_taken_at - window, asset.local_taken_at + window
@@ -107,21 +109,24 @@ class TimeNeighbors:
                 )
             )
         )
+        # A location saved a moment ago wins over the one in the database.
+        where = {n.id: ctx.pending.get(n.id, (n.latitude, n.longitude)) for n in neighbors}
         camera = (asset.camera_make, asset.camera_model)
         has_camera = any(camera)
         track = sorted(
             (
                 TrackPoint(
                     asset_id=n.id,
-                    latitude=n.latitude,  # type: ignore[arg-type]
-                    longitude=n.longitude,  # type: ignore[arg-type]
+                    latitude=where[n.id][0],  # type: ignore[arg-type]
+                    longitude=where[n.id][1],  # type: ignore[arg-type]
                     local_taken_at=n.local_taken_at,
                     delta_s=(n.local_taken_at - asset.local_taken_at).total_seconds(),
                     file_name=n.original_file_name,
                     camera=camera_label(camera_value(n.camera_make, n.camera_model)),
                     same_camera=has_camera and (n.camera_make, n.camera_model) == camera,
-                    estimated=n.id in estimated,
+                    estimated=n.id in estimated or n.id in ctx.pending,
                     version=n.thumbhash,
+                    pending=n.id in ctx.pending,
                 )
                 for n in neighbors
             ),
@@ -192,6 +197,7 @@ def _evidence(*points: TrackPoint) -> dict[str, object]:
                 "same_camera": p.same_camera,
                 "estimated": p.estimated,
                 "version": p.version,
+                "pending": p.pending,
             }
             for p in points
         ]

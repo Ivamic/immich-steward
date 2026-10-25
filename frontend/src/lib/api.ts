@@ -357,6 +357,8 @@ export interface NeighborEvidence {
 	same_camera?: boolean;
 	/** The neighbor's location was written by this app, not recorded by a camera. */
 	estimated: boolean;
+	/** Time neighbors only: its location was saved a moment ago and is not sent yet. */
+	pending?: boolean;
 	/** Changes with the neighbor's thumbnails (absent in results stored by older versions). */
 	version?: string | null;
 	/** Similar photos only: 0..1, and when the photo was taken (local time). */
@@ -512,16 +514,35 @@ export const resumeAll = () => request<Pause>('DELETE', '/api/library/pause');
 export const rerunFailed = (module: string, code: string | null) =>
 	request<{ queued: number }>('POST', `/api/library/modules/${module}/rerun-failed`, { code });
 
-function cameraQuery(excludeCameras: string[], sameCameraOnly = false): string {
+/** A location saved a moment ago and not sent yet (it can still be cancelled). */
+export interface PendingPoint {
+	assetId: string;
+	point: { lat: number; lon: number };
+}
+
+function cameraQuery(
+	excludeCameras: string[],
+	sameCameraOnly = false,
+	pending: PendingPoint[] = []
+): string {
 	const params = new URLSearchParams(excludeCameras.map((value) => ['exclude_camera', value]));
 	if (sameCameraOnly) params.set('same_camera_only', 'true');
+	for (const { assetId, point } of pending) {
+		params.append('pending', `${assetId},${point.lat},${point.lon}`);
+	}
 	return params.size ? `?${params}` : '';
 }
 
-export const getSuggestions = (id: string, excludeCameras: string[] = [], sameCameraOnly = false) =>
+/** `pending`: locations saved a moment ago; the time neighbors take them at once. */
+export const getSuggestions = (
+	id: string,
+	excludeCameras: string[] = [],
+	sameCameraOnly = false,
+	pending: PendingPoint[] = []
+) =>
 	request<ModuleSuggestions[]>(
 		'GET',
-		`/api/assets/${id}/suggestions${cameraQuery(excludeCameras, sameCameraOnly)}`
+		`/api/assets/${id}/suggestions${cameraQuery(excludeCameras, sameCameraOnly, pending)}`
 	);
 
 /** Queues a worker module for the photo, or a part of it, ahead of the background runs. */

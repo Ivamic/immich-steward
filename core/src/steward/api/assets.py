@@ -48,6 +48,10 @@ from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule
 
 router = APIRouter(prefix="/assets")
 
+# Locations saved in the browser and not sent yet, passed with a request for suggestions; a
+# batch of chosen photos may be large.
+MAX_PENDING = 2000
+
 # Thumbnails change only when the asset changes in Immich; the ETag covers that.
 IMAGE_CACHE_CONTROL = "private, max-age=604800"
 
@@ -244,6 +248,8 @@ class TrackPointItem(BaseModel):
     estimated: bool
     role: Literal["before", "after"] | None
     version: str | None = None
+    # Saved a moment ago in the browser, not sent to Immich yet.
+    pending: bool = False
 
 
 class CameraCountItem(BaseModel):
@@ -430,11 +436,30 @@ async def suggestions(
     settings: SettingsDep,
     exclude_camera: Annotated[list[str] | None, Query()] = None,
     same_camera_only: bool = False,
+    pending: Annotated[list[str] | None, Query(max_length=MAX_PENDING)] = None,
 ) -> list[ModuleSuggestions]:
-    """Candidates of the core modules (computed now) and the latest results of worker modules."""
+    """Candidates of the core modules (computed now) and the latest results of worker modules.
+
+    `pending` ("<asset id>,<lat>,<lon>"): locations saved in the browser a moment ago and not
+    sent yet; the time neighbors take them as they are.
+    """
     asset = await _own_asset(db, account, asset_id)
     cameras = frozenset(exclude_camera or ())
-    return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
+    return await _suggestions(
+        db, account, asset, settings, cameras, same_camera_only, _pending(pending or [])
+    )
+
+
+def _pending(values: list[str]) -> dict[UUID, tuple[float, float]]:
+    found: dict[UUID, tuple[float, float]] = {}
+    for value in values:
+        try:
+            asset_id, latitude, longitude = value.split(",")
+            point = LocationUpdate(latitude=float(latitude), longitude=float(longitude))
+            found[UUID(asset_id)] = (point.latitude, point.longitude)
+        except ValueError as exc:
+            raise ApiError(422, "pending_invalid") from exc
+    return found
 
 
 @router.post("/{asset_id}/modules/{module_id}/run")
@@ -469,6 +494,7 @@ async def _suggestions(
     settings: SettingsDep,
     exclude_cameras: frozenset[str],
     same_camera_only: bool = False,
+    pending: dict[UUID, tuple[float, float]] | None = None,
 ) -> list[ModuleSuggestions]:
     ctx = ModuleContext(
         db=db,
@@ -477,6 +503,7 @@ async def _suggestions(
         settings=settings,
         exclude_cameras=exclude_cameras,
         same_camera_only=same_camera_only,
+        pending=pending or {},
     )
     result = []
     for module in MODULES:

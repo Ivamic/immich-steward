@@ -114,4 +114,17 @@ describe('Saves', () => {
 		expect([save.phase, save.kept]).toEqual(['undone', 1]);
 		expect(api.undo).not.toHaveBeenCalled();
 	});
+
+	it('tells the locations not in Immich yet, photo by photo', async () => {
+		const api = fakeApi();
+		const saves = new Saves(api);
+		saves.schedule('a', 'IMG_1.JPG', point);
+		saves.scheduleBatch({ ids: ['b', 'c'], overwrite: false, keep: ['c'] }, '2 photos', point);
+		saves.scheduleBatch({ ids: ['d'], overwrite: true, keep: ['d'] }, '1 photo', point);
+		expect(saves.pendingPoints.map((p) => p.assetId)).toEqual(['a', 'b', 'd']);
+
+		saves.cancel(saves.items[0].key);
+		await vi.advanceTimersByTimeAsync(GRACE_MS);
+		expect(saves.pendingPoints).toEqual([]);
+	});
 });

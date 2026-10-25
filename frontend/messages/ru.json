@@ -181,6 +181,7 @@
 	"candidate_same_place": "Там же, где {photo}",
 	"candidate_other_camera": "другая камера",
 	"candidate_estimated": "место соседа поставлено вручную",
+	"candidate_pending": "только что сохранено, ещё не отправлено",
 	"candidate_score": "Уверенность {percent}%",
 	"candidate_choose": "Выбрать",
 	"map_before": "до",

@@ -5,6 +5,7 @@ A module looks at one asset and returns candidate locations. It never writes to 
 happens only when the user accepts a location (FR-53).
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal, Protocol
@@ -50,6 +51,9 @@ class TrackPoint:
     role: Literal["before", "after"] | None = None
     # Changes with the thumbnails (`AssetItem.version`).
     version: str | None = None
+    # The location the user saved a moment ago, not yet sent to Immich (it can still be
+    # cancelled): taken as it is, marked as such.
+    pending: bool = False
 
 
 @dataclass(frozen=True)
@@ -83,6 +87,8 @@ class ModuleContext:
     exclude_cameras: frozenset[str] = frozenset()
     # Only photos of the photo's own camera count (when the camera is known).
     same_camera_only: bool = False
+    # Locations saved in the browser a moment ago and not sent yet: asset id -> (lat, lon).
+    pending: Mapping[UUID, tuple[float, float]] = field(default_factory=dict)
 
 
 class LocationModule(Protocol):

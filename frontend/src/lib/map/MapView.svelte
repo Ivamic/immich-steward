@@ -447,116 +447,135 @@
 		}
 	});
 
+	// What the map draws of the suggestions. The rest (the state of a run, its place in the queue)
+	// changes while the page looks for results every few seconds, and must not redraw the map.
+	const drawn = $derived(
+		JSON.stringify(
+			suggestions.map((s) => [
+				s.key,
+				s.module,
+				s.color,
+				s.shape,
+				Boolean(s.region),
+				s.candidates,
+				s.track
+			])
+		)
+	);
+
 	// Suggestions, route and their HTML markers.
 	$effect(() => {
 		if (!map || !ready) return;
 		// Layer colors are computed from the theme: redraw when it changes.
 		void theme.resolved;
+		void drawn;
 		const instance = map;
-		for (const marker of overlayMarkers) marker.remove();
-		overlayMarkers = [];
-		closePreview();
+		untrack(() => {
+			for (const marker of overlayMarkers) marker.remove();
+			overlayMarkers = [];
+			closePreview();
 
-		source(instance, 'steward-radius').setData({
-			type: 'FeatureCollection',
-			features: suggestions.flatMap((module) =>
-				module.candidates
-					.filter((c) => c.radius_m)
-					.map((c) =>
-						circle(
-							c.latitude,
-							c.longitude,
-							c.radius_m ?? 0,
-							resolvedColor(moduleColor(module.module, module.color)),
-							`${module.key}:${c.rank}`
+			source(instance, 'steward-radius').setData({
+				type: 'FeatureCollection',
+				features: suggestions.flatMap((module) =>
+					module.candidates
+						.filter((c) => c.radius_m)
+						.map((c) =>
+							circle(
+								c.latitude,
+								c.longitude,
+								c.radius_m ?? 0,
+								resolvedColor(moduleColor(module.module, module.color)),
+								`${module.key}:${c.rank}`
+							)
 						)
-					)
-			)
-		});
-		const track = route?.track ?? [];
-		source(instance, 'steward-track').setData({
-			type: 'FeatureCollection',
-			features: [
-				...(track.length > 1 ? [line(track)] : []),
-				...track.map((p) =>
-					point(p.longitude, p.latitude, {
-						asset_id: p.asset_id,
-						file_name: p.file_name,
-						delta_s: p.delta_s,
-						camera: p.camera,
-						estimated: p.estimated,
-						same_camera: p.same_camera,
-						version: p.version ?? null,
-						color: trackColor(p.delta_s),
-						alpha: closeness(p.delta_s)
-					})
 				)
-			]
-		});
-		const gradient = trackGradient(track);
-		if (gradient) instance.setPaintProperty('steward-track-line', 'line-gradient', gradient);
-		source(instance, 'steward-segment').setData(
-			segment && route
-				? {
-						type: 'FeatureCollection',
-						features: [
-							{ ...line([segment.before, segment.after]), properties: { color: route.color } }
-						]
-					}
-				: EMPTY
-		);
+			});
+			const track = route?.track ?? [];
+			source(instance, 'steward-track').setData({
+				type: 'FeatureCollection',
+				features: [
+					...(track.length > 1 ? [line(track)] : []),
+					...track.map((p) =>
+						point(p.longitude, p.latitude, {
+							asset_id: p.asset_id,
+							file_name: p.file_name,
+							delta_s: p.delta_s,
+							camera: p.camera,
+							estimated: p.estimated,
+							same_camera: p.same_camera,
+							version: p.version ?? null,
+							color: trackColor(p.delta_s),
+							alpha: closeness(p.delta_s)
+						})
+					)
+				]
+			});
+			const gradient = trackGradient(track);
+			if (gradient) instance.setPaintProperty('steward-track-line', 'line-gradient', gradient);
+			source(instance, 'steward-segment').setData(
+				segment && route
+					? {
+							type: 'FeatureCollection',
+							features: [
+								{ ...line([segment.before, segment.after]), properties: { color: route.color } }
+							]
+						}
+					: EMPTY
+			);
 
-		for (const p of track.filter((p) => p.role)) {
-			const tag = document.createElement('div');
-			tag.className = 'steward-tag';
-			tag.textContent = `${p.role === 'before' ? m.map_before() : m.map_after()} · ${formatDelta(p.delta_s)}`;
-			tag.title = `${p.file_name} — ${m.photo_open_new_tab()}`;
-			tag.addEventListener('click', () =>
-				showPreview(instance, { lat: p.latitude, lon: p.longitude }, [p], true)
-			);
-			overlayMarkers.push(
-				new Marker({ element: tag, anchor: 'top', offset: [0, 14] })
-					.setLngLat([p.longitude, p.latitude])
-					.addTo(instance)
-			);
-		}
-		// The same numbers as in the list, through all the modules.
-		const numbers = new Map(numberCandidates(suggestions).map((i) => [i.candidate, i.number]));
-		for (const module of suggestions) {
-			// Lowest rank on top.
-			for (const c of [...module.candidates].reverse()) {
-				// Shape tells modules apart without relying on color (FR-31); a guess from a part of
-				// the photo has a dashed rim.
-				const pin = markerElement({
-					shape: module.shape,
-					number: numbers.get(c) ?? c.rank,
-					color: moduleColor(module.module, module.color),
-					on: moduleOnColor(module.module),
-					part: Boolean(module.region),
-					weak: c.tier === 'weak',
-					label: `${moduleName(module.module)} ${numbers.get(c) ?? c.rank}`
-				});
-				pin.dataset.lat = String(c.latitude);
-				pin.dataset.lon = String(c.longitude);
-				pin.dataset.candidate = `${module.key}:${c.rank}`;
-				// Hover shows the photos the suggestion comes from; a click still picks it.
-				const photos = candidatePhotos(c, module.track);
-				pin.addEventListener('mouseenter', () => {
-					onhighlight({ module: module.key, rank: c.rank, from: 'map' });
-					if (!popupPinned && photos.length) {
-						showPreview(instance, { lat: c.latitude, lon: c.longitude }, photos, false);
-					}
-				});
-				pin.addEventListener('mouseleave', () => {
-					onhighlight(null);
-					if (!popupPinned) closePreview();
-				});
+			for (const p of track.filter((p) => p.role)) {
+				const tag = document.createElement('div');
+				tag.className = 'steward-tag';
+				tag.textContent = `${p.role === 'before' ? m.map_before() : m.map_after()} · ${formatDelta(p.delta_s)}`;
+				tag.title = `${p.file_name} — ${m.photo_open_new_tab()}`;
+				tag.addEventListener('click', () =>
+					showPreview(instance, { lat: p.latitude, lon: p.longitude }, [p], true)
+				);
 				overlayMarkers.push(
-					new Marker({ element: pin }).setLngLat([c.longitude, c.latitude]).addTo(instance)
+					new Marker({ element: tag, anchor: 'top', offset: [0, 14] })
+						.setLngLat([p.longitude, p.latitude])
+						.addTo(instance)
 				);
 			}
-		}
-		untrack(() => overlayVersion++);
+			// The same numbers as in the list, through all the modules.
+			const numbers = new Map(numberCandidates(suggestions).map((i) => [i.candidate, i.number]));
+			for (const module of suggestions) {
+				// Lowest rank on top.
+				for (const c of [...module.candidates].reverse()) {
+					// Shape tells modules apart without relying on color (FR-31); a guess from a part of
+					// the photo has a dashed rim.
+					const pin = markerElement({
+						shape: module.shape,
+						number: numbers.get(c) ?? c.rank,
+						color: moduleColor(module.module, module.color),
+						on: moduleOnColor(module.module),
+						part: Boolean(module.region),
+						weak: c.tier === 'weak',
+						label: `${moduleName(module.module)} ${numbers.get(c) ?? c.rank}`
+					});
+					pin.dataset.lat = String(c.latitude);
+					pin.dataset.lon = String(c.longitude);
+					pin.dataset.candidate = `${module.key}:${c.rank}`;
+					// Hover shows the photos the suggestion comes from; a click still picks it.
+					const photos = candidatePhotos(c, module.track);
+					pin.addEventListener('mouseenter', () => {
+						onhighlight({ module: module.key, rank: c.rank, from: 'map' });
+						if (!popupPinned && photos.length) {
+							showPreview(instance, { lat: c.latitude, lon: c.longitude }, photos, false);
+						}
+					});
+					pin.addEventListener('mouseleave', () => {
+						onhighlight(null);
+						if (!popupPinned) closePreview();
+					});
+					overlayMarkers.push(
+						new Marker({ element: pin }).setLngLat([c.longitude, c.latitude]).addTo(instance)
+					);
+				}
+			}
+			overlayVersion++;
+		});
 	});
 
 	// Also after a change of the style, which adds the layers again.

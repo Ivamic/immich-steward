@@ -1,12 +1,14 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- The bar above the map: the plain map or a satellite source (a year for EOX), "Auto" with its
-     state always visible (switch by zoom as the settings say), labels over the imagery. Sources
+<!-- The bar above the map: the plain map or a satellite source (a year for EOX), what "Auto"
+     switches between and "Auto" itself with its state always visible (switch by zoom as the
+     settings say, linked by the gear), labels over the imagery. Sources
      that cannot be used are greyed with the reason; they are switched on in the settings. -->
 <script lang="ts">
 	import type { MapAuto, MapKeyProblem, MapSourceConfig, MapSourceStatus } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
-	import { SCHEME } from './sources.js';
+	import { resolve } from '$app/paths';
+	import { AUTO_ANCHOR, SCHEME } from './sources.js';
 
 	let {
 		sources,
@@ -15,6 +17,7 @@
 		labels,
 		year,
 		active,
+		zoom,
 		problems,
 		onchoice,
 		onauto,
@@ -30,6 +33,8 @@
 		year: string;
 		/** What the map shows now. */
 		active: string;
+		/** The zoom of the map now. */
+		zoom: number;
 		/** Key problems the tiles told in this page. */
 		problems: Record<string, MapKeyProblem>;
 		onchoice: (id: string) => void;
@@ -45,6 +50,7 @@
 			? m.mapsrc_scheme()
 			: (SHORT[id] ?? sources.find((s) => s.id === id)?.name ?? id);
 	const autoSet = $derived(auto !== null && (auto.far !== null || auto.near !== null));
+	const near = $derived(auto !== null && zoom >= auto.switch_zoom);
 	const eox = $derived(sources.find((s) => s.id === 'eox') ?? null);
 
 	/** Why a source cannot be picked; null: it can. */
@@ -111,9 +117,23 @@
 			{m.mapsrc_labels()}
 		</label>
 	{/if}
+	{#if auto && autoSet}
+		<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
+		<span class="summary" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
+			{#if auto.far === auto.near}
+				<span class:now={autoOn}>{short(auto.far)}</span>
+			{:else}
+				<span class:now={autoOn && !near}>{short(auto.far)}</span>
+				→
+				<span class:now={autoOn && near}>{short(auto.near)}</span>
+				{m.mapsrc_auto_summary_zoom({ zoom: auto.switch_zoom })}
+			{/if}
+		</span>
+	{/if}
 	<button
 		type="button"
 		class="auto"
+		class:push={!autoSet}
 		aria-pressed={autoOn}
 		disabled={!autoSet}
 		title={auto && autoSet
@@ -124,6 +144,16 @@
 		<span class="dot" aria-hidden="true"></span>
 		{autoOn ? m.mapsrc_auto_on() : m.mapsrc_auto_off()}
 	</button>
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved, with an anchor added -->
+	<a
+		class="gear"
+		href={`${resolve('/settings')}#${AUTO_ANCHOR}`}
+		title={m.mapsrc_auto_settings_link()}
+		aria-label={m.mapsrc_auto_settings_link()}
+	>
+		<Icon name="settings" size={14} />
+	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 </div>
 
 <style>
@@ -146,12 +176,22 @@
 		padding-block: 0;
 		font-size: var(--text-sm);
 	}
+	.summary {
+		margin-inline-start: auto;
+		color: var(--color-text-disabled);
+	}
+	.summary.on {
+		color: var(--color-text-muted);
+	}
+	.now {
+		color: var(--color-text);
+		font-weight: var(--weight-semibold);
+	}
 	.auto {
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1-5);
 		height: var(--control-sm);
-		margin-inline-start: auto;
 		padding-inline: var(--space-2);
 		border: var(--border-width) solid var(--color-border);
 		border-radius: var(--radius-full);
@@ -178,5 +218,22 @@
 	}
 	.auto[aria-pressed='true'] .dot {
 		background: currentColor;
+	}
+	/* Without the summary, "Auto" starts the group at the end of the bar. */
+	.push {
+		margin-inline-start: auto;
+	}
+	.gear {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: var(--control-sm);
+		height: var(--control-sm);
+		border-radius: var(--radius-full);
+		color: var(--color-text-muted);
+	}
+	.gear:hover {
+		background: var(--color-surface-hover);
+		color: var(--color-text);
 	}
 </style>

@@ -99,13 +99,37 @@ pay-as-you-go on, there is no spending cap: tiles over the free amount cost $0.1
 
 1. Create an account at [MapTiler Cloud](https://cloud.maptiler.com/) (the free plan is enough
    for non-commercial use).
-2. Open **Account → API keys → New key**.
-3. **Allowed HTTP origins**: add the address of the app, for example `http://192.168.1.10:8080`.
+2. Open **Account → API keys → New key** and fill in the form:
+   - **Name**: any, for example `immich-steward`.
+   - **Description**: optional, for example `Satellite tiles for immich-steward`.
+   - **Allowed user-agent header**: leave it empty. The tiles are loaded by your browser, and
+     every browser sends its own user-agent.
+   - **Allowed HTTP Origins**: the address of the app from your browser's address bar while the
+     app is open, as host and port only: without `http://` or `https://` and without a path
+     (MapTiler does not accept an origin with the scheme). The key then works only from there.
+     If you open the app by IP address:
+
+     ```
+     192.168.1.10:8080
+     ```
+
+     If you open it in several ways (IP address, host name, VPN), put each on its own line:
+
+     ```
+     192.168.1.10:8080
+     homeserver.local:8080
+     ```
+
+     Do not add the `?` placeholder: it lets through requests without an origin.
+3. Press **Create**. If the app later says MapTiler refused the key, check that the origin
+   has the same host and port as the address bar and no `http://` in front.
 4. Copy the key, paste it in **Settings → Map sources → MapTiler Satellite → Key**, press
    **Save**, then switch the source on.
 
-**How much is used.** MapTiler shows it under **Analytics** in
-[MapTiler Cloud](https://cloud.maptiler.com/), per day (today only the next day). On the free
+**How much is used.** MapTiler shows it on its
+[Analytics](https://cloud.maptiler.com/account/analytics) page (also **Check your limits** next to
+the source in Settings), per day: today's requests appear only the next day, so a new key shows 0
+at first. On the free
 plan the service pauses when the monthly requests are used up, until the next month; there is
 no bill. With MapLibre every tile counts as a request: map sessions apply only to MapTiler's own
 SDK.
@@ -114,6 +138,18 @@ Optionally, the exact usage can come from MapTiler: create a service token at **
 Credentials** and paste it under **Exact usage from MapTiler**. The token gives full access to
 the MapTiler account; it stays on the app server, is never sent to the browser and is used only
 to read the usage, at most every three hours or when **Refresh** is pressed.
+
+### Switching by zoom
+
+Under **Settings → Map sources → Switch by zoom** choose what the map shows far out (**Far**),
+close up (**Close**) and the zoom at which it switches. Each can be the plain map or any source
+that is on, for example the plain map far out and MapTiler from zoom 14. **Auto** over the map
+turns the switching on; next to it the bar shows the choice (the part shown now in bold), and
+the gear opens these settings.
+
+What a zoom shows: 10 — a whole city, 12 — districts, 14 — streets are seen, 16 — single houses
+stand apart, 18 — yards, cars and trees. Sentinel-2 (10 m per pixel) gets blurry past about 14;
+Esri and MapTiler stay sharp much further.
 
 ### What the app counts
 

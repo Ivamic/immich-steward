@@ -122,6 +122,7 @@ def test_all_off_by_default(signed_in: TestClient, providers: FakeProviders) -> 
     assert items["eox"]["years"][0] == 2025  # the latest is the default
     assert items["maptiler"]["usage_token_supported"] is True
     assert items["esri"]["usage_url"] == "https://location.arcgis.com/usage/"
+    assert items["maptiler"]["usage_url"] == "https://cloud.maptiler.com/account/analytics"
     # Nothing to load: no tile addresses while a source is off, and no requests to providers.
     for src in config_sources(signed_in).values():
         assert all(v["tiles"] is None for v in src["variants"])

@@ -8,6 +8,9 @@ import type { MapAuto, MapSourceConfig } from '#lib/api.js';
 /** The plain map (the vector style), no imagery. */
 export const SCHEME = 'scheme';
 
+/** The id of the switching by zoom in the settings, linked from the bar above the map. */
+export const AUTO_ANCHOR = 'map-auto';
+
 // Close up the sharper sources first; EOX (10 m) is the last resort before the plain map.
 const NEAR_ORDER = ['esri', 'maptiler', 'eox'];
 const FAR_ORDER = ['eox'];

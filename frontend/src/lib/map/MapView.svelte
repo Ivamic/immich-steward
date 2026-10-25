@@ -767,6 +767,7 @@
 			{labels}
 			{year}
 			{active}
+			{zoom}
 			{problems}
 			onchoice={(id) => {
 				choice = id;

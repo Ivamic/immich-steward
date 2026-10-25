@@ -18,6 +18,7 @@
 	import { errorMessage } from '#lib/errors.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import { AUTO_ANCHOR } from '#lib/map/sources.js';
 
 	let sources = $state<MapSourceItem[]>([]);
 	let auto = $state<MapAuto | null>(null);
@@ -36,6 +37,11 @@
 			})
 			.catch((e) => (error = errorMessage(e)));
 	});
+
+	// The block appears once the sources are loaded, after the browser looked for the anchor.
+	function scrollIfLinked(element: HTMLElement) {
+		if (location.hash === `#${AUTO_ANCHOR}`) element.scrollIntoView({ block: 'start' });
+	}
 
 	const number = (n: number) => n.toLocaleString(getLocale());
 	const day = (iso: string) =>
@@ -332,7 +338,7 @@
 	{/each}
 
 	{#if auto}
-		<article class="source">
+		<article class="source" id={AUTO_ANCHOR} {@attach scrollIfLinked}>
 			<h3>{m.mapsrc_auto_heading()}</h3>
 			<p class="note">{m.mapsrc_auto_settings_hint()}</p>
 			<div class="row">
@@ -386,6 +392,7 @@
 					/>
 				</label>
 			</div>
+			<p class="note">{m.mapsrc_zoom_scale()}</p>
 			{#if !enabledSources.length}
 				<p class="note">{m.mapsrc_auto_none()}</p>
 			{/if}

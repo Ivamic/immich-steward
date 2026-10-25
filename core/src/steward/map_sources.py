@@ -172,6 +172,7 @@ SOURCES: tuple[Source, ...] = (
         terms_url="https://www.maptiler.com/cloud/terms/",
         site_url="https://www.maptiler.com/",
         key_url="https://cloud.maptiler.com/account/keys/",
+        usage_url="https://cloud.maptiler.com/account/analytics",
         free_quota=100_000,
         noncommercial=True,
         # On the free plan the logo must be on the map; loaded from MapTiler with its tiles.

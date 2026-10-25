@@ -7,6 +7,19 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **German, French and Italian user interface.** The language follows the browser (`de-CH`,
+  `fr-CH` and other regional variants included) and can be changed in the header. The
+  translations were made with the help of AI; corrections by native speakers are welcome.
+- README in German, French, Italian and Russian.
+
+### Fixed
+
+- Keyboard shortcuts `[`, `]` (rotate) and `?` (list of shortcuts) on keyboards where these
+  symbols are typed on another key: `[` and `]` with AltGr + 8 and 9 on a German keyboard chose
+  suggestion 8 or 9 instead, `?` did nothing on a French one.
+
 ## [0.5.0] - 2026-10-25
 
 Satellite imagery under the map, and actions on several photos at once in the gallery.

@@ -13,6 +13,9 @@ export function shortcutKey(
 	// "?" is Shift + the slash key on an English keyboard ("," on a Russian one).
 	if (event.code === 'Slash' && event.shiftKey) return '?';
 	if (key.length > 1 || /^[a-z0-9]$/.test(key)) return key;
+	// Typed symbols that are shortcuts themselves, before the key place: "[" is AltGr + 8 on a
+	// German keyboard, "?" is Shift + the key of M on a French one.
+	if (key === '?' || key === '[' || key === ']') return key;
 	if (/^Key[A-Z]$/.test(event.code)) return event.code.slice(3).toLowerCase();
 	if (/^(Digit|Numpad)[0-9]$/.test(event.code)) return event.code.slice(-1);
 	// Square brackets: "х" and "ъ" on a Russian keyboard.

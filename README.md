@@ -16,6 +16,10 @@
 </p>
 
 <p align="center">
+  <b>English</b> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.it.md">Italiano</a> · <a href="README.ru.md">Русский</a>
+</p>
+
+<p align="center">
   <img src="docs/images/time-neighbors-route.png" alt="Photo card: the route between photos taken shortly before and after, with three suggested locations on the map and in the list">
 </p>
 
@@ -57,9 +61,13 @@ Available modules:
 A photo can be rotated in the app for a better look, the modules run on it rotated, and the
 rotation can be saved to Immich.
 
+To check a place by eye, satellite imagery can be shown under the map: Sentinel-2 by EOX
+(no key), Esri World Imagery or MapTiler Satellite (with your own key). All of them are off
+until you switch one on.
+
 Planned:
 
-- **Satellite imagery and street-level panoramas** on the map, to check a place by eye.
+- **Street-level panoramas** on the map, to check a place by eye.
 - **Geometric verification** of similar photos (matching details, not only the overall look),
   and telling apart photos that show no place at all: close-up portraits, pets, plants, objects.
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
@@ -138,7 +146,7 @@ The [documentation](docs/README.md) explains it all step by step:
   server CPU or on another computer with a GPU. Workers never see an Immich API key: the core
   gives them the photos.
 - Web UI: timeline gallery with filters, photo view with a map, keyboard-driven review.
-- English UI with translations (Russian from the start).
+- UI in English, German, French, Italian and Russian.
 
 ## Development
 
@@ -196,6 +204,14 @@ docker compose up -d --build
 UI strings live in `frontend/messages/<locale>.json`; English (`en.json`) is the source.
 A new string must be added to every locale file at once — a test checks that all locales
 have the same keys and placeholders.
+
+The German, French and Italian translations were made with the help of AI and have not been
+reviewed by native speakers yet. Corrections are very welcome: open a pull request against the
+locale file or an issue with the wrong wording.
+
+The README is translated too (`README.<locale>.md`), without the development sections. The
+English README is the reference: a translation is outdated when `README.md` was changed in a
+later commit than the translation.
 
 ## Feedback and contributing
 

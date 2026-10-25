@@ -26,6 +26,15 @@ describe('shortcut keys', () => {
 		expect(shortcutKey({ key: '.', code: 'Slash' })).toBe('.');
 	});
 
+	it('takes "?", "[" and "]" as typed wherever their key is', () => {
+		// German keyboard: AltGr + 8 and 9; French: Shift + the key at the place of M.
+		expect(shortcutKey({ key: '[', code: 'Digit8' })).toBe('[');
+		expect(shortcutKey({ key: ']', code: 'Digit9' })).toBe(']');
+		expect(shortcutKey({ key: '?', code: 'KeyM', shiftKey: true })).toBe('?');
+		// Russian keyboard: Shift + 7.
+		expect(shortcutKey({ key: '?', code: 'Digit7', shiftKey: true })).toBe('?');
+	});
+
 	it('keeps named keys', () => {
 		expect(shortcutKey({ key: 'Enter', code: 'Enter' })).toBe('enter');
 		expect(shortcutKey({ key: 'ArrowLeft', code: 'ArrowLeft' })).toBe('arrowleft');

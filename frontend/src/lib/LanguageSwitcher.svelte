@@ -6,7 +6,13 @@
 	import Icon from '#lib/ui/Icon.svelte';
 
 	// Language names are shown in their own language, so they are not translated.
-	const names: Record<Locale, string> = { en: 'English', ru: 'Русский' };
+	const names: Record<Locale, string> = {
+		en: 'English',
+		de: 'Deutsch',
+		fr: 'Français',
+		it: 'Italiano',
+		ru: 'Русский'
+	};
 
 	let open = $state(false);
 	let root: HTMLDivElement | undefined = $state();

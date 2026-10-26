@@ -453,5 +453,12 @@
 	"copy": "Kopieren",
 	"copy_coordinates": "Koordinaten kopieren",
 	"copy_done": "Kopiert",
-	"copy_failed": "Der Browser hat das Kopieren nicht erlaubt: drücke Strg+C"
+	"copy_failed": "Der Browser hat das Kopieren nicht erlaubt: drücke Strg+C",
+	"search_in_list": "Suche: {list}",
+	"search_in_list_placeholder": "Suchen…",
+	"search_in_list_none": "Nichts gefunden",
+	"asset_megapixels": "{value} MP",
+	"gallery_settings_heading": "Galerie",
+	"gallery_settings_tooltip": "Fotodetails beim Überfahren",
+	"gallery_settings_tooltip_hint": "Ruht die Maus auf einem Foto, zeigt es Dateiname, Aufnahmezeit, Kamera und Größe. Aus: nur der Dateiname."
 }

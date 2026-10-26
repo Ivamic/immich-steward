@@ -20,6 +20,7 @@
 		moduleName
 	} from '#lib/suggestions/format.js';
 	import ChipPopover from '#lib/ui/ChipPopover.svelte';
+	import SearchSelect from '#lib/ui/SearchSelect.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import { defaultFilter, filterToUrl } from './filter.js';
@@ -155,41 +156,32 @@
 		{/each}
 	</div>
 
-	<label class="st-input st-input--select st-input--sm">
-		<Icon name="camera" size={14} />
-		<select
-			aria-label={m.filter_camera()}
-			value={filter.camera ?? ''}
-			onchange={(e) => {
-				const index = e.currentTarget.selectedIndex - 1;
-				set({ camera: index < 0 ? null : options.cameras[index].value });
-			}}
-		>
-			<option value="">{m.filter_camera_any()}</option>
-			{#each options.cameras as camera (camera.value)}
-				<option value={camera.value}
-					>{cameraLabel(camera.make, camera.model)} ({camera.count})</option
-				>
-			{/each}
-		</select>
-		<span class="st-select__chev"><Icon name="chevron-down" size={14} /></span>
-	</label>
+	<SearchSelect
+		icon="camera"
+		label={m.filter_camera()}
+		anyLabel={m.filter_camera_any()}
+		value={filter.camera}
+		options={options.cameras.map((camera) => ({
+			value: camera.value,
+			label: cameraLabel(camera.make, camera.model),
+			hint: String(camera.count)
+		}))}
+		onchange={(camera) => set({ camera })}
+	/>
 
 	{#if options.albums.length || filter.album}
-		<label class="st-input st-input--select st-input--sm">
-			<Icon name="images" size={14} />
-			<select
-				aria-label={m.filter_album()}
-				value={filter.album ?? ''}
-				onchange={(e) => set({ album: e.currentTarget.value || null })}
-			>
-				<option value="">{m.filter_album_any()}</option>
-				{#each options.albums as album (album.id)}
-					<option value={album.id}>{album.name} ({album.count})</option>
-				{/each}
-			</select>
-			<span class="st-select__chev"><Icon name="chevron-down" size={14} /></span>
-		</label>
+		<SearchSelect
+			icon="images"
+			label={m.filter_album()}
+			anyLabel={m.filter_album_any()}
+			value={filter.album}
+			options={options.albums.map((album) => ({
+				value: album.id,
+				label: album.name,
+				hint: String(album.count)
+			}))}
+			onchange={(album) => set({ album })}
+		/>
 	{/if}
 
 	<ChipPopover
@@ -305,10 +297,6 @@
 		height: 1.25rem;
 		margin-inline: var(--space-1);
 		background: var(--color-border-strong);
-	}
-	.st-input--select {
-		max-width: 14rem;
-		padding-inline-start: var(--space-2);
 	}
 	.total {
 		margin-inline-start: auto;

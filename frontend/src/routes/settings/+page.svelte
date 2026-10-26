@@ -2,6 +2,7 @@
 <!-- Settings of this account; more will come (thresholds of the view groups, D-129). -->
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
+	import GalleryPanel from '#lib/GalleryPanel.svelte';
 	import MapSourcesPanel from '#lib/MapSourcesPanel.svelte';
 	import ModuleDisplayPanel from '#lib/ModuleDisplayPanel.svelte';
 	import UpdatesPanel from '#lib/UpdatesPanel.svelte';
@@ -9,6 +10,7 @@
 
 <h1>{m.settings_heading()}</h1>
 
+<GalleryPanel />
 <ModuleDisplayPanel />
 <MapSourcesPanel />
 <UpdatesPanel />

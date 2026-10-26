@@ -44,6 +44,19 @@ class AppSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
+class AccountSetting(Base):
+    """A personal setting of an account (`steward.account_settings`), stored as JSON."""
+
+    __tablename__ = "account_setting"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict[str, Any]]
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
 class Account(Base):
     """An Immich user who has signed in to the app."""
 

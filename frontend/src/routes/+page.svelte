@@ -11,6 +11,7 @@
 	import FilterBar from '#lib/gallery/FilterBar.svelte';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import MonthSection from '#lib/gallery/MonthSection.svelte';
+	import PhotoPeek from '#lib/gallery/PhotoPeek.svelte';
 	import Scrubber from '#lib/gallery/Scrubber.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
@@ -24,6 +25,8 @@
 	import { page } from '$app/state';
 	import { tick, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
+	import TileTooltip from '#lib/gallery/TileTooltip.svelte';
+	import { accountSettings } from '#lib/accountSettings.svelte.js';
 
 	// How long to wait for the photo to return to, and where to put it on the screen.
 	const AT_TIMEOUT_MS = 5000;
@@ -34,6 +37,11 @@
 	let width = $state(0);
 	let timeline = $state<HTMLElement>();
 	let nearbyMinutes = $state(15);
+	// The photo shown large while a tile is pressed long.
+	let peek = $state<AssetItem | null>(null);
+	// The tile the mouse rests on, for its tooltip.
+	let tip = $state<{ item: AssetItem; anchor: DOMRect } | null>(null);
+	accountSettings.load();
 	// `?at=<photo>` of the last navigation, until the timeline is scrolled to it.
 	let pendingAt = $state<string | null>(null);
 	// Photos chosen for an action on all of them (D-149), and the photos of the loaded months, in
@@ -175,6 +183,12 @@
 						{query}
 						{selection}
 						{nearbyMinutes}
+						onpeek={(item) => {
+							tip = null;
+							peek = item;
+						}}
+						tooltip={accountSettings.values.gallery_tooltip}
+						ontip={(next) => (tip = next)}
 						onitems={(month, items) => loaded.set(month, items)}
 						onpick={pick}
 					/>
@@ -185,6 +199,14 @@
 	{#if timeline}
 		<Scrubber {timeline} />
 	{/if}
+{/if}
+
+{#if tip && !peek}
+	<TileTooltip item={tip.item} anchor={tip.anchor} onclose={() => (tip = null)} />
+{/if}
+
+{#if peek}
+	<PhotoPeek item={peek} onclose={() => (peek = null)} />
 {/if}
 
 {#if selection.size}

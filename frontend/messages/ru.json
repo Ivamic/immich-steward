@@ -453,5 +453,12 @@
 	"copy": "Копировать",
 	"copy_coordinates": "Копировать координаты",
 	"copy_done": "Скопировано",
-	"copy_failed": "Браузер не разрешил скопировать: нажмите Ctrl+C"
+	"copy_failed": "Браузер не разрешил скопировать: нажмите Ctrl+C",
+	"search_in_list": "Поиск: {list}",
+	"search_in_list_placeholder": "Найти…",
+	"search_in_list_none": "Ничего не найдено",
+	"asset_megapixels": "{value} Мп",
+	"gallery_settings_heading": "Галерея",
+	"gallery_settings_tooltip": "Подсказка с параметрами фото при наведении",
+	"gallery_settings_tooltip_hint": "Если задержать мышь на фото, видны имя файла, дата и время съёмки, камера и размер. Выключено — только имя файла."
 }

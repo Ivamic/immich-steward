@@ -8,3 +8,16 @@ export function monthTitle(month: string): string {
 	);
 	return text.charAt(0).toLocaleUpperCase(getLocale()) + text.slice(1);
 }
+
+/** When a photo was taken, by the camera clock: "Sun, 12 May 2024, 14:37". The time has no zone
+ * (D-045), so it is read and shown as local time, unchanged. */
+export function takenTitle(localTakenAt: string): string {
+	return new Intl.DateTimeFormat(getLocale(), {
+		weekday: 'short',
+		day: 'numeric',
+		month: 'long',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	}).format(new Date(localTakenAt.replace(/Z|[+-]\d\d:\d\d$/, '')));
+}

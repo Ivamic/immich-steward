@@ -453,5 +453,12 @@
 	"copy": "Copier",
 	"copy_coordinates": "Copier les coordonnées",
 	"copy_done": "Copié",
-	"copy_failed": "Le navigateur n'a pas autorisé la copie : appuyez sur Ctrl+C"
+	"copy_failed": "Le navigateur n'a pas autorisé la copie : appuyez sur Ctrl+C",
+	"search_in_list": "Recherche : {list}",
+	"search_in_list_placeholder": "Rechercher…",
+	"search_in_list_none": "Aucun résultat",
+	"asset_megapixels": "{value} Mpx",
+	"gallery_settings_heading": "Galerie",
+	"gallery_settings_tooltip": "Détails de la photo au survol",
+	"gallery_settings_tooltip_hint": "La souris posée sur une photo affiche le nom du fichier, la date de prise de vue, l'appareil et la taille. Désactivé : le nom du fichier seul."
 }

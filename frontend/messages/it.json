@@ -453,5 +453,12 @@
 	"copy": "Copia",
 	"copy_coordinates": "Copia le coordinate",
 	"copy_done": "Copiato",
-	"copy_failed": "Il browser non ha consentito la copia: premi Ctrl+C"
+	"copy_failed": "Il browser non ha consentito la copia: premi Ctrl+C",
+	"search_in_list": "Cerca: {list}",
+	"search_in_list_placeholder": "Cerca…",
+	"search_in_list_none": "Nessun risultato",
+	"asset_megapixels": "{value} MP",
+	"gallery_settings_heading": "Galleria",
+	"gallery_settings_tooltip": "Dettagli della foto al passaggio del mouse",
+	"gallery_settings_tooltip_hint": "Con il mouse fermo su una foto si vedono il nome del file, quando è stata scattata, la fotocamera e le dimensioni. Disattivato: solo il nome del file."
 }

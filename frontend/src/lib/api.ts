@@ -141,6 +141,8 @@ export interface AssetItem {
 	nearby: NearbyLevel | null;
 	width: number | null;
 	height: number | null;
+	camera_make: string | null;
+	camera_model: string | null;
 	/** Changes with the thumbnails (photo rotated or edited in Immich). */
 	version: string | null;
 }
@@ -540,6 +542,17 @@ export const checkUpdates = () => request<Updates>('POST', '/api/updates/check')
 
 /** Where the photos with a location are: latitude, longitude and number of photos per cell. */
 export const getHeatmap = () => request<number[]>('GET', '/api/assets/heatmap');
+
+/** Personal settings of the signed-in account. */
+export interface AccountSettings {
+	/** Its own tooltip over a gallery tile (name, time taken, camera, size). */
+	gallery_tooltip: boolean;
+}
+
+export const getAccountSettings = () => request<AccountSettings>('GET', '/api/settings');
+/** Only the settings given change. */
+export const setAccountSettings = (change: Partial<AccountSettings>) =>
+	request<AccountSettings>('PUT', '/api/settings', change);
 
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
 /** Removes a worker that is not connected from the list. */

@@ -111,6 +111,9 @@ class AssetItem(BaseModel):
     nearby: NearbyLevel | None = None
     width: int | None
     height: int | None
+    # For the tooltip of the tile.
+    camera_make: str | None = None
+    camera_model: str | None = None
     # Changes with the thumbnails (photo rotated or edited in Immich): for their addresses.
     version: str | None = None
 
@@ -128,6 +131,8 @@ class AssetItem(BaseModel):
             has_location=asset.latitude is not None,
             width=asset.width,
             height=asset.height,
+            camera_make=asset.camera_make,
+            camera_model=asset.camera_model,
             version=asset.thumbhash,
         )
 

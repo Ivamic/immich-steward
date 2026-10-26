@@ -453,5 +453,12 @@
 	"copy": "Copy",
 	"copy_coordinates": "Copy the coordinates",
 	"copy_done": "Copied",
-	"copy_failed": "The browser did not allow copying: press Ctrl+C"
+	"copy_failed": "The browser did not allow copying: press Ctrl+C",
+	"search_in_list": "Search: {list}",
+	"search_in_list_placeholder": "Find…",
+	"search_in_list_none": "Nothing found",
+	"asset_megapixels": "{value} MP",
+	"gallery_settings_heading": "Gallery",
+	"gallery_settings_tooltip": "Photo details on hover",
+	"gallery_settings_tooltip_hint": "Resting the mouse on a photo shows its file name, when it was taken, the camera and the size. Off: the file name only."
 }

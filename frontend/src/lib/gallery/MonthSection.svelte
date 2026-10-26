@@ -24,6 +24,7 @@
 	import { monthTitle } from './month.js';
 	import { photoWork } from './bulk.svelte.js';
 	import { galleryChanges, type Selection } from './selection.svelte.js';
+	import { longpress } from './longpress.js';
 
 	const TILE = 160; // px, keep in sync with the grid CSS below
 	const GAP = 4;
@@ -37,7 +38,10 @@
 		selection,
 		nearbyMinutes = 15,
 		onitems,
-		onpick
+		tooltip = false,
+		onpick,
+		onpeek,
+		ontip = () => {}
 	}: {
 		bucket: MonthBucket;
 		filter: GalleryFilter;
@@ -50,6 +54,12 @@
 		onitems: (month: string, items: AssetItem[]) => void;
 		/** Choose or unchoose the photo; `range`: everything from the photo clicked before. */
 		onpick: (item: AssetItem, range: boolean) => void;
+		/** Its own tooltip over a tile instead of the file name alone (a personal setting). */
+		tooltip?: boolean;
+		/** A long press on the tile: show it large. */
+		onpeek: (item: AssetItem) => void;
+		/** The mouse rests on a tile (with its place on screen), or left it (null). */
+		ontip?: (tip: { item: AssetItem; anchor: DOMRect } | null) => void;
 	} = $props();
 
 	let section: HTMLElement;
@@ -99,6 +109,27 @@
 			.catch(() => (failed = true));
 	}
 
+	// The tooltip waits a moment, so that moving across the grid does not flash it.
+	const TIP_DELAY_MS = 400;
+	let tipTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function tipEnter(event: PointerEvent, item: AssetItem) {
+		if (!tooltip || event.pointerType !== 'mouse') return;
+		const tile = event.currentTarget as HTMLElement;
+		clearTimeout(tipTimer);
+		tipTimer = setTimeout(
+			() => ontip({ item, anchor: tile.getBoundingClientRect() }),
+			TIP_DELAY_MS
+		);
+	}
+
+	function tipLeave() {
+		clearTimeout(tipTimer);
+		ontip(null);
+	}
+
+	$effect(() => () => clearTimeout(tipTimer));
+
 	/** While photos are being chosen, a click chooses rather than opens. */
 	function onclick(event: MouseEvent, item: AssetItem) {
 		if (selection.size || event.shiftKey) {
@@ -121,8 +152,12 @@
 					<a
 						class="tile"
 						href={resolve(`/photo/[id]${query}`, { id: item.id })}
-						title={item.file_name}
+						title={tooltip ? undefined : item.file_name}
 						data-asset={item.id}
+						onpointerenter={(e) => tipEnter(e, item)}
+						onpointerleave={tipLeave}
+						onpointerdown={tipLeave}
+						use:longpress={() => onpeek(item)}
 						onclick={(e) => onclick(e, item)}
 					>
 						<img
@@ -145,7 +180,7 @@
 									aria-label={m.asset_has_location()}
 									title={m.asset_has_location()}
 								>
-									<Icon name="map-pin" size={13} strokeWidth={2.25} />
+									<Icon name="map-pin" size={14} strokeWidth={2.25} />
 								</span>
 							</span>
 						{:else if item.nearby || item.geoclip_confident}
@@ -164,7 +199,7 @@
 										aria-label={text}
 										title={text}
 									>
-										<Icon name="clock" size={13} strokeWidth={2.25} />
+										<Icon name="clock" size={14} strokeWidth={2.25} />
 									</span>
 								{/if}
 								{#if item.geoclip_confident}
@@ -175,7 +210,7 @@
 										aria-label={m.asset_geoclip_confident()}
 										title={m.asset_geoclip_confident()}
 									>
-										<Icon name="crosshair" size={13} strokeWidth={2.25} />
+										<Icon name="crosshair" size={14} strokeWidth={2.25} />
 									</span>
 								{/if}
 							</span>
@@ -303,6 +338,9 @@
 	.tile {
 		position: relative;
 		display: block;
+		/* A long press shows the photo large: no system menu or text selection on touch screens. */
+		-webkit-touch-callout: none;
+		user-select: none;
 		width: 160px;
 		height: 160px;
 		overflow: hidden;
@@ -358,6 +396,8 @@
 		display: flex;
 		gap: 3px;
 	}
+	/* 14 px icons in 22 px circles: 4 px on each side, whole pixels, so the icon stays sharp and
+	   centered (13 px would sit on half pixels). */
 	.marker {
 		display: grid;
 		place-items: center;

@@ -5,7 +5,7 @@
 <h1 align="center">Steward for Immich</h1>
 
 <p align="center">
-  Scopri dove sono state scattate le tue foto senza GPS — e scrivi il luogo in <a href="https://immich.app">Immich</a> solo quando lo decidi tu.
+  Rimetti sulla mappa le tue foto senza GPS — più indizi indipendenti, una sola mappa, scegli tu.
 </p>
 
 <p align="center">
@@ -32,10 +32,11 @@
 > funzionano già; gli altri moduli arriveranno. Aspettati bug e cambiamenti tra una versione e
 > l'altra, e fai un backup della tua libreria Immich prima di scriverci delle posizioni.
 
-Un'app di supporto self-hosted per [Immich](https://immich.app) che ti aiuta a recuperare le
-informazioni mancanti nella tua libreria di foto — e sei *tu* a decidere che cosa viene scritto.
-
-Il primo strumento scopre **dove sono state scattate le foto senza dati GPS**.
+Un'app di supporto self-hosted per [Immich](https://immich.app). Per ogni foto senza posizione, più
+moduli — le foto scattate poco prima e poco dopo, la rete neurale GeoCLIP e le foto simili
+dello stesso luogo nella tua libreria — suggeriscono dove è stata scattata, tutti su una sola
+mappa. Scegli con un clic o un tasto, oppure imposti la posizione di molte foto in una volta.
+In Immich non viene scritto nulla finché non lo fai tu, e ogni modifica si può annullare.
 
 Caso tipico: un archivio fotografico di famiglia con stampe scansionate, vecchie fotocamere
 digitali senza GPS o foto scaricate dalle app di messaggistica che hanno perso i metadati.

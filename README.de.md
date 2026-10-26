@@ -5,7 +5,7 @@
 <h1 align="center">Steward for Immich</h1>
 
 <p align="center">
-  Finde heraus, wo deine Fotos ohne GPS aufgenommen wurden — und schreibe den Ort nur dann in <a href="https://immich.app">Immich</a>, wenn du es sagst.
+  Bring deine Fotos ohne GPS zurück auf die Karte — mehrere unabhängige Hinweise, eine Karte, du entscheidest.
 </p>
 
 <p align="center">
@@ -33,11 +33,12 @@
 > zwischen den Versionen und lege eine Sicherung deiner Immich-Mediathek an, bevor du Standorte
 > hineinschreibst.
 
-Eine selbst gehostete Begleit-App für [Immich](https://immich.app), die dir hilft, fehlende
-Angaben in deiner Fotomediathek wiederherzustellen — und *du* entscheidest, was zurückgeschrieben
-wird.
-
-Das erste Werkzeug findet heraus, **wo Fotos ohne GPS-Daten aufgenommen wurden**.
+Eine selbst gehostete Begleit-App für [Immich](https://immich.app). Für jedes Foto ohne Standort
+schlagen mehrere Module — zeitlich nahe Fotos, das neuronale Netz GeoCLIP und ähnliche Fotos
+desselben Ortes aus deiner eigenen Mediathek — vor, wo es aufgenommen wurde, alle auf einer
+Karte. Du wählst mit einem Klick oder einer Taste oder setzt den Standort vieler Fotos auf
+einmal. In Immich wird nichts geschrieben, bevor du das tust, und jede Änderung lässt sich
+rückgängig machen.
 
 Typischer Fall: ein Familienfotoarchiv mit eingescannten Abzügen, alten Digitalkameras ohne GPS
 oder Downloads aus Messengern, die ihre Metadaten verloren haben.

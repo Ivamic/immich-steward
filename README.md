@@ -5,7 +5,7 @@
 <h1 align="center">Steward for Immich</h1>
 
 <p align="center">
-  Find out where your photos without GPS were taken — and write it back to <a href="https://immich.app">Immich</a> only when you say so.
+  Put your photos without GPS back on the map — several independent clues, one map, your pick.
 </p>
 
 <p align="center">
@@ -28,10 +28,11 @@
 > already work; the other modules are still to come. Expect bugs and changes between versions, and keep a backup of your Immich
 > library before writing locations to it.
 
-A self-hosted companion app for [Immich](https://immich.app) that helps you restore
-missing information in your photo library — and lets *you* decide what is written back.
-
-The first tool finds out **where photos without GPS data were taken**.
+A self-hosted companion app for [Immich](https://immich.app). For each photo without a location,
+several modules — photos taken close in time, the GeoCLIP neural network and similar photos
+of the same place in your own library — suggest where it was taken, all on one map. You pick
+one with a click or a key, or set the place of many photos at once. Nothing is written to
+Immich until you do, and every change can be undone.
 
 Typical use case: a family photo archive with scanned prints, old digital cameras
 without GPS, or messenger downloads that lost their metadata.

@@ -1,7 +1,8 @@
 # Steward for Immich: documentation
 
-Steward finds out where your photos without GPS were taken and writes the location to
-[Immich](https://immich.app) only when you confirm it. It runs on your own server, next to Immich.
+Steward puts your photos without GPS back on the map: several independent modules suggest where
+each one was taken, all on one map, and you pick. It runs on your own server, next to
+[Immich](https://immich.app).
 
 > **The project is under active development.** Things may break or change between versions.
 > The app writes to Immich only when you save a location, and every write can be undone, but

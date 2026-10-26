@@ -447,5 +447,9 @@
 	"updates_whats_new": "Nouveautés",
 	"updates_none_yet": "Pas encore de version à comparer.",
 	"updates_error_unreachable": "GitHub n'a pas pu être joint.",
-	"updates_error": "La vérification a échoué ({code})."
+	"updates_error": "La vérification a échoué ({code}).",
+	"copy": "Copier",
+	"copy_coordinates": "Copier les coordonnées",
+	"copy_done": "Copié",
+	"copy_failed": "Le navigateur n'a pas autorisé la copie : appuyez sur Ctrl+C"
 }

@@ -52,6 +52,7 @@
 	import Kbd from '#lib/ui/Kbd.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
+	import CopyButton from '#lib/ui/CopyButton.svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -69,6 +70,8 @@
 	let busy = $state(false);
 	let picked = $state<LatLon | null>(null);
 	let coordinatesText = $state('');
+	let coordinatesInput = $state<HTMLInputElement>();
+	let currentCoords = $state<HTMLElement>();
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let viewerOpen = $state(false);
@@ -552,6 +555,7 @@
 						<Icon name="locate-fixed" />
 						<input
 							type="text"
+							bind:this={coordinatesInput}
 							bind:value={coordinatesText}
 							placeholder={m.photo_coordinates()}
 							aria-label={m.photo_coordinates()}
@@ -560,6 +564,11 @@
 							onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
 						/>
 						{#if picked}
+							<CopyButton
+								text={formatCoordinates(picked)}
+								label={m.copy_coordinates()}
+								onfailed={() => coordinatesInput?.select()}
+							/>
 							<button
 								type="button"
 								class="st-iconbtn st-iconbtn--sm"
@@ -774,7 +783,15 @@
 					<dd>
 						{#if current}
 							{#if place}{place}<br />{/if}
-							<span class="st-coords">{formatCoordinates(current)}</span>
+							<span class="current">
+								<span class="st-coords" bind:this={currentCoords}>{formatCoordinates(current)}</span
+								>
+								<CopyButton
+									text={formatCoordinates(current)}
+									label={m.copy_coordinates()}
+									onfailed={() => currentCoords && getSelection()?.selectAllChildren(currentCoords)}
+								/>
+							</span>
 						{:else}
 							<span class="muted">{m.photo_no_location()}</span>
 						{/if}
@@ -992,6 +1009,11 @@
 	.point.picked {
 		border-color: var(--color-accent);
 		background: var(--color-surface-selected);
+	}
+	.current {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
 	}
 	.point .st-iconbtn {
 		margin-inline-end: calc(var(--space-1) * -1);

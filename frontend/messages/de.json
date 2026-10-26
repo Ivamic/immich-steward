@@ -447,5 +447,9 @@
 	"updates_whats_new": "Was ist neu",
 	"updates_none_yet": "Noch keine Veröffentlichung zum Vergleich.",
 	"updates_error_unreachable": "GitHub war nicht erreichbar.",
-	"updates_error": "Die Prüfung ist fehlgeschlagen ({code})."
+	"updates_error": "Die Prüfung ist fehlgeschlagen ({code}).",
+	"copy": "Kopieren",
+	"copy_coordinates": "Koordinaten kopieren",
+	"copy_done": "Kopiert",
+	"copy_failed": "Der Browser hat das Kopieren nicht erlaubt: drücke Strg+C"
 }

@@ -81,6 +81,12 @@ There are several ways to put a point on the map:
 The picked point is a pin with a green dot. The grey pin is the location the photo already has
 in Immich, if any.
 
+**Copying coordinates.** The copy button in the coordinates field copies the picked point, and
+the one next to the location in the details copies the location the photo already has, e.g. to
+paste it into the field of another photo or into a map site. It also works when the app is
+opened over plain `http://`; if the browser still refuses, the coordinates are selected and Ctrl+C
+copies them.
+
 ### Satellite imagery
 
 Three satellite sources can be connected, each off until you switch it on:

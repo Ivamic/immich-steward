@@ -33,6 +33,7 @@
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Kbd from '#lib/ui/Kbd.svelte';
+	import CopyButton from '#lib/ui/CopyButton.svelte';
 
 	let {
 		items,
@@ -57,6 +58,7 @@
 	let error = $state<string | null>(null);
 	let picked = $state<LatLon | null>(null);
 	let coordinatesText = $state('');
+	let coordinatesInput = $state<HTMLInputElement>();
 	let coordinatesInvalid = $state(false);
 	let overwrite = $state(false);
 	let highlight = $state<Highlight | null>(null);
@@ -238,6 +240,7 @@
 				<Icon name="locate-fixed" />
 				<input
 					type="text"
+					bind:this={coordinatesInput}
 					bind:value={coordinatesText}
 					placeholder={m.photo_coordinates()}
 					aria-label={m.photo_coordinates()}
@@ -246,6 +249,11 @@
 					onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
 				/>
 				{#if picked}
+					<CopyButton
+						text={formatCoordinates(picked)}
+						label={m.copy_coordinates()}
+						onfailed={() => coordinatesInput?.select()}
+					/>
 					<button
 						type="button"
 						class="st-iconbtn st-iconbtn--sm"

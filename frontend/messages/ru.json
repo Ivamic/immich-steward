@@ -447,5 +447,9 @@
 	"updates_whats_new": "Что нового",
 	"updates_none_yet": "Пока не с чем сравнить: выпусков ещё нет.",
 	"updates_error_unreachable": "GitHub недоступен.",
-	"updates_error": "Проверка не удалась ({code})."
+	"updates_error": "Проверка не удалась ({code}).",
+	"copy": "Копировать",
+	"copy_coordinates": "Копировать координаты",
+	"copy_done": "Скопировано",
+	"copy_failed": "Браузер не разрешил скопировать: нажмите Ctrl+C"
 }

@@ -447,5 +447,9 @@
 	"updates_whats_new": "Novità",
 	"updates_none_yet": "Ancora nessuna versione con cui confrontare.",
 	"updates_error_unreachable": "GitHub non è raggiungibile.",
-	"updates_error": "Il controllo non è riuscito ({code})."
+	"updates_error": "Il controllo non è riuscito ({code}).",
+	"copy": "Copia",
+	"copy_coordinates": "Copia le coordinate",
+	"copy_done": "Copiato",
+	"copy_failed": "Il browser non ha consentito la copia: premi Ctrl+C"
 }

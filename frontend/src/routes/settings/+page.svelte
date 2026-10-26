@@ -4,9 +4,11 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import MapSourcesPanel from '#lib/MapSourcesPanel.svelte';
 	import ModuleDisplayPanel from '#lib/ModuleDisplayPanel.svelte';
+	import UpdatesPanel from '#lib/UpdatesPanel.svelte';
 </script>
 
 <h1>{m.settings_heading()}</h1>
 
 <ModuleDisplayPanel />
 <MapSourcesPanel />
+<UpdatesPanel />

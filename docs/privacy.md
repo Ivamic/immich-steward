@@ -18,6 +18,10 @@
 - **The models** of GeoCLIP and of similar photos (MegaLoc) are downloaded from Hugging Face
   (`huggingface.co`) when a worker loads them for the first time; later loads only check for
   updates there.
+- **The update check**: twice a day the app server asks GitHub (`api.github.com`) for the number
+  of the latest release, to show "Version X is out" in the header. GitHub sees the IP address of
+  the server and the app's version; no photos or data are sent. It is on by default; turn it off
+  in **Settings → Updates** (for the whole installation).
 - The **fonts and icons** of the web page come with the app; nothing else is loaded from other
   sites, except from the satellite source you chose (its tiles, the MapTiler logo, the Esri
   copyright text).

@@ -427,5 +427,21 @@
 	"rotate_failed_some": "Impossibile ruotare {count} foto.",
 	"rotate_failed": "Rotazione interrotta: {error}",
 	"review_done_skipped": "Saltate: {count} foto.",
-	"review_done_not_applicable": "Segnate come «posizione non pertinente»: {count} foto."
+	"review_done_not_applicable": "Segnate come «posizione non pertinente»: {count} foto.",
+	"update_badge": "È uscita la versione {version}",
+	"update_badge_hint": "Le novità e come aggiornare",
+	"update_dismiss": "Nascondi fino alla prossima versione",
+	"updates_heading": "Aggiornamenti",
+	"updates_hint": "Per tutti gli utenti di questa installazione.",
+	"updates_current": "Versione dell'app: {version}",
+	"updates_enable": "Controlla gli aggiornamenti",
+	"updates_privacy": "Due volte al giorno il server chiede a GitHub il numero dell'ultima versione. GitHub vede l'indirizzo IP del server; non vengono inviati foto né dati.",
+	"updates_check_now": "Controlla ora",
+	"updates_checked": "controllato {when}",
+	"updates_latest": "Hai l'ultima versione.",
+	"updates_newer": "È uscita la versione {version}.",
+	"updates_whats_new": "Novità",
+	"updates_none_yet": "Ancora nessuna versione con cui confrontare.",
+	"updates_error_unreachable": "GitHub non è raggiungibile.",
+	"updates_error": "Il controllo non è riuscito ({code})."
 }

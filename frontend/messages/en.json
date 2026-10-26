@@ -427,5 +427,21 @@
 	"rotate_failed_some": "Could not turn {count} photos.",
 	"rotate_failed": "Turning stopped: {error}",
 	"review_done_skipped": "Skipped: {count} photos.",
-	"review_done_not_applicable": "Marked “location not applicable”: {count} photos."
+	"review_done_not_applicable": "Marked “location not applicable”: {count} photos.",
+	"update_badge": "Version {version} is out",
+	"update_badge_hint": "What is new in it, and how to update",
+	"update_dismiss": "Hide until the next version",
+	"updates_heading": "Updates",
+	"updates_hint": "For all users of this installation.",
+	"updates_current": "Version of the app: {version}",
+	"updates_enable": "Check for updates",
+	"updates_privacy": "Twice a day the server asks GitHub for the number of the latest version. GitHub sees the IP address of the server; no photos or data are sent.",
+	"updates_check_now": "Check now",
+	"updates_checked": "checked {when}",
+	"updates_latest": "You have the latest version.",
+	"updates_newer": "Version {version} is out.",
+	"updates_whats_new": "What is new",
+	"updates_none_yet": "No release to compare with yet.",
+	"updates_error_unreachable": "GitHub could not be reached.",
+	"updates_error": "The check failed ({code})."
 }

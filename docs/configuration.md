@@ -215,11 +215,18 @@ A worker started with `docker run` or from source is configured with environment
 | `STEWARD_WORKER_DEVICE` | `--device` | `auto` | Where the models run: `auto` (an NVIDIA graphics card when there is one), `cpu` or `cuda`. |
 | `STEWARD_WORKER_ID_FILE` | `--id-file` | see the note | A file that keeps the id of the worker across restarts. In Docker: `/models/steward-worker.id`; from source: `~/.cache/steward-worker/<name>.id`. |
 
+## Updates (in Settings)
+
+Whether the app looks for a newer release is set in the app, not in `.env`: **Settings → Updates**,
+for the whole installation. It is on by default: twice a day the server asks GitHub for the number
+of the latest release (see [Privacy](privacy.md#what-leaves-your-server)), and a newer one shows up
+in the header with a link to what is new. **Check now** asks at once, also while the check is off.
+
 ## Other
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `STEWARD_VERSION` | the version of `compose.yaml` | The version of the images to download. Set it only to stay on another release; see [Updating](updating.md#staying-on-a-version). |
+| `STEWARD_VERSION` | `0` (the newest 0.x release) | The version of the images to download. Set an exact one only to stay on it; see [Updating](updating.md#staying-on-a-version). |
 | `STEWARD_LOG_LEVEL` | `info` | How much the app and the worker write to their logs: `debug`, `info`, `warning`, `error`. |
 | `DB_USER`, `DB_NAME` | `steward` | The user and name of the app's database. Usually left as they are. |
 | `DB_PORT`, `STEWARD_DATABASE_URL` | — | For development only (running the app outside Docker); not used by `docker compose`. |

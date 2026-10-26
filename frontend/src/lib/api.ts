@@ -509,6 +509,26 @@ export interface Pause {
 	until: Record<string, string>;
 }
 
+/** Whether a newer release of the app is out; the check is for the whole installation. */
+export interface Updates {
+	enabled: boolean;
+	current: string;
+	latest: string | null;
+	newer: boolean;
+	/** Release notes of the latest release. */
+	url: string | null;
+	checked_at: string | null;
+	/** Why the last check failed: "unreachable", "http_<status>" or "bad_answer". */
+	error: string | null;
+}
+
+export const getUpdates = () => request<Updates>('GET', '/api/updates');
+/** Turns the automatic check on (it checks at once, if due) or off. */
+export const setUpdates = (enabled: boolean) =>
+	request<Updates>('PUT', '/api/updates', { enabled });
+/** Checks now, also while the automatic check is off. */
+export const checkUpdates = () => request<Updates>('POST', '/api/updates/check');
+
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
 /** Removes a worker that is not connected from the list. */
 export const forgetWorker = (id: string) => request<void>('DELETE', `/api/library/workers/${id}`);

@@ -14,10 +14,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+import httpx2
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import rotation, worker_queue
+from steward import rotation, updates, worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -186,11 +187,13 @@ class JobRunner:
         settings: Settings,
         immich_factory: ImmichClientFactory,
         handlers: dict[str, JobHandler] | None = None,
+        update_transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
         self._sessionmaker = sessionmaker
         self._settings = settings
         self._immich_factory = immich_factory
         self._handlers = handlers or HANDLERS
+        self._update_transport = update_transport
 
     async def recover(self) -> None:
         """Jobs left running by a crashed or restarted process are queued again."""
@@ -287,6 +290,11 @@ class JobRunner:
         )
         await db.commit()
 
+    async def check_updates(self) -> None:
+        """Asks GitHub for a newer release twice a day, unless the check is off."""
+        async with self._sessionmaker() as db:
+            await updates.check_if_due(db, self._update_transport)
+
     async def run_forever(self, stop: asyncio.Event) -> None:
         recovered = False
         next_schedule = 0.0
@@ -300,6 +308,7 @@ class JobRunner:
                     await self.schedule_syncs()
                     await self.schedule_modules()
                     await self.forget_old_workers()
+                    await self.check_updates()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S
                 if await self.run_once():
                     continue

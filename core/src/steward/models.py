@@ -33,6 +33,17 @@ class Base(DeclarativeBase):
     }
 
 
+class AppSetting(Base):
+    """A setting of the whole installation, not of one account (`steward.updates` and later
+    others), stored as JSON."""
+
+    __tablename__ = "app_setting"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict[str, Any]]
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
 class Account(Base):
     """An Immich user who has signed in to the app."""
 

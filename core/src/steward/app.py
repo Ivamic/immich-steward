@@ -19,7 +19,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from steward import __version__
-from steward.api import assets, auth, health, library, maps, selection, worker
+from steward.api import assets, auth, health, library, maps, selection, updates, worker
 from steward.config import Settings, environment_warnings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
@@ -69,7 +69,12 @@ def create_app(
         app.state.thumbnails = (
             ThumbnailFetcher(settings.immich_url, immich_transport) if settings.immich_url else None
         )
-        app.state.job_runner = JobRunner(app.state.sessionmaker, settings, immich_factory)
+        app.state.job_runner = JobRunner(
+            app.state.sessionmaker,
+            settings,
+            immich_factory,
+            update_transport=app.state.update_transport,
+        )
         stop = asyncio.Event()
         runner_task = (
             asyncio.create_task(app.state.job_runner.run_forever(stop))
@@ -93,6 +98,8 @@ def create_app(
     app.state.immich_factory = immich_factory
     # Satellite map providers (key checks, usage); tests replace them with a fake.
     app.state.map_transport = None
+    # GitHub for the update check; tests replace it with a fake.
+    app.state.update_transport = None
     app.add_exception_handler(ApiError, api_error_handler)
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
@@ -101,6 +108,7 @@ def create_app(
     app.include_router(maps.router, prefix="/api")
     app.include_router(selection.router, prefix="/api")
     app.include_router(worker.router, prefix="/api")
+    app.include_router(updates.router, prefix="/api")
 
     static_dir = settings.static_dir
     if static_dir is not None and Path(static_dir, "index.html").is_file():

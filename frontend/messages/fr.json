@@ -427,5 +427,21 @@
 	"rotate_failed_some": "Impossible de pivoter {count} photos.",
 	"rotate_failed": "Rotation interrompue : {error}",
 	"review_done_skipped": "Ignorées : {count} photos.",
-	"review_done_not_applicable": "Marquées « lieu sans objet » : {count} photos."
+	"review_done_not_applicable": "Marquées « lieu sans objet » : {count} photos.",
+	"update_badge": "La version {version} est sortie",
+	"update_badge_hint": "Les nouveautés et comment mettre à jour",
+	"update_dismiss": "Masquer jusqu'à la prochaine version",
+	"updates_heading": "Mises à jour",
+	"updates_hint": "Pour tous les utilisateurs de cette installation.",
+	"updates_current": "Version de l'application : {version}",
+	"updates_enable": "Rechercher les mises à jour",
+	"updates_privacy": "Deux fois par jour, le serveur demande à GitHub le numéro de la dernière version. GitHub voit l'adresse IP du serveur ; aucune photo ni donnée n'est envoyée.",
+	"updates_check_now": "Vérifier maintenant",
+	"updates_checked": "vérifié {when}",
+	"updates_latest": "Vous avez la dernière version.",
+	"updates_newer": "La version {version} est sortie.",
+	"updates_whats_new": "Nouveautés",
+	"updates_none_yet": "Pas encore de version à comparer.",
+	"updates_error_unreachable": "GitHub n'a pas pu être joint.",
+	"updates_error": "La vérification a échoué ({code})."
 }

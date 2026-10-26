@@ -427,5 +427,21 @@
 	"rotate_failed_some": "Не удалось повернуть: {count} фото.",
 	"rotate_failed": "Поворот остановлен: {error}",
 	"review_done_skipped": "Пропущено: {count} фото.",
-	"review_done_not_applicable": "Отмечено «место неприменимо»: {count} фото."
+	"review_done_not_applicable": "Отмечено «место неприменимо»: {count} фото.",
+	"update_badge": "Вышла версия {version}",
+	"update_badge_hint": "Что нового и как обновиться",
+	"update_dismiss": "Скрыть до следующей версии",
+	"updates_heading": "Обновления",
+	"updates_hint": "Для всех пользователей этой установки.",
+	"updates_current": "Версия приложения: {version}",
+	"updates_enable": "Проверять наличие обновлений",
+	"updates_privacy": "Дважды в день сервер спрашивает у GitHub номер последней версии. GitHub видит IP-адрес сервера; фото и данные не передаются.",
+	"updates_check_now": "Проверить сейчас",
+	"updates_checked": "проверено {when}",
+	"updates_latest": "У вас последняя версия.",
+	"updates_newer": "Вышла версия {version}.",
+	"updates_whats_new": "Что нового",
+	"updates_none_yet": "Пока не с чем сравнить: выпусков ещё нет.",
+	"updates_error_unreachable": "GitHub недоступен.",
+	"updates_error": "Проверка не удалась ({code})."
 }

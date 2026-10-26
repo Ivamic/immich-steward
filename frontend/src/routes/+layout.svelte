@@ -8,6 +8,7 @@
 	import LanguageSwitcher from '#lib/LanguageSwitcher.svelte';
 	import SaveNotices from '#lib/SaveNotices.svelte';
 	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
+	import UpdateBadge from '#lib/UpdateBadge.svelte';
 	import Brand from '#lib/ui/Brand.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import '#lib/styles/index.css';
@@ -77,6 +78,7 @@
 	{/if}
 	<div class="st-header__end">
 		{#if session.user}
+			<UpdateBadge />
 			<span class="st-header__user">{session.user.name}</span>
 			<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={signOut}>
 				<Icon name="log-out" size={14} />

@@ -427,5 +427,21 @@
 	"rotate_failed_some": "{count} Fotos konnten nicht gedreht werden.",
 	"rotate_failed": "Drehen abgebrochen: {error}",
 	"review_done_skipped": "Übersprungen: {count} Fotos.",
-	"review_done_not_applicable": "Als „kein Standort sinnvoll“ markiert: {count} Fotos."
+	"review_done_not_applicable": "Als „kein Standort sinnvoll“ markiert: {count} Fotos.",
+	"update_badge": "Version {version} ist da",
+	"update_badge_hint": "Was neu ist und wie du aktualisierst",
+	"update_dismiss": "Bis zur nächsten Version ausblenden",
+	"updates_heading": "Updates",
+	"updates_hint": "Für alle Nutzer dieser Installation.",
+	"updates_current": "Version der App: {version}",
+	"updates_enable": "Nach Updates suchen",
+	"updates_privacy": "Zweimal am Tag fragt der Server bei GitHub die Nummer der neuesten Version ab. GitHub sieht die IP-Adresse des Servers; es werden keine Fotos oder Daten gesendet.",
+	"updates_check_now": "Jetzt prüfen",
+	"updates_checked": "geprüft {when}",
+	"updates_latest": "Du hast die neueste Version.",
+	"updates_newer": "Version {version} ist da.",
+	"updates_whats_new": "Was ist neu",
+	"updates_none_yet": "Noch keine Veröffentlichung zum Vergleich.",
+	"updates_error_unreachable": "GitHub war nicht erreichbar.",
+	"updates_error": "Die Prüfung ist fehlgeschlagen ({code})."
 }

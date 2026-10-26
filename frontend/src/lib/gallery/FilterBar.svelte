@@ -28,6 +28,7 @@
 	let {
 		filter,
 		total = null,
+		height = $bindable(0),
 		// eslint-disable-next-line no-useless-assignment -- bound: the gallery reads it
 		nearbyMinutes = $bindable(15),
 		onchange
@@ -35,6 +36,8 @@
 		filter: GalleryFilter;
 		/** Photos and videos under the filter; null while loading. */
 		total?: number | null;
+		/** Height of the bar: it grows when the chips wrap to a second row. */
+		height?: number;
 		/** How close in time a located photo makes another one "nearby" (a setting of the core). */
 		nearbyMinutes?: number;
 		onchange: (f: GalleryFilter) => void;
@@ -103,7 +106,7 @@
 	const isDefault = $derived(filterToUrl(filter) === filterToUrl(defaultFilter));
 </script>
 
-<div class="bar">
+<div class="bar" bind:offsetHeight={height}>
 	<div class="group" role="group" aria-label={m.filter_view()}>
 		{#each SHOW_CATEGORIES as category (category)}
 			{@const checked = filter.show.includes(category)}

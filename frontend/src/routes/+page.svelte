@@ -36,6 +36,7 @@
 	let error = $state<string | null>(null);
 	let width = $state(0);
 	let timeline = $state<HTMLElement>();
+	let filterHeight = $state(0);
 	let nearbyMinutes = $state(15);
 	// The photo shown large while a tile is pressed long.
 	let peek = $state<AssetItem | null>(null);
@@ -141,7 +142,7 @@
 
 <svelte:window {onkeydown} />
 
-<FilterBar {filter} {total} bind:nearbyMinutes onchange={changeFilter} />
+<FilterBar {filter} {total} bind:height={filterHeight} bind:nearbyMinutes onchange={changeFilter} />
 <!-- Beside the timeline of years on the right, as the photos are. -->
 <div class="beside-scrubber"><PauseBar /></div>
 
@@ -197,7 +198,7 @@
 		</div>
 	</div>
 	{#if timeline}
-		<Scrubber {timeline} />
+		<Scrubber {timeline} top={filterHeight} />
 	{/if}
 {/if}
 

@@ -9,7 +9,14 @@
 	import { monthTitle } from './month.js';
 	import { scrubberMarks, type Segment } from './scrubber.js';
 
-	let { timeline }: { timeline: HTMLElement } = $props();
+	let {
+		timeline,
+		top = 0
+	}: {
+		timeline: HTMLElement;
+		/** Height of the filter bar over the gallery: the scrubber starts below it. */
+		top?: number;
+	} = $props();
 
 	let bar = $state<HTMLElement>();
 	let barHeight = $state(0);
@@ -90,6 +97,7 @@
 	tabindex="-1"
 	bind:this={bar}
 	bind:clientHeight={barHeight}
+	style:top="calc(var(--header-height) + {top}px + var(--space-2))"
 	{onpointermove}
 	{onpointerdown}
 	onpointerup={() => (dragging = false)}
@@ -111,7 +119,6 @@
 <style>
 	.scrubber {
 		position: fixed;
-		top: 4.5rem;
 		bottom: 1rem;
 		right: 0;
 		width: 3.25rem;

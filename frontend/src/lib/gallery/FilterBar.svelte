@@ -27,11 +27,14 @@
 	let {
 		filter,
 		total = null,
+		height = $bindable(0),
 		onchange
 	}: {
 		filter: GalleryFilter;
 		/** Photos and videos under the filter; null while loading. */
 		total?: number | null;
+		/** Height of the bar: it grows when the chips wrap to a second row. */
+		height?: number;
 		onchange: (f: GalleryFilter) => void;
 	} = $props();
 
@@ -90,7 +93,7 @@
 	const isDefault = $derived(filterToUrl(filter) === filterToUrl(defaultFilter));
 </script>
 
-<div class="bar">
+<div class="bar" bind:offsetHeight={height}>
 	<div class="group" role="group" aria-label={m.filter_view()}>
 		{#each SHOW_CATEGORIES as category (category)}
 			{@const checked = filter.show.includes(category)}

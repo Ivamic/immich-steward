@@ -33,6 +33,7 @@
 	let error = $state<string | null>(null);
 	let width = $state(0);
 	let timeline = $state<HTMLElement>();
+	let filterHeight = $state(0);
 	// `?at=<photo>` of the last navigation, until the timeline is scrolled to it.
 	let pendingAt = $state<string | null>(null);
 	// Photos chosen for an action on all of them (D-149), and the photos of the loaded months, in
@@ -132,7 +133,7 @@
 
 <svelte:window {onkeydown} />
 
-<FilterBar {filter} {total} onchange={changeFilter} />
+<FilterBar {filter} {total} bind:height={filterHeight} onchange={changeFilter} />
 <!-- Beside the timeline of years on the right, as the photos are. -->
 <div class="beside-scrubber"><PauseBar /></div>
 
@@ -181,7 +182,7 @@
 		</div>
 	</div>
 	{#if timeline}
-		<Scrubber {timeline} />
+		<Scrubber {timeline} top={filterHeight} />
 	{/if}
 {/if}
 

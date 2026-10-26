@@ -56,6 +56,7 @@
 	import { moduleColor, moduleOnColor, resolvedColor } from './modulePalette.js';
 	import { markerElement, pinElement, shapeSvg } from './markers.js';
 	import MapSourceSwitcher from './MapSourceSwitcher.svelte';
+	import { HEATMAP, heatmapFeatures, heatmapPaint, loadHeatmap } from './heatmap.js';
 	import {
 		areaMode,
 		attributionHtml,
@@ -121,6 +122,7 @@
 	const AUTO_KEY = 'steward-map-auto';
 	const LABELS_KEY = 'steward-map-labels';
 	const AREAS_KEY = 'steward-map-areas';
+	const HEATMAP_KEY = 'steward-map-heatmap';
 	const IMAGERY = 'steward-imagery';
 	let choice = $state(stored(SOURCE_KEY, SCHEME));
 	// The plain map until something else is picked; auto switching only when turned on.
@@ -128,6 +130,9 @@
 	let labels = $state(stored(LABELS_KEY, 'on') === 'on');
 	// The fill of the areas may hide the imagery: it can be left out, or the areas altogether.
 	let areas = $state(areaMode(stored(AREAS_KEY, 'fill')));
+	// Where the library already has photos (D-155): off until turned on, then remembered.
+	let heatmap = $state(stored(HEATMAP_KEY, 'off') === 'on');
+	let heatmapCells = $state.raw<number[] | null>(null);
 	// The latest EOX year unless another is picked in this page (D-146).
 	let eoxYear = $state<string | null>(null);
 	let zoom = $state(3);
@@ -323,8 +328,8 @@
 					maxzoom: source.max_zoom,
 					attribution: attributionHtml(variant.attribution, copyright)
 				});
-				const labelsFrom = styleLayers(instance).firstLabel;
-				instance.addLayer({ id: IMAGERY, type: 'raster', source: IMAGERY }, labelsFrom);
+				const under = instance.getLayer(HEATMAP) ? HEATMAP : styleLayers(instance).firstLabel;
+				instance.addLayer({ id: IMAGERY, type: 'raster', source: IMAGERY }, under);
 			}
 			appliedImagery = key;
 		}
@@ -362,6 +367,18 @@
 	}
 
 	function addLayers(instance: MapLibreMap) {
+		// Under the names of places and our layers, over the imagery (which goes under it).
+		instance.addSource(HEATMAP, { type: 'geojson', data: EMPTY });
+		instance.addLayer(
+			{
+				id: HEATMAP,
+				type: 'heatmap',
+				source: HEATMAP,
+				layout: { visibility: 'none' },
+				paint: heatmapPaint
+			},
+			styleLayers(instance).firstLabel
+		);
 		for (const id of ['steward-radius', 'steward-track', 'steward-segment']) {
 			// Line metrics let the route be colored along its length (line-gradient).
 			instance.addSource(id, {
@@ -576,6 +593,22 @@
 			}
 			overlayVersion++;
 		});
+	});
+
+	// The cells are loaded once per page, when the heat map is first turned on.
+	$effect(() => {
+		if (!heatmap || heatmapCells) return;
+		loadHeatmap()
+			.then((cells) => (heatmapCells = cells))
+			.catch(() => {});
+	});
+
+	// Also after a change of the style, which adds the layers again.
+	$effect(() => {
+		if (!map || !ready) return;
+		const on = heatmap && heatmapCells !== null;
+		if (on) (map.getSource(HEATMAP) as GeoJSONSource).setData(heatmapFeatures(heatmapCells ?? []));
+		map.setLayoutProperty(HEATMAP, 'visibility', on ? 'visible' : 'none');
 	});
 
 	// Also after a change of the style, which adds the layers again.
@@ -798,38 +831,41 @@
 </script>
 
 <div class="frame">
-	<!-- For an account that switched a satellite source on, or when there are areas to draw. -->
-	{#if hasSources || hasAreas}
-		<MapSourceSwitcher
-			sources={hasSources ? sources : []}
-			{areas}
-			{hasAreas}
-			{auto}
-			autoOn={autoActive}
-			{labels}
-			{year}
-			{active}
-			{zoom}
-			{problems}
-			onchoice={(id) => {
-				choice = id;
-				store(SOURCE_KEY, id);
-			}}
-			onauto={(on) => {
-				autoOn = on;
-				store(AUTO_KEY, on ? 'on' : 'off');
-			}}
-			onlabels={(on) => {
-				labels = on;
-				store(LABELS_KEY, on ? 'on' : 'off');
-			}}
-			onareas={(mode) => {
-				areas = mode;
-				store(AREAS_KEY, mode);
-			}}
-			onyear={(picked) => (eoxYear = picked)}
-		/>
-	{/if}
+	<!-- Always: the heat map can be turned on over any map. -->
+	<MapSourceSwitcher
+		sources={hasSources ? sources : []}
+		{areas}
+		{hasAreas}
+		{auto}
+		autoOn={autoActive}
+		{labels}
+		{heatmap}
+		{year}
+		{active}
+		{zoom}
+		{problems}
+		onchoice={(id) => {
+			choice = id;
+			store(SOURCE_KEY, id);
+		}}
+		onauto={(on) => {
+			autoOn = on;
+			store(AUTO_KEY, on ? 'on' : 'off');
+		}}
+		onlabels={(on) => {
+			labels = on;
+			store(LABELS_KEY, on ? 'on' : 'off');
+		}}
+		onareas={(mode) => {
+			areas = mode;
+			store(AREAS_KEY, mode);
+		}}
+		onheatmap={(on) => {
+			heatmap = on;
+			store(HEATMAP_KEY, on ? 'on' : 'off');
+		}}
+		onyear={(picked) => (eoxYear = picked)}
+	/>
 	<div
 		class="wrap"
 		class:dimmed

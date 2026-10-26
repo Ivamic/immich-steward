@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The bar above the map: the plain map or a satellite source (a year for EOX), what "Auto"
      switches between and "Auto" itself with its state always visible (switch by zoom as the
-     settings say, linked by the gear), labels over the imagery, how the likely areas are drawn.
+     settings say, linked by the gear), labels over the imagery, how the likely areas are drawn,
+     the heat map of the photos with a location.
      Sources that cannot be used are greyed with the reason; they are switched on in the
      settings. -->
 <script lang="ts">
@@ -18,6 +19,7 @@
 		auto,
 		autoOn,
 		labels,
+		heatmap,
 		year,
 		active,
 		zoom,
@@ -26,6 +28,7 @@
 		onauto,
 		onlabels,
 		onareas,
+		onheatmap,
 		onyear
 	}: {
 		/** The satellite sources; none: the bar shows only the areas. */
@@ -37,6 +40,8 @@
 		auto: MapAuto | null;
 		autoOn: boolean;
 		labels: boolean;
+		/** The heat map of the photos with a location is shown. */
+		heatmap: boolean;
 		/** The EOX year shown. */
 		year: string;
 		/** What the map shows now. */
@@ -49,6 +54,7 @@
 		onauto: (on: boolean) => void;
 		onlabels: (on: boolean) => void;
 		onareas: (mode: AreaMode) => void;
+		onheatmap: (on: boolean) => void;
 		onyear: (year: string) => void;
 	} = $props();
 
@@ -152,6 +158,18 @@
 			</div>
 		</span>
 	{/if}
+	<label
+		class="st-check st-check--sm"
+		class:apart={sources.length > 0 || hasAreas}
+		title={m.map_heatmap_hint()}
+	>
+		<input
+			type="checkbox"
+			checked={heatmap}
+			onchange={(e) => onheatmap((e.currentTarget as HTMLInputElement).checked)}
+		/>
+		{m.map_heatmap()}
+	</label>
 	<!-- Floored, as the switching by zoom compares it. -->
 	<span class="zoom" title={m.mapsrc_zoom_scale()}
 		>{m.map_zoom_now({ zoom: Math.floor(zoom) })}</span

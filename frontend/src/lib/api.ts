@@ -538,6 +538,9 @@ export const setUpdates = (enabled: boolean) =>
 /** Checks now, also while the automatic check is off. */
 export const checkUpdates = () => request<Updates>('POST', '/api/updates/check');
 
+/** Where the photos with a location are: latitude, longitude and number of photos per cell. */
+export const getHeatmap = () => request<number[]>('GET', '/api/assets/heatmap');
+
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
 /** Removes a worker that is not connected from the list. */
 export const forgetWorker = (id: string) => request<void>('DELETE', `/api/library/workers/${id}`);

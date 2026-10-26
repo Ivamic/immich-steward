@@ -7,7 +7,18 @@ from datetime import date, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, Select, and_, exists, func, literal, or_, select, tuple_
+from sqlalchemy import (
+    ColumnElement,
+    Numeric,
+    Select,
+    and_,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+    tuple_,
+)
 from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -158,6 +169,46 @@ async def nearby_levels(
         select(Asset.id, same).where(Asset.id.in_(asset_ids), located_nearby(minutes))
     )
     return {row.id: "same_camera" if row.same else "other_camera" for row in rows}
+
+
+# Heat map cells: coordinates rounded to this many decimals (3: about 100 m).
+HEATMAP_DECIMALS = 3
+
+
+def _located(account: Account) -> list[ColumnElement[bool]]:
+    return [
+        Asset.account_id == account.id,
+        Asset.is_trashed.is_(False),
+        Asset.latitude.is_not(None),
+        Asset.longitude.is_not(None),
+    ]
+
+
+async def heatmap_version(db: AsyncSession, account: Account) -> str:
+    """Changes whenever a photo gets, loses or changes its location: for the ETag."""
+    row = (
+        await db.execute(
+            select(func.count(), func.sum(Asset.latitude), func.sum(Asset.longitude)).where(
+                *_located(account)
+            )
+        )
+    ).one()
+    return f"{row[0]}-{row[1] or 0:.6f}-{row[2] or 0:.6f}"
+
+
+async def heatmap_cells(db: AsyncSession, account: Account) -> list[float]:
+    """Where the located photos of the account are, as cells of about 100 m: a flat list of
+    latitude, longitude and number of photos, cell after cell. Archived photos count, trashed
+    ones do not; the gallery filter does not apply."""
+    lat = func.round(func.cast(Asset.latitude, Numeric), HEATMAP_DECIMALS)
+    lon = func.round(func.cast(Asset.longitude, Numeric), HEATMAP_DECIMALS)
+    rows = await db.execute(
+        select(lat, lon, func.count()).where(*_located(account)).group_by(lat, lon)
+    )
+    cells: list[float] = []
+    for cell_lat, cell_lon, count in rows:
+        cells += [float(cell_lat), float(cell_lon), count]
+    return cells
 
 
 async def geoclip_confident_ids(

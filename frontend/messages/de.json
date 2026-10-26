@@ -366,6 +366,8 @@
 	"mapsrc_own_count_estimate": "Eine grobe Schätzung: Der Anbieter zählt auf seine Weise, seine Zahlen können abweichen.",
 	"map_areas": "Gebiete",
 	"map_areas_hint": "Wie die wahrscheinlichen Gebiete der Vorschläge gezeichnet werden",
+	"map_heatmap": "Heatmap",
+	"map_heatmap_hint": "Wo deine Fotos mit Standort sind: ein Hinweis, um den Ort auf der Karte zu finden",
 	"map_areas_fill": "Füllung",
 	"map_areas_line": "Umriss",
 	"map_areas_none": "Keine",

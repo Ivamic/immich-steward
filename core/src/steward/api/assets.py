@@ -2,6 +2,8 @@
 """Gallery API: month buckets, assets, filter options and images proxied from Immich."""
 
 import asyncio
+import gzip
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
@@ -30,6 +32,8 @@ from steward.gallery import (
     album_options,
     camera_options,
     geoclip_confident_ids,
+    heatmap_cells,
+    heatmap_version,
     month_assets_query,
     month_buckets,
     nearby_levels,
@@ -352,6 +356,27 @@ async def list_month(
     )
     nearby = await nearby_levels(db, [a.id for a in assets], settings.time_neighbors_nearby_minutes)
     return [AssetItem.of(asset, asset.id in confident, nearby.get(asset.id)) for asset in assets]
+
+
+@router.get("/heatmap")
+async def heatmap(
+    account: CurrentAccount,
+    db: DbDep,
+    if_none_match: Annotated[str | None, Header()] = None,
+    accept_encoding: Annotated[str | None, Header()] = None,
+) -> Response:
+    """Where the photos with a location are, for the heat map over the map (D-155): a flat list
+    of latitude, longitude and number of photos per cell of about 100 m. The browser keeps it and
+    asks again with the ETag, which changes whenever a location does."""
+    etag = f'"{await heatmap_version(db, account)}"'
+    headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
+    if if_none_match == etag:
+        return Response(status_code=304, headers=headers)
+    body = json.dumps(await heatmap_cells(db, account), separators=(",", ":")).encode()
+    if "gzip" in (accept_encoding or ""):
+        body = gzip.compress(body, compresslevel=6)
+        headers |= {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"}
+    return Response(body, media_type="application/json", headers=headers)
 
 
 @router.get("/filter-options")

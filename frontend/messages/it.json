@@ -366,6 +366,8 @@
 	"mapsrc_own_count_estimate": "Una stima approssimativa: il fornitore conta a modo suo, e i suoi numeri possono differire.",
 	"map_areas": "Zone",
 	"map_areas_hint": "Come vengono disegnate le zone probabili dei suggerimenti",
+	"map_heatmap": "Mappa di calore",
+	"map_heatmap_hint": "Dove sono le tue foto con posizione: un aiuto per trovare il luogo sulla mappa",
 	"map_areas_fill": "Riempimento",
 	"map_areas_line": "Contorno",
 	"map_areas_none": "Nessuno",

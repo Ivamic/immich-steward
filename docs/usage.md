@@ -113,6 +113,12 @@ for the reason (no key, key not accepted, limit used up).
 - **Labels over imagery** keeps the names of places, streets and water over the photo. Buildings,
   bridges, borders and the icons of shops and the like are not drawn over imagery.
 
+- **Heat map** colors the map where your photos with a location are, in violet: the more photos,
+  the brighter. When you know there are already many photos of a place, it helps to find it on
+  the map quickly. It is off until you turn it on, and is in the bar over every map, also
+  without satellite sources. Only your own photos count, the filters of the gallery do not
+  apply.
+
 - **Areas** sets how the circles of the suggestions are drawn: **Fill** (tinted, as by
   default), **Outline** (only the border, so the imagery under it stays clear) or **None**. It is
   in the bar whenever the map has such circles, also without satellite sources.

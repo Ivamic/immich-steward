@@ -87,6 +87,8 @@ class Settings(BaseSettings):
 
     # M1 "time neighbors": located photos up to this many hours before or after count.
     time_neighbors_window_hours: float = Field(default=3.0, gt=0, le=48)
+    # The gallery marks photos without a location that have a located one this close in time.
+    time_neighbors_nearby_minutes: float = Field(default=15.0, gt=0, le=24 * 60)
 
     # Immich tag for coordinates written by the app (they are not from the camera GPS);
     # "a/b" is a nested tag. An empty value disables tagging.

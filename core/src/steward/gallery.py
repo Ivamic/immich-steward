@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Queries behind the gallery: filters, month buckets, assets of a month, filter options."""
 
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
@@ -9,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import ColumnElement, Select, and_, exists, func, literal, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun
 from steward.worker_queue import latest_run_failed, whole_photo
@@ -21,6 +23,11 @@ TypeFilter = Literal["all", "image", "video"]
 
 # Separates make and model in the camera filter value.
 CAMERA_SEPARATOR = "\x1f"
+# Scanned photos carry the scan date, not the capture date (matched against "make model").
+SCANNER = re.compile(r"scan|epson|perfection|coolscan|plustek|fujitsu fi-", re.IGNORECASE)
+# Which located photo close in time makes a photo without a location "nearby": one by the
+# same camera, or only by another one.
+NearbyLevel = Literal["same_camera", "other_camera"]
 # `failed_module` value: the latest run of any module failed.
 ANY_MODULE = "any"
 
@@ -38,6 +45,8 @@ class GalleryFilter:
     include_archived: bool = False
     # Only photos without a location that GeoCLIP places with at least this confidence.
     geoclip_confidence: float | None = None
+    # Only photos without a location with a located one this many minutes before or after.
+    nearby_minutes: float | None = None
     # Only photos whose latest run of this module (`ANY_MODULE`: of any module) failed (with
     # this failure code, if set).
     failed_module: str | None = None
@@ -71,6 +80,8 @@ class GalleryFilter:
         if self.geoclip_confidence is not None:
             result.append(Asset.latitude.is_(None))
             result.append(geoclip_confident(self.geoclip_confidence))
+        if self.nearby_minutes is not None:
+            result.append(located_nearby(self.nearby_minutes))
         if self.date_to is not None:
             end = datetime.combine(self.date_to + timedelta(days=1), datetime.min.time())
             result.append(Asset.local_taken_at < end)
@@ -100,6 +111,53 @@ def geoclip_confident(min_score: float) -> ColumnElement[bool]:
             func.jsonb_build_object("min", min_score),
         ),
     )
+
+
+def is_scan(asset: Any = Asset) -> ColumnElement[bool]:
+    """SQL twin of `time_neighbors.is_scanner`."""
+    camera = func.concat_ws(
+        " ", func.coalesce(asset.camera_make, ""), func.coalesce(asset.camera_model, "")
+    )
+    result: ColumnElement[bool] = camera.op("~*")(SCANNER.pattern)
+    return result
+
+
+def located_nearby(minutes: float, same_camera: bool = False) -> ColumnElement[bool]:
+    """The asset has no location, and another photo of the account taken at most this many
+    minutes before or after (by the camera clock) has one; with `same_camera`, by the same
+    camera. As for time neighbors: archived photos count, trashed ones and scans do not."""
+    neighbor = aliased(Asset)
+    window = timedelta(minutes=minutes)
+    conditions = [
+        neighbor.account_id == Asset.account_id,
+        neighbor.is_trashed.is_(False),
+        neighbor.latitude.is_not(None),
+        neighbor.id != Asset.id,
+        neighbor.local_taken_at.between(
+            Asset.local_taken_at - window, Asset.local_taken_at + window
+        ),
+        ~is_scan(neighbor),
+    ]
+    if same_camera:
+        conditions += [
+            neighbor.camera_make.is_not_distinct_from(Asset.camera_make),
+            neighbor.camera_model.is_not_distinct_from(Asset.camera_model),
+            or_(Asset.camera_make.is_not(None), Asset.camera_model.is_not(None)),
+        ]
+    return and_(Asset.latitude.is_(None), ~is_scan(), exists().where(*conditions))
+
+
+async def nearby_levels(
+    db: AsyncSession, asset_ids: list[UUID], minutes: float
+) -> dict[UUID, NearbyLevel]:
+    """Of the given assets, those with a located photo nearby in time, and by which camera."""
+    if not asset_ids:
+        return {}
+    same = located_nearby(minutes, same_camera=True).label("same")
+    rows = await db.execute(
+        select(Asset.id, same).where(Asset.id.in_(asset_ids), located_nearby(minutes))
+    )
+    return {row.id: "same_camera" if row.same else "other_camera" for row in rows}
 
 
 async def geoclip_confident_ids(

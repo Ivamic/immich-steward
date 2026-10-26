@@ -24,6 +24,7 @@ from steward.deps import (
 from steward.errors import ApiError
 from steward.gallery import (
     GalleryFilter,
+    NearbyLevel,
     ShowCategory,
     TypeFilter,
     album_options,
@@ -31,6 +32,7 @@ from steward.gallery import (
     geoclip_confident_ids,
     month_assets_query,
     month_buckets,
+    nearby_levels,
     neighbors,
 )
 from steward.images import TURNS, UnreadableImage, turned
@@ -66,6 +68,7 @@ def gallery_filter(
     date_to: date | None = None,
     archived: bool = False,
     geoclip_confident: bool = False,
+    nearby: bool = False,
     failed_module: Annotated[str | None, Query(max_length=32)] = None,
     failure: Annotated[str | None, Query(max_length=32)] = None,
 ) -> GalleryFilter:
@@ -78,6 +81,7 @@ def gallery_filter(
         date_to=date_to,
         include_archived=archived,
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
+        nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
         failed_module=failed_module,
         failure=failure if failed_module else None,
     )
@@ -99,15 +103,20 @@ class AssetItem(BaseModel):
     has_location: bool
     # No location yet, but GeoCLIP places the photo confidently.
     geoclip_confident: bool = False
+    # No location yet, but a photo taken close in time has one: by the same camera or another.
+    nearby: NearbyLevel | None = None
     width: int | None
     height: int | None
     # Changes with the thumbnails (photo rotated or edited in Immich): for their addresses.
     version: str | None = None
 
     @classmethod
-    def of(cls, asset: Asset, geoclip_confident: bool = False) -> "AssetItem":
+    def of(
+        cls, asset: Asset, geoclip_confident: bool = False, nearby: NearbyLevel | None = None
+    ) -> "AssetItem":
         return cls(
             geoclip_confident=geoclip_confident,
+            nearby=nearby,
             id=asset.id,
             local_taken_at=asset.local_taken_at,
             type=asset.type,
@@ -318,6 +327,8 @@ class FilterOptions(BaseModel):
     albums: list[AlbumOption]
     # Modules whose failed runs the gallery can show (`failed_module`, also `ANY_MODULE`).
     failed_modules: list[str]
+    # How close in time a located photo makes another one "nearby" (the `nearby` filter).
+    nearby_minutes: float
 
 
 @router.get("/months")
@@ -339,15 +350,19 @@ async def list_month(
     confident = await geoclip_confident_ids(
         db, [a.id for a in assets], settings.geoclip_confident_from
     )
-    return [AssetItem.of(asset, asset.id in confident) for asset in assets]
+    nearby = await nearby_levels(db, [a.id for a in assets], settings.time_neighbors_nearby_minutes)
+    return [AssetItem.of(asset, asset.id in confident, nearby.get(asset.id)) for asset in assets]
 
 
 @router.get("/filter-options")
-async def filter_options(account: CurrentAccount, db: DbDep) -> FilterOptions:
+async def filter_options(
+    account: CurrentAccount, db: DbDep, settings: SettingsDep
+) -> FilterOptions:
     return FilterOptions(
         cameras=[CameraOption(**row) for row in await camera_options(db, account)],
         albums=[AlbumOption(**row) for row in await album_options(db, account)],
         failed_modules=list(REMOTE_MODULES),
+        nearby_minutes=settings.time_neighbors_nearby_minutes,
     )
 
 

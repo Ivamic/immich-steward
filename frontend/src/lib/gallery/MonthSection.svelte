@@ -35,6 +35,7 @@
 		width,
 		query,
 		selection,
+		nearbyMinutes = 15,
 		onitems,
 		onpick
 	}: {
@@ -42,6 +43,8 @@
 		filter: GalleryFilter;
 		width: number;
 		query: FilterQuery;
+		/** For the tooltip of the "nearby" marker. */
+		nearbyMinutes?: number;
 		selection: Selection;
 		/** The photos of the month, once fetched: for choosing a range across months. */
 		onitems: (month: string, items: AssetItem[]) => void;
@@ -135,23 +138,46 @@
 							</span>
 						{/if}
 						{#if item.has_location}
-							<span
-								class="marker location"
-								role="img"
-								aria-label={m.asset_has_location()}
-								title={m.asset_has_location()}
-							>
-								<Icon name="map-pin" size={13} strokeWidth={2.25} />
+							<span class="markers">
+								<span
+									class="marker location"
+									role="img"
+									aria-label={m.asset_has_location()}
+									title={m.asset_has_location()}
+								>
+									<Icon name="map-pin" size={13} strokeWidth={2.25} />
+								</span>
 							</span>
-						{:else if item.geoclip_confident}
-							<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
-							<span
-								class="marker geoclip"
-								role="img"
-								aria-label={m.asset_geoclip_confident()}
-								title={m.asset_geoclip_confident()}
-							>
-								<Icon name="crosshair" size={13} strokeWidth={2.25} />
+						{:else if item.nearby || item.geoclip_confident}
+							<span class="markers">
+								{#if item.nearby}
+									<!-- Clock in the color of time neighbors: filled for the same camera
+									     (the stronger hint), outlined for another one. -->
+									{@const text =
+										item.nearby === 'same_camera'
+											? m.asset_nearby_same({ minutes: nearbyMinutes })
+											: m.asset_nearby_other({ minutes: nearbyMinutes })}
+									<span
+										class="marker nearby"
+										class:other={item.nearby === 'other_camera'}
+										role="img"
+										aria-label={text}
+										title={text}
+									>
+										<Icon name="clock" size={13} strokeWidth={2.25} />
+									</span>
+								{/if}
+								{#if item.geoclip_confident}
+									<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
+									<span
+										class="marker geoclip"
+										role="img"
+										aria-label={m.asset_geoclip_confident()}
+										title={m.asset_geoclip_confident()}
+									>
+										<Icon name="crosshair" size={13} strokeWidth={2.25} />
+									</span>
+								{/if}
 							</span>
 						{/if}
 					</a>
@@ -325,10 +351,14 @@
 		color: var(--gray-0);
 	}
 	/* White disc with a shadow: visible on snow and sky as well as on dark photos. */
-	.marker {
+	.markers {
 		position: absolute;
 		bottom: 6px;
 		right: 6px;
+		display: flex;
+		gap: 3px;
+	}
+	.marker {
 		display: grid;
 		place-items: center;
 		width: 22px;
@@ -343,6 +373,17 @@
 	.geoclip {
 		background: var(--module-2);
 		color: var(--gray-0);
+	}
+	.nearby {
+		background: var(--module-1);
+		color: var(--gray-0);
+	}
+	.nearby.other {
+		background: var(--gray-0);
+		color: var(--module-1);
+		box-shadow:
+			inset 0 0 0 1.5px var(--module-1),
+			var(--shadow-badge);
 	}
 	.placeholder {
 		border-radius: 2px;

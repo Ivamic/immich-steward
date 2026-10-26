@@ -166,6 +166,7 @@ source is marked in Settings and over the map, and **Auto** takes the next sourc
 | Setting | Default | Meaning |
 |---|---|---|
 | `STEWARD_TIME_NEIGHBORS_WINDOW_HOURS` | `3` | Time neighbors: photos with a location taken up to this many hours before or after count. |
+| `STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES` | `15` | The gallery marks a photo without a location when a photo with one was taken up to this many minutes before or after (the clock badge and the *Located photo nearby* filter). |
 | `STEWARD_GEOCLIP_MIN_CONFIDENCE` | `0.25` | GeoCLIP suggestions below this confidence (0 to 1) are hidden. |
 | `STEWARD_GEOCLIP_WEAK_BELOW` | `0.5` | GeoCLIP suggestions below this are folded as weak. |
 | `STEWARD_GEOCLIP_CONFIDENT_FROM` | `0.75` | GeoCLIP suggestions from this are marked as confident and counted by the gallery filter *Confident GeoCLIP guess*. |

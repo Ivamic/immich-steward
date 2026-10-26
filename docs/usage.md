@@ -14,11 +14,15 @@ The gallery shows your photos by month, newest first. By default it shows the ph
 
 - **Filters** are the row of buttons at the top. Which photos to show: *Without location*,
   *With location*, *Skipped*, *Not applicable* (several can be on at once). *Confident GeoCLIP
-  guess* leaves the photos for which GeoCLIP is fairly sure where they were taken: a good place
-  to start. Then the type (photos, videos), the camera, the album, the **Period** and the
+  guess* leaves the photos for which GeoCLIP is fairly sure where they were taken; *Located
+  photo nearby* leaves the photos taken within 15 minutes of a photo with a location, whose place
+  is almost surely known. Both are a good place to start. Then the type (photos, videos), the camera, the album, the **Period** and the
   **Processing errors** of the modules. *Reset* brings the default filters back.
-- **Badges** in the corner of a photo: a pin means the photo has a location; an orange crosshair
-  means GeoCLIP has a confident guess for it; a play sign marks a video.
+- **Badges** in the corner of a photo: a pin means the photo has a location; a blue clock means
+  a photo with a location was taken within 15 minutes, filled when by the same camera (the
+  stronger hint) and outlined when by another one, such as a phone; an orange crosshair means
+  GeoCLIP has a confident guess for it; a play sign marks a video. The 15 minutes are a setting
+  (`STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES`).
 - **The timeline** on the right shows the years. Click or drag on it to jump to a month.
 - Click a photo to open its card. When you come back, the gallery opens at the same place.
 

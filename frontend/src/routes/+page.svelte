@@ -33,6 +33,7 @@
 	let error = $state<string | null>(null);
 	let width = $state(0);
 	let timeline = $state<HTMLElement>();
+	let nearbyMinutes = $state(15);
 	// `?at=<photo>` of the last navigation, until the timeline is scrolled to it.
 	let pendingAt = $state<string | null>(null);
 	// Photos chosen for an action on all of them (D-149), and the photos of the loaded months, in
@@ -132,7 +133,7 @@
 
 <svelte:window {onkeydown} />
 
-<FilterBar {filter} {total} onchange={changeFilter} />
+<FilterBar {filter} {total} bind:nearbyMinutes onchange={changeFilter} />
 <!-- Beside the timeline of years on the right, as the photos are. -->
 <div class="beside-scrubber"><PauseBar /></div>
 
@@ -173,6 +174,7 @@
 						{width}
 						{query}
 						{selection}
+						{nearbyMinutes}
 						onitems={(month, items) => loaded.set(month, items)}
 						onpick={pick}
 					/>

@@ -7,14 +7,13 @@ since their clocks may be off or set to another zone.
 """
 
 import math
-import re
 from collections import Counter
 from datetime import timedelta
 from typing import Literal
 
 from sqlalchemy import and_, func, or_, select
 
-from steward.gallery import CAMERA_SEPARATOR
+from steward.gallery import CAMERA_SEPARATOR, SCANNER
 from steward.models import Asset, LocationChange
 from steward.modules.base import (
     CameraCount,
@@ -24,9 +23,6 @@ from steward.modules.base import (
     ModuleResult,
     TrackPoint,
 )
-
-# Scanned photos carry the scan date, not the capture date.
-SCANNER = re.compile(r"scan|epson|perfection|coolscan|plustek|fujitsu fi-", re.IGNORECASE)
 
 # Score halves roughly every 40 minutes: 5 min ~ 0.92, 1 h ~ 0.37, 3 h ~ 0.05.
 SCORE_TIME_S = 3600.0

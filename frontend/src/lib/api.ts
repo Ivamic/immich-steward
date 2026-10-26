@@ -116,6 +116,8 @@ export interface GalleryFilter {
 	archived: boolean;
 	/** Only photos without a location that GeoCLIP places confidently. */
 	geoclip_confident: boolean;
+	/** Only photos without a location with a located one taken close in time. */
+	nearby: boolean;
 	/** Only photos whose latest run of this module failed... */
 	failed_module: string | null;
 	/** ...for this reason (a failure code); null: any reason. */
@@ -135,17 +137,23 @@ export interface AssetItem {
 	has_location: boolean;
 	/** No location yet, but GeoCLIP places the photo confidently. */
 	geoclip_confident: boolean;
+	/** No location yet, but a photo taken close in time has one: by the same camera or another. */
+	nearby: NearbyLevel | null;
 	width: number | null;
 	height: number | null;
 	/** Changes with the thumbnails (photo rotated or edited in Immich). */
 	version: string | null;
 }
 
+export type NearbyLevel = 'same_camera' | 'other_camera';
+
 export interface FilterOptions {
 	cameras: { value: string; make: string; model: string; count: number }[];
 	albums: { id: string; name: string; count: number }[];
 	/** Modules whose failed runs the gallery can show (also ANY_MODULE). */
 	failed_modules: string[];
+	/** How close in time a located photo makes another one "nearby". */
+	nearby_minutes: number;
 }
 
 /** `failed_module` of the gallery filter: the latest run of any module failed. */
@@ -162,6 +170,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
+	if (filter.nearby) params.set('nearby', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);
 		if (filter.failure) params.set('failure', filter.failure);

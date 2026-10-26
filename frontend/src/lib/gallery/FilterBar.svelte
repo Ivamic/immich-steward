@@ -27,19 +27,31 @@
 	let {
 		filter,
 		total = null,
+		// eslint-disable-next-line no-useless-assignment -- bound: the gallery reads it
+		nearbyMinutes = $bindable(15),
 		onchange
 	}: {
 		filter: GalleryFilter;
 		/** Photos and videos under the filter; null while loading. */
 		total?: number | null;
+		/** How close in time a located photo makes another one "nearby" (a setting of the core). */
+		nearbyMinutes?: number;
 		onchange: (f: GalleryFilter) => void;
 	} = $props();
 
-	let options = $state<FilterOptions>({ cameras: [], albums: [], failed_modules: [] });
+	let options = $state<FilterOptions>({
+		cameras: [],
+		albums: [],
+		failed_modules: [],
+		nearby_minutes: 15
+	});
 
 	$effect(() => {
 		getFilterOptions()
-			.then((result) => (options = result))
+			.then((result) => {
+				options = result;
+				nearbyMinutes = result.nearby_minutes;
+			})
 			.catch(() => {});
 	});
 
@@ -115,6 +127,18 @@
 		>
 			<span class="st-chip__dot" style:background="var(--module-2)"></span>
 			{m.filter_geoclip_confident()}
+		</button>
+	</Tooltip>
+
+	<Tooltip text={m.filter_nearby_hint({ minutes: options.nearby_minutes })} below>
+		<button
+			type="button"
+			class="st-chip"
+			aria-pressed={filter.nearby}
+			onclick={() => set({ nearby: !filter.nearby })}
+		>
+			<span class="st-chip__dot" style:background="var(--module-1)"></span>
+			{m.filter_nearby()}
 		</button>
 	</Tooltip>
 

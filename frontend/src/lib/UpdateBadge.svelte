@@ -15,10 +15,10 @@
 	});
 </script>
 
+<!-- eslint-disable svelte/no-navigation-without-resolve -- release notes on GitHub -->
 {#if updates.offered && updates.info?.url}
 	{@const version = updates.offered}
 	<span class="update">
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- release notes on GitHub -->
 		<a
 			href={updates.info.url}
 			target="_blank"

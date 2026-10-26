@@ -10,7 +10,15 @@ from typing import Any
 import httpx2
 import pytest
 
-from steward_worker.client import CoreClient, ImmichUnreachable, NameTaken, NotSteward
+from steward_worker.client import (
+    MIN_CORE_PROTOCOL,
+    CoreClient,
+    CoreTooOld,
+    ImmichUnreachable,
+    NameTaken,
+    NotSteward,
+    WorkerTooOld,
+)
 from steward_worker.modules import Candidate, PermanentError
 from steward_worker.runner import Worker, WorkerConfig
 
@@ -298,6 +306,39 @@ def test_something_else_at_the_core_address_is_told_apart() -> None:
     assert client.core_url == "http://immich.test:2283"
     with pytest.raises(NotSteward):
         asyncio.run(client.register("test", ["stub"], "cpu", "0"))
+
+
+@pytest.mark.parametrize(
+    ("answer", "error"),
+    [
+        (httpx2.Response(409, json={"code": "worker_too_old"}), WorkerTooOld),
+        (httpx2.Response(409, json={"code": "core_too_old"}), CoreTooOld),
+        # A core that takes the worker but speaks an older protocol than it needs.
+        (
+            httpx2.Response(
+                200,
+                json={
+                    "worker_id": str(uuid.uuid4()),
+                    "lease_seconds": 300,
+                    "protocol_version": MIN_CORE_PROTOCOL - 1,
+                },
+            ),
+            CoreTooOld,
+        ),
+    ],
+)
+def test_the_side_to_update_is_told(answer: httpx2.Response, error: type[Exception]) -> None:
+    client = CoreClient("http://core.test", TOKEN, transport=httpx2.MockTransport(lambda _: answer))
+    with pytest.raises(error):
+        asyncio.run(client.register("test", ["stub"], "cpu", "0"))
+
+
+def test_cores_before_the_protocol_check_are_taken() -> None:
+    # Cores before 0.6.0 do not say their protocol in the answer.
+    answer = httpx2.Response(200, json={"worker_id": str(uuid.uuid4()), "lease_seconds": 300})
+    client = CoreClient("http://core.test", TOKEN, transport=httpx2.MockTransport(lambda _: answer))
+    asyncio.run(client.register("test", ["stub"], "cpu", "0"))
+    assert client.worker_id is not None
 
 
 def test_one_model_at_a_time() -> None:

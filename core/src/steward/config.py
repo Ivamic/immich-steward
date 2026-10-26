@@ -1,17 +1,58 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Application settings, read from environment variables with the ``STEWARD_`` prefix."""
 
+import os
+from collections.abc import Mapping, MutableMapping
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MIN_SECRET_KEY_LENGTH = 32
+ENV_PREFIX = "STEWARD_"
+
+# Renamed settings, old name -> new name. Within a major version the old name keeps working, with a
+# warning in the log; drop an entry only in a new major version.
+RENAMED: dict[str, str] = {}
+
+# STEWARD_* names that are not settings of the core but share its .env: compose.yaml, the worker
+# and the tests read them.
+USED_ELSEWHERE = frozenset(
+    {
+        "STEWARD_VERSION",
+        "STEWARD_PORT",
+        "STEWARD_CORE_URL",
+        "STEWARD_WORKER_NAME",
+        "STEWARD_WORKER_MODULES",
+        "STEWARD_WORKER_ONE_MODEL",
+        "STEWARD_WORKER_THREADS",
+        "STEWARD_WORKER_MAX_LOAD",
+        "STEWARD_WORKER_UNLOAD_AFTER_MINUTES",
+        "STEWARD_WORKER_DEVICE",
+        "STEWARD_WORKER_ID_FILE",
+        "STEWARD_WORKER_MEMORY_LIMIT",
+        "STEWARD_TEST_DATABASE_URL",
+    }
+)
+
+# Settings where an empty value turns something off; for every other one, an empty value (a line
+# `STEWARD_X=` in .env) means "not set" and the default applies.
+EMPTY_MEANS_OFF = frozenset(
+    {
+        "immich_public_url",
+        "map_style_url_dark",
+        "geocoder_url",
+        "estimated_tag",
+        "worker_token",
+        "auto_modules",
+    }
+)
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="STEWARD_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix=ENV_PREFIX, env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://steward:steward@localhost:5432/steward"
     # Directory with the built web UI. When unset or missing, only the API is served.
@@ -81,6 +122,17 @@ class Settings(BaseSettings):
     # jobs every 30 s at most, busy ones send a heartbeat every third of the lease.
     worker_active_minutes: int = Field(default=3, ge=1)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _empty_means_default(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        return {
+            key: value
+            for key, value in data.items()
+            if not (value == "" and key not in EMPTY_MEANS_OFF)
+        }
+
     @property
     def immich_browser_url(self) -> str | None:
         return (self.immich_public_url or self.immich_url or "").rstrip("/") or None
@@ -93,6 +145,37 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
 
 
+def apply_renamed(environ: MutableMapping[str, str]) -> None:
+    """Lets an old name of a renamed setting stand for the new one, unless that is set too."""
+    for old, new in RENAMED.items():
+        if old in environ and new not in environ:
+            environ[new] = environ[old]
+
+
+def environment_warnings(environ: Mapping[str, str]) -> list[str]:
+    """Warnings about the STEWARD_* variables: old names of renamed settings, and unknown names
+    (a typo in .env has no effect otherwise)."""
+    warnings = [
+        f"{old} is now called {new}: rename it in .env (the old name works until the next "
+        f"major version)"
+        for old, new in RENAMED.items()
+        if old in environ
+    ]
+    known = {ENV_PREFIX + name.upper() for name in Settings.model_fields} | USED_ELSEWHERE
+    unknown = sorted(
+        name
+        for name in environ
+        if name.startswith(ENV_PREFIX) and name not in known and name not in RENAMED
+    )
+    if unknown:
+        warnings.append(
+            f"Unknown settings, ignored: {', '.join(unknown)}. Check them for typos; the "
+            f"settings are listed in docs/configuration.md"
+        )
+    return warnings
+
+
 @lru_cache
 def get_settings() -> Settings:
+    apply_renamed(os.environ)
     return Settings()

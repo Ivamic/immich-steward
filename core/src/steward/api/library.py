@@ -5,11 +5,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import embeddings, module_display, worker_queue
+from steward import __version__, embeddings, module_display, worker_queue, worker_refusals
 from steward.config import Settings
 from steward.deps import CurrentAccount, DbDep, SettingsDep
 from steward.errors import ApiError
@@ -73,6 +73,16 @@ class WorkerOut(BaseModel):
     state_since: datetime | None
 
 
+class RefusedWorkerOut(BaseModel):
+    """A worker the core did not take: `worker_too_old` (update the worker) or `core_too_old`
+    (update the server)."""
+
+    name: str
+    version: str
+    reason: str
+    at: datetime
+
+
 class Pause(BaseModel):
     """Paused background runs: of every module, or of some."""
 
@@ -119,6 +129,10 @@ class Workers(BaseModel):
     # Indexing module -> {"indexed", "located"}: photos with a location in its search index.
     index: dict[str, dict[str, int]]
     pause: Pause
+    # Workers refused lately because one side is too old for the other.
+    refused: list[RefusedWorkerOut]
+    # Version of this core: an active worker with an older one can be updated.
+    core_version: str
 
 
 class RerunRequest(BaseModel):
@@ -179,8 +193,11 @@ async def start_sync(body: SyncRequest, account: CurrentAccount, db: DbDep) -> J
 
 
 @router.get("/workers")
-async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep) -> Workers:
+async def get_workers(
+    account: CurrentAccount, db: DbDep, settings: SettingsDep, request: Request
+) -> Workers:
     """Workers known to this installation and the progress of module runs on this library."""
+    refusals: worker_refusals.WorkerRefusals = request.app.state.worker_refusals
     since = datetime.now(UTC) - timedelta(minutes=settings.worker_active_minutes)
     workers = await db.scalars(select(Worker).order_by(Worker.last_seen_at.desc()))
     return Workers(
@@ -208,6 +225,11 @@ async def get_workers(account: CurrentAccount, db: DbDep, settings: SettingsDep)
             for module_id in worker_queue.INDEXING_MODULES
         },
         pause=Pause.of(await worker_queue.paused_modules(db)),
+        refused=[
+            RefusedWorkerOut(name=r.name, version=r.version, reason=r.reason, at=r.at)
+            for r in refusals.recent(timedelta(minutes=settings.worker_active_minutes))
+        ],
+        core_version=__version__,
     )
 
 

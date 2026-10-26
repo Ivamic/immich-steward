@@ -3,7 +3,9 @@
 
 import asyncio
 import contextlib
+import logging
 import mimetypes
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,13 +20,16 @@ from starlette.types import Scope
 
 from steward import __version__
 from steward.api import assets, auth, health, library, maps, selection, worker
-from steward.config import Settings, get_settings
+from steward.config import Settings, environment_warnings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
 from steward.errors import ApiError, api_error_handler
 from steward.immich import ImmichClient
 from steward.immich.thumbnails import ThumbnailFetcher
 from steward.jobs import JobRunner
+from steward.worker_refusals import WorkerRefusals
+
+log = logging.getLogger(__name__)
 
 # Module workers (the map) are refused by browsers unless served with a JavaScript type;
 # some systems do not know the .mjs extension.
@@ -52,7 +57,10 @@ def create_app(
     immich_transport: httpx2.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """`immich_factory` and `immich_transport` let tests replace the real Immich server."""
-    settings = settings or get_settings()
+    if settings is None:
+        settings = get_settings()
+        for warning in environment_warnings(os.environ):
+            log.warning(warning)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -81,6 +89,7 @@ def create_app(
 
     app = FastAPI(title="immich-steward", version=__version__, lifespan=lifespan)
     app.state.settings = settings
+    app.state.worker_refusals = WorkerRefusals()
     app.state.immich_factory = immich_factory
     # Satellite map providers (key checks, usage); tests replace them with a fake.
     app.state.map_transport = None

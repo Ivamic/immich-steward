@@ -5,8 +5,10 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from alembic.script import ScriptDirectory
 from sqlalchemy.engine import Connection
 
+from steward import __version__
 from steward.config import get_settings
 from steward.db import create_engine
 from steward.models import Base
@@ -34,9 +36,25 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def check_known_revision() -> None:
+    """Stops with a clear message when a newer version of the app has migrated the database:
+    an older image started on it (e.g. STEWARD_VERSION pinned in .env) cannot work with it."""
+    current = context.get_context().get_current_heads()
+    known = {script.revision for script in ScriptDirectory.from_config(config).walk_revisions()}
+    unknown = [revision for revision in current if revision not in known]
+    if unknown:
+        raise SystemExit(
+            f"The database was updated by a newer version of Steward (revision "
+            f"{', '.join(unknown)}); this is version {__version__}. Start that version or a newer "
+            f"one: remove STEWARD_VERSION from .env or set it to a newer version, then run "
+            f"docker compose pull && docker compose up -d."
+        )
+
+
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
+        check_known_revision()
         context.run_migrations()
 
 

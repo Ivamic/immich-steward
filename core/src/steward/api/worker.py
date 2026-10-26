@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, Response
 from pydantic import BaseModel, Field
 
-from steward import embeddings, worker_queue
+from steward import __version__, embeddings, worker_queue, worker_refusals
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
 from steward.images import MAX_SIDE, UnreadableImage, crop, turned
@@ -31,8 +31,12 @@ from steward.modules import REMOTE_MODULES
 
 router = APIRouter(prefix="/worker")
 
-# Bumped on incompatible changes of this API; a worker with another version is refused.
+# Version of this API. Within a major version of the app it only grows by additions both sides
+# can do without, so the core takes workers of any protocol from MIN_WORKER_PROTOCOL on, newer
+# ones too; the worker in turn checks the core's protocol against its own minimum. Raise the
+# minimum only in a new major version.
 PROTOCOL_VERSION = 1
+MIN_WORKER_PROTOCOL = 1
 # Workers may send at most this many candidates per run.
 MAX_CANDIDATES = 50
 # The longest vector pgvector stores as halfvec.
@@ -70,6 +74,8 @@ class RegisterRequest(BaseModel):
     device: str = Field(default="cpu", max_length=100)
     version: str = Field(max_length=32)
     protocol_version: int
+    # The oldest core protocol the worker works with; workers before 0.6.0 send none.
+    min_core_protocol: int = 1
     # New at every start of the worker; workers before 0.2.3 send none.
     instance_id: UUID | None = None
 
@@ -77,6 +83,7 @@ class RegisterRequest(BaseModel):
 class RegisterResponse(BaseModel):
     worker_id: UUID
     lease_seconds: int
+    protocol_version: int = PROTOCOL_VERSION
 
 
 class LeaseRequest(BaseModel):
@@ -122,9 +129,21 @@ class FailRequest(BaseModel):
 
 
 @router.post("/register", dependencies=[Depends(check_token)])
-async def register(body: RegisterRequest, db: DbDep, settings: SettingsDep) -> RegisterResponse:
-    if body.protocol_version != PROTOCOL_VERSION:
-        raise ApiError(400, "protocol_version_unsupported", supported=PROTOCOL_VERSION)
+async def register(
+    body: RegisterRequest, request: Request, db: DbDep, settings: SettingsDep
+) -> RegisterResponse:
+    refusals: worker_refusals.WorkerRefusals = request.app.state.worker_refusals
+    reason = (
+        worker_refusals.WORKER_TOO_OLD
+        if body.protocol_version < MIN_WORKER_PROTOCOL
+        else worker_refusals.CORE_TOO_OLD
+        if body.min_core_protocol > PROTOCOL_VERSION
+        else None
+    )
+    if reason:
+        refusals.note(body.name, body.version, reason)
+        raise ApiError(409, reason, core_version=__version__)
+    refusals.forget(body.name)
     worker = await worker_queue.register(
         db,
         body.name,

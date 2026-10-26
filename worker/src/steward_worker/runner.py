@@ -17,12 +17,14 @@ from steward_worker.client import (
     CoreClient,
     CoreError,
     CoreRefused,
+    CoreTooOld,
     ImageUnavailable,
     ImmichUnreachable,
     LeasedJob,
     LeaseLost,
     NameTaken,
     NotSteward,
+    WorkerTooOld,
     WorkerUnknown,
 )
 from steward_worker.load import system_busy
@@ -34,6 +36,8 @@ log = logging.getLogger(__name__)
 IDLE_WAIT_S = (2.0, 30.0)
 BUSY_WAIT_S = 30.0
 ERROR_WAIT_S = 10.0
+# Waiting for an update of the other side.
+UPDATE_WAIT_S = 60.0
 
 # What the worker tells the core it is doing, for the people waiting for it: loading a model
 # takes a minute or more on a CPU, and the first start downloads gigabytes.
@@ -112,6 +116,24 @@ class Worker:
                     ERROR_WAIT_S,
                 )
                 await self._sleep(ERROR_WAIT_S)
+                continue
+            except WorkerTooOld:
+                log.warning(
+                    "the core no longer works with this version of the worker (%s): update the "
+                    "worker (see Workers in the documentation); retrying in %.0f s",
+                    __version__,
+                    UPDATE_WAIT_S,
+                )
+                await self._sleep(UPDATE_WAIT_S)
+                continue
+            except CoreTooOld:
+                log.warning(
+                    "this worker (%s) needs a newer core: update the app on the server "
+                    "(docker compose pull && docker compose up -d); retrying in %.0f s",
+                    __version__,
+                    UPDATE_WAIT_S,
+                )
+                await self._sleep(UPDATE_WAIT_S)
                 continue
             except ImmichUnreachable:
                 log.warning("the core cannot reach Immich; retrying in %.0f s", ERROR_WAIT_S)

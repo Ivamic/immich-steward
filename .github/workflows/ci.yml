@@ -116,3 +116,46 @@ jobs:
           PYTHONPATH=/tmp/pl python -m piplicenses --python /app/venv/bin/python --partial-match
           --ignore-packages steward-worker
           --allow-only 'MIT;BSD;Apache;ISC;MPL;PSF;Python Software Foundation;HPND;LGPL;PostgreSQL'"
+
+  compose:
+    name: Compose and update from the last release
+    runs-on: ubuntu-latest
+    needs: [core, frontend]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: compose.yaml works with only the required settings
+        run: |
+          printf 'STEWARD_IMMICH_URL=http://127.0.0.1:9\nSTEWARD_SECRET_KEY=%s\nDB_PASSWORD=ci\n' \
+            "$(openssl rand -hex 32)" > .env
+          docker compose config -q
+          docker compose --profile worker config -q
+          # Without a required setting it stops with a clear message.
+          grep -v STEWARD_IMMICH_URL .env > /tmp/partial.env
+          if docker compose --env-file /tmp/partial.env config -q 2>/tmp/err; then exit 1; fi
+          grep -q "set STEWARD_IMMICH_URL" /tmp/err
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/core.Dockerfile
+          tags: ghcr.io/ivamic/immich-steward-core:ci
+          load: true
+          push: false
+          cache-from: type=gha
+      - name: Start the last release
+        run: |
+          previous=$(git tag --sort=-v:refname --no-contains HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          echo "Last release: $previous"
+          STEWARD_VERSION=${previous#v} docker compose up -d --wait core
+      - name: Update to this version with the same compose.yaml and .env
+        run: |
+          STEWARD_VERSION=ci docker compose up -d --wait core
+          docker compose exec -T core alembic -c /app/alembic.ini current | tee /tmp/current
+          grep -q "(head)" /tmp/current
+          curl -fsS http://127.0.0.1:8780/api/health | tee /tmp/health
+          python3 -c "import json; assert json.load(open('/tmp/health'))['database']['ok']"
+      - name: Logs
+        if: failure()
+        run: docker compose logs

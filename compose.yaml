@@ -1,40 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # immich-steward: core service (API + web UI) and its database.
-# Copy .env.example to .env, set the required values, then run: docker compose up -d
-# Images are pulled from ghcr.io; add --build to build them from this source instead.
+# Copy example.env (.env.example in the source) to .env, set the required values, then run:
+#   docker compose up -d
+# Update: docker compose pull && docker compose up -d. This file stays the same within a major
+# version; the settings live in .env.
+# To build the images from source instead: see compose.build.yaml.
 
 name: immich-steward
 
 services:
   core:
-    build:
-      context: .
-      dockerfile: docker/core.Dockerfile
-    image: ghcr.io/ivamic/immich-steward-core:${STEWARD_VERSION:-0.5.1}
+    image: ghcr.io/ivamic/immich-steward-core:${STEWARD_VERSION:-0}
     restart: unless-stopped
     ports:
       - "${STEWARD_PORT:-8780}:8080"
+    env_file: .env
     environment:
       STEWARD_DATABASE_URL: "postgresql+asyncpg://${DB_USER:-steward}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/${DB_NAME:-steward}"
-      STEWARD_LOG_LEVEL: "${STEWARD_LOG_LEVEL:-info}"
       STEWARD_IMMICH_URL: "${STEWARD_IMMICH_URL:?set STEWARD_IMMICH_URL in .env}"
-      STEWARD_IMMICH_PUBLIC_URL: "${STEWARD_IMMICH_PUBLIC_URL:-}"
       STEWARD_SECRET_KEY: "${STEWARD_SECRET_KEY:?set STEWARD_SECRET_KEY in .env}"
-      STEWARD_COOKIE_SECURE: "${STEWARD_COOKIE_SECURE:-false}"
-      STEWARD_MAP_STYLE_URL: "${STEWARD_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}"
-      STEWARD_MAP_STYLE_URL_DARK: "${STEWARD_MAP_STYLE_URL_DARK:-}"
-      STEWARD_GEOCODER_URL: "${STEWARD_GEOCODER_URL-https://photon.komoot.io}"
-      STEWARD_ESTIMATED_TAG: "${STEWARD_ESTIMATED_TAG-steward/estimated}"
-      STEWARD_TIME_NEIGHBORS_WINDOW_HOURS: "${STEWARD_TIME_NEIGHBORS_WINDOW_HOURS:-3}"
-      STEWARD_WORKER_TOKEN: "${STEWARD_WORKER_TOKEN:-}"
-      STEWARD_AUTO_MODULES: "${STEWARD_AUTO_MODULES-geoclip,similar}"
-      STEWARD_GEOCLIP_MIN_CONFIDENCE: "${STEWARD_GEOCLIP_MIN_CONFIDENCE:-0.25}"
-      STEWARD_GEOCLIP_WEAK_BELOW: "${STEWARD_GEOCLIP_WEAK_BELOW:-0.5}"
-      STEWARD_GEOCLIP_CONFIDENT_FROM: "${STEWARD_GEOCLIP_CONFIDENT_FROM:-0.75}"
-      STEWARD_SIMILAR_MIN_CONFIDENCE: "${STEWARD_SIMILAR_MIN_CONFIDENCE:-0.2}"
-      STEWARD_SIMILAR_WEAK_BELOW: "${STEWARD_SIMILAR_WEAK_BELOW:-0.5}"
-      STEWARD_SIMILAR_CONFIDENT_FROM: "${STEWARD_SIMILAR_CONFIDENT_FROM:-0.8}"
-      STEWARD_SIMILAR_INCLUDE_ESTIMATED: "${STEWARD_SIMILAR_INCLUDE_ESTIMATED:-true}"
     depends_on:
       db:
         condition: service_healthy
@@ -44,20 +28,17 @@ services:
   # after setting STEWARD_WORKER_TOKEN in .env.
   worker:
     profiles: [worker]
-    build:
-      context: .
-      dockerfile: docker/worker.Dockerfile
-    image: ghcr.io/ivamic/immich-steward-worker:${STEWARD_VERSION:-0.5.1}
+    image: ghcr.io/ivamic/immich-steward-worker:${STEWARD_VERSION:-0}
     restart: unless-stopped
+    env_file: .env
     environment:
       STEWARD_CORE_URL: "http://core:8080"
-      STEWARD_WORKER_TOKEN: "${STEWARD_WORKER_TOKEN:-}"
+      # The container's host name is random: name it after the server.
       STEWARD_WORKER_NAME: "${STEWARD_WORKER_NAME:-server}"
-      STEWARD_WORKER_MODULES: "${STEWARD_WORKER_MODULES:-similar,geoclip}"
-      STEWARD_WORKER_ONE_MODEL: "${STEWARD_WORKER_ONE_MODEL:-false}"
-      STEWARD_WORKER_THREADS: "${STEWARD_WORKER_THREADS:-2}"
-      STEWARD_WORKER_MAX_LOAD: "${STEWARD_WORKER_MAX_LOAD:-}"
-      STEWARD_LOG_LEVEL: "${STEWARD_LOG_LEVEL:-info}"
+      # The worker needs only its token: the secrets of the core stay out of it.
+      STEWARD_SECRET_KEY: ""
+      STEWARD_DATABASE_URL: ""
+      DB_PASSWORD: ""
     volumes:
       - model-cache:/models
     # GeoCLIP needs about 3 GB at its peak, similar photos about 1.2 GB (2 GB while loading).

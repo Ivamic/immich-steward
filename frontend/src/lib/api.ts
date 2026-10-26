@@ -473,8 +473,20 @@ export interface WorkerInfo {
 
 export type WorkerState = 'idle' | 'busy' | 'downloading' | 'loading' | 'working';
 
+/** A worker the core did not take because one side is too old for the other. */
+export interface RefusedWorker {
+	name: string;
+	version: string;
+	reason: 'worker_too_old' | 'core_too_old';
+	at: string;
+}
+
 export interface WorkersOverview {
 	workers: WorkerInfo[];
+	/** Workers refused lately: update the worker, or the app on the server. */
+	refused: RefusedWorker[];
+	/** Version of the app: a connected worker with an older one can be updated. */
+	core_version: string;
 	/** Every module workers can run, in the order to show them. */
 	modules: { id: string; color: string; shape: string }[];
 	/** Module -> status of the latest run -> number of photos. */

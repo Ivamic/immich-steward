@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Builds the images from this source instead of pulling them from ghcr.io. In a clone of the
+# repository:
+#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+#   docker compose -f compose.yaml -f compose.build.yaml --profile worker up -d --build
+# The images get the same names as the published ones; `docker compose pull` replaces them again.
+
+services:
+  core:
+    build:
+      context: .
+      dockerfile: docker/core.Dockerfile
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile

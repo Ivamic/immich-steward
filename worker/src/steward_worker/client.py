@@ -11,7 +11,11 @@ import httpx2
 
 from steward_worker.modules import Candidate, Embedding
 
+# Version of the worker API this worker speaks, and the oldest one of the core it works with.
+# Within a major version of the app the protocol only grows by additions both sides can do
+# without; raise the minimum only in a new major version.
 PROTOCOL_VERSION = 1
+MIN_CORE_PROTOCOL = 1
 TIMEOUT_S = 60.0
 
 
@@ -48,6 +52,14 @@ class NameTaken(CoreRefused):
 
 class NotSteward(CoreRefused):
     """Something else answers at the core address (e.g. Immich itself): it has no worker API."""
+
+
+class WorkerTooOld(CoreRefused):
+    """The core no longer speaks the protocol of this worker: the worker needs an update."""
+
+
+class CoreTooOld(CoreRefused):
+    """The core is older than this worker needs: the server needs an update."""
 
 
 @dataclass(frozen=True)
@@ -98,9 +110,13 @@ class CoreClient:
             "device": device,
             "version": version,
             "protocol_version": PROTOCOL_VERSION,
+            "min_core_protocol": MIN_CORE_PROTOCOL,
             "instance_id": str(self.instance_id),
         }
         data = (await self._call("POST", "/register", json=body)).json()
+        # Cores before 0.6.0 do not say their protocol and take only workers of their own.
+        if int(data.get("protocol_version", 1)) < MIN_CORE_PROTOCOL:
+            raise CoreTooOld("core_too_old")
         self.worker_id = UUID(data["worker_id"])
         self.lease_seconds = int(data["lease_seconds"])
 
@@ -163,6 +179,10 @@ class CoreClient:
             raise ImmichUnreachable(code)
         if response.status_code == 409 and code == "worker_name_taken":
             raise NameTaken(code)
+        if response.status_code == 409 and code == "worker_too_old":
+            raise WorkerTooOld(code)
+        if response.status_code == 409 and code == "core_too_old":
+            raise CoreTooOld(code)
         if response.status_code == 404 and path == "/register":
             raise NotSteward(f"{method} {path}: HTTP 404")
         error = CoreRefused(f"{method} {path}: HTTP {response.status_code} {code}")

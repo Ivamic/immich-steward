@@ -77,8 +77,45 @@ def test_token_is_required(client: TestClient) -> None:
     assert client.post("/api/worker/register", json=body, headers=wrong).status_code == 401
     unknown = AUTH | {"X-Worker-Id": "00000000-0000-4000-8000-000000000000"}
     assert lease(client, unknown).json()["code"] == "worker_unknown"
-    old = body | {"protocol_version": 0}
-    assert client.post("/api/worker/register", json=old, headers=AUTH).status_code == 400
+
+
+def test_protocols_of_one_major_version_get_along(signed_in: TestClient) -> None:
+    body = {"name": "laptop", "modules": [], "version": "0.6.3", "protocol_version": 1}
+    # A newer worker with a newer protocol that still works with this core is taken.
+    newer = body | {"protocol_version": PROTOCOL_VERSION + 1}
+    response = signed_in.post("/api/worker/register", json=newer, headers=AUTH)
+    assert response.status_code == 200
+    assert response.json()["protocol_version"] == PROTOCOL_VERSION
+    assert signed_in.get("/api/library/workers").json()["refused"] == []
+
+
+def test_refused_workers_say_which_side_to_update(signed_in: TestClient) -> None:
+    body = {"name": "laptop", "modules": [], "version": "0.1.0", "protocol_version": 0}
+    old = signed_in.post("/api/worker/register", json=body, headers=AUTH)
+    assert old.status_code == 409
+    assert old.json()["code"] == "worker_too_old"
+    needs_newer_core = body | {
+        "name": "desktop",
+        "version": "9.0.0",
+        "protocol_version": PROTOCOL_VERSION + 1,
+        "min_core_protocol": PROTOCOL_VERSION + 1,
+    }
+    newer = signed_in.post("/api/worker/register", json=needs_newer_core, headers=AUTH)
+    assert newer.json()["code"] == "core_too_old"
+
+    workers = signed_in.get("/api/library/workers").json()
+    assert workers["workers"] == []
+    assert [(r["name"], r["version"], r["reason"]) for r in workers["refused"]] == [
+        ("desktop", "9.0.0", "core_too_old"),
+        ("laptop", "0.1.0", "worker_too_old"),
+    ]
+    assert workers["core_version"]
+
+    # Updated, it registers and is no longer listed as refused.
+    updated = body | {"version": "0.6.0", "protocol_version": PROTOCOL_VERSION}
+    assert signed_in.post("/api/worker/register", json=updated, headers=AUTH).status_code == 200
+    refused = signed_in.get("/api/library/workers").json()["refused"]
+    assert [r["name"] for r in refused] == ["desktop"]
 
 
 def test_full_cycle(photos: TestClient, fake_immich: FakeImmich) -> None:

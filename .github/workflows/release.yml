@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Publishes the Docker images of a release to GitHub Container Registry (ghcr.io).
-# Runs when a version tag (v1.2.3) is pushed; can be re-run by hand for an existing tag.
-name: Release images
+# Publishes the Docker images of a release to GitHub Container Registry (ghcr.io) when a version
+# tag (v1.2.3) is pushed, and attaches the files for installing without git (compose.yaml,
+# example.env) when the release is published. Can be re-run by hand for an existing tag.
+name: Release
 
 on:
   push:
     tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -23,7 +25,10 @@ jobs:
   publish:
     name: ${{ matrix.image }}
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name != 'release' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +46,16 @@ jobs:
             description: immich-steward worker that runs ML location modules (GeoCLIP, CPU)
     steps:
       - uses: actions/checkout@v7
+      # The tag of the major version ("0", later "1") is what compose.yaml pulls by default, so
+      # that `docker compose pull` alone updates. metadata-action skips {{major}} for 0.x, and
+      # pre-releases (v0.6.0-rc.1) must not move it.
+      - id: major
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ "$TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/setup-qemu-action@v4
         if: contains(matrix.platforms, 'arm64')
       - uses: docker/setup-buildx-action@v4
@@ -53,10 +68,11 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/ivamic/immich-steward-${{ matrix.image }}
-          # 1.2.3, 1.2 and latest; pre-release tags (v1.3.0-rc.1) get neither 1.2 nor latest.
+          # 1.2.3, 1.2, 1 and latest; pre-release tags (v1.3.0-rc.1) get only their version.
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ steps.major.outputs.tag }},enable=${{ steps.major.outputs.tag != '' }}
           labels: |
             org.opencontainers.image.title=immich-steward-${{ matrix.image }}
             org.opencontainers.image.description=${{ matrix.description }}
@@ -75,3 +91,21 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha,scope=${{ matrix.cache-scope }}
           cache-to: type=gha,scope=${{ matrix.cache-scope }},mode=max
+
+  install-files:
+    name: Files for installing without git
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Attach compose.yaml and example.env
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cp .env.example example.env
+          gh release upload "$TAG" compose.yaml example.env --clobber

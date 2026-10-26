@@ -27,6 +27,7 @@
 	} from '#lib/suggestions/format.js';
 
 	const REFRESH_MS = 10_000;
+	const WORKERS_DOCS = 'https://github.com/Ivamic/immich-steward/blob/main/docs/workers.md';
 	// Run statuses in the order the counters and the progress bar show them.
 	const STATUSES: ModuleStatus[] = ['done', 'running', 'queued', 'failed'];
 
@@ -145,6 +146,21 @@
 		}
 	}
 
+	// "0.5.1" < "0.6.0"; anything after the numbers (a pre-release) is ignored.
+	function older(version: string, than: string): boolean {
+		const parts = (v: string) =>
+			v
+				.split(/[^0-9.]/)[0]
+				.split('.')
+				.map(Number);
+		const [a, b] = [parts(version), parts(than)];
+		for (let i = 0; i < Math.max(a.length, b.length); i++) {
+			const diff = (a[i] ?? 0) - (b[i] ?? 0);
+			if (diff !== 0) return diff < 0;
+		}
+		return false;
+	}
+
 	const slow = (worker: WorkerInfo) => worker.state === 'downloading' || worker.state === 'loading';
 
 	function ago(iso: string): string {
@@ -163,14 +179,41 @@
 		<p class="error" role="alert">{error}</p>
 	{/if}
 	{#if overview}
-		{#if overview.workers.length}
+		{#if overview.workers.length || overview.refused.length}
 			<div class="workers">
+				{#each overview.refused as refused (refused.name)}
+					<article class="worker">
+						<header>
+							<h3>{refused.name}</h3>
+							<span class="muted">{refused.version}</span>
+							<span class="spacer"></span>
+							<StatusBadge tone="warning">{m.workers_refused()}</StatusBadge>
+						</header>
+						<p>
+							{refused.reason === 'worker_too_old'
+								? m.workers_refused_worker_too_old({ core: overview.core_version })
+								: m.workers_refused_core_too_old()}
+							<a href={WORKERS_DOCS} target="_blank" rel="noreferrer">{m.workers_update_how()}</a>
+						</p>
+					</article>
+				{/each}
 				{#each overview.workers as worker (worker.id)}
 					<article class="worker" class:gone={!worker.active}>
 						<header>
 							<h3>{worker.name}</h3>
 							<span class="device">{worker.device}</span>
 							<span class="muted">{worker.version}</span>
+							{#if worker.active && older(worker.version, overview.core_version)}
+								<a
+									class="update"
+									href={WORKERS_DOCS}
+									target="_blank"
+									rel="noreferrer"
+									title={m.workers_update_hint()}
+								>
+									{m.workers_update_available({ version: overview.core_version })}
+								</a>
+							{/if}
 							<span class="spacer"></span>
 							{#if worker.active}
 								<StatusBadge tone="success" dot>{m.workers_active()}</StatusBadge>
@@ -390,6 +433,9 @@
 	.worker h3 {
 		margin: 0;
 		font-size: var(--text-base);
+	}
+	.update {
+		font-size: var(--text-xs);
 	}
 	.device {
 		padding: 0 var(--space-1-5);

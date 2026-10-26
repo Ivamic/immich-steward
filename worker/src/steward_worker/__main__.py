@@ -14,6 +14,7 @@ import signal
 import socket
 import sys
 from pathlib import Path
+from typing import overload
 from uuid import UUID
 
 from steward_worker.client import CoreClient, CoreError
@@ -24,9 +25,30 @@ from steward_worker.runner import Worker, WorkerConfig
 
 log = logging.getLogger("steward_worker")
 
+# Renamed settings, new name -> old name: within a major version the old one keeps working, with
+# a warning; drop an entry only in a new major version.
+RENAMED: dict[str, str] = {}
+
+
+@overload
+def env(name: str, default: str) -> str: ...
+@overload
+def env(name: str, default: None = None) -> str | None: ...
+def env(name: str, default: str | None = None) -> str | None:
+    """A STEWARD_* environment variable; an empty one (`NAME=` in .env) counts as not set."""
+    value = os.environ.get(name)
+    old = RENAMED.get(name)
+    if not value and old and os.environ.get(old):
+        log.warning(
+            "%s is now called %s: rename it (the old name works until the next major version)",
+            old,
+            name,
+        )
+        value = os.environ[old]
+    return value or default
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    env = os.environ.get
     max_load = env("STEWARD_WORKER_MAX_LOAD")
     parser = argparse.ArgumentParser(
         prog="steward-worker",

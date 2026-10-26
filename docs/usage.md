@@ -79,6 +79,15 @@ in Immich, if any.
 
 ### Satellite imagery
 
+Three satellite sources can be connected, each off until you switch it on:
+
+- **Sentinel-2 cloudless** by EOX: no key, 10 m per pixel, a layer per year (2016–2025).
+- **Esri World Imagery**: sharp (1 m or better), with your own free ArcGIS Location Platform key.
+- **MapTiler Satellite**: sharp, with your own free MapTiler Cloud key (non-commercial use).
+
+How to get the keys and switch the sources on:
+[Configuration → Satellite imagery](configuration.md#satellite-imagery-in-settings).
+
 Once a satellite source is switched on in **Settings → Map sources**, a bar above the map
 chooses the **base map**: the plain **Map** (the default) or a satellite source (for Sentinel-2
 also the year; the latest is shown first). Sources that cannot be used are greyed out; hover them

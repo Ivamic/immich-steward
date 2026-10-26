@@ -16,8 +16,12 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   *With location*, *Skipped*, *Not applicable* (several can be on at once). *Confident GeoCLIP
   guess* leaves the photos for which GeoCLIP is fairly sure where they were taken; *Located
   photo nearby* leaves the photos taken within 15 minutes of a photo with a location, whose place
-  is almost surely known. Both are a good place to start. Then the type (photos, videos), the camera, the album, the **Period** and the
-  **Processing errors** of the modules. *Reset* brings the default filters back.
+  is almost surely known. Both are a good place to start. Then the type (photos, videos), the
+  camera, the album, the **Period** and the **Processing errors** of the modules. *Reset* brings
+  the default filters back.
+- **The camera and album lists** have a search field on top when they are long: type any part of
+  the name, in any case and without accents ("zab" finds "Žabljak"). The arrows, Enter and Esc
+  work as in any list.
 - **Badges** in the corner of a photo: a pin means the photo has a location; a blue clock means
   a photo with a location was taken within 15 minutes, filled when by the same camera (the
   stronger hint) and outlined when by another one, such as a phone; an orange crosshair means
@@ -25,6 +29,11 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   (`STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES`).
 - **The timeline** on the right shows the years. Click or drag on it to jump to a month.
 - Click a photo to open its card. When you come back, the gallery opens at the same place.
+- **Press and hold** a photo (mouse or finger) to see it large over the gallery, without opening
+  its card; let go to close it.
+- **Rest the mouse** on a photo to see its file name, when it was taken (with the day of the
+  week), the camera and the size. **Settings → Gallery** turns this off; then only the file name
+  is shown.
 
 The filter is kept in the address of the page, so a filtered view can be bookmarked.
 
@@ -233,7 +242,10 @@ The **Processing** page shows how the work goes:
 
 ## Settings
 
-**Settings** holds the order of the modules in the photo card and which of them are shown, and
+**Settings** holds the details shown over a photo of the gallery, the order of the modules in the photo card and which of them are shown, and
 the **map sources**: satellite imagery, their keys, how many tiles the app loaded, and which
 sources Auto uses far out and close up. Each family member has their own. How to get the keys:
 [Configuration](configuration.md#satellite-imagery-in-settings).
+
+**Updates** shows the version of the app and whether a newer one is out, for the whole
+installation; the check can be turned off there (see [Privacy](privacy.md#what-leaves-your-server)).

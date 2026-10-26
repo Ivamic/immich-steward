@@ -27,17 +27,38 @@
 > resta il testo di riferimento. La documentazione e la parte per gli sviluppatori per ora sono
 > solo in inglese. Le correzioni alla traduzione sono molto gradite.
 
+> [!IMPORTANT]
+> **Aggiornare alla 0.6 dalla 0.5 o precedente: un passo a mano, una volta sola.**
+>
+> **Perché.** Fino alla 0.5, `compose.yaml` indicava la versione esatta dell'app, quindi ogni
+> aggiornamento richiedeva anche `git pull`. Dalla 0.6, `compose.yaml` segue la versione
+> principale e legge tutte le impostazioni da `.env`: resta uguale, e ogni aggiornamento
+> successivo è solo `docker compose pull` e `docker compose up -d`.
+>
+> **Come.** Nella cartella dell'app; il tuo `.env` e i tuoi dati restano come sono.
+>
+> Senza il worker:
+>
+> ```sh
+> curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+> docker compose pull
+> docker compose up -d
+> ```
+>
+> Con il worker sul server:
+>
+> ```sh
+> curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+> docker compose --profile worker pull
+> docker compose --profile worker up -d
+> ```
+>
+> Se `.env` ha una riga `STEWARD_VERSION=…`, toglila prima: terrebbe la versione vecchia. [Dettagli](docs/updating.md#coming-from-05-or-older) (in inglese).
+
 > **Stato: in sviluppo attivo.** Una prima versione: la revisione delle foto senza posizione, i
 > suggerimenti dalle foto vicine nel tempo, GeoCLIP e le foto simili della tua libreria
 > funzionano già; gli altri moduli arriveranno. Aspettati bug e cambiamenti tra una versione e
 > l'altra, e fai un backup della tua libreria Immich prima di scriverci delle posizioni.
-
-> [!IMPORTANT]
-> **Aggiornare dalla 0.5 o precedente alla 0.6: un passo a mano, una volta sola.** Scarica il
-> nuovo `compose.yaml` (o esegui `git pull` nel tuo clone), togli da `.env` una riga
-> `STEWARD_VERSION=…` se c'è, poi esegui `docker compose pull && docker compose up -d`. Da quel
-> momento ogni aggiornamento è solo `docker compose pull && docker compose up -d`, senza
-> `git pull` né modifiche. [Dettagli](docs/updating.md#coming-from-05-or-older) (in inglese).
 
 Un'app di supporto self-hosted per [Immich](https://immich.app). Per ogni foto senza posizione, più
 moduli — le foto scattate poco prima e poco dopo, la rete neurale GeoCLIP e le foto simili

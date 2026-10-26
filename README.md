@@ -23,17 +23,38 @@
   <img src="docs/images/time-neighbors-route.png" alt="Photo card: the route between photos taken shortly before and after, with three suggested locations on the map and in the list">
 </p>
 
+> [!IMPORTANT]
+> **Updating to 0.6 from 0.5 or older: one manual step, once.**
+>
+> **Why.** Up to 0.5, `compose.yaml` named the exact version of the app, so every update
+> also needed `git pull`. From 0.6 on, `compose.yaml` follows the major version and reads all
+> settings from `.env`: it stays the same, and every later update is just `docker compose pull`
+> and `docker compose up -d`.
+>
+> **How.** In the folder of the app; your `.env` and your data stay as they are.
+>
+> Without the worker:
+>
+> ```sh
+> curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+> docker compose pull
+> docker compose up -d
+> ```
+>
+> With the worker on the server:
+>
+> ```sh
+> curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+> docker compose --profile worker pull
+> docker compose --profile worker up -d
+> ```
+>
+> If `.env` has a line `STEWARD_VERSION=…`, remove it first: it would keep the old version. [Details](docs/updating.md#coming-from-05-or-older).
+
 > **Status: under active development.** An early version: reviewing photos without a location,
 > suggestions from photos taken close in time, GeoCLIP and similar photos of your own library
 > already work; the other modules are still to come. Expect bugs and changes between versions, and keep a backup of your Immich
 > library before writing locations to it.
-
-> [!IMPORTANT]
-> **Updating from 0.5 or older to 0.6: one step by hand, once.** Download the new `compose.yaml`
-> (or run `git pull` in your clone), remove a line `STEWARD_VERSION=…` from `.env` if you have
-> one, then run `docker compose pull && docker compose up -d`. This step makes every later
-> update a single `docker compose pull && docker compose up -d`, with no `git pull` and no
-> edits. [Details](docs/updating.md#coming-from-05-or-older).
 
 A self-hosted companion app for [Immich](https://immich.app). For each photo without a location,
 several modules — photos taken close in time, the GeoCLIP neural network and similar photos

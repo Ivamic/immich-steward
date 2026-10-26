@@ -7,6 +7,8 @@ between releases.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-26
+
 Updating with `docker compose pull` alone from now on, a heat map of your located photos, and
 quicker reviewing in the gallery.
 
@@ -47,7 +49,8 @@ quicker reviewing in the gallery.
 **Once, from 0.5 or older:** get the new `compose.yaml` (download it from the release, or
 `git pull`), remove a line `STEWARD_VERSION=…` from `.env` if you have one, then
 `docker compose pull && docker compose up -d`. Changes of your own to `compose.yaml` go into
-`compose.override.yaml`. See [Updating](docs/updating.md#coming-from-05-or-older).
+`compose.override.yaml`. See [Updating](docs/updating.md#coming-from-05-or-older). After this,
+every update is `docker compose pull && docker compose up -d`.
 
 - `compose.yaml` changed: the settings are read from `.env` (`env_file`); `.env` itself stays.
 - Database migrations 0022 and 0023 are applied when the core starts.
@@ -486,7 +489,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/Ivamic/immich-steward/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/Ivamic/immich-steward/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Ivamic/immich-steward/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/Ivamic/immich-steward/compare/v0.4.0...v0.4.1

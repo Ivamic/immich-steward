@@ -27,19 +27,39 @@
 > foi. La documentation et la partie pour les développeurs ne sont pour l'instant qu'en anglais.
 > Les corrections de la traduction sont les bienvenues.
 
+> [!IMPORTANT]
+> **Passer à la 0.6 depuis la 0.5 ou plus ancienne : une étape à la main, une seule fois.**
+>
+> **Pourquoi.** Jusqu'à la 0.5, `compose.yaml` indiquait la version exacte de l'application,
+> donc chaque mise à jour demandait aussi `git pull`. À partir de la 0.6, `compose.yaml` suit la
+> version majeure et lit tous les réglages dans `.env` : il ne change plus, et chaque mise à jour
+> se résume à `docker compose pull` et `docker compose up -d`.
+>
+> **Comment.** Dans le dossier de l'application ; votre `.env` et vos données restent tels quels.
+>
+> Sans le worker :
+>
+> ```sh
+> curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+> docker compose pull
+> docker compose up -d
+> ```
+>
+> Avec le worker sur le serveur :
+>
+> ```sh
+> curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+> docker compose --profile worker pull
+> docker compose --profile worker up -d
+> ```
+>
+> Si `.env` contient une ligne `STEWARD_VERSION=…`, supprimez-la d'abord : elle garderait l'ancienne version. [Détails](docs/updating.md#coming-from-05-or-older) (en anglais).
+
 > **Statut : en développement actif.** Une première version : la revue des photos sans lieu, les
 > suggestions tirées des photos proches dans le temps, GeoCLIP et les photos similaires de votre
 > propre photothèque fonctionnent déjà ; les autres modules sont encore à venir. Attendez-vous à
 > des bugs et à des changements entre les versions, et faites une sauvegarde de votre photothèque
 > Immich avant d'y écrire des lieux.
-
-> [!IMPORTANT]
-> **Passer de la 0.5 ou plus ancienne à la 0.6 : une étape à la main, une seule fois.**
-> Téléchargez le nouveau `compose.yaml` (ou lancez `git pull` dans votre clone), supprimez une
-> ligne `STEWARD_VERSION=…` de `.env` s'il y en a une, puis lancez
-> `docker compose pull && docker compose up -d`. Ensuite, chaque mise à jour se résume à
-> `docker compose pull && docker compose up -d`, sans `git pull` ni modification.
-> [Détails](docs/updating.md#coming-from-05-or-older) (en anglais).
 
 Une application compagnon auto-hébergée pour [Immich](https://immich.app). Pour chaque photo sans
 lieu, plusieurs modules — les photos prises peu avant et peu après, le réseau neuronal GeoCLIP

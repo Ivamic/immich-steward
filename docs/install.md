@@ -2,6 +2,7 @@
 
 This page installs Steward on the server where Immich runs, step by step. It takes about 15
 minutes. If you already know Docker Compose, the [short version](#short-version) is at the end.
+With Portainer or a Synology NAS, see [Portainer](#portainer) and [Synology](#synology-container-manager).
 
 Steward runs as two Docker containers: the app itself (the web page and its API) and a
 PostgreSQL database. A third, optional one, the [worker](workers.md), runs the modules that are
@@ -26,23 +27,28 @@ All commands below are typed in a terminal on the server (for example over SSH).
 
 ## 1. Download the app
 
+Make a folder for the app and download two files into it from the latest release:
+
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
+mkdir immich-steward
 cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
 ```
 
-This creates the folder `immich-steward` with `compose.yaml` (which containers to start) and
-`.env.example` (an example of the settings). All later commands are run in this folder.
+`compose.yaml` says which containers to start; `example.env` is an example of the settings. All
+later commands are run in this folder. `compose.yaml` stays the same within a major version, so
+updating later is just downloading new images (see [Updating](updating.md)).
 
-No `git`? Install it with `sudo apt install git` (Debian, Ubuntu) or your system's package
-manager.
+No `curl`? `wget -O compose.yaml <address>` does the same, or install curl with
+`sudo apt install curl` (Debian, Ubuntu).
 
 ## 2. Configure
 
 Make your own settings file from the example and open it in a text editor:
 
 ```sh
-cp .env.example .env
+cp example.env .env
 nano .env
 ```
 
@@ -144,11 +150,46 @@ Nothing is written to Immich until you save a location for a photo. Saved locati
 ## Short version
 
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
-cd immich-steward
-cp .env.example .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
+mkdir immich-steward && cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+cp example.env .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
 docker compose up -d
 ```
 
 Then open `http://<your-server>:8780`. For the worker, set `STEWARD_WORKER_TOKEN` and start with
 `docker compose --profile worker up -d` (see [Workers](workers.md)).
+
+## Portainer
+
+1. In Portainer, open **Stacks → Add stack**, give it a name (e.g. `immich-steward`) and choose
+   **Web editor**.
+2. Paste the content of
+   [compose.yaml](https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml).
+   Portainer keeps the variables of a stack in a file called `stack.env`, so replace
+   `env_file: .env` with `env_file: stack.env` (twice: under `core` and under `worker`).
+3. Under **Environment variables**, switch to **Advanced mode** and paste the content of
+   [example.env](https://github.com/Ivamic/immich-steward/releases/latest/download/example.env).
+   Set `STEWARD_IMMICH_URL`, `STEWARD_SECRET_KEY` and `DB_PASSWORD` as described in
+   [Configure](#2-configure).
+4. Press **Deploy the stack**, then [sign in](#4-sign-in).
+
+To update, open the stack and press **Update the stack** with **Re-pull image and redeploy**
+turned on. The worker is a profile, which Portainer's editor does not start; to run it on the
+server, delete the line `profiles: [worker]` in the editor.
+
+## Synology Container Manager
+
+1. In **File Station**, make a folder, e.g. `docker/immich-steward`, and put
+   [compose.yaml](https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml)
+   into it, and the content of
+   [example.env](https://github.com/Ivamic/immich-steward/releases/latest/download/example.env) as
+   a file named `.env`, with the values set as described in [Configure](#2-configure).
+2. In **Container Manager → Project → Create**, choose that folder and **Use existing
+   docker-compose.yml**; then **Next** and **Done**.
+3. [Sign in](#4-sign-in) at `http://<address of the NAS>:8780`.
+
+To update, connect to the NAS over SSH and run in that folder
+`sudo docker compose pull && sudo docker compose up -d`; the project stays in Container Manager as
+before. The worker image is only for `x86_64` (Intel, AMD) for now: on a NAS with an ARM
+processor, run the worker on another computer (see [Workers](workers.md)).

@@ -33,6 +33,14 @@
 > des bugs et à des changements entre les versions, et faites une sauvegarde de votre photothèque
 > Immich avant d'y écrire des lieux.
 
+> [!IMPORTANT]
+> **Passer de la 0.5 ou plus ancienne à la 0.6 : une étape à la main, une seule fois.**
+> Téléchargez le nouveau `compose.yaml` (ou lancez `git pull` dans votre clone), supprimez une
+> ligne `STEWARD_VERSION=…` de `.env` s'il y en a une, puis lancez
+> `docker compose pull && docker compose up -d`. Ensuite, chaque mise à jour se résume à
+> `docker compose pull && docker compose up -d`, sans `git pull` ni modification.
+> [Détails](docs/updating.md#coming-from-05-or-older) (en anglais).
+
 Une application compagnon auto-hébergée pour [Immich](https://immich.app). Pour chaque photo sans
 lieu, plusieurs modules — les photos prises peu avant et peu après, le réseau neuronal GeoCLIP
 et les photos similaires du même endroit dans votre propre photothèque — proposent où elle a
@@ -127,15 +135,17 @@ De nouveaux modules pourront être ajoutés plus tard sous forme d'extensions.
 Steward fonctionne avec Docker Compose à côté de votre serveur Immich (Immich v3.x) :
 
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
-cd immich-steward
-cp .env.example .env      # définir STEWARD_IMMICH_URL, STEWARD_SECRET_KEY et DB_PASSWORD
+mkdir immich-steward && cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+cp example.env .env      # définir STEWARD_IMMICH_URL, STEWARD_SECRET_KEY et DB_PASSWORD
 docker compose up -d
 ```
 
 Les images sont téléchargées depuis GitHub Container Registry
-(`ghcr.io/ivamic/immich-steward-core`, `amd64` et `arm64`) ; ajoutez `--build` pour les
-construire plutôt à partir des sources.
+(`ghcr.io/ivamic/immich-steward-core`, `amd64` et `arm64`) ; on peut aussi les
+[construire à partir des sources](docs/updating.md#building-the-images-from-source). Mettre à
+jour : `docker compose pull && docker compose up -d`.
 
 Ouvrez ensuite `http://<votre-serveur>:8780` et connectez-vous avec votre compte Immich.
 

@@ -7,6 +7,55 @@ between releases.
 
 ## [Unreleased]
 
+Updating with `docker compose pull` alone from now on, a heat map of your located photos, and
+quicker reviewing in the gallery.
+
+### Added
+
+- **Updating with `docker compose pull` alone.** `compose.yaml` pulls the images of the major
+  version (tag `0`) and reads the settings from `.env`, so it stays the same within a major
+  version. Every release carries `compose.yaml` and `example.env`, so a new install needs no git.
+- **The app tells when a newer version is out**: a badge in the header and **Settings → Updates**
+  with the version and a button to check now. Twice a day the server asks GitHub for the number
+  of the latest release; it can be turned off.
+- **Heat map** of your photos with a location over the map of the photo card and of
+  **Set location**: where you already have many photos, to find the place quickly.
+- **Gallery: a located photo nearby.** A clock badge on photos without a location when a photo
+  with one was taken within 15 minutes, filled for the same camera and outlined for another one,
+  and a filter for these photos (`STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES`).
+- **Copy the coordinates** in the photo card and in **Set location**, also over plain `http://`.
+- **Search in the camera and album filters**, by any part of the name.
+- **A large preview on a long press** on a gallery tile.
+- **Photo details on hover** over a gallery tile: file name, time taken, camera, size. It can be
+  turned off in **Settings → Gallery**, the first personal setting.
+- Workers and the app accept each other across the versions of a major version; the
+  **Processing** page shows a worker that must be updated, and "version … available" for an
+  older one.
+
+### Changed
+
+- The bar over the map is always shown (with the heat map switch).
+- The README leads with what the app does.
+
+### Fixed
+
+- The timeline on the right of the gallery no longer goes under the filters when they wrap.
+- The badges of the gallery tiles are centered.
+
+### Upgrading
+
+**Once, from 0.5 or older:** get the new `compose.yaml` (download it from the release, or
+`git pull`), remove a line `STEWARD_VERSION=…` from `.env` if you have one, then
+`docker compose pull && docker compose up -d`. Changes of your own to `compose.yaml` go into
+`compose.override.yaml`. See [Updating](docs/updating.md#coming-from-05-or-older).
+
+- `compose.yaml` changed: the settings are read from `.env` (`env_file`); `.env` itself stays.
+- Database migrations 0022 and 0023 are applied when the core starts.
+- Workers of 0.4.x and 0.5.x work with this version; update them when convenient.
+- New optional setting: `STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES` (default 15).
+- An older version no longer starts on the database of this one; to go back, see the release
+  notes.
+
 ## [0.5.1] - 2026-10-25
 
 The user interface in German, French and Italian.

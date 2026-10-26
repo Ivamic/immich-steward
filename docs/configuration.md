@@ -2,7 +2,8 @@
 
 Steward on the server is configured in the file `.env`, next to `compose.yaml` in the folder of
 the app. Each line is `NAME=value`; a line starting with `#` is a comment and has no effect. The
-file `.env.example` lists the same settings with short explanations.
+file `example.env` (`.env.example` in the source) lists the same settings with short
+explanations.
 
 After changing `.env`, apply it:
 

@@ -28,6 +28,13 @@
 > already work; the other modules are still to come. Expect bugs and changes between versions, and keep a backup of your Immich
 > library before writing locations to it.
 
+> [!IMPORTANT]
+> **Updating from 0.5 or older to 0.6: one step by hand, once.** Download the new `compose.yaml`
+> (or run `git pull` in your clone), remove a line `STEWARD_VERSION=…` from `.env` if you have
+> one, then run `docker compose pull && docker compose up -d`. This step makes every later
+> update a single `docker compose pull && docker compose up -d`, with no `git pull` and no
+> edits. [Details](docs/updating.md#coming-from-05-or-older).
+
 A self-hosted companion app for [Immich](https://immich.app). For each photo without a location,
 several modules — photos taken close in time, the GeoCLIP neural network and similar photos
 of the same place in your own library — suggest where it was taken, all on one map. You pick
@@ -117,14 +124,17 @@ New modules can be added later as plugins.
 Steward runs with Docker Compose next to your Immich server (Immich v3.x):
 
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
-cd immich-steward
-cp .env.example .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
+mkdir immich-steward && cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+cp example.env .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
 docker compose up -d
 ```
 
 The images are pulled from GitHub Container Registry (`ghcr.io/ivamic/immich-steward-core`,
-`amd64` and `arm64`); add `--build` to build them from source instead.
+`amd64` and `arm64`); they can also be
+[built from source](docs/updating.md#building-the-images-from-source). Updating is
+`docker compose pull && docker compose up -d`.
 
 Then open `http://<your-server>:8780` and sign in with your Immich account.
 
@@ -159,7 +169,8 @@ Repository layout:
 | `worker/` | Worker: Python package `steward_worker` that runs ML location modules (GeoCLIP, similar photos) |
 | `frontend/` | Web UI: SvelteKit single-page app; translations in `frontend/messages/` |
 | `docker/` | Dockerfiles of the core image (with the built web UI) and of the worker image (CPU); `.github/workflows/release.yml` publishes them for every version tag |
-| `compose.yaml` | Core service, PostgreSQL with pgvector, optional worker (profile `worker`) |
+| `compose.yaml` | Core service, PostgreSQL with pgvector, optional worker (profile `worker`); attached to every release |
+| `compose.build.yaml` | Builds the images from this source instead of pulling them |
 | `docs/` | User documentation, starting at [docs/README.md](docs/README.md) |
 
 Requirements: Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 24 with pnpm, Docker.
@@ -197,7 +208,7 @@ Database integration tests run when `STEWARD_TEST_DATABASE_URL` is set.
 Full stack in Docker (UI on http://localhost:8780 by default):
 
 ```sh
-docker compose up -d --build
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
 ### Translations

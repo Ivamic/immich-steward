@@ -32,6 +32,13 @@
 > funzionano già; gli altri moduli arriveranno. Aspettati bug e cambiamenti tra una versione e
 > l'altra, e fai un backup della tua libreria Immich prima di scriverci delle posizioni.
 
+> [!IMPORTANT]
+> **Aggiornare dalla 0.5 o precedente alla 0.6: un passo a mano, una volta sola.** Scarica il
+> nuovo `compose.yaml` (o esegui `git pull` nel tuo clone), togli da `.env` una riga
+> `STEWARD_VERSION=…` se c'è, poi esegui `docker compose pull && docker compose up -d`. Da quel
+> momento ogni aggiornamento è solo `docker compose pull && docker compose up -d`, senza
+> `git pull` né modifiche. [Dettagli](docs/updating.md#coming-from-05-or-older) (in inglese).
+
 Un'app di supporto self-hosted per [Immich](https://immich.app). Per ogni foto senza posizione, più
 moduli — le foto scattate poco prima e poco dopo, la rete neurale GeoCLIP e le foto simili
 dello stesso luogo nella tua libreria — suggeriscono dove è stata scattata, tutti su una sola
@@ -123,14 +130,17 @@ In futuro si potranno aggiungere nuovi moduli come plugin.
 Steward gira con Docker Compose accanto al tuo server Immich (Immich v3.x):
 
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
-cd immich-steward
-cp .env.example .env      # imposta STEWARD_IMMICH_URL, STEWARD_SECRET_KEY e DB_PASSWORD
+mkdir immich-steward && cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+cp example.env .env      # imposta STEWARD_IMMICH_URL, STEWARD_SECRET_KEY e DB_PASSWORD
 docker compose up -d
 ```
 
 Le immagini vengono scaricate da GitHub Container Registry (`ghcr.io/ivamic/immich-steward-core`,
-`amd64` e `arm64`); aggiungi `--build` per costruirle invece dai sorgenti.
+`amd64` e `arm64`); si possono anche
+[costruire dai sorgenti](docs/updating.md#building-the-images-from-source). Per aggiornare:
+`docker compose pull && docker compose up -d`.
 
 Poi apri `http://<il-tuo-server>:8780` e accedi con il tuo account Immich.
 

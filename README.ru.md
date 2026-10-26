@@ -31,6 +31,13 @@
 > библиотеки; остальные модули ещё впереди. Возможны ошибки и изменения между версиями. Прежде
 > чем записывать места в Immich, сделайте резервную копию библиотеки.
 
+> [!IMPORTANT]
+> **Переход на 0.6 с 0.5 и более ранних версий: один шаг вручную, один раз.** Скачайте новый `compose.yaml`
+> (или выполните `git pull` в своей копии), уберите из `.env` строку `STEWARD_VERSION=…`, если
+> она есть, и выполните `docker compose pull && docker compose up -d`. После этого любое
+> обновление — только `docker compose pull && docker compose up -d`, без `git pull` и правок.
+> [Подробнее](docs/updating.md#coming-from-05-or-older) (на английском).
+
 Приложение-компаньон для [Immich](https://immich.app), которое ставится у вас на сервере. Для
 каждого фото без места несколько модулей — фото, снятые незадолго до и после, нейросеть
 GeoCLIP и похожие фото того же места из вашей же библиотеки — предлагают, где оно снято,
@@ -122,14 +129,17 @@ GPS или из мессенджеров, где метаданные потер
 Steward запускается через Docker Compose рядом с вашим сервером Immich (Immich v3.x):
 
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
-cd immich-steward
-cp .env.example .env      # задайте STEWARD_IMMICH_URL, STEWARD_SECRET_KEY и DB_PASSWORD
+mkdir immich-steward && cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+cp example.env .env      # задайте STEWARD_IMMICH_URL, STEWARD_SECRET_KEY и DB_PASSWORD
 docker compose up -d
 ```
 
 Образы скачиваются из GitHub Container Registry (`ghcr.io/ivamic/immich-steward-core`, `amd64` и
-`arm64`); чтобы собрать их из исходников, добавьте `--build`.
+`arm64`); их можно и
+[собрать из исходников](docs/updating.md#building-the-images-from-source). Обновление:
+`docker compose pull && docker compose up -d`.
 
 Затем откройте `http://<ваш-сервер>:8780` и войдите с учётной записью Immich.
 

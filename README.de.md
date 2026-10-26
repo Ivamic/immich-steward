@@ -33,6 +33,14 @@
 > zwischen den Versionen und lege eine Sicherung deiner Immich-Mediathek an, bevor du Standorte
 > hineinschreibst.
 
+> [!IMPORTANT]
+> **Update von 0.5 oder älter auf 0.6: ein Schritt von Hand, einmalig.** Lade die neue
+> `compose.yaml` herunter (oder führe `git pull` in deinem Klon aus), entferne eine Zeile
+> `STEWARD_VERSION=…` aus `.env`, falls vorhanden, und führe dann
+> `docker compose pull && docker compose up -d` aus. Danach ist jedes weitere Update nur noch
+> `docker compose pull && docker compose up -d`, ohne `git pull` und ohne Änderungen.
+> [Details](docs/updating.md#coming-from-05-or-older) (Englisch).
+
 Eine selbst gehostete Begleit-App für [Immich](https://immich.app). Für jedes Foto ohne Standort
 schlagen mehrere Module — zeitlich nahe Fotos, das neuronale Netz GeoCLIP und ähnliche Fotos
 desselben Ortes aus deiner eigenen Mediathek — vor, wo es aufgenommen wurde, alle auf einer
@@ -127,14 +135,17 @@ Neue Module können später als Plugins hinzukommen.
 Steward läuft mit Docker Compose neben deinem Immich-Server (Immich v3.x):
 
 ```sh
-git clone https://github.com/Ivamic/immich-steward.git
-cd immich-steward
-cp .env.example .env      # STEWARD_IMMICH_URL, STEWARD_SECRET_KEY und DB_PASSWORD setzen
+mkdir immich-steward && cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+cp example.env .env      # STEWARD_IMMICH_URL, STEWARD_SECRET_KEY und DB_PASSWORD setzen
 docker compose up -d
 ```
 
 Die Images werden aus der GitHub Container Registry geladen (`ghcr.io/ivamic/immich-steward-core`,
-`amd64` und `arm64`); mit `--build` werden sie stattdessen aus dem Quellcode gebaut.
+`amd64` und `arm64`); sie lassen sich auch
+[aus dem Quellcode bauen](docs/updating.md#building-the-images-from-source). Aktualisieren:
+`docker compose pull && docker compose up -d`.
 
 Öffne dann `http://<dein-server>:8780` und melde dich mit deinem Immich-Konto an.
 

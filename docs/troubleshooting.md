@@ -36,8 +36,20 @@ If this fails while Immich opens fine in your browser:
 
 ### `pull access denied for immich-steward-core`
 
-Your `compose.yaml` is from version 0.2.1 or older, which only built the images locally. Run
-`git pull` to get the current one, or build with `docker compose up -d --build`.
+Your `compose.yaml` is from version 0.2.1 or older, which only built the images locally. Get the
+current one as described in [Coming from 0.5 or older](updating.md#coming-from-05-or-older).
+
+### "The database was updated by a newer version of Steward"
+
+The app stops with this message when an older version starts on a database that a newer one has
+already changed, usually because `.env` names an older version (`STEWARD_VERSION=…`). Remove that
+line, or set the newer version, then run `docker compose pull` and `docker compose up -d`.
+
+### Unknown settings in the log
+
+`docker compose logs core` warns about `STEWARD_…` names in `.env` that the app does not know: a
+typo, or a setting that was renamed (the warning then says the new name). The app ignores them, so
+fix the name for the setting to have an effect.
 
 ## Signing in
 

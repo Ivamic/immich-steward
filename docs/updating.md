@@ -2,14 +2,14 @@
 
 ## Updating
 
-A new version is announced on the [releases page](https://github.com/Ivamic/immich-steward/releases);
-the [changelog](../CHANGELOG.md) says what is new and whether `.env` needs new settings.
+A new version is announced in the app (a badge in the header, see **Settings → Updates**) and on
+the [releases page](https://github.com/Ivamic/immich-steward/releases); its notes say what is new
+and, under **Upgrade notes**, whether anything else is needed (usually nothing).
 
 In the folder of the app, without the worker:
 
 ```sh
 cd immich-steward
-git pull
 docker compose pull
 docker compose up -d
 ```
@@ -18,21 +18,20 @@ With the worker on the server:
 
 ```sh
 cd immich-steward
-git pull
 docker compose --profile worker pull
 docker compose --profile worker up -d
 ```
 
-What each line does: `git pull` gets the new `compose.yaml`, which names the new version of the
-images; `pull` downloads the images; `up -d` restarts the containers with them. Database changes
-are applied automatically when the app starts. Your settings in `.env` and your data are kept.
+`pull` downloads the new images, `up -d` restarts the containers with them. Database changes are
+applied when the app starts. Your settings in `.env` and your data are kept.
 
-Don't skip `git pull`: `compose.yaml` names the version of the images, so `docker compose pull`
-alone downloads the version you already have. The version is fixed on purpose: a new version may
-need changes in `compose.yaml` itself (new settings, services or volumes), and updating both
-together keeps them in step.
+This works because `compose.yaml` asks for the images of the **major version** (`0` now, later
+`1`), not of one release, and stays the same within it: new settings get defaults in the app,
+new services come as optional profiles. A change that needs more than `pull` comes only with a
+new major version, and its release notes say what to do.
 
-Workers on other computers are updated separately, see [Workers](workers.md).
+Workers on other computers are updated separately, see [Workers](workers.md). A worker that
+must be updated shows up on the **Processing** page.
 
 Old images take disk space; remove them afterwards with:
 
@@ -40,37 +39,57 @@ Old images take disk space; remove them afterwards with:
 docker image prune
 ```
 
-### If `git pull` stops with a conflict
+### Coming from 0.5 or older
 
-This happens when you changed `compose.yaml` yourself. Put your changes into `.env` or into a
-file `compose.override.yaml` next to it, which Docker Compose reads automatically and `git pull`
-doesn't touch. Then undo your changes to `compose.yaml` (`git checkout compose.yaml`) and run
-`git pull` again.
+Installs from before 0.6.0 were made with `git clone`, and their `compose.yaml` named one release.
+Get the new `compose.yaml` once, then update as above:
+
+```sh
+cd immich-steward
+curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
+docker compose pull
+docker compose up -d
+```
+
+(`git pull` does the same, if you prefer to keep the clone.) Your `.env` stays as it is. Two
+things to check in it:
+
+- A line `STEWARD_VERSION=…` keeps the old version: remove it.
+- If you changed `compose.yaml` itself, move those changes into a file `compose.override.yaml`
+  next to it, which Docker Compose reads automatically and an update never touches.
 
 ### Staying on a version
 
-To keep a version while `compose.yaml` moves on, set it in `.env`, e.g. `STEWARD_VERSION=0.5.1`.
+To keep a version, set it in `.env`, e.g. `STEWARD_VERSION=0.6.0`; remove the line to follow new
+releases again. `docker compose pull` then keeps that version.
 
-`STEWARD_VERSION=latest` (or `0.4` for the newest 0.4.x) makes `docker compose pull` fetch new
-images without `git pull`. We don't recommend it while the project is at an early stage: a new
-image may need a newer `compose.yaml` than the one you have, and the app may fail to start.
+### Updating by itself
+
+Tools such as Watchtower can run `docker compose pull` for you. It works, since the image tag
+follows the major version, but we suggest updating by hand and reading the release notes first:
+the app is at an early stage.
 
 ## Building the images from source
 
-Instead of downloading the images, you can build them on your server (a few minutes, about 2 GB
-of disk space during the build, internet access for the packages). Add `--build` to the start
-command.
+Instead of downloading the images, you can build them from a copy of the source (a few minutes,
+about 2 GB of disk space during the build, internet access for the packages). In a clone of the
+repository, with your `.env` next to `compose.yaml`:
+
+```sh
+git clone https://github.com/Ivamic/immich-steward.git
+cd immich-steward
+```
 
 Without the worker:
 
 ```sh
-docker compose up -d --build
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
 ```
 
 With the worker:
 
 ```sh
-docker compose --profile worker up -d --build
+docker compose -f compose.yaml -f compose.build.yaml --profile worker up -d --build
 ```
 
 This is also the way to run the worker on `arm64` for now. The images built this way get the same

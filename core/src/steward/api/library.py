@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from steward import __version__, embeddings, module_display, worker_queue, worker_refusals
+from steward.api.worker import RECOMMENDED_WORKER_VERSION
 from steward.config import Settings
 from steward.deps import CurrentAccount, DbDep, ImmichFactoryDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
@@ -138,6 +139,8 @@ class Workers(BaseModel):
     pause: Pause
     # Workers refused lately because one side is too old for the other.
     refused: list[RefusedWorkerOut]
+    # A worker older than this is offered an update (`api.worker.RECOMMENDED_WORKER_VERSION`).
+    worker_recommended: str = ""
     # Version of this core: an active worker with an older one can be updated.
     core_version: str
 
@@ -253,6 +256,7 @@ async def get_workers(
             for r in refusals.recent(timedelta(minutes=settings.worker_active_minutes))
         ],
         core_version=__version__,
+        worker_recommended=RECOMMENDED_WORKER_VERSION,
     )
 
 

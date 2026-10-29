@@ -192,26 +192,19 @@ class Worker:
         self._compare_versions()
 
     def _compare_versions(self) -> None:
-        """Says in the log when the worker and the core differ in version. Checked at every
-        registration, so also after the core was updated while the worker kept running."""
-        core = self._client.core_version
-        if core is None:
+        """Says in the log when the core recommends a newer worker than this one, with the
+        commands to update to the core's version. Checked at every registration, so also after
+        the core was updated while the worker kept running. A worker the core does not mind
+        (the same major version) is not asked: not every release changes the worker."""
+        core, recommended = self._client.core_version, self._client.worker_recommended
+        if core is None or recommended is None or not is_newer(recommended, __version__):
             return
-        if is_newer(core, __version__):
-            log.warning(
-                "a newer version of the app runs on the server (%s, this worker is %s): update "
-                "the worker: %s",
-                core,
-                __version__,
-                update_hint(core),
-            )
-        elif is_newer(__version__, core):
-            log.warning(
-                "this worker (%s) is newer than the app on the server (%s): update the app on "
-                "the server (docker compose pull && docker compose up -d)",
-                __version__,
-                core,
-            )
+        log.warning(
+            "the app on the server (%s) recommends a newer worker than this one (%s): %s",
+            core,
+            __version__,
+            update_hint(core),
+        )
 
     async def _report(self, state: str, module: str | None = None) -> None:
         """Tells the core what the worker is doing, when that changes. Never fails the work."""

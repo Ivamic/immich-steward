@@ -44,6 +44,7 @@ class FakeCore:
     # (state, module) the worker reported, in order; None: the core is too old to take them.
     states: list[tuple[str, str | None]] | None = field(default_factory=list)
     core_version: str | None = None
+    worker_recommended: str | None = None
 
     def add_job(self, module: str = "stub") -> str:
         job_id = str(uuid.uuid4())
@@ -67,6 +68,8 @@ class FakeCore:
             answer = {"worker_id": worker_id, "lease_seconds": 30}
             if self.core_version:
                 answer["core_version"] = self.core_version
+            if self.worker_recommended:
+                answer["worker_recommended"] = self.worker_recommended
             return httpx2.Response(200, json=answer)
         if request.headers.get("x-worker-id") not in self.known_workers:
             return httpx2.Response(401, json={"code": "worker_unknown"})
@@ -464,21 +467,22 @@ def test_the_worker_id_outlives_a_restart(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    ("core_version", "says"),
+    ("recommended", "says"),
     [
-        ("99.0.0", "a newer version of the app runs on the server (99.0.0"),
-        ("0.0.1", "update the app on the server"),
-        (None, None),  # cores before 0.6.1 do not say their version
+        ("99.0.0", "recommends a newer worker than this one"),
+        ("0.0.1", None),  # a newer core that does not need a newer worker says nothing
+        (None, None),  # cores before 0.7.0 recommend nothing
     ],
 )
-def test_a_different_version_of_the_core_is_told(
-    core_version: str | None, says: str | None, caplog: pytest.LogCaptureFixture
+def test_an_update_is_asked_only_when_recommended(
+    recommended: str | None, says: str | None, caplog: pytest.LogCaptureFixture
 ) -> None:
-    worker, _ = make_worker(FakeCore(core_version=core_version), StubModule())
+    core = FakeCore(core_version="99.0.0", worker_recommended=recommended)
+    worker, _ = make_worker(core, StubModule())
     with caplog.at_level("WARNING"):
         asyncio.run(worker.run_once())
     warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     if says is None:
         assert not warnings
     else:
-        assert any(says in message for message in warnings)
+        assert any(says in message and "v99.0.0" in message for message in warnings)

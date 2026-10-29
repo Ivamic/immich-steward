@@ -115,8 +115,9 @@
 	let highlight = $state<Highlight | null>(null);
 	// Medium screens: which of the two side panels is shown.
 	let tab = $state<'place' | 'info'>('place');
-	// A video plays in the card; turned in the app, its turned preview frame is shown instead.
-	const playable = $derived(asset?.type === 'VIDEO' && !turn);
+	// A video plays in the card. It is not turned: Immich cannot save that, and the card alone
+	// gains nothing from it.
+	const playable = $derived(asset?.type === 'VIDEO');
 	// On a phone the details of the photo are folded under the map; elsewhere always shown.
 	let factsOpen = $state(false);
 	const listed = $derived(displayedModules(suggestions, revealed));
@@ -255,6 +256,7 @@
 	}
 
 	function rotate(by: 90 | -90) {
+		if (playable) return;
 		rotationNotice = null;
 		turn = ((((turn + by) % 360) + 360) % 360) as Turn;
 		shownPart = null;
@@ -727,30 +729,30 @@
 						</span>
 					</button>
 				{/if}
-				<div class="tools" class:over-player={playable}>
-					<div class="st-glass group">
-						<Tooltip text={m.photo_turn_left()} keys="[">
-							<button
-								type="button"
-								class="st-iconbtn st-iconbtn--sm"
-								aria-label={m.photo_turn_left()}
-								onclick={() => rotate(-90)}
-							>
-								<Icon name="rotate-ccw" />
-							</button>
-						</Tooltip>
-						<Tooltip text={m.photo_turn_right()} keys="]">
-							<button
-								type="button"
-								class="st-iconbtn st-iconbtn--sm"
-								aria-label={m.photo_turn_right()}
-								onclick={() => rotate(90)}
-							>
-								<Icon name="rotate-cw" />
-							</button>
-						</Tooltip>
-					</div>
-					{#if !playable}
+				{#if !playable}
+					<div class="tools">
+						<div class="st-glass group">
+							<Tooltip text={m.photo_turn_left()} keys="[">
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_turn_left()}
+									onclick={() => rotate(-90)}
+								>
+									<Icon name="rotate-ccw" />
+								</button>
+							</Tooltip>
+							<Tooltip text={m.photo_turn_right()} keys="]">
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_turn_right()}
+									onclick={() => rotate(90)}
+								>
+									<Icon name="rotate-cw" />
+								</button>
+							</Tooltip>
+						</div>
 						<div class="st-glass group">
 							<Tooltip text={m.photo_zoom()} keys="Z">
 								<button
@@ -763,26 +765,24 @@
 								</button>
 							</Tooltip>
 						</div>
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</figure>
 			{#if turn}
 				<div class="st-banner st-banner--info rotation" role="status">
 					<Icon name="rotate-cw" />
 					<div class="st-banner__body">
-						{asset?.type === 'IMAGE' ? m.photo_turned_note() : m.photo_rotation_video()}
+						{m.photo_turned_note()}
 						<div class="rotation-actions">
-							{#if asset?.type === 'IMAGE'}
-								<button
-									type="button"
-									class="st-btn st-btn--primary st-btn--sm"
-									disabled={busy}
-									onclick={saveRotation}
-								>
-									<Icon name="check" size={14} />
-									{m.photo_rotation_save()}
-								</button>
-							{/if}
+							<button
+								type="button"
+								class="st-btn st-btn--primary st-btn--sm"
+								disabled={busy}
+								onclick={saveRotation}
+							>
+								<Icon name="check" size={14} />
+								{m.photo_rotation_save()}
+							</button>
 							<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={resetRotation}>
 								{m.photo_rotation_reset()}
 							</button>
@@ -792,9 +792,6 @@
 			{/if}
 			{#if rotationNotice}
 				<p class="turned" role="status">{rotationNotice}</p>
-			{/if}
-			{#if asset?.type === 'VIDEO' && turn}
-				<p class="turned">{m.photo_video_note()}</p>
 			{/if}
 
 			{#if asset}
@@ -1168,11 +1165,6 @@
 		width: 100%;
 		max-height: 17rem;
 		background: var(--gray-900);
-	}
-	/* The controls of the player are at its bottom: the turn buttons go to its top. */
-	.tools.over-player {
-		top: var(--space-2);
-		bottom: auto;
 	}
 	.part {
 		position: absolute;

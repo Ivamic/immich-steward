@@ -55,6 +55,14 @@ def test_month_buckets_and_filters(signed_in: TestClient) -> None:
 
 
 @pytest.mark.usefixtures("library")
+def test_months_count_their_days(signed_in: TestClient) -> None:
+    buckets = signed_in.get("/api/assets/months").json()
+    # May has a photo on the 31st and one on the 3rd: two days, newest first.
+    assert {b["month"]: b["days"] for b in buckets}["2024-05"] == [1, 1]
+    assert all(sum(b["days"]) == b["count"] for b in buckets)
+
+
+@pytest.mark.usefixtures("library")
 def test_month_items_are_bounded_by_local_time(signed_in: TestClient) -> None:
     may = month(signed_in, "2024-05")
     assert [item["local_taken_at"] for item in may] == [

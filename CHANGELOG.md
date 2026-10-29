@@ -10,12 +10,16 @@ between releases.
 ### Added
 
 - **Videos play**: in the photo card with the usual controls, and in the gallery on a long press,
-  at once, in a loop and muted. **Settings → Gallery** turns the sound of that preview on. The
-  video is the one Immich plays itself, streamed through the app; seeking works.
-- **A worker says in its log when the app on the server has another version**, with the commands
-  that bring it to the same version (Git for a worker from source, Docker for the image). It asks
-  only the app, not GitHub, and checks again whenever it reconnects, e.g. after the server was
-  updated.
+  at once, in a loop and muted (a badge tells why). **Settings → Gallery** turns the sound of that
+  preview on. The video is the one Immich plays itself, streamed through the app; seeking works.
+  Videos have no rotation buttons: Immich cannot save a turned video.
+- **A worker says in its log when the app on the server recommends a newer worker**, with the
+  commands that bring it to the version of the app (Git for a worker from source, Docker for the
+  image). Only releases that change the worker ask for it, as does the **Processing** page; an
+  older worker of the same major version keeps working. It asks only the app, not GitHub, and
+  checks again whenever it reconnects, e.g. after the server was updated.
+- **Gallery: days within a month.** The photos of a month are grouped by day, under the day of
+  the week, the date and the number of photos; a circle before the date chooses the whole day.
 - **Processing: modules of a worker are switches.** A module turned off is not given to that
   worker, from its next job on, without editing `.env` or a restart.
 - **Processing: Add a device.** Ready commands to start a worker on another computer (Docker on
@@ -32,6 +36,10 @@ between releases.
 
 ### Changed
 
+- **Gallery on a phone**: the filters open from a **Filters** button (with the number of filters
+  on), and three photos fit in a row.
+- **Map bar on a phone**: one button with the map and the heat map on, beside the zoom; the rest
+  opens under it.
 - **Photo card on a phone**: the photo comes first, right under the buttons to the previous and
   next photo, then the map and the place; the details of the photo are folded under a button at
   the end.

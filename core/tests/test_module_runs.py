@@ -247,7 +247,7 @@ def test_gallery_filter_for_confident_geoclip_guesses(
     # Confident enough and still without a location: the photo with GPS is not listed.
     assert [item["file_name"] for item in items] == ["todo1.jpg"]
     months = signed_in.get("/api/assets/months", params={"geoclip_confident": True}).json()
-    assert months == [{"month": "2024-05", "count": 1}]
+    assert months == [{"month": "2024-05", "count": 1, "days": [1]}]
     # Without the filter, the gallery marks the same photo.
     everything = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
     marked = {item["file_name"]: item["geoclip_confident"] for item in everything}

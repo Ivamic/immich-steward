@@ -145,8 +145,7 @@ docker logs --tail 20 steward-worker
 | `HTTP 503 workers_disabled` | The app has no worker token: set `STEWARD_WORKER_TOKEN` on the server and run `docker compose up -d` there. |
 | `… is not an immich-steward core (no worker API there)` | The address points to Immich or to another program, not to Steward: use the port of Steward (`8780` by default), not the one of Immich (`2283`). |
 | `another running worker is called …` | That name is taken by a worker that is running now on another computer: choose another `STEWARD_WORKER_NAME` (or `--name`). A restarted worker is known as the same one: it keeps its id in the models volume (`/models/steward-worker.id`; from source: `~/.cache/steward-worker/<name>.id`, or `STEWARD_WORKER_ID_FILE`). |
-| `a newer version of the app runs on the server …` | The app on the server was updated: update the worker to the same version. The message ends with the commands to do it. |
-| `this worker (…) is newer than the app on the server …` | Update the app on the server (`docker compose pull && docker compose up -d`). |
+| `the app on the server (…) recommends a newer worker than this one …` | The worker changed in a release since: update it to the version of the app. The message ends with the commands to do it. Releases that do not change the worker do not ask; an older worker of the same major version keeps working. |
 | `ConnectError` | The app is not reachable at that address: check the address, the port and the firewall. |
 
 A worker with no photos to do just waits; that is normal.

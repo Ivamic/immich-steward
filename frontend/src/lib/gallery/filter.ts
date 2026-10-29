@@ -74,3 +74,21 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	}
 	return `?${params}`;
 }
+
+/** How many filters differ from the default ones: the count on the filter button of a phone. */
+export function activeFilters(filter: GalleryFilter): number {
+	const fields: (keyof GalleryFilter)[] = [
+		'type',
+		'camera',
+		'album',
+		'archived',
+		'geoclip_confident',
+		'similar_confident',
+		'nearby',
+		'failed_module'
+	];
+	const changed = fields.filter((field) => filter[field] !== defaultFilter[field]).length;
+	const shown = filter.show.join() !== defaultFilter.show.join() ? 1 : 0;
+	const period = filter.date_from || filter.date_to ? 1 : 0;
+	return changed + shown + period;
+}

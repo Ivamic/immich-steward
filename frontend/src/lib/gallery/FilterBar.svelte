@@ -23,7 +23,8 @@
 	import SearchSelect from '#lib/ui/SearchSelect.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
-	import { defaultFilter, filterToUrl } from './filter.js';
+	import Dialog from '#lib/ui/Dialog.svelte';
+	import { activeFilters, defaultFilter, filterToUrl } from './filter.js';
 
 	let {
 		filter,
@@ -104,9 +105,12 @@
 		return `${m.filter_failed()}: ${module}${reason}`;
 	});
 	const isDefault = $derived(filterToUrl(filter) === filterToUrl(defaultFilter));
+	const active = $derived(activeFilters(filter));
+	let sheet = $state(false);
 </script>
 
-<div class="bar" bind:offsetHeight={height}>
+<!-- On a phone the chips take the whole screen: one button opens them in a window instead. -->
+{#snippet controls()}
 	<div class="group" role="group" aria-label={m.filter_view()}>
 		{#each SHOW_CATEGORIES as category (category)}
 			{@const checked = filter.show.includes(category)}
@@ -283,11 +287,25 @@
 			{m.filter_reset()}
 		</button>
 	{/if}
+{/snippet}
 
+<div class="bar" bind:offsetHeight={height}>
+	<button type="button" class="filters st-btn st-btn--sm" onclick={() => (sheet = true)}>
+		<Icon name="filter" size={14} />
+		{m.filter_button()}
+		{#if active}<span class="active">{active}</span>{/if}
+	</button>
+	<div class="chips">{@render controls()}</div>
 	{#if total !== null}
 		<span class="total">{m.gallery_total({ count: new Intl.NumberFormat().format(total) })}</span>
 	{/if}
 </div>
+
+{#if sheet}
+	<Dialog title={m.filter_button()} icon="filter" onclose={() => (sheet = false)}>
+		<div class="sheet">{@render controls()}</div>
+	</Dialog>
+{/if}
 
 <style>
 	/* Stays under the sticky header; the side margins cover the page padding. */
@@ -304,8 +322,42 @@
 		padding: var(--space-3) 4rem var(--space-3) var(--space-6);
 		background: var(--color-bg);
 	}
-	.group {
+	.group,
+	.chips {
 		display: contents;
+	}
+	.filters {
+		display: none;
+	}
+	.active {
+		display: inline-grid;
+		place-items: center;
+		min-width: 1.25rem;
+		height: 1.25rem;
+		padding-inline: var(--space-1);
+		border-radius: var(--radius-full);
+		background: var(--color-accent);
+		color: var(--gray-0);
+		font-size: var(--text-xs);
+	}
+	/* In the window: the same chips, wrapped. */
+	.sheet {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+	}
+	/* A phone: the filter button and the total only. */
+	@media (max-width: 40rem) {
+		.bar {
+			padding-inline-end: var(--space-6);
+		}
+		.filters {
+			display: inline-flex;
+		}
+		.chips {
+			display: none;
+		}
 	}
 	.sep {
 		width: 1px;

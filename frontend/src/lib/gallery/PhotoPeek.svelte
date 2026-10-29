@@ -5,20 +5,27 @@
 <script lang="ts">
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
 	import { thumbnailUrl, videoUrl, type AssetItem } from '#lib/api.js';
+	import { m } from '#lib/paraglide/messages.js';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { takenTitle } from './month.js';
 
 	let { item, onclose }: { item: AssetItem; onclose: () => void } = $props();
 
 	let loaded = $state(false);
 	let player = $state<HTMLVideoElement>();
+	// Why a video plays without its sound: turned off in the settings, or refused by the browser.
+	let silent = $state<'setting' | 'browser' | null>(null);
 
 	// Not the autoplay attribute: a browser that refuses the sound would not start it at all.
 	$effect(() => {
 		if (!player) return;
 		const video = player;
-		video.muted = !accountSettings.values.video_sound;
+		const sound = accountSettings.values.video_sound;
+		video.muted = !sound;
+		silent = sound ? null : 'setting';
 		video.play().catch(() => {
 			video.muted = true;
+			silent = 'browser';
 			video.play().catch(() => {});
 		});
 	});
@@ -56,6 +63,12 @@
 					aria-label={item.file_name}
 					onloadeddata={() => (loaded = true)}
 				></video>
+				{#if silent}
+					<span class="silent">
+						<Icon name="volume-x" size={14} />
+						{silent === 'setting' ? m.peek_sound_off_setting() : m.peek_sound_off_browser()}
+					</span>
+				{/if}
 			{:else}
 				<img
 					class="large"
@@ -113,6 +126,20 @@
 		height: 100%;
 		object-fit: contain;
 		pointer-events: none;
+	}
+	/* Why there is no sound: over the corner of the video. */
+	.silent {
+		position: absolute;
+		right: var(--space-2);
+		bottom: var(--space-2);
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		padding: 2px var(--space-2);
+		border-radius: var(--radius-full);
+		background: oklch(0 0 0 / 0.6);
+		color: var(--gray-0);
+		font-size: var(--text-xs);
 	}
 	.small {
 		filter: blur(6px);

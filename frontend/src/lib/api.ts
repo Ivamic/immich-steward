@@ -132,6 +132,8 @@ export interface GalleryFilter {
 export interface MonthBucket {
 	month: string; // YYYY-MM
 	count: number;
+	/** Photos of each day of the month that has any, newest first (cores before 0.7.0: none). */
+	days?: number[];
 }
 
 export interface AssetItem {
@@ -509,8 +511,10 @@ export interface WorkersOverview {
 	workers: WorkerInfo[];
 	/** Workers refused lately: update the worker, or the app on the server. */
 	refused: RefusedWorker[];
-	/** Version of the app: a connected worker with an older one can be updated. */
+	/** Version of the app: the one to install when a worker is offered an update. */
 	core_version: string;
+	/** A worker older than this is offered an update (not every release changes the worker). */
+	worker_recommended: string;
 	/** Every module workers can run, in the order to show them. */
 	modules: { id: string; color: string; shape: string }[];
 	/** Module -> status of the latest run -> number of photos. */

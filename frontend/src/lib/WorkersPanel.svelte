@@ -215,7 +215,7 @@
 							<h3>{worker.name}</h3>
 							<span class="device">{worker.device}</span>
 							<span class="muted">{worker.version}</span>
-							{#if worker.active && older(worker.version, overview.core_version)}
+							{#if worker.active && older(worker.version, overview.worker_recommended)}
 								<a
 									class="update"
 									href={WORKERS_DOCS}

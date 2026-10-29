@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
 from steward import __version__, worker_queue
-from steward.api.worker import PROTOCOL_VERSION
+from steward.api.worker import PROTOCOL_VERSION, RECOMMENDED_WORKER_VERSION
 from steward.models import Asset, Job, ModuleRun, Worker
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
@@ -89,6 +89,7 @@ def test_protocols_of_one_major_version_get_along(signed_in: TestClient) -> None
     assert response.json()["protocol_version"] == PROTOCOL_VERSION
     # The worker tells in its log when its version differs from the core's.
     assert response.json()["core_version"] == __version__
+    assert response.json()["worker_recommended"] == RECOMMENDED_WORKER_VERSION
     assert signed_in.get("/api/library/workers").json()["refused"] == []
 
 

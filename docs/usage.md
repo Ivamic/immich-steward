@@ -12,7 +12,7 @@ language and the theme (light, dark, or as in your system).
 The gallery shows your photos by month, newest first. By default it shows the photos
 **without a location**: your to-do list.
 
-- **Filters** are the row of buttons at the top. Which photos to show: *Without location*,
+- **Filters** are the row of buttons at the top (on a phone, behind the **Filters** button). Which photos to show: *Without location*,
   *With location*, *Skipped*, *Not applicable* (several can be on at once). *Confident GeoCLIP
   guess* leaves the photos for which GeoCLIP is fairly sure where they were taken; *Located
   photo nearby* leaves the photos taken within 15 minutes of a photo with a location, whose place
@@ -29,6 +29,8 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   GeoCLIP has a confident guess for it; purple photos mean a confidently similar photo has a
   location; a play sign marks a video. The 15 minutes are a setting
   (`STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES`).
+- **Months and days**: within a month, the photos are grouped by the day they were taken, under
+  the day of the week, the date and the number of photos.
 - **The timeline** on the right shows the years. Click or drag on it to jump to a month.
 - Click a photo to open its card. When you come back, the gallery opens at the same place.
 - **Press and hold** a photo (mouse or finger) to see it large over the gallery, without opening
@@ -44,7 +46,8 @@ The filter is kept in the address of the page, so a filtered view can be bookmar
 
 Hover a photo and click the circle in its top left corner to choose it. While some photos are
 chosen, a click on another photo chooses it too instead of opening it; **Shift** + click chooses
-everything from the photo clicked before (for example a series taken in a row). **Esc** or the
+everything from the photo clicked before (for example a series taken in a row). The circle before
+the date of a day chooses all its photos at once. **Esc** or the
 cross in the bar clears the choice.
 
 A bar at the bottom shows how many photos are chosen (how many of them already have a location,
@@ -197,7 +200,7 @@ module keeps running, and a line under the suggestions lets you show it for a wh
 A video plays in the card, with the usual controls; it plays the version Immich plays in its own
 app. Click a photo (or press **Z**) to see it in full size. **[** and **]** rotate it if it is on its
 side: the modules started after that get it rotated. The rotation is kept only in the card until
-you press **Save rotation in Immich** (photos only, not videos); **Undo rotation** turns it back.
+you press **Save rotation in Immich** (photos only: a video has no rotation buttons); **Undo rotation** turns it back.
 Saving the rotation needs the API key permissions `asset.edit.get`, `asset.edit.create` and
 `asset.edit.delete`; keys created by Steward 0.3.0 and later have them.
 

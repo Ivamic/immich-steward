@@ -87,7 +87,7 @@ def test_filter_and_month_counts(signed_in: TestClient, library: dict[str, str])
         library["unknown"],
     }
     months = signed_in.get("/api/assets/months", params={"nearby": "true"}).json()
-    assert months == [{"month": "2024-05", "count": 3}]
+    assert months == [{"month": "2024-05", "count": 3, "days": [1, 2]}]
 
 
 def test_the_window_is_a_setting(signed_in: TestClient, library: dict[str, str]) -> None:

@@ -37,6 +37,10 @@ router = APIRouter(prefix="/worker")
 # minimum only in a new major version.
 PROTOCOL_VERSION = 1
 MIN_WORKER_PROTOCOL = 1
+# The version of the last release whose worker changed: an older worker is asked to update, in its
+# log and on the Processing page. Raise it only when the worker changed (release checklist), not
+# with every release of the app: workers of the same major version keep working (the protocol).
+RECOMMENDED_WORKER_VERSION = "0.7.0rc2"
 # Workers may send at most this many candidates per run.
 MAX_CANDIDATES = 50
 # The longest vector pgvector stores as halfvec.
@@ -84,8 +88,10 @@ class RegisterResponse(BaseModel):
     worker_id: UUID
     lease_seconds: int
     protocol_version: int = PROTOCOL_VERSION
-    # Lets the worker say in its log that it should be updated (0.6.1).
+    # Lets the worker say in its log that it should be updated (0.7.0): when it is older than
+    # the recommended version; the core's version is the one to install.
     core_version: str = __version__
+    worker_recommended: str = RECOMMENDED_WORKER_VERSION
 
 
 class LeaseRequest(BaseModel):

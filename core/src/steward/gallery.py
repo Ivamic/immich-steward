@@ -271,15 +271,24 @@ def _next_month(month: date) -> datetime:
 
 async def month_buckets(
     db: AsyncSession, account: Account, gallery_filter: GalleryFilter
-) -> list[tuple[date, int]]:
-    month = func.date_trunc("month", Asset.local_taken_at).label("month")
+) -> list[tuple[date, list[int]]]:
+    """The months with photos, newest first, each with the number of photos of each of its days
+    that has any (newest first too): the gallery shows the days as groups and sizes a month
+    before its photos are loaded."""
+    day = func.date_trunc("day", Asset.local_taken_at).label("day")
     rows = await db.execute(
-        select(month, func.count())
+        select(day, func.count())
         .where(*gallery_filter.conditions(account))
-        .group_by(month)
-        .order_by(month.desc())
+        .group_by(day)
+        .order_by(day.desc())
     )
-    return [(row[0].date(), row[1]) for row in rows]
+    months: list[tuple[date, list[int]]] = []
+    for taken, count in rows:
+        first = taken.date().replace(day=1)
+        if not months or months[-1][0] != first:
+            months.append((first, []))
+        months[-1][1].append(count)
+    return months
 
 
 def gallery_order() -> tuple[Any, ...]:

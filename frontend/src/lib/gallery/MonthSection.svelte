@@ -21,13 +21,11 @@
 	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
 	import { atPhoto, type FilterQuery } from './filter.js';
-	import { monthTitle } from './month.js';
+	import { byDay, dayTitle, monthHeight, monthTitle, tileFor } from './month.js';
 	import { photoWork } from './bulk.svelte.js';
 	import { galleryChanges, type Selection } from './selection.svelte.js';
 	import { longpress } from './longpress.js';
 
-	const TILE = 160; // px, keep in sync with the grid CSS below
-	const GAP = 4;
 	const NEAR_VIEWPORT = '1500px';
 
 	let {
@@ -67,9 +65,12 @@
 	let items = $state<AssetItem[] | null>(null);
 	let failed = $state(false);
 
-	const columns = $derived(Math.max(1, Math.floor((width + GAP) / (TILE + GAP))));
-	const estimatedHeight = $derived(Math.ceil(bucket.count / columns) * (TILE + GAP) - GAP);
+	// Each day of the month is a group with its heading (`month.ts` sizes them the same way).
+	// A month without its days (an older core) counts as one day.
+	const estimatedHeight = $derived(monthHeight(bucket.days ?? [bucket.count], width));
+	const tile = $derived(tileFor(width));
 	const title = $derived(monthTitle(bucket.month));
+	const days = $derived(items ? byDay(items) : []);
 
 	/** Shows the thumbnail once loaded; it may already be loaded (cache) when this runs. */
 	function fadeIn(img: HTMLImageElement) {
@@ -141,117 +142,140 @@
 	}
 </script>
 
-<section bind:this={section} data-month={bucket.month}>
+<section bind:this={section} data-month={bucket.month} style:--tile="{tile}px">
 	<h2>{title} <span class="count">{bucket.count}</span></h2>
 	{#if near && items}
-		<div class="grid">
-			{#each items as item (item.id)}
-				{@const chosen = selection.has(item.id)}
-				{@const work = photoWork(item.id)}
-				<div class="cell" class:chosen class:choosing={selection.size > 0}>
-					<a
-						class="tile"
-						href={resolve(`/photo/[id]${query}`, { id: item.id })}
-						title={tooltip ? undefined : item.file_name}
-						data-asset={item.id}
-						onpointerenter={(e) => tipEnter(e, item)}
-						onpointerleave={tipLeave}
-						onpointerdown={tipLeave}
-						use:longpress={() => onpeek(item)}
-						onclick={(e) => onclick(e, item)}
-					>
-						<img
-							src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)}
-							alt={item.file_name}
-							loading="lazy"
-							decoding="async"
-							use:fadeIn
-						/>
-						{#if item.type === 'VIDEO'}
-							<span class="video" role="img" aria-label={m.asset_video()}>
-								<Icon name="play" size={11} strokeWidth={2.25} />
-							</span>
-						{/if}
-						{#if item.has_location}
-							<span class="markers">
-								<span
-									class="marker location"
-									role="img"
-									aria-label={m.asset_has_location()}
-									title={m.asset_has_location()}
-								>
-									<Icon name="map-pin" size={14} strokeWidth={2.25} />
-								</span>
-							</span>
-						{:else if item.nearby || item.geoclip_confident || item.similar_confident}
-							<span class="markers">
-								{#if item.nearby}
-									<!-- Clock in the color of time neighbors: filled for the same camera
-									     (the stronger hint), outlined for another one. -->
-									{@const text =
-										item.nearby === 'same_camera'
-											? m.asset_nearby_same({ minutes: nearbyMinutes })
-											: m.asset_nearby_other({ minutes: nearbyMinutes })}
-									<span
-										class="marker nearby"
-										class:other={item.nearby === 'other_camera'}
-										role="img"
-										aria-label={text}
-										title={text}
-									>
-										<Icon name="clock" size={14} strokeWidth={2.25} />
-									</span>
-								{/if}
-								{#if item.geoclip_confident}
-									<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
-									<span
-										class="marker geoclip"
-										role="img"
-										aria-label={m.asset_geoclip_confident()}
-										title={m.asset_geoclip_confident()}
-									>
-										<Icon name="crosshair" size={14} strokeWidth={2.25} />
-									</span>
-								{/if}
-								{#if item.similar_confident}
-									<!-- Photos: a similar photo with a location, in the color of similar photos. -->
-									<span
-										class="marker similar"
-										role="img"
-										aria-label={m.asset_similar_confident()}
-										title={m.asset_similar_confident()}
-									>
-										<Icon name="images" size={14} strokeWidth={2.25} />
-									</span>
-								{/if}
-							</span>
-						{/if}
-					</a>
-					{#if work}
-						<!-- Saved with others or being turned: shown on the photo itself. -->
-						<span
-							class="work"
-							role="img"
-							aria-label={work === 'waiting' ? m.photo_work_waiting() : m.photo_work_working()}
-							title={work === 'waiting' ? m.photo_work_waiting() : m.photo_work_working()}
+		<div class="days">
+			{#each days as { day, items: dayItems } (day)}
+				{@const allChosen = dayItems.every((item) => selection.has(item.id))}
+				<div class="day">
+					<h3>
+						<button
+							type="button"
+							class="day-check"
+							class:choosing={selection.size > 0}
+							aria-pressed={allChosen}
+							aria-label={m.select_day({ day: dayTitle(day) })}
+							title={m.select_day_hint()}
+							onclick={() => selection.setAll(dayItems, !allChosen)}
 						>
-							{#if work === 'waiting'}
-								<Icon name="clock" size={22} />
-							{:else}
-								<span class="st-spin"><Icon name="loader-circle" size={22} /></span>
-							{/if}
-						</span>
-					{/if}
-					<button
-						type="button"
-						class="check"
-						aria-pressed={chosen}
-						aria-label={m.select_photo({ file: item.file_name })}
-						title={m.select_photo_hint()}
-						onclick={(e) => onpick(item, e.shiftKey)}
-					>
-						<Icon name="check" size={14} strokeWidth={3} />
-					</button>
+							<Icon name="check" size={12} strokeWidth={3} />
+						</button>
+						{dayTitle(day)} <span class="count">{dayItems.length}</span>
+					</h3>
+					<div class="grid">
+						{#each dayItems as item (item.id)}
+							{@const chosen = selection.has(item.id)}
+							{@const work = photoWork(item.id)}
+							<div class="cell" class:chosen class:choosing={selection.size > 0}>
+								<a
+									class="tile"
+									href={resolve(`/photo/[id]${query}`, { id: item.id })}
+									title={tooltip ? undefined : item.file_name}
+									data-asset={item.id}
+									onpointerenter={(e) => tipEnter(e, item)}
+									onpointerleave={tipLeave}
+									onpointerdown={tipLeave}
+									use:longpress={() => onpeek(item)}
+									onclick={(e) => onclick(e, item)}
+								>
+									<img
+										src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)}
+										alt={item.file_name}
+										loading="lazy"
+										decoding="async"
+										use:fadeIn
+									/>
+									{#if item.type === 'VIDEO'}
+										<span class="video" role="img" aria-label={m.asset_video()}>
+											<Icon name="play" size={11} strokeWidth={2.25} />
+										</span>
+									{/if}
+									{#if item.has_location}
+										<span class="markers">
+											<span
+												class="marker location"
+												role="img"
+												aria-label={m.asset_has_location()}
+												title={m.asset_has_location()}
+											>
+												<Icon name="map-pin" size={14} strokeWidth={2.25} />
+											</span>
+										</span>
+									{:else if item.nearby || item.geoclip_confident || item.similar_confident}
+										<span class="markers">
+											{#if item.nearby}
+												<!-- Clock in the color of time neighbors: filled for the same camera
+									     (the stronger hint), outlined for another one. -->
+												{@const text =
+													item.nearby === 'same_camera'
+														? m.asset_nearby_same({ minutes: nearbyMinutes })
+														: m.asset_nearby_other({ minutes: nearbyMinutes })}
+												<span
+													class="marker nearby"
+													class:other={item.nearby === 'other_camera'}
+													role="img"
+													aria-label={text}
+													title={text}
+												>
+													<Icon name="clock" size={14} strokeWidth={2.25} />
+												</span>
+											{/if}
+											{#if item.geoclip_confident}
+												<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
+												<span
+													class="marker geoclip"
+													role="img"
+													aria-label={m.asset_geoclip_confident()}
+													title={m.asset_geoclip_confident()}
+												>
+													<Icon name="crosshair" size={14} strokeWidth={2.25} />
+												</span>
+											{/if}
+											{#if item.similar_confident}
+												<!-- Photos: a similar photo with a location, in the color of similar photos. -->
+												<span
+													class="marker similar"
+													role="img"
+													aria-label={m.asset_similar_confident()}
+													title={m.asset_similar_confident()}
+												>
+													<Icon name="images" size={14} strokeWidth={2.25} />
+												</span>
+											{/if}
+										</span>
+									{/if}
+								</a>
+								{#if work}
+									<!-- Saved with others or being turned: shown on the photo itself. -->
+									<span
+										class="work"
+										role="img"
+										aria-label={work === 'waiting'
+											? m.photo_work_waiting()
+											: m.photo_work_working()}
+										title={work === 'waiting' ? m.photo_work_waiting() : m.photo_work_working()}
+									>
+										{#if work === 'waiting'}
+											<Icon name="clock" size={22} />
+										{:else}
+											<span class="st-spin"><Icon name="loader-circle" size={22} /></span>
+										{/if}
+									</span>
+								{/if}
+								<button
+									type="button"
+									class="check"
+									aria-pressed={chosen}
+									aria-label={m.select_photo({ file: item.file_name })}
+									title={m.select_photo_hint()}
+									onclick={(e) => onpick(item, e.shiftKey)}
+								>
+									<Icon name="check" size={14} strokeWidth={3} />
+								</button>
+							</div>
+						{/each}
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -278,9 +302,54 @@
 		color: var(--color-text-muted);
 		font-variant-numeric: tabular-nums;
 	}
+	/* Sizes kept in sync with `month.ts` (DAY_HEAD, DAY_GAP, TILE, GAP). */
+	.days {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+	}
+	.day h3 {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		height: 28px;
+		margin: 0 0 4px;
+		font-size: var(--text-sm);
+		font-weight: var(--weight-medium);
+		color: var(--color-text-muted);
+	}
+	.day h3 .count {
+		font-size: var(--text-xs);
+	}
+	/* Chooses the whole day: on hovering the day, and always while photos are chosen. */
+	.day-check {
+		display: grid;
+		place-items: center;
+		width: 20px;
+		height: 20px;
+		min-height: 0;
+		padding: 0;
+		border: 1.5px solid var(--color-border-input);
+		border-radius: 50%;
+		background: var(--color-surface);
+		color: transparent;
+		opacity: 0;
+		cursor: pointer;
+		transition: opacity var(--motion-fast);
+	}
+	.day:hover .day-check,
+	.day-check.choosing,
+	.day-check:focus-visible {
+		opacity: 1;
+	}
+	.day-check[aria-pressed='true'] {
+		border-color: var(--color-accent);
+		background: var(--color-accent);
+		color: var(--gray-0);
+	}
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, 160px);
+		grid-template-columns: repeat(auto-fill, var(--tile));
 		gap: 4px;
 	}
 	.cell {
@@ -352,8 +421,8 @@
 		/* A long press shows the photo large: no system menu or text selection on touch screens. */
 		-webkit-touch-callout: none;
 		user-select: none;
-		width: 160px;
-		height: 160px;
+		width: var(--tile);
+		height: var(--tile);
 		overflow: hidden;
 		border-radius: 2px;
 		background: var(--color-skeleton);

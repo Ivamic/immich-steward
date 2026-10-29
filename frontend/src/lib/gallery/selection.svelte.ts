@@ -51,6 +51,15 @@ export class Selection {
 		this.anchor = item.id;
 	}
 
+	/** Chooses all of the photos (a whole day), or unchooses them all. */
+	setAll(items: AssetItem[], chosen: boolean) {
+		for (const item of items) {
+			if (chosen) this.items.set(item.id, item);
+			else this.items.delete(item.id);
+		}
+		if (items.length) this.anchor = items.at(-1)!.id;
+	}
+
 	clear() {
 		this.items.clear();
 		this.anchor = null;

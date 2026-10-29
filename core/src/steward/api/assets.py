@@ -103,6 +103,8 @@ FilterDep = Annotated[GalleryFilter, Depends(gallery_filter)]
 class MonthBucket(BaseModel):
     month: str  # YYYY-MM
     count: int
+    # Photos of each day of the month that has any, newest first (the groups of the gallery).
+    days: list[int]
 
 
 class AssetItem(BaseModel):
@@ -356,7 +358,9 @@ class FilterOptions(BaseModel):
 @router.get("/months")
 async def months(account: CurrentAccount, db: DbDep, filters: FilterDep) -> list[MonthBucket]:
     buckets = await month_buckets(db, account, filters)
-    return [MonthBucket(month=f"{month:%Y-%m}", count=count) for month, count in buckets]
+    return [
+        MonthBucket(month=f"{month:%Y-%m}", count=sum(days), days=days) for month, days in buckets
+    ]
 
 
 @router.get("")

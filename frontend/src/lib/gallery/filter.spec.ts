@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { defaultFilter, failedFilter, filterFromUrl, filterToUrl } from './filter.js';
+import {
+	activeFilters,
+	defaultFilter,
+	failedFilter,
+	filterFromUrl,
+	filterToUrl
+} from './filter.js';
 
 const parse = (query: string) => filterFromUrl(new URLSearchParams(query));
 
@@ -20,5 +26,20 @@ describe('gallery filter in the URL', () => {
 
 	it('ignores a reason without a module', () => {
 		expect(parse('failure=image_unavailable')).toEqual(defaultFilter);
+	});
+});
+
+describe('activeFilters', () => {
+	it('counts what differs from the default filter, a period once', () => {
+		expect(activeFilters(defaultFilter)).toBe(0);
+		expect(
+			activeFilters({
+				...defaultFilter,
+				show: ['todo', 'with'],
+				type: 'video',
+				date_from: '2024-01-01',
+				date_to: '2024-02-01'
+			})
+		).toBe(3);
 	});
 });

@@ -64,6 +64,8 @@
 		id === null || id === SCHEME
 			? m.mapsrc_scheme()
 			: (SHORT[id] ?? sources.find((s) => s.id === id)?.name ?? id);
+	// A narrow map (a phone): the bar shows what is on and the zoom; the rest opens on request.
+	let open = $state(false);
 	const autoSet = $derived(auto !== null && (auto.far !== null || auto.near !== null));
 	const near = $derived(auto !== null && zoom >= auto.switch_zoom);
 	const eox = $derived(sources.find((s) => s.id === 'eox') ?? null);
@@ -92,130 +94,139 @@
 	}
 </script>
 
-<div class="bar">
-	{#if sources.length}
-		<span class="title">{m.mapsrc_basemap()}</span>
-		<div class="st-seg" role="radiogroup" aria-label={m.mapsrc_basemap()}>
-			<button
-				type="button"
-				role="radio"
-				aria-checked={active === SCHEME}
-				onclick={() => pick(SCHEME)}>{m.mapsrc_scheme()}</button
-			>
-			{#each sources as source (source.id)}
-				{@const reason = blocked(source)}
+<div class="bar" class:open>
+	<button type="button" class="layers" aria-expanded={open} onclick={() => (open = !open)}>
+		<Icon name="layers" size={14} />
+		{active === SCHEME ? m.mapsrc_scheme() : short(active)}{#if heatmap}&nbsp;· {m.map_heatmap()}{/if}
+		<Icon name={open ? 'chevron-up' : 'chevron-down'} size={14} />
+	</button>
+	<span class="controls">
+		{#if sources.length}
+			<span class="title">{m.mapsrc_basemap()}</span>
+			<div class="st-seg" role="radiogroup" aria-label={m.mapsrc_basemap()}>
 				<button
 					type="button"
 					role="radio"
-					aria-checked={active === source.id}
-					disabled={reason !== null}
-					title={reason ? `${source.name}: ${reason}` : source.name}
-					onclick={() => pick(source.id)}
+					aria-checked={active === SCHEME}
+					onclick={() => pick(SCHEME)}>{m.mapsrc_scheme()}</button
 				>
-					{short(source.id)}
-					{#if problems[source.id] === 'exhausted' || source.status === 'exhausted'}
-						<Icon name="triangle-alert" size={12} />
-					{/if}
-				</button>
-			{/each}
-		</div>
-		{#if eox && active === 'eox'}
-			<select
-				class="st-select year"
-				aria-label={m.mapsrc_year()}
-				value={year}
-				onchange={(e) => onyear((e.currentTarget as HTMLSelectElement).value)}
-			>
-				{#each eox.variants as variant (variant.id)}
-					<option value={variant.id}>{variant.id}</option>
-				{/each}
-			</select>
-		{/if}
-		{#if active !== SCHEME}
-			<label class="st-check st-check--sm" title={m.mapsrc_labels()}>
-				<input
-					type="checkbox"
-					checked={labels}
-					onchange={(e) => onlabels((e.currentTarget as HTMLInputElement).checked)}
-				/>
-				<span class="long">{m.mapsrc_labels()}</span>
-				<span class="short">{m.mapsrc_labels_short()}</span>
-			</label>
-		{/if}
-	{/if}
-	{#if hasAreas}
-		<span class="group" class:apart={sources.length > 0}>
-			<span class="title">{m.map_areas()}</span>
-			<div class="st-seg" role="radiogroup" aria-label={m.map_areas()} title={m.map_areas_hint()}>
-				{#each AREA_MODES as mode (mode)}
+				{#each sources as source (source.id)}
+					{@const reason = blocked(source)}
 					<button
 						type="button"
 						role="radio"
-						aria-checked={areas === mode}
-						onclick={() => onareas(mode)}>{AREA_LABEL[mode]()}</button
+						aria-checked={active === source.id}
+						disabled={reason !== null}
+						title={reason ? `${source.name}: ${reason}` : source.name}
+						onclick={() => pick(source.id)}
 					>
+						{short(source.id)}
+						{#if problems[source.id] === 'exhausted' || source.status === 'exhausted'}
+							<Icon name="triangle-alert" size={12} />
+						{/if}
+					</button>
 				{/each}
 			</div>
-		</span>
-	{/if}
-	<label
-		class="st-check st-check--sm"
-		class:apart={sources.length > 0 || hasAreas}
-		title={m.map_heatmap_hint()}
-	>
-		<input
-			type="checkbox"
-			checked={heatmap}
-			onchange={(e) => onheatmap((e.currentTarget as HTMLInputElement).checked)}
-		/>
-		{m.map_heatmap()}
-	</label>
+			{#if eox && active === 'eox'}
+				<select
+					class="st-select year"
+					aria-label={m.mapsrc_year()}
+					value={year}
+					onchange={(e) => onyear((e.currentTarget as HTMLSelectElement).value)}
+				>
+					{#each eox.variants as variant (variant.id)}
+						<option value={variant.id}>{variant.id}</option>
+					{/each}
+				</select>
+			{/if}
+			{#if active !== SCHEME}
+				<label class="st-check st-check--sm" title={m.mapsrc_labels()}>
+					<input
+						type="checkbox"
+						checked={labels}
+						onchange={(e) => onlabels((e.currentTarget as HTMLInputElement).checked)}
+					/>
+					<span class="long">{m.mapsrc_labels()}</span>
+					<span class="short">{m.mapsrc_labels_short()}</span>
+				</label>
+			{/if}
+		{/if}
+		{#if hasAreas}
+			<span class="group" class:apart={sources.length > 0}>
+				<span class="title">{m.map_areas()}</span>
+				<div class="st-seg" role="radiogroup" aria-label={m.map_areas()} title={m.map_areas_hint()}>
+					{#each AREA_MODES as mode (mode)}
+						<button
+							type="button"
+							role="radio"
+							aria-checked={areas === mode}
+							onclick={() => onareas(mode)}>{AREA_LABEL[mode]()}</button
+						>
+					{/each}
+				</div>
+			</span>
+		{/if}
+		<label
+			class="st-check st-check--sm"
+			class:apart={sources.length > 0 || hasAreas}
+			title={m.map_heatmap_hint()}
+		>
+			<input
+				type="checkbox"
+				checked={heatmap}
+				onchange={(e) => onheatmap((e.currentTarget as HTMLInputElement).checked)}
+			/>
+			{m.map_heatmap()}
+		</label>
+	</span>
 	<!-- Floored, as the switching by zoom compares it. -->
 	<span class="zoom" title={m.mapsrc_zoom_scale()}
 		>{m.map_zoom_now({ zoom: Math.floor(zoom) })}</span
 	>
-	{#if sources.length}
-		{#if auto && autoSet}
-			<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
-			<span class="summary apart" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
-				{#if auto.far === auto.near}
-					<span class:now={autoOn}>{short(auto.far)}</span>
-				{:else}
-					<span class:now={autoOn && !near}>{short(auto.far)}</span>
-					→
-					<span class:now={autoOn && near}>{short(auto.near)}</span>
-					{m.mapsrc_auto_summary_zoom({ zoom: auto.switch_zoom })}
-				{/if}
-			</span>
+	<span class="controls">
+		{#if sources.length}
+			{#if auto && autoSet}
+				<!-- What "Auto" shows; with it on, the part for the zoom now is in bold. -->
+				<span class="summary apart" class:on={autoOn} title={m.mapsrc_zoom_scale()}>
+					{#if auto.far === auto.near}
+						<span class:now={autoOn}>{short(auto.far)}</span>
+					{:else}
+						<span class:now={autoOn && !near}>{short(auto.far)}</span>
+						→
+						<span class:now={autoOn && near}>{short(auto.near)}</span>
+						{m.mapsrc_auto_summary_zoom({ zoom: auto.switch_zoom })}
+					{/if}
+				</span>
+			{/if}
+			<button
+				type="button"
+				class="auto"
+				aria-pressed={autoOn}
+				disabled={!autoSet}
+				title={auto && autoSet
+					? m.mapsrc_auto_hint({
+							far: short(auto.far),
+							near: short(auto.near),
+							zoom: auto.switch_zoom
+						})
+					: m.mapsrc_auto_unset()}
+				onclick={() => onauto(!autoOn)}
+			>
+				<span class="dot" aria-hidden="true"></span>
+				{autoOn ? m.mapsrc_auto_on() : m.mapsrc_auto_off()}
+			</button>
 		{/if}
-		<button
-			type="button"
-			class="auto"
-			aria-pressed={autoOn}
-			disabled={!autoSet}
-			title={auto && autoSet
-				? m.mapsrc_auto_hint({
-						far: short(auto.far),
-						near: short(auto.near),
-						zoom: auto.switch_zoom
-					})
-				: m.mapsrc_auto_unset()}
-			onclick={() => onauto(!autoOn)}
+		<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved, with an anchor added -->
+		<a
+			class="gear"
+			href={`${resolve('/settings')}#${AUTO_ANCHOR}`}
+			title={m.mapsrc_auto_settings_link()}
+			aria-label={m.mapsrc_auto_settings_link()}
 		>
-			<span class="dot" aria-hidden="true"></span>
-			{autoOn ? m.mapsrc_auto_on() : m.mapsrc_auto_off()}
-		</button>
-	{/if}
-	<!-- eslint-disable svelte/no-navigation-without-resolve -- resolved, with an anchor added -->
-	<a
-		class="gear"
-		href={`${resolve('/settings')}#${AUTO_ANCHOR}`}
-		title={m.mapsrc_auto_settings_link()}
-		aria-label={m.mapsrc_auto_settings_link()}
-	>
-		<Icon name="settings" size={14} />
-	</a>
-	<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			<Icon name="settings" size={14} />
+		</a>
+		<!-- eslint-enable svelte/no-navigation-without-resolve -->
+	</span>
 </div>
 
 <style>
@@ -246,6 +257,32 @@
 		}
 		.short {
 			display: inline;
+		}
+	}
+	.controls {
+		display: contents;
+	}
+	.layers {
+		display: none;
+		align-items: center;
+		gap: var(--space-1-5);
+		height: var(--control-sm);
+		padding-inline: var(--space-2);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-full);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font: inherit;
+		font-weight: var(--weight-medium);
+		cursor: pointer;
+	}
+	/* A phone: one button with what is on, the zoom beside it; the controls open under it. */
+	@container (max-width: 30rem) {
+		.layers {
+			display: inline-flex;
+		}
+		.bar:not(.open) .controls {
+			display: none;
 		}
 	}
 	.year {

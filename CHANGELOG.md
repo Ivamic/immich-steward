@@ -38,6 +38,7 @@ between releases.
 
 - **Gallery on a phone**: the filters open from a **Filters** button (with the number of filters
   on), and three photos fit in a row.
+- **Map in the photo card on a phone**: two fingers move it, one finger scrolls the page.
 - **Map bar on a phone**: one button with the map and the heat map on, beside the zoom; the rest
   opens under it.
 - **Photo card on a phone**: the photo comes first, right under the buttons to the previous and

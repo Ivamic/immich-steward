@@ -23,7 +23,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { moduleColor } from '#lib/map/modulePalette.js';
-	import { older } from '#lib/versions.js';
+	import { displayVersion, older } from '#lib/versions.js';
 	import {
 		failureGroup,
 		failureGroupName,
@@ -203,7 +203,7 @@
 						</header>
 						<p>
 							{refused.reason === 'worker_too_old'
-								? m.workers_refused_worker_too_old({ core: overview.core_version })
+								? m.workers_refused_worker_too_old({ core: displayVersion(overview.core_version) })
 								: m.workers_refused_core_too_old()}
 							<a href={WORKERS_DOCS} target="_blank" rel="noreferrer">{m.workers_update_how()}</a>
 						</p>
@@ -214,7 +214,7 @@
 						<header>
 							<h3>{worker.name}</h3>
 							<span class="device">{worker.device}</span>
-							<span class="muted">{worker.version}</span>
+							<span class="muted">{displayVersion(worker.version)}</span>
 							{#if worker.active && older(worker.version, overview.worker_recommended)}
 								<a
 									class="update"
@@ -223,7 +223,7 @@
 									rel="noreferrer"
 									title={m.workers_update_hint()}
 								>
-									{m.workers_update_available({ version: overview.core_version })}
+									{m.workers_update_available({ version: displayVersion(overview.core_version) })}
 								</a>
 							{/if}
 							<span class="spacer"></span>

@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The version of the app and the check for a newer one: for the whole installation. -->
 <script lang="ts">
+	import { displayVersion } from '#lib/versions.js';
 	import { checkUpdates, setUpdates, type Updates } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -41,7 +42,7 @@
 	<p class="hint">{m.updates_hint()}</p>
 	{#if updates.info}
 		{@const info = updates.info}
-		<p>{m.updates_current({ version: info.current })}</p>
+		<p>{m.updates_current({ version: displayVersion(info.current) })}</p>
 		<label class="st-check">
 			<input
 				type="checkbox"

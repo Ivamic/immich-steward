@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { older } from './versions';
+import { displayVersion, older } from './versions';
 
 describe('older', () => {
 	it('compares the numbers as numbers', () => {
@@ -16,5 +16,12 @@ describe('older', () => {
 		expect(older('0.6.0-rc.1', '0.6.0rc2')).toBe(true);
 		expect(older('0.6.0', '0.6.0rc2')).toBe(false);
 		expect(older('0.5.9', '0.6.0rc1')).toBe(true);
+	});
+});
+
+describe('displayVersion', () => {
+	it('writes a pre-release as GitHub does', () => {
+		expect(displayVersion('0.7.0rc2')).toBe('0.7.0-rc.2');
+		expect(displayVersion('0.7.0')).toBe('0.7.0');
 	});
 });

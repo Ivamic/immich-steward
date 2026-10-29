@@ -398,6 +398,7 @@
 	"mapsrc_own_count_estimate": "Une estimation grossière : le fournisseur compte à sa manière, et ses chiffres peuvent différer.",
 	"map_areas": "Zones",
 	"map_areas_hint": "Comment sont dessinées les zones probables des suggestions",
+	"map_two_fingers": "Utilisez deux doigts pour déplacer la carte",
 	"map_heatmap": "Carte de chaleur",
 	"map_heatmap_hint": "Où se trouvent vos photos avec lieu : un indice pour trouver l'endroit sur la carte",
 	"map_areas_fill": "Remplissage",

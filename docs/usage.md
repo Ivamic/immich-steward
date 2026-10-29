@@ -197,7 +197,7 @@ module keeps running, and a line under the suggestions lets you show it for a wh
 
 ### The photo
 
-A video plays in the card, with the usual controls; it plays the version Immich plays in its own
+On a phone, move the map with two fingers: one finger scrolls the page. A video plays in the card, with the usual controls; it plays the version Immich plays in its own
 app. Click a photo (or press **Z**) to see it in full size. **[** and **]** rotate it if it is on its
 side: the modules started after that get it rotated. The rotation is kept only in the card until
 you press **Save rotation in Immich** (photos only: a video has no rotation buttons); **Undo rotation** turns it back.

@@ -12,6 +12,7 @@ from sqlalchemy import select, update
 from steward import __version__, worker_queue
 from steward.api.worker import PROTOCOL_VERSION, RECOMMENDED_WORKER_VERSION
 from steward.models import Asset, Job, ModuleRun, Worker
+from steward.updates import is_newer, version_key
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
 
@@ -495,3 +496,13 @@ def test_only_an_immich_administrator_gets_the_worker_token(
 
 def test_worker_setup_needs_signing_in(client: TestClient) -> None:
     assert client.get("/api/library/worker-setup").status_code == 401
+
+
+def test_the_recommended_worker_fits_the_release() -> None:
+    # Raised only when the worker changed (release checklist), never past the app itself; and a
+    # release never recommends a pre-release: workers of the release would be measured by it.
+    assert not is_newer(RECOMMENDED_WORKER_VERSION, __version__)
+    if version_key(__version__)[3] == 1:  # a release, not a pre-release
+        assert version_key(RECOMMENDED_WORKER_VERSION)[3] == 1, (
+            f"set RECOMMENDED_WORKER_VERSION to a release, e.g. {__version__}"
+        )

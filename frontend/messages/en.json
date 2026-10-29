@@ -398,6 +398,7 @@
 	"mapsrc_own_count_estimate": "A rough estimate: the provider counts in its own way, and its numbers may differ.",
 	"map_areas": "Areas",
 	"map_areas_hint": "How the likely areas of the suggestions are drawn",
+	"map_two_fingers": "Use two fingers to move the map",
 	"map_heatmap": "Heat map",
 	"map_heatmap_hint": "Where your photos with a location are: a hint to find the place on the map",
 	"map_areas_fill": "Fill",

@@ -84,7 +84,8 @@
 		suggestions = [],
 		onpick,
 		highlight = null,
-		onhighlight = () => {}
+		onhighlight = () => {},
+		scrollingPage = false
 	}: {
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
@@ -100,6 +101,9 @@
 		/** The suggestion hovered in the list or on the map (FR-32). */
 		highlight?: Highlight | null;
 		onhighlight?: (highlight: Highlight | null) => void;
+		/** The map is part of a page that scrolls (the photo card on a phone): there one finger
+		 * scrolls the page and two move the map, on touch screens only. */
+		scrollingPage?: boolean;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -224,7 +228,10 @@
 			style: appliedStyle,
 			center: start ? [start.lon, start.lat] : WORLD,
 			zoom: start ? CLOSE_ZOOM : 3,
-			attributionControl: { compact: true }
+			attributionControl: { compact: true },
+			cooperativeGestures:
+				scrollingPage && matchMedia('(pointer: coarse) and (max-width: 50rem)').matches,
+			locale: { 'CooperativeGesturesHandler.MobileHelpText': m.map_two_fingers() }
 		});
 		// The full attribution opens with (i); the short one (CSS) is always visible.
 		instance.once('idle', () =>

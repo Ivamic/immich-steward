@@ -534,6 +534,7 @@
 					onpick={pick}
 					{highlight}
 					onhighlight={(h) => (highlight = h)}
+					scrollingPage
 				/>
 			{/if}
 		</div>

@@ -4,6 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import LibraryPanel from '#lib/LibraryPanel.svelte';
 	import WorkersPanel from '#lib/WorkersPanel.svelte';
+	import { displayVersion } from '#lib/versions.js';
 
 	let health = $state<Health | null>(null);
 	let coreReachable = $state(true);
@@ -39,7 +40,9 @@
 	<dl>
 		<dt>{m.status_core()}</dt>
 		<dd class:bad={!coreReachable}>
-			{health ? m.status_core_ok({ version: health.version }) : m.status_core_unreachable()}
+			{health
+				? m.status_core_ok({ version: displayVersion(health.version) })
+				: m.status_core_unreachable()}
 		</dd>
 
 		{#if health}

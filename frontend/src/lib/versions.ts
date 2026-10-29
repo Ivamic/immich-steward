@@ -35,3 +35,12 @@ export function older(version: string, than: string): boolean {
 	}
 	return false;
 }
+
+/** A version as GitHub and the release notes write it: "0.7.0rc2" (as Python spells it) ->
+ * "0.7.0-rc.2"; a release stays as it is. */
+export function displayVersion(version: string): string {
+	const match = /^v?(\d+(?:\.\d+)*)[-_.]?(a|b|rc)\.?(\d+)$/.exec(version.trim().toLowerCase());
+	if (!match) return version;
+	const label = { a: 'alpha', b: 'beta' }[match[2]] ?? match[2];
+	return `${match[1]}-${label}.${match[3]}`;
+}

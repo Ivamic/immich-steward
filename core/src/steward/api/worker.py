@@ -40,7 +40,7 @@ MIN_WORKER_PROTOCOL = 1
 # The version of the last release whose worker changed: an older worker is asked to update, in its
 # log and on the Processing page. Raise it only when the worker changed (release checklist), not
 # with every release of the app: workers of the same major version keep working (the protocol).
-RECOMMENDED_WORKER_VERSION = "0.7.0rc2"
+RECOMMENDED_WORKER_VERSION = "0.7.0"
 # Workers may send at most this many candidates per run.
 MAX_CANDIDATES = 50
 # The longest vector pgvector stores as halfvec.

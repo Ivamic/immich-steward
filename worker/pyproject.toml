@@ -2,7 +2,7 @@
 
 [project]
 name = "steward-worker"
-version = "0.7.0rc3"
+version = "0.7.0"
 description = "Worker of immich-steward: runs location modules (ML models) for the core service."
 license = "AGPL-3.0-or-later"
 authors = [{ name = "Ivamic" }]

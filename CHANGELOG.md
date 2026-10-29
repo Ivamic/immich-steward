@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-29
+
+Videos play, a badge for photos that look like a located one, the gallery by day, workers
+managed from the **Processing** page, and the app on a phone.
+
 ### Added
 
 - **Videos play**: in the photo card with the usual controls, and in the gallery on a long press,
@@ -538,7 +543,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Ivamic/immich-steward/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Ivamic/immich-steward/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/Ivamic/immich-steward/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/Ivamic/immich-steward/compare/v0.4.1...v0.5.0

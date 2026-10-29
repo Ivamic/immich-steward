@@ -43,7 +43,9 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
       - name: Type check
-        run: uv run mypy
+        run: |
+          uv run mypy
+          uv run mypy core/tests core/migrations worker/tests
       - name: Migrations
         run: uv run alembic -c core/alembic.ini upgrade head
       - name: Tests

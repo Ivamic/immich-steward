@@ -56,7 +56,14 @@
 	import { moduleColor, moduleOnColor, resolvedColor } from './modulePalette.js';
 	import { markerElement, pinElement, shapeSvg } from './markers.js';
 	import MapSourceSwitcher from './MapSourceSwitcher.svelte';
-	import { HEATMAP, heatmapFeatures, heatmapPaint, loadHeatmap } from './heatmap.js';
+	import {
+		FINE_FROM_ZOOM,
+		HEATMAP,
+		HEATMAP_FINE,
+		heatmapFeatures,
+		heatmapPaint,
+		loadHeatmap
+	} from './heatmap.js';
 	import {
 		areaMode,
 		attributionHtml,
@@ -133,6 +140,7 @@
 	// Where the library already has photos (D-155): off until turned on, then remembered.
 	let heatmap = $state(stored(HEATMAP_KEY, 'off') === 'on');
 	let heatmapCells = $state.raw<number[] | null>(null);
+	let heatmapFineCells = $state.raw<number[] | null>(null);
 	// The latest EOX year unless another is picked in this page (D-146).
 	let eoxYear = $state<string | null>(null);
 	let zoom = $state(3);
@@ -368,6 +376,7 @@
 
 	function addLayers(instance: MapLibreMap) {
 		// Under the names of places and our layers, over the imagery (which goes under it).
+		const firstLabel = styleLayers(instance).firstLabel;
 		instance.addSource(HEATMAP, { type: 'geojson', data: EMPTY });
 		instance.addLayer(
 			{
@@ -377,7 +386,19 @@
 				layout: { visibility: 'none' },
 				paint: heatmapPaint
 			},
-			styleLayers(instance).firstLabel
+			firstLabel
+		);
+		instance.addSource(HEATMAP_FINE, { type: 'geojson', data: EMPTY });
+		instance.addLayer(
+			{
+				id: HEATMAP_FINE,
+				type: 'heatmap',
+				source: HEATMAP_FINE,
+				minzoom: FINE_FROM_ZOOM,
+				layout: { visibility: 'none' },
+				paint: heatmapPaint
+			},
+			firstLabel
 		);
 		for (const id of ['steward-radius', 'steward-track', 'steward-segment']) {
 			// Line metrics let the route be colored along its length (line-gradient).
@@ -598,17 +619,34 @@
 	// The cells are loaded once per page, when the heat map is first turned on.
 	$effect(() => {
 		if (!heatmap || heatmapCells) return;
-		loadHeatmap()
+		loadHeatmap('coarse')
 			.then((cells) => (heatmapCells = cells))
+			.catch(() => {});
+	});
+
+	// The fine cells once the map comes close, a step before they are drawn.
+	$effect(() => {
+		if (!heatmap || heatmapFineCells || zoom < FINE_FROM_ZOOM - 1) return;
+		loadHeatmap('fine')
+			.then((cells) => (heatmapFineCells = cells))
 			.catch(() => {});
 	});
 
 	// Also after a change of the style, which adds the layers again.
 	$effect(() => {
 		if (!map || !ready) return;
-		const on = heatmap && heatmapCells !== null;
-		if (on) (map.getSource(HEATMAP) as GeoJSONSource).setData(heatmapFeatures(heatmapCells ?? []));
-		map.setLayoutProperty(HEATMAP, 'visibility', on ? 'visible' : 'none');
+		const coarse = heatmap && heatmapCells !== null;
+		const fine = heatmap && heatmapFineCells !== null;
+		if (coarse)
+			(map.getSource(HEATMAP) as GeoJSONSource).setData(heatmapFeatures(heatmapCells ?? []));
+		if (fine)
+			(map.getSource(HEATMAP_FINE) as GeoJSONSource).setData(
+				heatmapFeatures(heatmapFineCells ?? [])
+			);
+		// Close up the fine cells take over; until they are loaded, the coarse ones stay.
+		map.setLayerZoomRange(HEATMAP, 0, fine ? FINE_FROM_ZOOM : 24);
+		map.setLayoutProperty(HEATMAP, 'visibility', coarse ? 'visible' : 'none');
+		map.setLayoutProperty(HEATMAP_FINE, 'visibility', fine ? 'visible' : 'none');
 	});
 
 	// Also after a change of the style, which adds the layers again.

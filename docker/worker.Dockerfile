@@ -33,6 +33,7 @@ ENV PATH=/app/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     HF_HOME=/models \
     STEWARD_WORKER_ID_FILE=/models/steward-worker.id \
+    STEWARD_WORKER_IMAGE=1 \
     HF_HUB_DISABLE_PROGRESS_BARS=1
 WORKDIR /app
 USER steward

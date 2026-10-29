@@ -211,6 +211,16 @@ class Worker(Base):
     state: Mapped[str | None] = mapped_column(String(16))
     state_module: Mapped[str | None] = mapped_column(String(32))
     state_since: Mapped[datetime | None]
+    # Modules turned off for this worker on the Processing page: it gets no jobs of them. Kept by
+    # its name across restarts.
+    disabled_modules: Mapped[list[str]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=list, server_default="[]"
+    )
+
+    @property
+    def enabled_modules(self) -> list[str]:
+        """The modules it runs and may get jobs of."""
+        return [m for m in self.modules if m not in (self.disabled_modules or [])]
 
 
 class ModulePause(Base):
@@ -392,3 +402,24 @@ class Embedding(Base):
     located: Mapped[bool] = mapped_column(Boolean)
     vector: Mapped[Any] = mapped_column(HALFVEC(EMBEDDING_DIM))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class SimilarHint(Base):
+    """How similar the most similar photo with a location is, for a photo without one: the
+    badge and the filter "similar with a location" of the gallery. Computed in the background
+    (`steward.similar_hints`), so the gallery need not search per photo."""
+
+    __tablename__ = "similar_hint"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    similarity: Mapped[float] = mapped_column(Float)
+    # Calibrated as the candidates of similar photos are (`modules.similar.calibrated`).
+    score: Mapped[float] = mapped_column(Float)
+    # The most similar photo; no foreign key: it may go before the next refresh.
+    neighbor_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(default=utcnow)

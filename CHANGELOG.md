@@ -7,6 +7,46 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Videos play**: in the photo card with the usual controls, and in the gallery on a long press,
+  at once, in a loop and muted. **Settings → Gallery** turns the sound of that preview on. The
+  video is the one Immich plays itself, streamed through the app; seeking works.
+- **A worker says in its log when the app on the server has another version**, with the commands
+  that bring it to the same version (Git for a worker from source, Docker for the image). It asks
+  only the app, not GitHub, and checks again whenever it reconnects, e.g. after the server was
+  updated.
+- **Processing: modules of a worker are switches.** A module turned off is not given to that
+  worker, from its next job on, without editing `.env` or a restart.
+- **Processing: Add a device.** Ready commands to start a worker on another computer (Docker on
+  Linux or Windows, an NVIDIA card on Windows or Linux), with the address and the name filled in;
+  the worker token only for administrators of Immich.
+- **Gallery: a similar photo with a location.** A purple badge and a filter for photos without a
+  location that look confidently like a photo with one (`STEWARD_SIMILAR_CONFIDENT_FROM`, 0.8 by
+  default). Counted in the background: once a day, for new photos as their vectors come, and on
+  **Count similar photos again** on the **Processing** page.
+- **Set location for several photos: a larger look at a chosen photo** on hovering its thumbnail,
+  and the photo large on a long press on touch screens, as in the gallery.
+- **Workers guide: start the GPU worker with one file** (`start-worker.cmd` on Windows,
+  `start-worker.sh` on Linux) instead of typing the commands every time.
+
+### Changed
+
+- **Photo card on a phone**: the photo comes first, right under the buttons to the previous and
+  next photo, then the map and the place; the details of the photo are folded under a button at
+  the end.
+
+### Fixed
+
+- **The header fits a phone and a narrow window.** What does not fit goes into a menu: the
+  account, the language and the theme, and on a phone the pages too. Before, the page scrolled
+  sideways and the navigation was cut.
+- **Heat map close up**: it no longer shows rows of spots along a grid, slightly off the real
+  places. A cell is drawn where its photos are on average, and close up the map switches to cells
+  of about 11 m instead of 100 m (loaded only when the map comes that close).
+- A pre-release counts as older than its release: a server on 0.6.0-rc.2 did not see 0.6.0 as a
+  newer version, and the **Processing** page did not offer an update to a worker on a pre-release.
+
 ## [0.6.0] - 2026-10-26
 
 Updating with `docker compose pull` alone from now on, a heat map of your located photos, and

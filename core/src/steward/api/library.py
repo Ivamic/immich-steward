@@ -11,9 +11,10 @@ from sqlalchemy import select
 
 from steward import __version__, embeddings, module_display, worker_queue, worker_refusals
 from steward.config import Settings
-from steward.deps import CurrentAccount, DbDep, SettingsDep
+from steward.deps import CurrentAccount, DbDep, ImmichFactoryDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
-from steward.jobs import SYNC, enqueue
+from steward.immich import ImmichError, ImmichUnreachableError
+from steward.jobs import SIMILAR_HINTS, SYNC, enqueue, last_full_similar_hints
 from steward.models import Account, Job, Worker
 from steward.modules import REMOTE_MODULES
 from steward.sync import library_counts
@@ -57,6 +58,10 @@ class Library(BaseModel):
     next_sync_at: datetime | None = None
     next_full_sync_at: datetime | None = None
     sync_job: JobOut | None
+    # The badge "similar with a location" of the gallery: its last full pass, and the latest
+    # pass (full or of new photos), if any.
+    similar_hints_at: datetime | None = None
+    similar_hints_job: JobOut | None = None
 
 
 class WorkerOut(BaseModel):
@@ -64,6 +69,8 @@ class WorkerOut(BaseModel):
     name: str
     device: str
     modules: list[str]
+    # Of `modules`, those turned off for it: it gets no jobs of them.
+    disabled_modules: list[str] = []
     version: str
     last_seen_at: datetime
     active: bool
@@ -176,6 +183,12 @@ async def get_library(account: CurrentAccount, db: DbDep, settings: SettingsDep)
         .limit(1)
     )
     next_sync_at, next_full_sync_at = next_syncs(account, settings)
+    hints_job = await db.scalar(
+        select(Job)
+        .where(Job.account_id == account.id, Job.kind == SIMILAR_HINTS)
+        .order_by(Job.created_at.desc())
+        .limit(1)
+    )
     return Library(
         **await library_counts(db, account),
         synced_at=account.synced_at,
@@ -183,12 +196,21 @@ async def get_library(account: CurrentAccount, db: DbDep, settings: SettingsDep)
         next_sync_at=next_sync_at,
         next_full_sync_at=next_full_sync_at,
         sync_job=JobOut.of(job) if job else None,
+        similar_hints_at=await last_full_similar_hints(db, account.id),
+        similar_hints_job=JobOut.of(hints_job) if hints_job else None,
     )
 
 
 @router.post("/sync", status_code=202)
 async def start_sync(body: SyncRequest, account: CurrentAccount, db: DbDep) -> JobOut:
     job = await enqueue(db, SYNC, account.id, {"full": body.full})
+    return JobOut.of(job)
+
+
+@router.post("/similar-hints", status_code=202)
+async def start_similar_hints(account: CurrentAccount, db: DbDep) -> JobOut:
+    """A full pass of the badge "similar with a location" now, as the daily one."""
+    job = await enqueue(db, SIMILAR_HINTS, account.id, {"full": True})
     return JobOut.of(job)
 
 
@@ -207,6 +229,7 @@ async def get_workers(
                 name=w.name,
                 device=w.device,
                 modules=w.modules,
+                disabled_modules=[m for m in (w.disabled_modules or []) if m in w.modules],
                 version=w.version,
                 last_seen_at=w.last_seen_at,
                 active=(active := w.online and w.last_seen_at >= since),
@@ -246,6 +269,65 @@ async def forget_worker(
     if worker.online and worker.last_seen_at >= since:
         raise ApiError(409, "worker_active")
     await worker_queue.forget_worker(db, worker)
+
+
+class WorkerSetup(BaseModel):
+    """What the commands of "Add a device" need. The worker token is the shared secret of all
+    workers: only an administrator of Immich gets it; others fill it in from the server's .env."""
+
+    admin: bool
+    # None: not an administrator, or no token on the server (`token_set` tells which).
+    token: str | None
+    token_set: bool
+    # The version to install from source: its Git tag.
+    version: str
+
+
+@router.get("/worker-setup")
+async def worker_setup(
+    account: CurrentAccount,
+    settings: SettingsDep,
+    factory: ImmichFactoryDep,
+    box: SecretBoxDep,
+) -> WorkerSetup:
+    """Asks Immich each time whether the user is an administrator: a role taken away there
+    counts at once."""
+    assert settings.immich_url is not None  # guaranteed by SecretBoxDep
+    try:
+        async with factory(settings.immich_url, box.decrypt(account.api_key_encrypted)) as client:
+            admin = (await client.current_user()).is_admin
+    except ImmichUnreachableError as exc:
+        raise ApiError(502, "immich_unreachable") from exc
+    except ImmichError as exc:
+        raise ApiError(502, "immich_error") from exc
+    token = settings.worker_token.get_secret_value() if settings.worker_token else None
+    return WorkerSetup(
+        admin=admin,
+        token=token if admin else None,
+        token_set=token is not None,
+        version=__version__,
+    )
+
+
+class WorkerModuleSwitch(BaseModel):
+    module: str = Field(max_length=32)
+    enabled: bool
+
+
+@router.put("/workers/{worker_id}/modules", status_code=204)
+async def switch_worker_module(
+    worker_id: UUID, body: WorkerModuleSwitch, account: CurrentAccount, db: DbDep
+) -> None:
+    """Turns a module of a worker on or off: off, the worker gets no jobs of it (the queue waits
+    for another worker); takes effect with its next job, no restart."""
+    worker = await db.get(Worker, worker_id, with_for_update=True)
+    if worker is None:
+        raise ApiError(404, "worker_not_found")
+    disabled = [m for m in (worker.disabled_modules or []) if m != body.module]
+    if not body.enabled:
+        disabled.append(body.module)
+    worker.disabled_modules = sorted(disabled)
+    await db.commit()
 
 
 @router.get("/pause")

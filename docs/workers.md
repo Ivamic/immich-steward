@@ -61,6 +61,9 @@ from the photo card), the modules look at it again.
 
 ## A worker on another computer
 
+The quickest way: **Processing → Add a device** shows the commands below with your address, a
+name and (for an administrator of Immich) the token filled in.
+
 A worker does not have to run on the server. It can run on any computer in your home network: a
 desktop that is on in the evening, a laptop, a second server. The worker connects to the app
 itself (nothing has to connect to the worker), takes photos one by one, gets each photo from the
@@ -142,6 +145,8 @@ docker logs --tail 20 steward-worker
 | `HTTP 503 workers_disabled` | The app has no worker token: set `STEWARD_WORKER_TOKEN` on the server and run `docker compose up -d` there. |
 | `… is not an immich-steward core (no worker API there)` | The address points to Immich or to another program, not to Steward: use the port of Steward (`8780` by default), not the one of Immich (`2283`). |
 | `another running worker is called …` | That name is taken by a worker that is running now on another computer: choose another `STEWARD_WORKER_NAME` (or `--name`). A restarted worker is known as the same one: it keeps its id in the models volume (`/models/steward-worker.id`; from source: `~/.cache/steward-worker/<name>.id`, or `STEWARD_WORKER_ID_FILE`). |
+| `a newer version of the app runs on the server …` | The app on the server was updated: update the worker to the same version. The message ends with the commands to do it. |
+| `this worker (…) is newer than the app on the server …` | Update the app on the server (`docker compose pull && docker compose up -d`). |
 | `ConnectError` | The app is not reachable at that address: check the address, the port and the firewall. |
 
 A worker with no photos to do just waits; that is normal.
@@ -247,6 +252,50 @@ Start the worker (every time; it runs while the terminal is open):
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
 .venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip --name desktop
+```
+
+### Start the GPU worker with one file
+
+Instead of typing the commands every time, keep them in a file in the worker folder. Git does not
+touch it, so it stays there after an update. The token is kept in it as plain text: keep the file
+on your own computer only.
+
+On Windows, create `D:\steward-worker\start-worker.cmd` (e.g. in Notepad, saved as *All files*):
+
+```bat
+@echo off
+cd /d D:\steward-worker
+set STEWARD_WORKER_TOKEN=your-token
+set STEWARD_CORE_URL=http://192.168.1.10:8780
+set STEWARD_WORKER_MODULES=similar,geoclip
+set STEWARD_WORKER_NAME=laptop
+.venv\Scripts\steward-worker.exe
+pause
+```
+
+Start the worker with a double-click on the file. Stop it with **Ctrl+C** in its window rather than
+by closing the window: then the app learns at once that the worker has stopped. `pause` keeps the
+window open after the worker stops, so an error stays readable. To start the worker every time you
+sign in to Windows, put a shortcut to the file into the startup folder (press **Win+R** and enter
+`shell:startup`).
+
+On Linux, create `~/steward-worker/start-worker.sh`:
+
+```sh
+#!/bin/sh
+cd ~/steward-worker
+export STEWARD_WORKER_TOKEN=your-token
+export STEWARD_CORE_URL=http://192.168.1.10:8780
+export STEWARD_WORKER_MODULES=similar,geoclip
+export STEWARD_WORKER_NAME=desktop
+exec .venv/bin/steward-worker
+```
+
+Make it executable and readable only by you, then start it:
+
+```sh
+chmod 700 ~/steward-worker/start-worker.sh
+~/steward-worker/start-worker.sh
 ```
 
 ### Check, stop, update the GPU worker

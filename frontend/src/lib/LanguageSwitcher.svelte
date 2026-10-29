@@ -2,17 +2,9 @@
 <!-- Languages by their own names, never flags. The list closes on a click outside and on Esc. -->
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
-	import { getLocale, locales, setLocale, type Locale } from '#lib/paraglide/runtime.js';
+	import { LANGUAGE_NAMES as names } from '#lib/languages.js';
+	import { getLocale, locales, setLocale } from '#lib/paraglide/runtime.js';
 	import Icon from '#lib/ui/Icon.svelte';
-
-	// Language names are shown in their own language, so they are not translated.
-	const names: Record<Locale, string> = {
-		en: 'English',
-		de: 'Deutsch',
-		fr: 'Français',
-		it: 'Italiano',
-		ru: 'Русский'
-	};
 
 	let open = $state(false);
 	let root: HTMLDivElement | undefined = $state();

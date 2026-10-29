@@ -3,6 +3,7 @@
 <script lang="ts">
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
+	import type { AccountSettings } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 
 	let error = $state<string | null>(null);
@@ -12,10 +13,10 @@
 		accountSettings.load();
 	});
 
-	async function setTooltip(on: boolean) {
+	async function save(values: Partial<AccountSettings>) {
 		saving = true;
 		try {
-			await accountSettings.set({ gallery_tooltip: on });
+			await accountSettings.set(values);
 			error = null;
 		} catch (e) {
 			error = errorMessage(e);
@@ -32,11 +33,23 @@
 			type="checkbox"
 			checked={accountSettings.values.gallery_tooltip}
 			disabled={saving}
-			onchange={(e) => setTooltip((e.currentTarget as HTMLInputElement).checked)}
+			onchange={(e) => save({ gallery_tooltip: (e.currentTarget as HTMLInputElement).checked })}
 		/>
 		<span>
 			{m.gallery_settings_tooltip()}
 			<span class="hint">{m.gallery_settings_tooltip_hint()}</span>
+		</span>
+	</label>
+	<label class="st-check">
+		<input
+			type="checkbox"
+			checked={accountSettings.values.video_sound}
+			disabled={saving}
+			onchange={(e) => save({ video_sound: (e.currentTarget as HTMLInputElement).checked })}
+		/>
+		<span>
+			{m.gallery_settings_video_sound()}
+			<span class="hint">{m.gallery_settings_video_sound_hint()}</span>
 		</span>
 	</label>
 	{#if error}

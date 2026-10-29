@@ -23,7 +23,8 @@ from sqlalchemy.dialects.postgresql import JSONPATH
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun
+from steward.embeddings import located
+from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun, SimilarHint
 from steward.worker_queue import latest_run_failed, whole_photo
 
 # Disjoint groups the gallery can show in any combination. with: has a location (whatever its
@@ -56,6 +57,9 @@ class GalleryFilter:
     include_archived: bool = False
     # Only photos without a location that GeoCLIP places with at least this confidence.
     geoclip_confidence: float | None = None
+    # Only photos without a location with a located photo this confidently similar (the badge
+    # of `similar_hints`).
+    similar_confidence: float | None = None
     # Only photos without a location with a located one this many minutes before or after.
     nearby_minutes: float | None = None
     # Only photos whose latest run of this module (`ANY_MODULE`: of any module) failed (with
@@ -91,6 +95,9 @@ class GalleryFilter:
         if self.geoclip_confidence is not None:
             result.append(Asset.latitude.is_(None))
             result.append(geoclip_confident(self.geoclip_confidence))
+        if self.similar_confidence is not None:
+            result.append(~located())
+            result.append(similar_confident(self.similar_confidence))
         if self.nearby_minutes is not None:
             result.append(located_nearby(self.nearby_minutes))
         if self.date_to is not None:
@@ -122,6 +129,11 @@ def geoclip_confident(min_score: float) -> ColumnElement[bool]:
             func.jsonb_build_object("min", min_score),
         ),
     )
+
+
+def similar_confident(min_score: float) -> ColumnElement[bool]:
+    """A photo with a location is at least this confidently similar (`steward.similar_hints`)."""
+    return exists().where(SimilarHint.asset_id == Asset.id, SimilarHint.score >= min_score)
 
 
 def is_scan(asset: Any = Asset) -> ColumnElement[bool]:
@@ -171,8 +183,12 @@ async def nearby_levels(
     return {row.id: "same_camera" if row.same else "other_camera" for row in rows}
 
 
-# Heat map cells: coordinates rounded to this many decimals (3: about 100 m).
-HEATMAP_DECIMALS = 3
+# Heat map cells by level: coordinates rounded to this many decimals. The coarse cells of about
+# 100 m are for an overview; close up their grid shows, so there the map takes the fine ones of
+# about 11 m.
+HEATMAP_DECIMALS = {"coarse": 3, "fine": 4}
+# A cell is drawn where its photos are on average, rounded to about 1 m.
+HEATMAP_POINT_DECIMALS = 5
 
 
 def _located(account: Account) -> list[ColumnElement[bool]]:
@@ -196,18 +212,26 @@ async def heatmap_version(db: AsyncSession, account: Account) -> str:
     return f"{row[0]}-{row[1] or 0:.6f}-{row[2] or 0:.6f}"
 
 
-async def heatmap_cells(db: AsyncSession, account: Account) -> list[float]:
-    """Where the located photos of the account are, as cells of about 100 m: a flat list of
-    latitude, longitude and number of photos, cell after cell. Archived photos count, trashed
-    ones do not; the gallery filter does not apply."""
-    lat = func.round(func.cast(Asset.latitude, Numeric), HEATMAP_DECIMALS)
-    lon = func.round(func.cast(Asset.longitude, Numeric), HEATMAP_DECIMALS)
+async def heatmap_cells(db: AsyncSession, account: Account, level: str = "coarse") -> list[float]:
+    """Where the located photos of the account are, as cells of the level: a flat list of
+    latitude, longitude and number of photos, cell after cell. The point of a cell is the average
+    of its photos, not a corner of the grid: the grid would show as rows of spots close up.
+    Archived photos count, trashed ones do not; the gallery filter does not apply."""
+    decimals = HEATMAP_DECIMALS[level]
+    lat = func.round(func.cast(Asset.latitude, Numeric), decimals)
+    lon = func.round(func.cast(Asset.longitude, Numeric), decimals)
     rows = await db.execute(
-        select(lat, lon, func.count()).where(*_located(account)).group_by(lat, lon)
+        select(func.avg(Asset.latitude), func.avg(Asset.longitude), func.count())
+        .where(*_located(account))
+        .group_by(lat, lon)
     )
     cells: list[float] = []
     for cell_lat, cell_lon, count in rows:
-        cells += [float(cell_lat), float(cell_lon), count]
+        cells += [
+            round(float(cell_lat), HEATMAP_POINT_DECIMALS),
+            round(float(cell_lon), HEATMAP_POINT_DECIMALS),
+            count,
+        ]
     return cells
 
 
@@ -221,6 +245,18 @@ async def geoclip_confident_ids(
         select(Asset.id).where(
             Asset.id.in_(asset_ids), Asset.latitude.is_(None), geoclip_confident(min_score)
         )
+    )
+    return set(rows)
+
+
+async def similar_confident_ids(
+    db: AsyncSession, asset_ids: list[UUID], min_score: float
+) -> set[UUID]:
+    """Of the given assets, those without a location with a confidently similar located photo."""
+    if not asset_ids:
+        return set()
+    rows = await db.scalars(
+        select(Asset.id).where(Asset.id.in_(asset_ids), ~located(), similar_confident(min_score))
     )
     return set(rows)
 

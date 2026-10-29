@@ -15,6 +15,8 @@ DEFAULTS: dict[str, Any] = {
     # The gallery shows its own tooltip (name, time taken, camera, size) over a tile, instead of
     # the file name alone.
     "gallery_tooltip": True,
+    # A video shown large on a long press plays with its sound; off: muted.
+    "video_sound": False,
 }
 
 

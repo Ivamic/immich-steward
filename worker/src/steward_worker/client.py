@@ -88,6 +88,7 @@ class CoreClient:
         )
         self.worker_id: UUID | None = None
         self.lease_seconds = 300
+        self.core_version: str | None = None
         # Tells this worker from another computer that uses the same worker name; kept across
         # restarts when given (`instance_id.load_instance_id`).
         self.instance_id = instance_id or uuid4()
@@ -119,6 +120,8 @@ class CoreClient:
             raise CoreTooOld("core_too_old")
         self.worker_id = UUID(data["worker_id"])
         self.lease_seconds = int(data["lease_seconds"])
+        # Cores before 0.6.1 do not say their version.
+        self.core_version = data.get("core_version")
 
     async def lease(self, modules: list[str]) -> LeasedJob | None:
         response = await self._call("POST", "/lease", json={"modules": modules})

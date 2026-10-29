@@ -6,6 +6,7 @@ Revises: 0019
 Create Date: 2026-10-24
 """
 
+import uuid
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -19,7 +20,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 # Every table is per account and goes with it.
-def _account_id() -> sa.Column[sa.Uuid]:
+def _account_id() -> sa.Column[uuid.UUID]:
     return sa.Column(
         "account_id",
         sa.Uuid(),

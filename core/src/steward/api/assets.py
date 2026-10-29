@@ -11,8 +11,10 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
+from starlette.background import BackgroundTask
 
 from steward import locations, module_display, rotation, worker_queue
 from steward.config import Settings
@@ -38,6 +40,7 @@ from steward.gallery import (
     month_buckets,
     nearby_levels,
     neighbors,
+    similar_confident_ids,
 )
 from steward.images import TURNS, UnreadableImage, turned
 from steward.immich import (
@@ -49,6 +52,7 @@ from steward.immich import (
 )
 from steward.immich.compat import EDIT_PERMISSIONS
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
+from steward.immich.videos import VideoStreamer
 from steward.models import Account, Album, Asset, AssetAlbum, LocationChange, ModuleRun
 from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule, similar
 
@@ -72,6 +76,7 @@ def gallery_filter(
     date_to: date | None = None,
     archived: bool = False,
     geoclip_confident: bool = False,
+    similar_confident: bool = False,
     nearby: bool = False,
     failed_module: Annotated[str | None, Query(max_length=32)] = None,
     failure: Annotated[str | None, Query(max_length=32)] = None,
@@ -85,6 +90,7 @@ def gallery_filter(
         date_to=date_to,
         include_archived=archived,
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
+        similar_confidence=settings.similar_confident_from if similar_confident else None,
         nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
         failed_module=failed_module,
         failure=failure if failed_module else None,
@@ -107,6 +113,8 @@ class AssetItem(BaseModel):
     has_location: bool
     # No location yet, but GeoCLIP places the photo confidently.
     geoclip_confident: bool = False
+    # No location yet, but a photo with one is confidently similar (`similar_hints`).
+    similar_confident: bool = False
     # No location yet, but a photo taken close in time has one: by the same camera or another.
     nearby: NearbyLevel | None = None
     width: int | None
@@ -119,10 +127,15 @@ class AssetItem(BaseModel):
 
     @classmethod
     def of(
-        cls, asset: Asset, geoclip_confident: bool = False, nearby: NearbyLevel | None = None
+        cls,
+        asset: Asset,
+        geoclip_confident: bool = False,
+        nearby: NearbyLevel | None = None,
+        similar_confident: bool = False,
     ) -> "AssetItem":
         return cls(
             geoclip_confident=geoclip_confident,
+            similar_confident=similar_confident,
             nearby=nearby,
             id=asset.id,
             local_taken_at=asset.local_taken_at,
@@ -360,24 +373,32 @@ async def list_month(
         db, [a.id for a in assets], settings.geoclip_confident_from
     )
     nearby = await nearby_levels(db, [a.id for a in assets], settings.time_neighbors_nearby_minutes)
-    return [AssetItem.of(asset, asset.id in confident, nearby.get(asset.id)) for asset in assets]
+    similar = await similar_confident_ids(
+        db, [a.id for a in assets], settings.similar_confident_from
+    )
+    return [
+        AssetItem.of(asset, asset.id in confident, nearby.get(asset.id), asset.id in similar)
+        for asset in assets
+    ]
 
 
 @router.get("/heatmap")
 async def heatmap(
     account: CurrentAccount,
     db: DbDep,
+    level: Literal["coarse", "fine"] = "coarse",
     if_none_match: Annotated[str | None, Header()] = None,
     accept_encoding: Annotated[str | None, Header()] = None,
 ) -> Response:
     """Where the photos with a location are, for the heat map over the map (D-155): a flat list
-    of latitude, longitude and number of photos per cell of about 100 m. The browser keeps it and
-    asks again with the ETag, which changes whenever a location does."""
-    etag = f'"{await heatmap_version(db, account)}"'
+    of latitude, longitude and number of photos per cell, of about 100 m (`coarse`) or 11 m
+    (`fine`, for a close look). The browser keeps it and asks again with the ETag, which changes
+    whenever a location does."""
+    etag = f'"{level}-{await heatmap_version(db, account)}"'
     headers = {"ETag": etag, "Cache-Control": "private, no-cache"}
     if if_none_match == etag:
         return Response(status_code=304, headers=headers)
-    body = json.dumps(await heatmap_cells(db, account), separators=(",", ":")).encode()
+    body = json.dumps(await heatmap_cells(db, account, level), separators=(",", ":")).encode()
     if "gzip" in (accept_encoding or ""):
         body = gzip.compress(body, compresslevel=6)
         headers |= {"Content-Encoding": "gzip", "Vary": "Accept-Encoding"}
@@ -573,7 +594,7 @@ async def _suggestions(
     workers = await worker_queue.active_workers(
         db, timedelta(minutes=settings.worker_active_minutes)
     )
-    available = {module for worker in workers for module in worker.modules}
+    available = {module for worker in workers for module in worker.enabled_modules}
     loading = {w.state_module for w in workers if w.state in worker_queue.MODEL_STATES}
     paused = await worker_queue.paused_modules(db)
     for remote in REMOTE_MODULES.values():
@@ -735,6 +756,36 @@ async def undo_location(
     async with _immich(settings, factory, box, account) as client:
         await locations.undo_last(db, client, asset, tag=settings.estimated_tag)
     return await _detail(db, account, asset, filters, settings)
+
+
+@router.get("/{asset_id}/video")
+async def video(
+    asset_id: UUID,
+    request: Request,
+    account: CurrentAccount,
+    db: DbDep,
+    box: SecretBoxDep,
+    range_: Annotated[str | None, Header(alias="range")] = None,
+) -> StreamingResponse:
+    """The video as Immich plays it, streamed; the browser seeks with byte ranges."""
+    asset = await _own_asset(db, account, asset_id)
+    if asset.type != "VIDEO":
+        raise ApiError(422, "not_a_video")
+    streamer: VideoStreamer | None = request.app.state.videos
+    if streamer is None:
+        raise ApiError(502, "immich_unreachable")
+    try:
+        stream = await streamer.open(
+            box.decrypt(account.api_key_encrypted), asset.immich_id, range_
+        )
+    except ImmichError as exc:
+        raise _api_error(exc) from exc
+    return StreamingResponse(
+        stream.chunks,
+        status_code=stream.status_code,
+        headers=stream.headers | {"Cache-Control": "private, no-cache"},
+        background=BackgroundTask(stream.aclose),
+    )
 
 
 @router.get("/{asset_id}/thumbnail")

@@ -173,7 +173,7 @@ source is marked in Settings and over the map, and **Auto** takes the next sourc
 | `STEWARD_GEOCLIP_CONFIDENT_FROM` | `0.75` | GeoCLIP suggestions from this are marked as confident and counted by the gallery filter *Confident GeoCLIP guess*. |
 | `STEWARD_SIMILAR_MIN_CONFIDENCE` | `0.2` | The same three limits for similar photos. Their confidence is how often such a match turned out right within 1 km on a real family library: 0.8 means about 8 times out of 10. |
 | `STEWARD_SIMILAR_WEAK_BELOW` | `0.5` | |
-| `STEWARD_SIMILAR_CONFIDENT_FROM` | `0.8` | |
+| `STEWARD_SIMILAR_CONFIDENT_FROM` | `0.8` | Also the limit of the purple badge and the gallery filter *Similar photo with a location*. |
 | `STEWARD_SIMILAR_INCLUDE_ESTIMATED` | `true` | Similar photos also searches among the photos whose location you set in the app. `false`: only among locations recorded by cameras. |
 
 These only change what is shown: the modules keep their full results, so a change applies at once,

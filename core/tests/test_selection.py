@@ -8,7 +8,8 @@ from conftest import FakeImmich, run_jobs, sync
 from fastapi.testclient import TestClient
 from test_module_runs import finish, start_worker
 
-from steward import jobs, locations, rotation
+from steward import locations, rotation
+from steward.models import Job
 
 KOTOR = {"latitude": 42.4247, "longitude": 18.7712}
 BUDVA = {"latitude": 42.2864, "longitude": 18.84}
@@ -179,7 +180,7 @@ def test_rotation_run_again_does_not_turn_twice(
 
     async def turned_first() -> None:
         async with runner._sessionmaker() as db:
-            found = await db.get(jobs.Job, job["id"])
+            found = await db.get(Job, job["id"])
             found.progress = {"done_ids": [photos["a"][0]]}
             await db.commit()
 

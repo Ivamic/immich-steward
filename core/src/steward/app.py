@@ -36,6 +36,7 @@ from steward.deps import ImmichClientFactory
 from steward.errors import ApiError, api_error_handler
 from steward.immich import ImmichClient
 from steward.immich.thumbnails import ThumbnailFetcher
+from steward.immich.videos import VideoStreamer
 from steward.jobs import JobRunner
 from steward.worker_refusals import WorkerRefusals
 
@@ -79,6 +80,9 @@ def create_app(
         app.state.thumbnails = (
             ThumbnailFetcher(settings.immich_url, immich_transport) if settings.immich_url else None
         )
+        app.state.videos = (
+            VideoStreamer(settings.immich_url, immich_transport) if settings.immich_url else None
+        )
         app.state.job_runner = JobRunner(
             app.state.sessionmaker,
             settings,
@@ -100,6 +104,8 @@ def create_app(
                     await runner_task
             if app.state.thumbnails is not None:
                 await app.state.thumbnails.aclose()
+            if app.state.videos is not None:
+                await app.state.videos.aclose()
             await app.state.engine.dispose()
 
     app = FastAPI(title="immich-steward", version=__version__, lifespan=lifespan)

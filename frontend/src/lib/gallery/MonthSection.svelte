@@ -183,7 +183,7 @@
 									<Icon name="map-pin" size={14} strokeWidth={2.25} />
 								</span>
 							</span>
-						{:else if item.nearby || item.geoclip_confident}
+						{:else if item.nearby || item.geoclip_confident || item.similar_confident}
 							<span class="markers">
 								{#if item.nearby}
 									<!-- Clock in the color of time neighbors: filled for the same camera
@@ -211,6 +211,17 @@
 										title={m.asset_geoclip_confident()}
 									>
 										<Icon name="crosshair" size={14} strokeWidth={2.25} />
+									</span>
+								{/if}
+								{#if item.similar_confident}
+									<!-- Photos: a similar photo with a location, in the color of similar photos. -->
+									<span
+										class="marker similar"
+										role="img"
+										aria-label={m.asset_similar_confident()}
+										title={m.asset_similar_confident()}
+									>
+										<Icon name="images" size={14} strokeWidth={2.25} />
 									</span>
 								{/if}
 							</span>
@@ -413,6 +424,10 @@
 	.geoclip {
 		background: var(--module-2);
 		color: var(--gray-0);
+	}
+	.similar {
+		background: var(--module-3);
+		color: var(--module-3-on);
 	}
 	.nearby {
 		background: var(--module-1);

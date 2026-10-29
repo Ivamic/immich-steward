@@ -8,8 +8,10 @@ from conftest import FakeImmich, sync
 from fastapi.testclient import TestClient
 
 HOME = {"latitude": 42.44101, "longitude": 19.26214}
-NEAR_HOME = {"latitude": 42.44139, "longitude": 19.26181}  # the same cell of about 100 m
+NEAR_HOME = {"latitude": 42.44139, "longitude": 19.26184}  # the same cell of about 100 m
 SEA = {"latitude": 42.2864, "longitude": 18.8400}
+# Where the coarse cell of HOME and NEAR_HOME is drawn: the average of the two, not the grid.
+HOME_AVERAGE = (42.4412, 19.26199)
 
 
 @pytest.fixture
@@ -37,7 +39,24 @@ def test_cells_of_located_photos(signed_in: TestClient) -> None:
 
     assert response.status_code == 200
     # Archived photos count, trashed ones and photos without a location do not.
-    assert cells(response.json()) == {(42.441, 19.262): 2, (42.286, 18.84): 2}
+    assert cells(response.json()) == {HOME_AVERAGE: 2, (42.2864, 18.84): 2}
+
+
+@pytest.mark.usefixtures("library")
+def test_fine_cells_for_a_close_look(signed_in: TestClient) -> None:
+    response = signed_in.get("/api/assets/heatmap", params={"level": "fine"})
+
+    assert response.status_code == 200
+    # About 11 m: HOME and NEAR_HOME, some 50 m apart, are cells of their own.
+    assert cells(response.json()) == {
+        (HOME["latitude"], HOME["longitude"]): 1,
+        (NEAR_HOME["latitude"], NEAR_HOME["longitude"]): 1,
+        (42.2864, 18.84): 2,
+    }
+    # Each level has its own ETag: the browser keeps both.
+    coarse = signed_in.get("/api/assets/heatmap")
+    assert coarse.headers["ETag"] != response.headers["ETag"]
+    assert signed_in.get("/api/assets/heatmap", params={"level": "huge"}).status_code == 422
 
 
 @pytest.mark.usefixtures("library")
@@ -45,7 +64,7 @@ def test_compressed_when_the_browser_accepts_it(signed_in: TestClient) -> None:
     response = signed_in.get("/api/assets/heatmap", headers={"Accept-Encoding": "gzip"})
     assert response.headers["Content-Encoding"] == "gzip"
     # The test client unpacks it like a browser does.
-    assert cells(response.json()) == {(42.441, 19.262): 2, (42.286, 18.84): 2}
+    assert cells(response.json()) == {HOME_AVERAGE: 2, (42.2864, 18.84): 2}
     raw = signed_in.get("/api/assets/heatmap", headers={"Accept-Encoding": "identity"})
     assert "Content-Encoding" not in raw.headers
     assert json.loads(raw.content) == response.json()

@@ -12,6 +12,7 @@ export const defaultFilter: GalleryFilter = {
 	date_to: null,
 	archived: false,
 	geoclip_confident: false,
+	similar_confident: false,
 	nearby: false,
 	failed_module: null,
 	failure: null
@@ -32,6 +33,7 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		date_to: params.get('date_to'),
 		archived: params.get('archived') === 'true',
 		geoclip_confident: params.get('geoclip_confident') === 'true',
+		similar_confident: params.get('similar_confident') === 'true',
 		nearby: params.get('nearby') === 'true',
 		failed_module: params.get('failed_module'),
 		failure: params.get('failed_module') ? params.get('failure') : null
@@ -64,6 +66,7 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
+	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);

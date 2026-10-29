@@ -46,6 +46,12 @@
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 	}
+	/* A phone: the header needs the room. */
+	@media (max-width: 30rem) {
+		:not(.large) > .name .for {
+			display: none;
+		}
+	}
 	.large {
 		gap: var(--space-2-5);
 	}

@@ -12,12 +12,14 @@ router = APIRouter(prefix="/settings")
 
 class AccountSettings(BaseModel):
     gallery_tooltip: bool
+    video_sound: bool
 
 
 class AccountSettingsIn(BaseModel):
     """Only the settings given change."""
 
     gallery_tooltip: bool | None = None
+    video_sound: bool | None = None
 
 
 @router.get("")

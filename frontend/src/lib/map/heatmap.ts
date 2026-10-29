@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The heat map of the photos with a location (D-155): where the library already has many photos
 // helps to find one's way on the map. Loaded once per page when first turned on; the browser
-// asks again with the ETag, so a reload sends nothing when no location changed.
+// asks again with the ETag, so a reload sends nothing when no location changed. Two levels of
+// cells: the coarse ones for an overview, the fine ones close up, where the grid of the coarse
+// ones would show; the fine ones are loaded only when the map comes that close.
 import type { ExpressionSpecification, HeatmapLayerSpecification } from 'maplibre-gl';
 import { getHeatmap } from '#lib/api.js';
 
-export const HEATMAP = 'steward-heatmap';
+export type HeatmapLevel = 'coarse' | 'fine';
 
-let cells: Promise<number[]> | null = null;
+export const HEATMAP = 'steward-heatmap';
+export const HEATMAP_FINE = 'steward-heatmap-fine';
+/** From this zoom on the fine cells are drawn instead of the coarse ones. */
+export const FINE_FROM_ZOOM = 14;
+
+const cells: Record<HeatmapLevel, Promise<number[]> | null> = { coarse: null, fine: null };
 
 /** Latitude, longitude and number of photos, cell after cell; shared by every map of the page. */
-export function loadHeatmap(): Promise<number[]> {
-	cells ??= getHeatmap().catch((error) => {
-		cells = null; // try again next time
+export function loadHeatmap(level: HeatmapLevel): Promise<number[]> {
+	return (cells[level] ??= getHeatmap(level).catch((error) => {
+		cells[level] = null; // try again next time
 		throw error;
-	});
-	return cells;
+	}));
 }
 
 /** The cells as GeoJSON points with their number of photos (`n`). */

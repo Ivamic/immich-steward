@@ -1,6 +1,13 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-	import { ApiError, getLibrary, isActive, startSync, type Library } from '#lib/api.js';
+	import {
+		ApiError,
+		getLibrary,
+		isActive,
+		startSimilarHints,
+		startSync,
+		type Library
+	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
@@ -33,11 +40,23 @@
 
 	const job = $derived(library?.sync_job ?? null);
 	const syncing = $derived(isActive(job));
+	// The badge "similar with a location" of the gallery, computed in the background.
+	const hintsJob = $derived(library?.similar_hints_job ?? null);
+	const hinting = $derived(isActive(hintsJob));
 
 	async function load() {
 		try {
 			library = await getLibrary();
 			error = null;
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
+	async function refreshHints() {
+		try {
+			await startSimilarHints();
+			await load();
 		} catch (e) {
 			error = errorMessage(e);
 		}
@@ -66,9 +85,9 @@
 		return () => clearInterval(timer);
 	});
 
-	// Poll while a sync is queued or running.
+	// Poll while a sync or a pass of the badge is queued or running.
 	$effect(() => {
-		if (!syncing) return;
+		if (!syncing && !hinting) return;
 		const timer = setInterval(load, POLL_MS);
 		return () => clearInterval(timer);
 	});
@@ -114,6 +133,20 @@
 					{m.library_auto_sync_off()}
 				{/if}
 			</dd>
+			<dt>{m.library_similar_hints()}</dt>
+			<dd>
+				{#if hinting}
+					{@const progress = hintsJob?.progress ?? {}}
+					{m.library_similar_hints_running({
+						done: count(Number(progress.done ?? 0)),
+						total: count(Number(progress.total ?? 0))
+					})}
+				{:else if library.similar_hints_at}
+					{dates.format(new Date(library.similar_hints_at))}
+				{:else}
+					{m.library_similar_hints_never()}
+				{/if}
+			</dd>
 		</dl>
 
 		{#if syncing}
@@ -141,6 +174,15 @@
 				disabled={syncing}
 			>
 				{m.library_sync_full()}
+			</button>
+			<button
+				type="button"
+				class="st-btn st-btn--ghost"
+				title={m.library_similar_hints_hint()}
+				onclick={refreshHints}
+				disabled={hinting}
+			>
+				{m.library_similar_hints_refresh()}
 			</button>
 		</div>
 	{/if}

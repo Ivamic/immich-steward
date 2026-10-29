@@ -28,12 +28,24 @@ def unreachable(request: httpx2.Request) -> httpx2.Response:
 
 
 def test_versions_compare_as_numbers() -> None:
-    assert version_key("v0.10.2") == (0, 10, 2)
-    assert version_key("0.6.0-rc.1") == (0, 6, 0)
+    assert version_key("v0.10.2") == (0, 10, 2, 1, 0, 0)
+    assert version_key("0.6.0-rc.1") == version_key("0.6.0rc1")
     assert is_newer("0.10.0", "0.9.9")
     assert is_newer("v1.0.0", "0.6.3")
+    assert is_newer("0.6", "0.5.9")
     assert not is_newer("0.6.0", "0.6.0")
+    assert not is_newer("0.6", "0.6.0")
     assert not is_newer("0.5.1", "0.6.0")
+
+
+def test_a_pre_release_is_older_than_its_release() -> None:
+    # A server on 0.6.0rc2 did not see 0.6.0 as newer.
+    assert is_newer("0.6.0", "0.6.0rc2")
+    assert is_newer("0.6.0rc2", "0.6.0rc1")
+    assert is_newer("0.6.0rc1", "0.6.0b3")
+    assert is_newer("0.6.0rc1", "0.5.9")
+    assert is_newer("0.6.0.post1", "0.6.0")
+    assert not is_newer("0.6.0rc2", "0.6.0")
 
 
 def test_a_newer_release_is_found_and_kept(signed_in: TestClient) -> None:
@@ -119,7 +131,8 @@ def test_checks_wait_twelve_hours_and_one_after_an_error(signed_in: TestClient) 
                 await updates.save(db, state)
             await updates.check_if_due(db, httpx2.MockTransport(counting))
 
-    portal = signed_in.portal  # type: ignore[union-attr]
+    portal = signed_in.portal
+    assert portal is not None
     portal.call(due_after, 0)
     assert len(calls) == 1  # never checked: at once
     portal.call(due_after, 0.5)

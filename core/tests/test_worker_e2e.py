@@ -49,7 +49,7 @@ def test_worker_processes_a_queued_module_run(
             await worker_queue.enqueue_module(db, asset, "echo")
 
         # Inside the app's event loop, so that the worker shares its database connections.
-        transport = httpx2.ASGITransport(app=app)  # type: ignore[arg-type]
+        transport = httpx2.ASGITransport(app=app)
         async with CoreClient("http://core", WORKER_TOKEN, transport=transport) as client:
             worker = Worker(client, {"echo": module}, WorkerConfig(name="e2e"))
             assert await worker.run_once() is True

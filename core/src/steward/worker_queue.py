@@ -532,6 +532,11 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
     worker short of memory can finish one module's queue before it loads the next model).
     Background jobs of paused modules stay in the queue.
     """
+    # Not the modules turned off for it on the Processing page.
+    modules = [m for m in modules if m not in (worker.disabled_modules or [])]
+    if not modules:
+        await db.commit()
+        return None
     module_order = case({module: i for i, module in enumerate(modules)}, value=Job.module_id)
     paused = await paused_modules(db)
     now = datetime.now(UTC)

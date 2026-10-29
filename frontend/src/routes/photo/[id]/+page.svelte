@@ -15,6 +15,7 @@
 		runModule,
 		setReview,
 		thumbnailUrl,
+		videoUrl,
 		undoLocation,
 		type AssetDetail,
 		type Candidate,
@@ -114,6 +115,10 @@
 	let highlight = $state<Highlight | null>(null);
 	// Medium screens: which of the two side panels is shown.
 	let tab = $state<'place' | 'info'>('place');
+	// A video plays in the card; turned in the app, its turned preview frame is shown instead.
+	const playable = $derived(asset?.type === 'VIDEO' && !turn);
+	// On a phone the details of the photo are folded under the map; elsewhere always shown.
+	let factsOpen = $state(false);
 	const listed = $derived(displayedModules(suggestions, revealed));
 	const shown = $derived(visibleSuggestions(listed, unfolded));
 	const numbered = $derived(numberCandidates(shown));
@@ -400,7 +405,8 @@
 		// The viewer and the windows handle their own keys (Esc closes them).
 		if (viewerOpen || partPicker || keysOpen) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
-		if ((event.target as HTMLElement).closest('input, textarea, select')) return;
+		// A focused player keeps its own keys (arrows seek, space plays).
+		if ((event.target as HTMLElement).closest('input, textarea, select, video')) return;
 		const actions: Record<string, () => void> = {
 			enter: save,
 			arrowleft: () => open(asset?.previous_id),
@@ -481,7 +487,7 @@
 		<Tooltip text={m.photo_keys()} keys="?" below>
 			<button
 				type="button"
-				class="st-iconbtn"
+				class="st-iconbtn keys"
 				aria-label={m.photo_keys()}
 				onclick={() => (keysOpen = true)}
 			>
@@ -681,29 +687,47 @@
 
 		<aside class="info">
 			<figure class="preview">
-				<button
-					type="button"
-					class="zoom"
-					aria-label={m.photo_zoom()}
-					onclick={() => (viewerOpen = true)}
-				>
-					<span class="framed">
-						<!-- Re-created for each photo and turn, so that the new one fades in. -->
-						{#key `${id}:${turn}`}
-							<img src={thumbnailUrl(id, 'preview', turn, version)} alt={asset?.file_name ?? ''} />
-						{/key}
-						{#if shownPart}
-							<span
-								class="part"
-								style:left="{shownPart.x * 100}%"
-								style:top="{shownPart.y * 100}%"
-								style:width="{shownPart.w * 100}%"
-								style:height="{shownPart.h * 100}%"
-							></span>
-						{/if}
-					</span>
-				</button>
-				<div class="tools">
+				{#if playable}
+					{#key id}
+						<!-- Videos of a library have no captions to offer. -->
+						<!-- svelte-ignore a11y_media_has_caption -->
+						<video
+							class="player"
+							controls
+							playsinline
+							preload="metadata"
+							poster={thumbnailUrl(id, 'preview', 0, version)}
+							src={videoUrl(id)}
+						></video>
+					{/key}
+				{:else}
+					<button
+						type="button"
+						class="zoom"
+						aria-label={m.photo_zoom()}
+						onclick={() => (viewerOpen = true)}
+					>
+						<span class="framed">
+							<!-- Re-created for each photo and turn, so that the new one fades in. -->
+							{#key `${id}:${turn}`}
+								<img
+									src={thumbnailUrl(id, 'preview', turn, version)}
+									alt={asset?.file_name ?? ''}
+								/>
+							{/key}
+							{#if shownPart}
+								<span
+									class="part"
+									style:left="{shownPart.x * 100}%"
+									style:top="{shownPart.y * 100}%"
+									style:width="{shownPart.w * 100}%"
+									style:height="{shownPart.h * 100}%"
+								></span>
+							{/if}
+						</span>
+					</button>
+				{/if}
+				<div class="tools" class:over-player={playable}>
 					<div class="st-glass group">
 						<Tooltip text={m.photo_turn_left()} keys="[">
 							<button
@@ -726,18 +750,20 @@
 							</button>
 						</Tooltip>
 					</div>
-					<div class="st-glass group">
-						<Tooltip text={m.photo_zoom()} keys="Z">
-							<button
-								type="button"
-								class="st-iconbtn st-iconbtn--sm"
-								aria-label={m.photo_zoom()}
-								onclick={() => (viewerOpen = true)}
-							>
-								<Icon name="maximize-2" />
-							</button>
-						</Tooltip>
-					</div>
+					{#if !playable}
+						<div class="st-glass group">
+							<Tooltip text={m.photo_zoom()} keys="Z">
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_zoom()}
+									onclick={() => (viewerOpen = true)}
+								>
+									<Icon name="maximize-2" />
+								</button>
+							</Tooltip>
+						</div>
+					{/if}
 				</div>
 			</figure>
 			{#if turn}
@@ -767,80 +793,93 @@
 			{#if rotationNotice}
 				<p class="turned" role="status">{rotationNotice}</p>
 			{/if}
-			{#if asset?.type === 'VIDEO'}
+			{#if asset?.type === 'VIDEO' && turn}
 				<p class="turned">{m.photo_video_note()}</p>
 			{/if}
 
 			{#if asset}
-				<dl class="details">
-					<dt>{m.photo_camera()}</dt>
-					<dd>{camera}</dd>
-					{#if asset.albums.length}
-						<dt>{m.photo_albums()}</dt>
-						<dd>{asset.albums.join(', ')}</dd>
-					{/if}
-					<dt>{m.photo_location()}</dt>
-					<dd>
-						{#if current}
-							{#if place}{place}<br />{/if}
-							<span class="current">
-								<span class="st-coords" bind:this={currentCoords}>{formatCoordinates(current)}</span
-								>
-								<CopyButton
-									text={formatCoordinates(current)}
-									label={m.copy_coordinates()}
-									onfailed={() => currentCoords && getSelection()?.selectAllChildren(currentCoords)}
-								/>
-							</span>
-						{:else}
-							<span class="muted">{m.photo_no_location()}</span>
+				<button
+					type="button"
+					class="facts-toggle st-btn st-btn--block"
+					aria-expanded={factsOpen}
+					onclick={() => (factsOpen = !factsOpen)}
+				>
+					{m.photo_details()}
+					<Icon name={factsOpen ? 'chevron-up' : 'chevron-down'} />
+				</button>
+				<div class="facts" class:open={factsOpen}>
+					<dl class="details">
+						<dt>{m.photo_camera()}</dt>
+						<dd>{camera}</dd>
+						{#if asset.albums.length}
+							<dt>{m.photo_albums()}</dt>
+							<dd>{asset.albums.join(', ')}</dd>
 						{/if}
-					</dd>
-					{#if asset.review_status !== 'new'}
-						<dt>{m.photo_status()}</dt>
+						<dt>{m.photo_location()}</dt>
 						<dd>
-							{asset.review_status === 'skipped'
-								? m.photo_status_skipped()
-								: m.photo_status_not_applicable()}
+							{#if current}
+								{#if place}{place}<br />{/if}
+								<span class="current">
+									<span class="st-coords" bind:this={currentCoords}
+										>{formatCoordinates(current)}</span
+									>
+									<CopyButton
+										text={formatCoordinates(current)}
+										label={m.copy_coordinates()}
+										onfailed={() =>
+											currentCoords && getSelection()?.selectAllChildren(currentCoords)}
+									/>
+								</span>
+							{:else}
+								<span class="muted">{m.photo_no_location()}</span>
+							{/if}
 						</dd>
-					{/if}
-				</dl>
-
-				{#if asset.location_history.length}
-					<section class="history">
-						<h2>{m.photo_history()}</h2>
-						<ol>
-							{#each asset.location_history as change (change.id)}
-								<li class:undone={change.status === 'undone'}>
-									<span class="st-coords coords">
-										{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
-									</span>
-									<span class="muted">
-										{changedAt.format(new Date(change.created_at))}
-										·
-										{change.source === 'manual' ? m.photo_history_manual() : change.source}
-										·
-										{change.prev_latitude != null && change.prev_longitude != null
-											? m.photo_history_was({
-													coordinates: formatCoordinates({
-														lat: change.prev_latitude,
-														lon: change.prev_longitude
-													})
-												})
-											: m.photo_history_was_empty()}
-										{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
-									</span>
-								</li>
-							{/each}
-						</ol>
-						{#if asset.can_undo}
-							<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
-								<Icon name="undo-2" />
-								{m.photo_undo()}
-							</button>
+						{#if asset.review_status !== 'new'}
+							<dt>{m.photo_status()}</dt>
+							<dd>
+								{asset.review_status === 'skipped'
+									? m.photo_status_skipped()
+									: m.photo_status_not_applicable()}
+							</dd>
 						{/if}
-					</section>
-				{/if}
+					</dl>
+
+					{#if asset.location_history.length}
+						<section class="history">
+							<h2>{m.photo_history()}</h2>
+							<ol>
+								{#each asset.location_history as change (change.id)}
+									<li class:undone={change.status === 'undone'}>
+										<span class="st-coords coords">
+											{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
+										</span>
+										<span class="muted">
+											{changedAt.format(new Date(change.created_at))}
+											·
+											{change.source === 'manual' ? m.photo_history_manual() : change.source}
+											·
+											{change.prev_latitude != null && change.prev_longitude != null
+												? m.photo_history_was({
+														coordinates: formatCoordinates({
+															lat: change.prev_latitude,
+															lon: change.prev_longitude
+														})
+													})
+												: m.photo_history_was_empty()}
+											{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
+										</span>
+									</li>
+								{/each}
+							</ol>
+							{#if asset.can_undo}
+								<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
+									<Icon name="undo-2" />
+									{m.photo_undo()}
+								</button>
+							{/if}
+						</section>
+					{/if}
+				</div>
 			{/if}
 		</aside>
 	</div>
@@ -968,7 +1007,17 @@
 			display: none;
 		}
 	}
-	/* Small screens: everything stacked, the page scrolls. */
+	.facts {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-3);
+	}
+	.facts-toggle {
+		display: none;
+	}
+	/* Small screens: everything stacked, the page scrolls. The photo comes first, right under the
+	   buttons to the previous and next one, then the map and the place; the details of the photo
+	   are folded at the end. */
 	@media (max-width: 50rem) {
 		.page {
 			height: auto;
@@ -984,13 +1033,52 @@
 		.tabs {
 			display: none;
 		}
-		.card:not(.show-info) .info,
 		.card.show-info .panel {
 			display: flex;
 		}
-		.panel,
-		.info {
+		.panel {
 			overflow: visible;
+		}
+		/* Its parts take their own places in the column. */
+		.card:not(.show-info) .info,
+		.card.show-info .info {
+			display: contents;
+		}
+		/* The name and the time on a line of their own, the buttons under them. No keyboard. */
+		.toolbar {
+			flex-wrap: wrap;
+			row-gap: var(--space-2);
+		}
+		.title {
+			flex: 1 1 calc(100% - 3rem);
+		}
+		.spacer,
+		.keys {
+			display: none;
+		}
+		.map,
+		.panel {
+			order: 1;
+		}
+		.facts-toggle,
+		.facts {
+			order: 2;
+		}
+		.facts-toggle {
+			display: inline-flex;
+		}
+		.facts:not(.open) {
+			display: none;
+		}
+		.facts {
+			padding: var(--space-3);
+			border: var(--border-width) solid var(--color-border);
+			border-radius: var(--radius-lg);
+			background: var(--color-surface);
+		}
+		.zoom img,
+		.player {
+			max-height: 50vh;
 		}
 	}
 	.pinned {
@@ -1074,6 +1162,17 @@
 		max-height: 17rem;
 		/* Only opacity: cheap, and the next key can interrupt it. */
 		animation: st-fade var(--motion-photo-swap) var(--ease-out);
+	}
+	.player {
+		display: block;
+		width: 100%;
+		max-height: 17rem;
+		background: var(--gray-900);
+	}
+	/* The controls of the player are at its bottom: the turn buttons go to its top. */
+	.tools.over-player {
+		top: var(--space-2);
+		bottom: auto;
 	}
 	.part {
 		position: absolute;

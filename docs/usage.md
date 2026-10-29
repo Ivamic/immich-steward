@@ -16,7 +16,8 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   *With location*, *Skipped*, *Not applicable* (several can be on at once). *Confident GeoCLIP
   guess* leaves the photos for which GeoCLIP is fairly sure where they were taken; *Located
   photo nearby* leaves the photos taken within 15 minutes of a photo with a location, whose place
-  is almost surely known. Both are a good place to start. Then the type (photos, videos), the
+  is almost surely known; *Similar photo with a location* leaves the photos that look confidently
+  like a photo with a location (the same street, house or view). They are a good place to start. Then the type (photos, videos), the
   camera, the album, the **Period** and the **Processing errors** of the modules. *Reset* brings
   the default filters back.
 - **The camera and album lists** have a search field on top when they are long: type any part of
@@ -25,12 +26,14 @@ The gallery shows your photos by month, newest first. By default it shows the ph
 - **Badges** in the corner of a photo: a pin means the photo has a location; a blue clock means
   a photo with a location was taken within 15 minutes, filled when by the same camera (the
   stronger hint) and outlined when by another one, such as a phone; an orange crosshair means
-  GeoCLIP has a confident guess for it; a play sign marks a video. The 15 minutes are a setting
+  GeoCLIP has a confident guess for it; purple photos mean a confidently similar photo has a
+  location; a play sign marks a video. The 15 minutes are a setting
   (`STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES`).
 - **The timeline** on the right shows the years. Click or drag on it to jump to a month.
 - Click a photo to open its card. When you come back, the gallery opens at the same place.
 - **Press and hold** a photo (mouse or finger) to see it large over the gallery, without opening
-  its card; let go to close it.
+  its card; let go to close it. A video plays at once, in a loop and muted; **Settings → Gallery**
+  turns its sound on (a browser may still start it muted).
 - **Rest the mouse** on a photo to see its file name, when it was taken (with the day of the
   week), the camera and the size. **Settings → Gallery** turns this off; then only the file name
   is shown.
@@ -191,7 +194,8 @@ module keeps running, and a line under the suggestions lets you show it for a wh
 
 ### The photo
 
-Click the photo (or press **Z**) to see it in full size. **[** and **]** rotate it if it is on its
+A video plays in the card, with the usual controls; it plays the version Immich plays in its own
+app. Click a photo (or press **Z**) to see it in full size. **[** and **]** rotate it if it is on its
 side: the modules started after that get it rotated. The rotation is kept only in the card until
 you press **Save rotation in Immich** (photos only, not videos); **Undo rotation** turns it back.
 Saving the rotation needs the API key permissions `asset.edit.get`, `asset.edit.create` and
@@ -229,10 +233,16 @@ The **Processing** page shows how the work goes:
 
 - **Library**: how many photos and videos there are, how many have no location, when the app
   last read your library from Immich and when it does next. **Sync now** reads the changes right
-  away; **Full sync** also notices photos deleted in Immich.
+  away; **Full sync** also notices photos deleted in Immich. *Similar photos in the gallery*: the
+  purple badge is counted in the background, once a day and for new photos as their vectors
+  come; **Count similar photos again** does it for all photos now, e.g. after you set many
+  locations.
 - **Workers**: which [workers](workers.md) are connected and what each is doing now (waiting for
-  jobs, downloading or loading a model, working). A worker that has not been seen for a while can
-  be removed from the list.
+  jobs, downloading or loading a model, working). Its modules are switches: a module turned off
+  is not given to that worker (e.g. GeoCLIP only on the computer with a graphics card), from its
+  next job on, without a restart. **Add a device** shows the commands to start a worker on another
+  computer, with the address and the name filled in; the worker token only for administrators of
+  Immich. A worker that has not been seen for a while can be removed from the list.
 - **Modules**: for GeoCLIP and similar photos, how many photos are done, running, queued and
   failed. Failures are grouped by reason; **Show** opens those photos in the gallery and **Run
   again** queues them once more.

@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import {
 		forgetWorker,
+		switchWorkerModule,
 		getWorkers,
 		rerunFailed,
 		type ModuleStatus,
@@ -13,12 +14,16 @@
 	} from '#lib/api.js';
 	import PauseMenu from '#lib/PauseMenu.svelte';
 	import StatusBadge from '#lib/ui/StatusBadge.svelte';
+	import Tooltip from '#lib/ui/Tooltip.svelte';
+	import AddDeviceDialog from '#lib/AddDeviceDialog.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { formatUntil, pause } from '#lib/pause.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { failedFilter, filterToUrl } from '#lib/gallery/filter.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { moduleColor } from '#lib/map/modulePalette.js';
+	import { older } from '#lib/versions.js';
 	import {
 		failureGroup,
 		failureGroupName,
@@ -67,6 +72,22 @@
 			error = errorMessage(e);
 		} finally {
 			pausing = false;
+		}
+	}
+
+	let adding = $state(false);
+	// "worker:module" of the switch being saved.
+	let switching = $state<string | null>(null);
+
+	async function switchModule(worker: WorkerInfo, module: string, enabled: boolean) {
+		switching = `${worker.id}:${module}`;
+		try {
+			await switchWorkerModule(worker.id, module, enabled);
+			await load();
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			switching = null;
 		}
 	}
 
@@ -146,21 +167,6 @@
 		}
 	}
 
-	// "0.5.1" < "0.6.0"; anything after the numbers (a pre-release) is ignored.
-	function older(version: string, than: string): boolean {
-		const parts = (v: string) =>
-			v
-				.split(/[^0-9.]/)[0]
-				.split('.')
-				.map(Number);
-		const [a, b] = [parts(version), parts(than)];
-		for (let i = 0; i < Math.max(a.length, b.length); i++) {
-			const diff = (a[i] ?? 0) - (b[i] ?? 0);
-			if (diff !== 0) return diff < 0;
-		}
-		return false;
-	}
-
 	const slow = (worker: WorkerInfo) => worker.state === 'downloading' || worker.state === 'loading';
 
 	function ago(iso: string): string {
@@ -173,7 +179,13 @@
 </script>
 
 <section>
-	<h2>{m.workers_heading()}</h2>
+	<div class="heading">
+		<h2>{m.workers_heading()}</h2>
+		<button type="button" class="st-btn st-btn--sm" onclick={() => (adding = true)}>
+			<Icon name="plus" size={14} />
+			{m.add_device()}
+		</button>
+	</div>
 	<p class="muted">{m.workers_intro()}</p>
 	{#if error}
 		<p class="error" role="alert">{error}</p>
@@ -246,9 +258,24 @@
 								</StatusBadge>
 							</p>
 						{/if}
-						<p class="muted">
-							{m.workers_modules({ modules: worker.modules.map(moduleName).join(', ') })}
-						</p>
+						<div class="worker-modules" role="group" aria-label={m.workers_modules_label()}>
+							<span class="muted">{m.workers_modules_label()}</span>
+							{#each worker.modules as module (module)}
+								{@const enabled = !worker.disabled_modules.includes(module)}
+								<Tooltip text={enabled ? m.workers_module_on_hint() : m.workers_module_off_hint()}>
+									<button
+										type="button"
+										class="st-chip"
+										aria-pressed={enabled}
+										disabled={switching !== null}
+										onclick={() => switchModule(worker, module, !enabled)}
+									>
+										<span class="st-chip__dot" style:background={moduleColor(module, '')}></span>
+										{moduleName(module)}
+									</button>
+								</Tooltip>
+							{/each}
+						</div>
 					</article>
 				{/each}
 			</div>
@@ -276,7 +303,10 @@
 				{@const counts = overview.runs[module.id] ?? {}}
 				{@const sum = total(counts)}
 				{@const paused = pause.isPaused(module.id)}
-				{@const runners = overview.workers.filter((w) => w.active && w.modules.includes(module.id))}
+				{@const runners = overview.workers.filter(
+					(w) =>
+						w.active && w.modules.includes(module.id) && !w.disabled_modules.includes(module.id)
+				)}
 				{@const index = overview.index[module.id]}
 				{@const failures = overview.failures[module.id]}
 				<article class="module" class:paused>
@@ -384,6 +414,10 @@
 	{/if}
 </section>
 
+{#if adding}
+	<AddDeviceDialog docs={WORKERS_DOCS} onclose={() => (adding = false)} />
+{/if}
+
 <style>
 	section {
 		display: flex;
@@ -458,6 +492,23 @@
 	}
 	.pause-all .muted {
 		flex: 1 1 16rem;
+		font-size: var(--text-sm);
+	}
+	.heading {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+	}
+	.worker-modules {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1-5);
+		margin: 0;
+	}
+	.worker-modules .muted {
 		font-size: var(--text-sm);
 	}
 	.modules {

@@ -242,7 +242,7 @@ def test_gallery_filter_for_confident_geoclip_guesses(
         body = {"module_version": "1", "candidates": [point | {"score": scores[name]}]}
         signed_in.post(f"/api/worker/jobs/{job.json()['job_id']}/result", json=body, headers=worker)
 
-    params = {"month": "2024-05", "geoclip_confident": True}
+    params: dict[str, str | bool] = {"month": "2024-05", "geoclip_confident": True}
     items = signed_in.get("/api/assets", params=params).json()
     # Confident enough and still without a location: the photo with GPS is not listed.
     assert [item["file_name"] for item in items] == ["todo1.jpg"]

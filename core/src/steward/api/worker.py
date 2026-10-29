@@ -84,6 +84,8 @@ class RegisterResponse(BaseModel):
     worker_id: UUID
     lease_seconds: int
     protocol_version: int = PROTOCOL_VERSION
+    # Lets the worker say in its log that it should be updated (0.6.1).
+    core_version: str = __version__
 
 
 class LeaseRequest(BaseModel):

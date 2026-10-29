@@ -134,6 +134,18 @@
 		</button>
 	</Tooltip>
 
+	<Tooltip text={m.filter_similar_confident_hint()} below>
+		<button
+			type="button"
+			class="st-chip"
+			aria-pressed={filter.similar_confident}
+			onclick={() => set({ similar_confident: !filter.similar_confident })}
+		>
+			<span class="st-chip__dot" style:background="var(--module-3)"></span>
+			{m.filter_similar_confident()}
+		</button>
+	</Tooltip>
+
 	<Tooltip text={m.filter_nearby_hint({ minutes: options.nearby_minutes })} below>
 		<button
 			type="button"

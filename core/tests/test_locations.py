@@ -38,7 +38,7 @@ def put_location(client: TestClient, asset_id: str, point: dict[str, float], **p
     return client.put(f"/api/assets/{asset_id}/location", json=point, params=params)
 
 
-def immich_point(fake_immich: FakeImmich, immich_id: str) -> tuple[float, float]:
+def immich_point(fake_immich: FakeImmich, immich_id: str) -> tuple[float | None, float | None]:
     exif = fake_immich.assets[immich_id]["exifInfo"]
     return exif["latitude"], exif["longitude"]
 

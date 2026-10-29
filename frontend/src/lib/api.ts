@@ -90,6 +90,9 @@ export interface Library {
 	next_sync_at: string | null;
 	next_full_sync_at: string | null;
 	sync_job: Job | null;
+	/** The badge "similar with a location": its last full pass, and the latest pass. */
+	similar_hints_at: string | null;
+	similar_hints_job: Job | null;
 }
 
 export const isActive = (job: Job | null) =>
@@ -116,6 +119,8 @@ export interface GalleryFilter {
 	archived: boolean;
 	/** Only photos without a location that GeoCLIP places confidently. */
 	geoclip_confident: boolean;
+	/** Only photos without a location with a confidently similar located one. */
+	similar_confident: boolean;
 	/** Only photos without a location with a located one taken close in time. */
 	nearby: boolean;
 	/** Only photos whose latest run of this module failed... */
@@ -137,6 +142,8 @@ export interface AssetItem {
 	has_location: boolean;
 	/** No location yet, but GeoCLIP places the photo confidently. */
 	geoclip_confident: boolean;
+	/** No location yet, but a photo with one is confidently similar. */
+	similar_confident: boolean;
 	/** No location yet, but a photo taken close in time has one: by the same camera or another. */
 	nearby: NearbyLevel | null;
 	width: number | null;
@@ -172,6 +179,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
+	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);
@@ -193,6 +201,9 @@ export const thumbnailUrl = (
 ) =>
 	`/api/assets/${id}/thumbnail?size=${size}${turn ? `&turn=${turn}` : ''}` +
 	(version ? `&v=${encodeURIComponent(version)}` : '');
+
+/** The video as Immich plays it, through the app; the browser seeks with byte ranges. */
+export const videoUrl = (id: string) => `/api/assets/${id}/video`;
 
 export const getMonths = (filter: GalleryFilter) =>
 	request<MonthBucket[]>('GET', `/api/assets/months${filterQuery(filter)}`);
@@ -473,6 +484,8 @@ export interface WorkerInfo {
 	name: string;
 	device: string;
 	modules: string[];
+	/** Of `modules`, those turned off for it: it gets no jobs of them. */
+	disabled_modules: string[];
 	version: string;
 	last_seen_at: string;
 	active: boolean;
@@ -540,13 +553,19 @@ export const setUpdates = (enabled: boolean) =>
 /** Checks now, also while the automatic check is off. */
 export const checkUpdates = () => request<Updates>('POST', '/api/updates/check');
 
-/** Where the photos with a location are: latitude, longitude and number of photos per cell. */
-export const getHeatmap = () => request<number[]>('GET', '/api/assets/heatmap');
+/**
+ * Where the photos with a location are: latitude, longitude and number of photos per cell, of
+ * about 100 m (`coarse`) or 11 m (`fine`, for a close look).
+ */
+export const getHeatmap = (level: 'coarse' | 'fine') =>
+	request<number[]>('GET', `/api/assets/heatmap?level=${level}`);
 
 /** Personal settings of the signed-in account. */
 export interface AccountSettings {
 	/** Its own tooltip over a gallery tile (name, time taken, camera, size). */
 	gallery_tooltip: boolean;
+	/** A video shown large on a long press plays with its sound. */
+	video_sound: boolean;
 }
 
 export const getAccountSettings = () => request<AccountSettings>('GET', '/api/settings');
@@ -557,6 +576,20 @@ export const setAccountSettings = (change: Partial<AccountSettings>) =>
 export const getWorkers = () => request<WorkersOverview>('GET', '/api/library/workers');
 /** Removes a worker that is not connected from the list. */
 export const forgetWorker = (id: string) => request<void>('DELETE', `/api/library/workers/${id}`);
+/** What the commands of "Add a device" need; the token only for an administrator of Immich. */
+export interface WorkerSetup {
+	admin: boolean;
+	token: string | null;
+	/** A worker token is set on the server (without one, workers are refused). */
+	token_set: boolean;
+	version: string;
+}
+
+export const getWorkerSetup = () => request<WorkerSetup>('GET', '/api/library/worker-setup');
+
+/** Turns a module of a worker on or off; off, it gets no jobs of it. */
+export const switchWorkerModule = (id: string, module: string, enabled: boolean) =>
+	request<void>('PUT', `/api/library/workers/${id}/modules`, { module, enabled });
 
 export const getPause = () => request<Pause>('GET', '/api/library/pause');
 /** Pauses (for `minutes`, or until resumed) or resumes a module; `null`: all modules. */
@@ -692,6 +725,8 @@ export const getHealth = () => request<Health>('GET', '/api/health');
 export const getLibrary = () => request<Library>('GET', '/api/library');
 export const startSync = (full: boolean | null = null) =>
 	request<Job>('POST', '/api/library/sync', { full });
+/** Computes the badge "similar with a location" for all photos now, as the daily pass does. */
+export const startSimilarHints = () => request<Job>('POST', '/api/library/similar-hints');
 export const login = (apiKey: string) =>
 	request<Me>('POST', '/api/auth/login', { api_key: apiKey });
 export const loginWithPassword = (email: string, password: string) =>

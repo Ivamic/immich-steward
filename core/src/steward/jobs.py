@@ -15,10 +15,10 @@ from typing import Any
 from uuid import UUID
 
 import httpx2
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import rotation, updates, worker_queue
+from steward import rotation, similar_hints, updates, worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -35,6 +35,9 @@ log = logging.getLogger(__name__)
 
 SYNC = "sync"
 ROTATE = "rotate"
+SIMILAR_HINTS = "similar_hints"
+# A full pass of the similar-photos badge once a day (new locations change it for other photos).
+SIMILAR_HINTS_FULL_EVERY = timedelta(hours=24)
 ACTIVE_STATUSES = ("queued", "running")
 IDLE_POLL_S = 2.0
 SCHEDULE_EVERY_S = 60.0
@@ -177,7 +180,41 @@ class JobError(Exception):
     """Expected failure; the message is an error code shown (translated) in the UI."""
 
 
-HANDLERS: dict[str, JobHandler] = {SYNC: run_sync, ROTATE: run_rotate}
+async def run_similar_hints(ctx: JobContext) -> dict[str, Any]:
+    """The badge "similar with a location" (`similar_hints`): all photos or only the new ones."""
+    account_id = ctx.job.account_id
+    if account_id is None:
+        raise JobError("account_not_found")
+    return await similar_hints.refresh(
+        ctx.db,
+        account_id,
+        ctx.settings,
+        full=bool(ctx.job.payload.get("full")),
+        on_progress=ctx.report,
+    )
+
+
+async def last_full_similar_hints(
+    db: AsyncSession, account_id: UUID, *, failed_too: bool = False
+) -> datetime | None:
+    """When the last full pass of the similar-photos badge finished (`failed_too`: or failed, so
+    that a failing pass is not tried again every minute)."""
+    statuses = ("done", "failed") if failed_too else ("done",)
+    return await db.scalar(
+        select(func.max(Job.finished_at)).where(
+            Job.kind == SIMILAR_HINTS,
+            Job.account_id == account_id,
+            Job.status.in_(statuses),
+            Job.payload["full"].as_boolean().is_(True),
+        )
+    )
+
+
+HANDLERS: dict[str, JobHandler] = {
+    SYNC: run_sync,
+    ROTATE: run_rotate,
+    SIMILAR_HINTS: run_similar_hints,
+}
 
 
 class JobRunner:
@@ -230,13 +267,26 @@ class JobRunner:
         within = timedelta(minutes=self._settings.worker_active_minutes)
         async with self._sessionmaker() as db:
             workers = await worker_queue.active_workers(db, within)
-            active = {module for worker in workers for module in worker.modules}
+            active = {module for worker in workers for module in worker.enabled_modules}
             paused = await worker_queue.paused_modules(db)
             for module_id in modules:
                 if module_id in active and not worker_queue.is_paused(paused, module_id):
                     added = await worker_queue.auto_enqueue(db, module_id)
                     if added:
                         log.info("queued %d photos for %s", added, module_id)
+
+    async def schedule_similar_hints(self) -> None:
+        """A full pass of the similar-photos badge once a day per account; in between, a pass of
+        the photos with new vectors, when there are any."""
+        due = datetime.now(UTC) - SIMILAR_HINTS_FULL_EVERY
+        async with self._sessionmaker() as db:
+            accounts = list(await db.scalars(select(Account.id)))
+            for account_id in accounts:
+                last_full = await last_full_similar_hints(db, account_id, failed_too=True)
+                if last_full is None or last_full < due:
+                    await enqueue(db, SIMILAR_HINTS, account_id, {"full": True})
+                elif await similar_hints.any_due(db, account_id):
+                    await enqueue(db, SIMILAR_HINTS, account_id, {"full": False})
 
     async def forget_old_workers(self) -> None:
         async with self._sessionmaker() as db:
@@ -307,6 +357,7 @@ class JobRunner:
                 if loop.time() >= next_schedule:
                     await self.schedule_syncs()
                     await self.schedule_modules()
+                    await self.schedule_similar_hints()
                     await self.forget_old_workers()
                     await self.check_updates()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S

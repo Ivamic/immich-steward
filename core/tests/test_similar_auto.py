@@ -18,7 +18,7 @@ GPS = {"latitude": 42.4, "longitude": 19.26}
 @pytest.fixture
 def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
     """File name -> Immich id."""
-    photos = {
+    photos: dict[str, dict[str, Any]] = {
         "todo.jpg": {},
         "gps.jpg": {"exif": GPS},
         "gps-archived.jpg": {"exif": GPS, "visibility": "archive"},
@@ -44,7 +44,7 @@ def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
 
 def queued(client: TestClient, module: str) -> list[str]:
     """File names of the queued runs of the module, in the order workers take them."""
-    names = []
+    names: list[str] = []
     # Once: registering again would give the jobs it holds back to the queue.
     worker = start_worker(client, [module])
     while True:

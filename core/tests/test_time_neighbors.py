@@ -20,7 +20,7 @@ def add(fake: FakeImmich, taken: str, **exif: Any) -> str:
 def local_id(client: TestClient, fake: FakeImmich, immich_id: str) -> str:
     name = fake.assets[immich_id]["originalFileName"]
     items = client.get("/api/assets", params={"month": "2024-05"}).json()
-    return next(item["id"] for item in items if item["file_name"] == name)
+    return str(next(item["id"] for item in items if item["file_name"] == name))
 
 
 def m1(client: TestClient, fake: FakeImmich, immich_id: str) -> dict[str, Any]:

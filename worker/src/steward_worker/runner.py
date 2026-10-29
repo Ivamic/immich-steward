@@ -29,6 +29,7 @@ from steward_worker.client import (
 )
 from steward_worker.load import system_busy
 from steward_worker.modules import Embedding, PermanentError, WorkerModule
+from steward_worker.versions import is_newer, update_hint
 
 log = logging.getLogger(__name__)
 
@@ -188,6 +189,29 @@ class Worker:
         self._registered = True
         self._reported = None  # the core forgets the state of a worker that registers
         log.info("registered with the core as %s", self._client.worker_id)
+        self._compare_versions()
+
+    def _compare_versions(self) -> None:
+        """Says in the log when the worker and the core differ in version. Checked at every
+        registration, so also after the core was updated while the worker kept running."""
+        core = self._client.core_version
+        if core is None:
+            return
+        if is_newer(core, __version__):
+            log.warning(
+                "a newer version of the app runs on the server (%s, this worker is %s): update "
+                "the worker: %s",
+                core,
+                __version__,
+                update_hint(core),
+            )
+        elif is_newer(__version__, core):
+            log.warning(
+                "this worker (%s) is newer than the app on the server (%s): update the app on "
+                "the server (docker compose pull && docker compose up -d)",
+                __version__,
+                core,
+            )
 
     async def _report(self, state: str, module: str | None = None) -> None:
         """Tells the core what the worker is doing, when that changes. Never fails the work."""

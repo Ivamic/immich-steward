@@ -2,6 +2,7 @@
 <script lang="ts">
 	import favicon from '#lib/assets/favicon.svg';
 	import { ApiError, getMe, logout } from '#lib/api.js';
+	import HeaderMenu from '#lib/HeaderMenu.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { session } from '#lib/session.svelte.js';
@@ -42,6 +43,16 @@
 		}
 	});
 
+	const pages = $derived([
+		{ href: resolve('/'), label: m.nav_gallery(), current: page.route.id === '/' },
+		{
+			href: resolve('/processing'),
+			label: m.nav_processing(),
+			current: page.route.id === '/processing'
+		},
+		{ href: resolve('/settings'), label: m.nav_settings(), current: page.route.id === '/settings' }
+	]);
+
 	async function signOut() {
 		await logout().catch(() => {});
 		session.user = null;
@@ -53,25 +64,14 @@
 	<title>{m.app_title()}</title>
 </svelte:head>
 
-<header class="st-header">
+<header class="st-header" class:st-header--menu={session.user}>
 	<Brand href={session.user ? resolve('/') : undefined} />
 	{#if session.user}
 		<nav class="st-header__nav">
-			<a href={resolve('/')} aria-current={page.route.id === '/' ? 'page' : undefined}>
-				{m.nav_gallery()}
-			</a>
-			<a
-				href={resolve('/processing')}
-				aria-current={page.route.id === '/processing' ? 'page' : undefined}
-			>
-				{m.nav_processing()}
-			</a>
-			<a
-				href={resolve('/settings')}
-				aria-current={page.route.id === '/settings' ? 'page' : undefined}
-			>
-				{m.nav_settings()}
-			</a>
+			{#each pages as item (item.href)}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved above -->
+				<a href={item.href} aria-current={item.current ? 'page' : undefined}>{item.label}</a>
+			{/each}
 		</nav>
 	{:else}
 		<span class="tagline">{m.app_tagline()}</span>
@@ -79,14 +79,25 @@
 	<div class="st-header__end">
 		{#if session.user}
 			<UpdateBadge />
-			<span class="st-header__user">{session.user.name}</span>
-			<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={signOut}>
+			<span class="st-header__user st-header__wide">{session.user.name}</span>
+			<button
+				type="button"
+				class="st-btn st-btn--ghost st-btn--sm st-header__wide"
+				onclick={signOut}
+			>
 				<Icon name="log-out" size={14} />
 				{m.auth_sign_out()}
 			</button>
 		{/if}
-		<LanguageSwitcher />
-		<ThemeSwitcher />
+		<div class="st-header__wide">
+			<LanguageSwitcher />
+		</div>
+		<div class="st-header__wide">
+			<ThemeSwitcher />
+		</div>
+		{#if session.user}
+			<HeaderMenu {pages} user={session.user.name} onsignout={signOut} />
+		{/if}
 	</div>
 </header>
 

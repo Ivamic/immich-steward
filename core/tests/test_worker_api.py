@@ -9,7 +9,7 @@ from conftest import WORKER_TOKEN, FakeImmich, run_jobs, sync
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
-from steward import worker_queue
+from steward import __version__, worker_queue
 from steward.api.worker import PROTOCOL_VERSION
 from steward.models import Asset, Job, ModuleRun, Worker
 
@@ -36,7 +36,8 @@ def enqueue(client: TestClient, module: str = "test", priority: int = 0, index: 
 
 def run_status(client: TestClient, run_id: UUID) -> ModuleRun:
     async def work(db: Any) -> ModuleRun:
-        return await db.get(ModuleRun, run_id)
+        run: ModuleRun = await db.get(ModuleRun, run_id)
+        return run
 
     result: ModuleRun = db_call(client, work)
     return result
@@ -86,6 +87,8 @@ def test_protocols_of_one_major_version_get_along(signed_in: TestClient) -> None
     response = signed_in.post("/api/worker/register", json=newer, headers=AUTH)
     assert response.status_code == 200
     assert response.json()["protocol_version"] == PROTOCOL_VERSION
+    # The worker tells in its log when its version differs from the core's.
+    assert response.json()["core_version"] == __version__
     assert signed_in.get("/api/library/workers").json()["refused"] == []
 
 
@@ -444,3 +447,50 @@ def test_a_restarted_worker_gets_its_job_back_at_once(photos: TestClient) -> Non
     assert run.status == "queued"
     again = lease(photos, worker).json()
     assert again["attempt"] == 1  # the lost attempt is not counted
+
+
+def test_a_module_turned_off_for_a_worker(photos: TestClient) -> None:
+    worker = register(photos, "laptop", ["test", "other"])
+    enqueue(photos, "test")
+    worker_id = worker["X-Worker-Id"]
+    off = {"module": "test", "enabled": False}
+
+    response = photos.put(f"/api/library/workers/{worker_id}/modules", json=off)
+    assert response.status_code == 204
+    listed = photos.get("/api/library/workers").json()["workers"][0]
+    assert listed["disabled_modules"] == ["test"]
+    # The job waits for another worker, or for the module to be turned on again.
+    assert lease(photos, worker, ["test", "other"]).status_code == 204
+
+    on = {"module": "test", "enabled": True}
+    assert photos.put(f"/api/library/workers/{worker_id}/modules", json=on).status_code == 204
+    assert lease(photos, worker, ["test", "other"]).json()["module"] == "test"
+    # Registering again (a restart) keeps the choice.
+    photos.put(f"/api/library/workers/{worker_id}/modules", json=off)
+    register(photos, "laptop", ["test", "other"])
+    assert photos.get("/api/library/workers").json()["workers"][0]["disabled_modules"] == ["test"]
+
+
+def test_switching_an_unknown_worker(signed_in: TestClient) -> None:
+    body = {"module": "test", "enabled": False}
+    response = signed_in.put(f"/api/library/workers/{uuid.uuid4()}/modules", json=body)
+    assert response.status_code == 404
+
+
+def test_only_an_immich_administrator_gets_the_worker_token(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    setup = signed_in.get("/api/library/worker-setup").json()
+    assert setup["admin"] is False
+    assert setup["token"] is None
+    assert setup["token_set"] is True
+
+    # Asked from Immich each time: a role given (or taken away) there counts at once.
+    fake_immich.user_is_admin = True
+    setup = signed_in.get("/api/library/worker-setup").json()
+    assert setup["admin"] is True
+    assert setup["token"] == WORKER_TOKEN
+
+
+def test_worker_setup_needs_signing_in(client: TestClient) -> None:
+    assert client.get("/api/library/worker-setup").status_code == 401

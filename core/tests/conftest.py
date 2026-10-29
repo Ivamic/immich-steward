@@ -45,7 +45,7 @@ def make_settings(**overrides: Any) -> Settings:
         "run_jobs": False,
     }
     values |= overrides
-    return Settings(_env_file=None, **values)  # type: ignore[call-arg]
+    return Settings(_env_file=None, **values)
 
 
 @dataclass
@@ -57,6 +57,7 @@ class FakeImmich:
     permissions: list[str] = field(default_factory=lambda: sorted(REQUIRED_PERMISSIONS))
     user_id: uuid.UUID = field(default_factory=uuid.uuid4)
     user_name: str = "Test User"
+    user_is_admin: bool = False
     assets: dict[str, dict[str, Any]] = field(default_factory=dict)
     albums: dict[str, dict[str, Any]] = field(default_factory=dict)
     album_assets: dict[str, list[str]] = field(default_factory=dict)
@@ -68,6 +69,8 @@ class FakeImmich:
     thumbnail_status: dict[str, int] = field(default_factory=dict)
     # Thumbnail requests cannot connect, as if Immich were down.
     thumbnails_unreachable: bool = False
+    # Asset id -> HTTP status Immich answers for playing its video.
+    video_status: dict[str, int] = field(default_factory=dict)
     # Asset id -> content of its original file / preview (real images, for cutting parts).
     originals: dict[str, bytes] = field(default_factory=dict)
     previews: dict[str, bytes] = field(default_factory=dict)
@@ -253,8 +256,15 @@ class FakeImmich:
             if "user.read" not in self.permissions and "all" not in self.permissions:
                 return _json({"message": "Missing required permission: user.read"}, 403)
             return _json(
-                {"id": str(self.user_id), "name": self.user_name, "email": "test@example.com"}
+                {
+                    "id": str(self.user_id),
+                    "name": self.user_name,
+                    "email": "test@example.com",
+                    "isAdmin": self.user_is_admin,
+                }
             )
+        if path.startswith("/api/assets/") and path.endswith("/video/playback"):
+            return self._video(request, path.split("/")[3])
         if path.startswith("/api/assets/") and path.endswith("/thumbnail"):
             asset_id = path.split("/")[3]
             if asset_id not in self.assets:
@@ -300,6 +310,22 @@ class FakeImmich:
             return _json([a for a in self.albums.values() if a["shared"] == shared])
         return _json({"message": "Not found"}, 404)
 
+    def _video(self, request: httpx2.Request, asset_id: str) -> httpx2.Response:
+        """The bytes of a video, or the part of them asked by `Range: bytes=a-b`."""
+        if asset_id not in self.assets:
+            return _json({"message": "Not found"}, 400)
+        if asset_id in self.video_status:
+            return _json({"message": "Playback failed"}, self.video_status[asset_id])
+        content = video_bytes(asset_id)
+        headers = {"content-type": "video/mp4", "accept-ranges": "bytes"}
+        byte_range = request.headers.get("range")
+        if not byte_range:
+            return httpx2.Response(200, content=content, headers=headers)
+        first, last = byte_range.removeprefix("bytes=").split("-")
+        start, end = int(first), int(last) if last else len(content) - 1
+        headers["content-range"] = f"bytes {start}-{end}/{len(content)}"
+        return httpx2.Response(206, content=content[start : end + 1], headers=headers)
+
     def _edits(self, request: httpx2.Request, asset_id: str) -> httpx2.Response:
         if not self.can_edit:
             return _json({"message": "Missing required permission: asset.edit.get"}, 403)
@@ -325,6 +351,11 @@ class FakeImmich:
 
     def factory(self, base_url: str, api_key: str | None) -> ImmichClient:
         return ImmichClient(base_url, api_key, transport=self.transport)
+
+
+def video_bytes(asset_id: str) -> bytes:
+    """What the fake Immich plays for a video: long enough to ask for parts of it."""
+    return f"video:{asset_id};".encode() * 200
 
 
 def _json(body: Any, status: int = 200) -> httpx2.Response:

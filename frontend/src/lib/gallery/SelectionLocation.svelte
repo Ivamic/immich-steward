@@ -34,6 +34,9 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import Kbd from '#lib/ui/Kbd.svelte';
 	import CopyButton from '#lib/ui/CopyButton.svelte';
+	import HoverPreview from './HoverPreview.svelte';
+	import { longpress } from './longpress.js';
+	import PhotoPeek from './PhotoPeek.svelte';
 
 	let {
 		items,
@@ -65,6 +68,10 @@
 	let unfolded = $state<string[]>([]);
 	let revealed = $state<string[]>([]);
 
+	// A larger look at a thumbnail of the strip: on hovering it with a mouse, or large on a long
+	// press (touch screens), as in the gallery.
+	let hovered = $state<{ item: AssetItem; anchor: DOMRect } | null>(null);
+	let peeked = $state<AssetItem | null>(null);
 	const located = $derived(items.filter((item) => item.has_location).length);
 	const listed = $derived(displayedModules(suggestions, revealed));
 	const shown = $derived(visibleSuggestions(listed, unfolded));
@@ -215,12 +222,18 @@
 			</header>
 			<ul class="strip">
 				{#each items.slice(0, STRIP) as item (item.id)}
-					<li>
-						<img
-							src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)}
-							alt={item.file_name}
-							title={item.file_name}
-						/>
+					<li
+						onpointerenter={(e) => {
+							if (e.pointerType === 'mouse')
+								hovered = { item, anchor: e.currentTarget.getBoundingClientRect() };
+						}}
+						onpointerleave={() => (hovered = null)}
+						use:longpress={() => {
+							hovered = null;
+							peeked = item;
+						}}
+					>
+						<img src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)} alt={item.file_name} />
 						{#if item.has_location}
 							<span class="pin" title={m.asset_has_location()}
 								><Icon name="map-pin" size={10} /></span
@@ -319,6 +332,14 @@
 			onpartshow={() => {}}
 		/>
 	</section>
+
+	<!-- Inside the dialog: only what is in it shows over it. -->
+	{#if hovered}
+		<HoverPreview item={hovered.item} anchor={hovered.anchor} />
+	{/if}
+	{#if peeked}
+		<PhotoPeek item={peeked} onclose={() => (peeked = null)} />
+	{/if}
 </dialog>
 
 <style>
@@ -390,6 +411,9 @@
 	}
 	.strip li {
 		position: relative;
+		/* A long press shows the photo large: no system menu or text selection on touch screens. */
+		user-select: none;
+		-webkit-touch-callout: none;
 		width: 44px;
 		height: 44px;
 		overflow: hidden;

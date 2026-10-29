@@ -10,6 +10,7 @@ group is a candidate at the spot of its most similar photo.
 import bisect
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import bindparam, select, text
@@ -103,6 +104,19 @@ async def neighbors(
     query = await db.scalar(select(Embedding.vector).where(Embedding.run_id == run.id))
     if query is None:
         return []
+    return await search(db, query, account_id, run.asset_id, include_estimated)
+
+
+async def search(
+    db: AsyncSession,
+    query: Any,
+    account_id: UUID,
+    asset_id: UUID,
+    include_estimated: bool,
+    limit: int = NEIGHBORS,
+) -> list[Neighbor]:
+    """The photos with a location of the account most similar to the vector, but the photo
+    itself; most similar first."""
     # Filtering by account inside the index scan needs the iterative scan (pgvector 0.8).
     await db.execute(text(f"SET LOCAL hnsw.ef_search = {POOL}"))
     await db.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
@@ -112,9 +126,9 @@ async def neighbors(
             "query": query,
             "account_id": account_id,
             "module_id": MODULE_ID,
-            "asset_id": run.asset_id,
+            "asset_id": asset_id,
             "pool": POOL,
-            "limit": NEIGHBORS,
+            "limit": limit,
         },
     )
     found = [Neighbor(*row) for row in rows]

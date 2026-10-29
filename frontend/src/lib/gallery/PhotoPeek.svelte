@@ -1,13 +1,27 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The large preview of a long press on a tile: over the gallery, until the pointer is let go
-     (or Esc). The thumbnail, already loaded, stands in until the preview arrives. -->
+     (or Esc). The thumbnail, already loaded, stands in until the preview arrives. A video plays at
+     once, in a loop: muted, or with its sound when so set and the browser lets it. -->
 <script lang="ts">
-	import { thumbnailUrl, type AssetItem } from '#lib/api.js';
+	import { accountSettings } from '#lib/accountSettings.svelte.js';
+	import { thumbnailUrl, videoUrl, type AssetItem } from '#lib/api.js';
 	import { takenTitle } from './month.js';
 
 	let { item, onclose }: { item: AssetItem; onclose: () => void } = $props();
 
 	let loaded = $state(false);
+	let player = $state<HTMLVideoElement>();
+
+	// Not the autoplay attribute: a browser that refuses the sound would not start it at all.
+	$effect(() => {
+		if (!player) return;
+		const video = player;
+		video.muted = !accountSettings.values.video_sound;
+		video.play().catch(() => {
+			video.muted = true;
+			video.play().catch(() => {});
+		});
+	});
 	// Width over height; 4:3 while unknown.
 	const ratio = $derived(item.width && item.height ? item.width / item.height : 4 / 3);
 </script>
@@ -28,13 +42,29 @@
 	<figure>
 		<div class="frame" style:--ratio={ratio}>
 			<img class="small" src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)} alt="" />
-			<img
-				class="large"
-				class:loaded
-				src={thumbnailUrl(item.id, 'preview', 0, item.version)}
-				alt={item.file_name}
-				onload={() => (loaded = true)}
-			/>
+			{#if item.type === 'VIDEO'}
+				<!-- Videos of a library have no captions to offer. -->
+				<!-- svelte-ignore a11y_media_has_caption -->
+				<video
+					bind:this={player}
+					class="large"
+					class:loaded
+					src={videoUrl(item.id)}
+					poster={thumbnailUrl(item.id, 'preview', 0, item.version)}
+					loop
+					playsinline
+					aria-label={item.file_name}
+					onloadeddata={() => (loaded = true)}
+				></video>
+			{:else}
+				<img
+					class="large"
+					class:loaded
+					src={thumbnailUrl(item.id, 'preview', 0, item.version)}
+					alt={item.file_name}
+					onload={() => (loaded = true)}
+				/>
+			{/if}
 		</div>
 		<figcaption>
 			<span>{takenTitle(item.local_taken_at)}</span>
@@ -75,7 +105,8 @@
 		background: var(--gray-900);
 		box-shadow: var(--shadow-lg);
 	}
-	img {
+	img,
+	video {
 		position: absolute;
 		inset: 0;
 		width: 100%;

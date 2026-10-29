@@ -40,10 +40,26 @@ class UpdateState:
         return self.latest is not None and is_newer(self.latest, __version__)
 
 
+_PRE_RELEASE = {"dev": 0, "a": 1, "alpha": 1, "b": 2, "beta": 2, "c": 3, "rc": 3, "pre": 3}
+
+
 def version_key(version: str) -> tuple[int, ...]:
-    """ "v0.10.2" -> (0, 10, 2); anything after the numbers (a pre-release) is left out."""
-    match = re.match(r"v?(\d+(?:\.\d+)*)", version.strip())
-    return tuple(int(part) for part in match[1].split(".")) if match else ()
+    """ "v0.10.2" -> (0, 10, 2, 1, 0, 0); a pre-release ("0.6.0rc2", "0.6.0-rc.2") is older than
+    its release, a post-release newer. The worker compares the same way
+    (`steward_worker.versions`)."""
+    match = re.match(r"v?(\d+(?:\.\d+)*)[-_.]?([a-z]*)[-_.]?(\d*)", version.strip().lower())
+    if not match:
+        return ()
+    numbers = tuple(int(part) for part in match[1].split("."))
+    numbers += (0,) * (3 - len(numbers))
+    label, number = match[2], int(match[3] or 0)
+    if not label:
+        stage = (1, 0, 0)
+    elif label == "post":
+        stage = (2, 0, number)
+    else:
+        stage = (0, _PRE_RELEASE.get(label, 0), number)
+    return numbers + stage
 
 
 def is_newer(version: str, than: str) -> bool:

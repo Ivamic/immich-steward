@@ -8,7 +8,7 @@ from steward.config import Settings, apply_renamed, environment_warnings
 def _settings(monkeypatch: pytest.MonkeyPatch, **env: str) -> Settings:
     for name, value in env.items():
         monkeypatch.setenv(f"STEWARD_{name.upper()}", value)
-    return Settings(_env_file=None)  # type: ignore[call-arg]
+    return Settings(_env_file=None)
 
 
 def test_empty_value_means_the_default(monkeypatch: pytest.MonkeyPatch) -> None:

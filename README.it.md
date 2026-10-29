@@ -99,6 +99,11 @@ Per controllare un luogo con i propri occhi, sotto la mappa si possono mostrare 
 satellitari: Sentinel-2 di EOX (senza chiave), Esri World Imagery o MapTiler Satellite (con la
 tua chiave). Sono tutte disattivate finché non ne attivi una.
 
+La galleria mostra le foto per mese e per giorno e segna quelle con una risposta facile: una foto
+con posizione scattata pochi minuti prima o dopo, una stima GeoCLIP affidabile, una foto simile
+con posizione. I video si riproducono nella galleria e nella scheda della foto. Tutto funziona
+anche sul telefono.
+
 In programma:
 
 - **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.
@@ -168,8 +173,8 @@ Poi apri `http://<il-tuo-server>:8780` e accedi con il tuo account Immich.
 GeoCLIP e le foto simili girano in un container worker facoltativo (da 2 a 4 GB di RAM con
 entrambi i modelli caricati): imposta `STEWARD_WORKER_TOKEN` in `.env` e avvia con
 `docker compose --profile worker up -d`.
-I worker possono girare anche su altri computer della tua rete
-([come](docs/workers.md#a-worker-on-another-computer)).
+I worker possono girare anche su altri computer della tua rete: **Elaborazione → Aggiungi un
+dispositivo** mostra i comandi da copiare ([altro](docs/workers.md#a-worker-on-another-computer)).
 
 La [documentazione](docs/README.md) (in inglese) spiega tutto passo per passo:
 [installazione](docs/install.md), [uso dell'app](docs/usage.md), [worker](docs/workers.md),

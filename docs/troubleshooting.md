@@ -89,11 +89,22 @@ lines mean it works. An error there (out of memory, no access to `huggingface.co
 wrong.
 
 A worker on another computer: see the [table of log messages](workers.md#check-that-it-works).
+Also look at the switches of the module on the **Processing** page: a worker with the module
+turned off takes none of its jobs.
 
 ### A photo card says that no worker runs the module
 
-No worker that runs this module is connected right now. Start one (see [Workers](workers.md)); the
-run waits in the queue until then.
+No worker that runs this module is connected right now, or the module is turned off for the
+connected ones on the **Processing** page. Start one (see [Workers](workers.md)) or turn the module
+on; the run waits in the queue until then.
+
+### A video does not play
+
+The app plays the video Immich plays in its own web app: its encoded version when Immich made
+one, otherwise the original. If a video plays in Immich but not here, open an issue. If it plays
+in neither, the browser cannot decode it (e.g. HEVC from an iPhone in some browsers): have Immich
+encode such videos (Immich: **Administration → Settings → Video transcoding**, the transcode
+policy).
 
 ### Some photos failed in a module
 

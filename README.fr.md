@@ -102,6 +102,11 @@ Pour vérifier un lieu de ses propres yeux, des images satellite peuvent être a
 carte : Sentinel-2 d'EOX (sans clé), Esri World Imagery ou MapTiler Satellite (avec votre propre
 clé). Toutes sont désactivées tant que vous n'en activez pas une.
 
+La galerie montre vos photos par mois et par jour et marque celles dont la réponse est facile :
+une photo avec un lieu prise quelques minutes avant ou après, une estimation GeoCLIP sûre, une
+photo similaire avec un lieu. Les vidéos se lisent dans la galerie et dans la fiche photo. Tout
+fonctionne aussi sur un téléphone.
+
 Prévu :
 
 - **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.
@@ -172,8 +177,8 @@ Ouvrez ensuite `http://<votre-serveur>:8780` et connectez-vous avec votre compte
 GeoCLIP et les photos similaires tournent dans un conteneur worker facultatif (2 à 4 Go de RAM
 avec les deux modèles chargés) : définissez `STEWARD_WORKER_TOKEN` dans `.env` et lancez
 `docker compose --profile worker up -d`.
-Les workers peuvent aussi tourner sur d'autres ordinateurs de votre réseau
-([comment](docs/workers.md#a-worker-on-another-computer)).
+Les workers peuvent aussi tourner sur d'autres ordinateurs de votre réseau : **Traitement →
+Ajouter un appareil** montre les commandes à copier ([plus](docs/workers.md#a-worker-on-another-computer)).
 
 La [documentation](docs/README.md) (en anglais) explique tout pas à pas :
 [installation](docs/install.md), [utilisation](docs/usage.md), [workers](docs/workers.md),

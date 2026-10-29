@@ -94,6 +94,10 @@ To check a place by eye, satellite imagery can be shown under the map: Sentinel-
 (no key), Esri World Imagery or MapTiler Satellite (with your own key). All of them are off
 until you switch one on.
 
+The gallery shows your photos by month and day and marks the ones with an easy answer: a photo
+with a location taken minutes before or after, a confident GeoCLIP guess, a similar photo with a
+location. Videos play in the gallery and in the photo card. Everything works on a phone too.
+
 Planned:
 
 - **Street-level panoramas** on the map, to check a place by eye.
@@ -162,8 +166,8 @@ Then open `http://<your-server>:8780` and sign in with your Immich account.
 GeoCLIP and similar photos run in an optional worker container (2 to 4 GB of RAM with both
 models loaded): set `STEWARD_WORKER_TOKEN` in `.env` and start with
 `docker compose --profile worker up -d`.
-Workers can also run on other computers in your network
-([how](docs/workers.md#a-worker-on-another-computer)).
+Workers can also run on other computers in your network: **Processing → Add a device** shows
+the commands to copy ([more](docs/workers.md#a-worker-on-another-computer)).
 
 The [documentation](docs/README.md) explains it all step by step:
 [installation](docs/install.md), [using the app](docs/usage.md), [workers](docs/workers.md),

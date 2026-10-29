@@ -2,8 +2,9 @@
 
 ## What leaves your server
 
-- **Photos never leave your server** (or your home network, when a worker runs on another
-  computer). Location suggestions are computed from your own library and by local models.
+- **Photos and videos never leave your server** (or your home network, when a worker runs on
+  another computer). Location suggestions are computed from your own library and by local
+  models; videos play from your Immich through the app.
 - **Map tiles** are loaded by your browser from OpenFreeMap (no account, no key): it sees which
   part of the map you look at. Another tile server can be set with `STEWARD_MAP_STYLE_URL`.
 - **Satellite imagery** is off until you switch a source on in **Settings → Map sources**. Then,

@@ -126,7 +126,9 @@ reboot, until you stop it.
 - The volume `steward-models` keeps the models, so they are downloaded only once.
 - The worker runs both modules, the photos of similar photos first;
   `-e STEWARD_WORKER_MODULES=geoclip,similar` changes the order, `geoclip` alone limits it to one
-  module. On a computer short of memory, add `-e STEWARD_WORKER_ONE_MODEL=true`.
+  module. On a computer short of memory, add `-e STEWARD_WORKER_ONE_MODEL=true`. Without a
+  restart, the **Processing** page turns a module of a worker off and on (its switches): e.g.
+  GeoCLIP only on the computer with a graphics card.
 - On Linux, `-e STEWARD_WORKER_MAX_LOAD=0.8` makes the worker wait while the computer is busy.
 
 All worker settings: [Configuration](configuration.md#worker-on-another-computer).
@@ -180,9 +182,10 @@ docker volume rm steward-models
 ```
 
 The image tag `0` follows the newest 0.x release, as the app on the server does. Within a major
-version an older worker keeps working with a newer app; the **Processing** page marks it with
-"version … available", and a worker that must be updated is shown there as not connected, with
-the reason.
+version an older worker keeps working with a newer app. When a release changes the worker, the
+**Processing** page marks older workers with "version … available" and they say so in their log;
+releases that do not change the worker ask nothing. A worker that must be updated is shown there
+as not connected, with the reason.
 
 ## A worker on an NVIDIA graphics card
 
@@ -205,7 +208,7 @@ What it needs:
   0.9 GB), which are downloaded on their first use.
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
-`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.6.0` with
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.7.0` with
 the version of the app on your server (shown in **Settings → Updates**).
 
 ### GPU worker on Windows (PowerShell)
@@ -220,7 +223,7 @@ winget install --id astral-sh.uv -e
 Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 
 ```powershell
-git clone --branch v0.6.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+git clone --branch v0.7.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
@@ -240,7 +243,7 @@ Install once (Git is usually installed already; otherwise `sudo apt install git`
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-git clone --branch v0.6.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+git clone --branch v0.7.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
@@ -307,12 +310,12 @@ driver with `nvidia-smi`). The other messages are the same as in the
 Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Processing**
 page shows the worker as not connected right away.
 
-Update to a new version (replace `0.6.0` with the new version), on Windows:
+Update to a new version (replace `0.7.0` with the new version), on Windows:
 
 ```powershell
 cd D:\steward-worker
 git fetch --tags
-git checkout v0.6.0
+git checkout v0.7.0
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
@@ -321,7 +324,7 @@ On Linux:
 ```sh
 cd ~/steward-worker
 git fetch --tags
-git checkout v0.6.0
+git checkout v0.7.0
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 

@@ -60,7 +60,7 @@ things to check in it:
 
 ### Staying on a version
 
-To keep a version, set it in `.env`, e.g. `STEWARD_VERSION=0.6.0`; remove the line to follow new
+To keep a version, set it in `.env`, e.g. `STEWARD_VERSION=0.7.0`; remove the line to follow new
 releases again. `docker compose pull` then keeps that version.
 
 ### Updating by itself

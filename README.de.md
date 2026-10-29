@@ -102,6 +102,11 @@ Um einen Ort mit eigenen Augen zu prüfen, lassen sich Satellitenbilder unter de
 anzeigen: Sentinel-2 von EOX (ohne Schlüssel), Esri World Imagery oder MapTiler Satellite (mit
 eigenem Schlüssel). Alle sind aus, bis du einen einschaltest.
 
+Die Galerie zeigt deine Fotos nach Monat und Tag und markiert die mit einer leichten Antwort: ein
+Foto mit Standort wenige Minuten davor oder danach, eine sichere GeoCLIP-Schätzung, ein ähnliches
+Foto mit Standort. Videos spielen in der Galerie und in der Fotokarte. Alles funktioniert auch
+auf dem Handy.
+
 Geplant:
 
 - **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.
@@ -172,8 +177,8 @@ Die Images werden aus der GitHub Container Registry geladen (`ghcr.io/ivamic/imm
 GeoCLIP und ähnliche Fotos laufen in einem optionalen Worker-Container (2 bis 4 GB RAM, wenn
 beide Modelle geladen sind): Setze `STEWARD_WORKER_TOKEN` in `.env` und starte mit
 `docker compose --profile worker up -d`.
-Worker können auch auf anderen Computern in deinem Netzwerk laufen
-([wie](docs/workers.md#a-worker-on-another-computer)).
+Worker können auch auf anderen Computern in deinem Netzwerk laufen: **Verarbeitung → Gerät
+hinzufügen** zeigt die Befehle zum Kopieren ([mehr](docs/workers.md#a-worker-on-another-computer)).
 
 Die [Dokumentation](docs/README.md) (auf Englisch) erklärt alles Schritt für Schritt:
 [Installation](docs/install.md), [Nutzung der App](docs/usage.md), [Worker](docs/workers.md),

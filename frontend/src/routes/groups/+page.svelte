@@ -1,0 +1,280 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Groups of photos, one tab per way of grouping: "Environment" for now, more may come. Those
+     named by the user come first, then the largest; the views narrow the list. -->
+<script lang="ts">
+	import {
+		getGroups,
+		isActive,
+		thumbnailUrl,
+		type GroupList,
+		type GroupOut,
+		type GroupView
+	} from '#lib/api.js';
+	import { errorMessage } from '#lib/errors.js';
+	import { m } from '#lib/paraglide/messages.js';
+	import { getLocale } from '#lib/paraglide/runtime.js';
+	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import Icon from '#lib/ui/Icon.svelte';
+	import Skeleton from '#lib/ui/Skeleton.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+
+	const PAGE = 60;
+	const POLL_MS = 5000;
+	const VIEWS: { id: GroupView; label: () => string }[] = [
+		{ id: 'all', label: m.groups_view_all },
+		{ id: 'no_location', label: m.groups_view_no_location },
+		{ id: 'spread', label: m.groups_view_spread },
+		{ id: 'trash', label: m.groups_view_trash }
+	];
+
+	let list = $state<GroupList | null>(null);
+	let shown = $state<GroupOut[]>([]);
+	let error = $state<string | null>(null);
+	let loadingMore = $state(false);
+
+	const numbers = new Intl.NumberFormat(getLocale());
+	const count = (n: number) => numbers.format(n);
+
+	const view = $derived.by((): GroupView => {
+		const asked = page.url.searchParams.get('view');
+		return VIEWS.find((v) => v.id === asked)?.id ?? 'all';
+	});
+	const status = $derived(list?.status ?? null);
+	const working = $derived(isActive(status?.job ?? null));
+	const total = $derived(list?.counts[view] ?? 0);
+
+	/** The first page, or as many as are shown (a new look at the same list). */
+	async function load(wanted: GroupView, limit: number) {
+		try {
+			const answer = await getGroups(wanted, 0, Math.min(limit, 200));
+			if (wanted !== view) return;
+			list = answer;
+			shown = answer.groups;
+			error = null;
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
+	async function more() {
+		loadingMore = true;
+		try {
+			const answer = await getGroups(view, shown.length, PAGE);
+			shown = [...shown, ...answer.groups];
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			loadingMore = false;
+		}
+	}
+
+	function choose(next: GroupView) {
+		goto(resolve(next === 'all' ? '/groups' : `/groups?view=${next}`), {
+			replace: true,
+			reset: false
+		});
+	}
+
+	$effect(() => {
+		load(view, PAGE);
+	});
+
+	// While the groups are being worked on, the numbers and the list change.
+	$effect(() => {
+		if (!working) return;
+		const timer = setInterval(() => load(view, Math.max(shown.length, PAGE)), POLL_MS);
+		return () => clearInterval(timer);
+	});
+</script>
+
+<h1>{m.nav_groups()}</h1>
+
+<nav class="tabs">
+	<a href={resolve('/groups')} aria-current="page">{m.groups_tab_environment()}</a>
+</nav>
+
+{#if status && working}
+	<p class="status" role="status">
+		<span class="st-spin"><Icon name="loader-circle" size={14} /></span>
+		{status.searched < status.vectors
+			? m.groups_searching({ done: count(status.searched), total: count(status.vectors) })
+			: m.groups_building()}
+	</p>
+{:else if status?.job?.status === 'failed'}
+	<p class="status bad" role="status">{m.groups_failed()}</p>
+{/if}
+
+{#if error}
+	<p class="bad" role="alert">{error}</p>
+{/if}
+
+{#if list}
+	<div class="views">
+		{#each VIEWS as item (item.id)}
+			<button
+				type="button"
+				class="st-btn st-btn--sm"
+				class:st-btn--secondary={item.id === view}
+				class:st-btn--ghost={item.id !== view}
+				aria-pressed={item.id === view}
+				onclick={() => choose(item.id)}
+			>
+				{item.label()}
+				<span class="count">{count(list.counts[item.id])}</span>
+			</button>
+		{/each}
+	</div>
+
+	{#if shown.length > 0}
+		<div class="grid">
+			{#each shown as group (group.id)}
+				<a class="group" href={resolve('/groups/[id]', { id: group.id })}>
+					<span class="cover">
+						{#if group.cover}
+							<img
+								src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
+								alt=""
+								loading="lazy"
+								decoding="async"
+							/>
+						{/if}
+					</span>
+					<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
+					<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
+					<span class="badges">
+						{#if group.without_location > 0}
+							<span class="st-badge st-badge--info">
+								<Icon name="map-pin-off" size={11} />
+								<span>{m.groups_without_location({ count: count(group.without_location) })}</span>
+							</span>
+						{/if}
+						{#if group.spread}
+							<span class="st-badge st-badge--warning" title={m.groups_spread_hint()}>
+								<Icon name="route" size={11} />
+								<span>{m.groups_spread()}</span>
+							</span>
+						{/if}
+					</span>
+				</a>
+			{/each}
+		</div>
+		{#if shown.length < total}
+			<button
+				type="button"
+				class="st-btn st-btn--secondary more"
+				disabled={loadingMore}
+				onclick={more}
+			>
+				{m.groups_more()}
+			</button>
+		{/if}
+	{:else if list.counts.all + list.counts.trash === 0}
+		<EmptyState icon="images" title={m.groups_empty_title()} text={m.groups_empty_text()} />
+	{:else}
+		<p class="muted">{m.groups_view_empty()}</p>
+	{/if}
+{:else if !error}
+	<Skeleton />
+{/if}
+
+<style>
+	h1 {
+		margin: 0 0 var(--space-4);
+	}
+	.tabs {
+		display: flex;
+		gap: var(--space-4);
+		margin-bottom: var(--space-4);
+		border-bottom: 1px solid var(--color-border);
+	}
+	.tabs a {
+		padding: var(--space-2) var(--space-1);
+		margin-bottom: -1px;
+		border-bottom: 2px solid transparent;
+		color: var(--color-text-muted);
+		text-decoration: none;
+	}
+	.tabs a[aria-current='page'] {
+		border-bottom-color: var(--color-accent);
+		color: var(--color-text);
+		font-weight: var(--weight-medium);
+	}
+	.status {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin: 0 0 var(--space-3);
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+	.bad {
+		color: var(--color-danger-text);
+	}
+	.muted {
+		color: var(--color-text-muted);
+	}
+	.views {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		margin-bottom: var(--space-4);
+	}
+	.count {
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+		gap: var(--space-4);
+	}
+	.group {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+		min-width: 0;
+		color: inherit;
+		text-decoration: none;
+	}
+	.cover {
+		display: block;
+		aspect-ratio: 4 / 3;
+		overflow: hidden;
+		border-radius: var(--radius-md);
+		background: var(--color-surface-sunken);
+	}
+	.cover img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+	.group:hover .cover {
+		outline: 2px solid var(--color-accent);
+	}
+	.name {
+		overflow: hidden;
+		font-weight: var(--weight-medium);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.name.unnamed {
+		color: var(--color-text-muted);
+		font-weight: normal;
+	}
+	.numbers {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+	.badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+	}
+	.more {
+		display: block;
+		margin: var(--space-6) auto 0;
+	}
+</style>

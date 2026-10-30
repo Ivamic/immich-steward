@@ -22,6 +22,7 @@ from steward import __version__
 from steward.api import (
     assets,
     auth,
+    groups,
     health,
     library,
     maps,
@@ -120,6 +121,7 @@ def create_app(
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(library.router, prefix="/api")
+    app.include_router(groups.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
     app.include_router(maps.router, prefix="/api")
     app.include_router(selection.router, prefix="/api")

@@ -570,6 +570,12 @@ export interface AccountSettings {
 	gallery_tooltip: boolean;
 	/** A video shown large on a long press plays with its sound. */
 	video_sound: boolean;
+	/** Groups of photos: photos at least this similar are close. */
+	groups_similarity: number;
+	/** Groups of photos: close photos a photo needs to link groups. */
+	groups_core_neighbors: number;
+	/** Groups of photos: close only when each photo keeps the other among its neighbors. */
+	groups_mutual: boolean;
 }
 
 export const getAccountSettings = () => request<AccountSettings>('GET', '/api/settings');
@@ -731,6 +737,46 @@ export const startSync = (full: boolean | null = null) =>
 	request<Job>('POST', '/api/library/sync', { full });
 /** Computes the badge "similar with a location" for all photos now, as the daily pass does. */
 export const startSimilarHints = () => request<Job>('POST', '/api/library/similar-hints');
+
+/** What the list of groups shows: all but the trash, a part of them, or the trash. */
+export type GroupView = 'all' | 'no_location' | 'spread' | 'trash';
+
+export interface GroupOut {
+	id: string;
+	/** Given by the user. */
+	name: string | null;
+	trash: boolean;
+	photos: number;
+	without_location: number;
+	/** The photos with a location lie more than 1 km apart. */
+	spread: boolean;
+	cover: { id: string; version: string | null } | null;
+}
+
+export interface GroupList {
+	status: {
+		/** Photos with a vector, and those already compared with the others. */
+		vectors: number;
+		searched: number;
+		rebuilt_at: string | null;
+		job: Job | null;
+	};
+	counts: Record<GroupView, number>;
+	groups: GroupOut[];
+}
+
+export interface GroupDetail {
+	group: GroupOut;
+	photos: AssetItem[];
+}
+
+export const getGroups = (view: GroupView, offset: number, limit: number) =>
+	request<GroupList>('GET', `/api/groups?view=${view}&offset=${offset}&limit=${limit}`);
+export const getGroup = (id: string) => request<GroupDetail>('GET', `/api/groups/${id}`);
+/** An empty name takes the name away. */
+export const renameGroup = (id: string, name: string) =>
+	request<GroupDetail>('PATCH', `/api/groups/${id}`, { name });
+export const refreshGroups = () => request<Job>('POST', '/api/groups/refresh');
 export const login = (apiKey: string) =>
 	request<Me>('POST', '/api/auth/login', { api_key: apiKey });
 export const loginWithPassword = (email: string, password: string) =>

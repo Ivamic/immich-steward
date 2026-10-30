@@ -46,6 +46,11 @@
 	const pages = $derived([
 		{ href: resolve('/'), label: m.nav_gallery(), current: page.route.id === '/' },
 		{
+			href: resolve('/groups'),
+			label: m.nav_groups(),
+			current: page.route.id?.startsWith('/groups') ?? false
+		},
+		{
 			href: resolve('/processing'),
 			label: m.nav_processing(),
 			current: page.route.id === '/processing'
@@ -101,7 +106,11 @@
 	</div>
 </header>
 
-<main class:wide={page.route.id === '/' || page.route.id === '/photo/[id]'}>
+<main
+	class:wide={page.route.id === '/' ||
+		page.route.id === '/photo/[id]' ||
+		page.route.id?.startsWith('/groups')}
+>
 	{#if session.checked}
 		{@render children()}
 	{/if}

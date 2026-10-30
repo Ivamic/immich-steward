@@ -2,7 +2,13 @@
 // Personal settings of the signed-in account, loaded once and shared by the pages that use them.
 import { getAccountSettings, setAccountSettings, type AccountSettings } from '#lib/api.js';
 
-const DEFAULTS: AccountSettings = { gallery_tooltip: true, video_sound: false };
+const DEFAULTS: AccountSettings = {
+	gallery_tooltip: true,
+	video_sound: false,
+	groups_similarity: 0.4,
+	groups_core_neighbors: 3,
+	groups_mutual: true
+};
 
 class AccountSettingsState {
 	values = $state<AccountSettings>({ ...DEFAULTS });

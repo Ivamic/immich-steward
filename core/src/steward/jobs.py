@@ -18,7 +18,7 @@ import httpx2
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import rotation, similar_hints, updates, worker_queue
+from steward import rotation, similar_hints, updates, view_groups, worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -210,10 +210,24 @@ async def last_full_similar_hints(
     )
 
 
+async def run_view_groups(ctx: JobContext) -> dict[str, Any]:
+    """Groups of photos of one view (`view_groups`): a while of searching neighbors, then the
+    groups; queues the next job itself while photos are left to search."""
+    account_id = ctx.job.account_id
+    if account_id is None:
+        raise JobError("account_not_found")
+    result = await view_groups.run(ctx.db, account_id, ctx.job.payload, on_progress=ctx.report)
+    if result["left"]:
+        # Queued after the jobs waiting now: a long first pass does not hold them up.
+        await add(ctx.db, view_groups.JOB_KIND, account_id, ctx.job.payload)
+    return result
+
+
 HANDLERS: dict[str, JobHandler] = {
     SYNC: run_sync,
     ROTATE: run_rotate,
     SIMILAR_HINTS: run_similar_hints,
+    view_groups.JOB_KIND: run_view_groups,
 }
 
 
@@ -288,6 +302,15 @@ class JobRunner:
                 elif await similar_hints.any_due(db, account_id):
                     await enqueue(db, SIMILAR_HINTS, account_id, {"full": False})
 
+    async def schedule_view_groups(self) -> None:
+        """Groups of photos of one view, when new photos or a rebuild are due
+        (`view_groups.is_due`)."""
+        async with self._sessionmaker() as db:
+            accounts = list(await db.scalars(select(Account.id)))
+            for account_id in accounts:
+                if await view_groups.is_due(db, account_id):
+                    await enqueue(db, view_groups.JOB_KIND, account_id, {})
+
     async def forget_old_workers(self) -> None:
         async with self._sessionmaker() as db:
             if forgotten := await worker_queue.forget_old_workers(db):
@@ -358,6 +381,7 @@ class JobRunner:
                     await self.schedule_syncs()
                     await self.schedule_modules()
                     await self.schedule_similar_hints()
+                    await self.schedule_view_groups()
                     await self.forget_old_workers()
                     await self.check_updates()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S

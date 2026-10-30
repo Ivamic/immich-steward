@@ -17,7 +17,15 @@ DEFAULTS: dict[str, Any] = {
     "gallery_tooltip": True,
     # A video shown large on a long press plays with its sound; off: muted.
     "video_sound": False,
+    # Groups of photos of one view (`steward.view_groups`), by the measure on a family library
+    # (D-181, D-182): photos at least this similar are close; a photo with this many close
+    # neighbors is a core; close only when each keeps the other among its own neighbors.
+    "groups_similarity": 0.4,
+    "groups_core_neighbors": 3,
+    "groups_mutual": True,
 }
+# Settings whose change rebuilds the groups.
+GROUP_RULE = ("groups_similarity", "groups_core_neighbors", "groups_mutual")
 
 
 async def get_all(db: AsyncSession, account_id: UUID) -> dict[str, Any]:

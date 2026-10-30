@@ -35,6 +35,8 @@ export function errorMessage(error: unknown): string {
 			return m.error_map_source_not_enabled();
 		case 'immich_error':
 			return m.error_immich_error();
+		case 'group_not_found':
+			return m.error_group_not_found();
 		case 'location_null_island':
 			return m.error_location_null_island();
 		case 'location_clear_failed':

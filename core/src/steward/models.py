@@ -17,8 +17,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    Uuid,
+    text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -423,3 +425,69 @@ class SimilarHint(Base):
     # The most similar photo; no foreign key: it may go before the next refresh.
     neighbor_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
     computed_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class ViewNeighbor(Base):
+    """The photos most similar to a photo among all the photos of the account, with or without a
+    location (`steward.view_groups`): the graph the groups are built from. Kept, so that new
+    thresholds and new locations need no search."""
+
+    __tablename__ = "view_neighbor"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    # Most similar first; no foreign keys: a neighbor may go before the next refresh.
+    neighbor_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid))
+    similarities: Mapped[list[float]] = mapped_column(ARRAY(REAL))
+    computed_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class ViewGroup(Base):
+    """A group of photos of one view (`steward.view_groups`), on a tab of the page "Groups"."""
+
+    __tablename__ = "view_group"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    # The tab: "environment" (similar surroundings, MegaLoc).
+    kind: Mapped[str] = mapped_column(String(16))
+    # Given by the user; None: not named.
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # Photos of the group tell nothing about the place (a pet, documents): never suggested.
+    trash: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
+class ViewGroupMember(Base):
+    """A photo of a group: found by the rule ("core", "attached"), added by the user ("added"), or
+    taken out by the user ("excluded": not in the group, and kept out by the rebuilds)."""
+
+    __tablename__ = "view_group_member"
+    __table_args__ = (
+        # A photo is in one group at most.
+        Index(
+            "ux_view_group_member_asset",
+            "asset_id",
+            unique=True,
+            postgresql_where=text("role <> 'excluded'"),
+        ),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("view_group.id", ondelete="CASCADE"), primary_key=True
+    )
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)

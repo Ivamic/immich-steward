@@ -15,17 +15,23 @@
 		type TrashedPhotos
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
+	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Skeleton from '#lib/ui/Skeleton.svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { tick } from 'svelte';
 
 	const PAGE = 60;
+	// The most the server gives at a time.
+	const MOST = 200;
 	const POLL_MS = 5000;
+	// Where the list was when a group was opened.
+	const PLACE_KEY = 'steward.groups.place';
 	const VIEWS: { id: GroupView; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
 		{ id: 'no_location', label: m.groups_view_no_location },
@@ -40,6 +46,9 @@
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
 	let trashed = $state.raw<TrashedPhotos | null>(null);
+	// Only the answer to the last request counts.
+	let latest = 0;
+	let loading = false;
 
 	const numbers = new Intl.NumberFormat(getLocale());
 	const count = (n: number) => numbers.format(n);
@@ -59,24 +68,43 @@
 	const working = $derived(isActive(status?.job ?? null));
 	const total = $derived(list?.counts[view] ?? 0);
 
+	/** The groups with the new ones at the end: a rebuild may move a group from page to page. */
+	function joined(groups: GroupOut[], next: GroupOut[]) {
+		const known = new Set(groups.map((group) => group.id));
+		return [...groups, ...next.filter((group) => !known.has(group.id))];
+	}
+
 	/** The first page, or as many as are shown (a new look at the same list). */
 	async function load(wanted: GroupView, limit: number) {
+		const asked = ++latest;
+		loading = true;
 		try {
-			const answer = await getGroups(wanted, 0, Math.min(limit, 200));
-			if (wanted !== view) return;
+			const answer = await getGroups(wanted, 0, Math.min(limit, MOST));
+			let groups = answer.groups;
+			while (groups.length < Math.min(limit, answer.counts[wanted])) {
+				const left = Math.min(limit - groups.length, MOST);
+				const next = joined(groups, (await getGroups(wanted, groups.length, left)).groups);
+				if (next.length === groups.length) break;
+				groups = next;
+			}
+			if (asked !== latest) return;
 			list = answer;
-			shown = answer.groups;
+			shown = groups;
 			error = null;
 		} catch (e) {
-			error = errorMessage(e);
+			if (asked === latest) error = errorMessage(e);
+		} finally {
+			if (asked === latest) loading = false;
 		}
 	}
 
 	async function more() {
+		if (loadingMore) return;
+		const wanted = view;
 		loadingMore = true;
 		try {
-			const answer = await getGroups(view, shown.length, PAGE);
-			shown = [...shown, ...answer.groups];
+			const answer = await getGroups(wanted, shown.length, PAGE);
+			if (wanted === view) shown = joined(shown, answer.groups);
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {
@@ -100,6 +128,41 @@
 		}
 	}
 
+	function loadTrashed() {
+		return getTrashedPhotos()
+			.then((answer) => (trashed = answer))
+			.catch((e) => (error = errorMessage(e)));
+	}
+
+	/** Storage may be unavailable: the list then just opens from the top. */
+	function rememberPlace() {
+		try {
+			const place = { view, shown: shown.length, top: window.scrollY };
+			sessionStorage.setItem(PLACE_KEY, JSON.stringify(place));
+		} catch {
+			// nothing to do
+		}
+	}
+
+	function rememberedPlace(): { shown: number; top: number } | null {
+		try {
+			const place = JSON.parse(sessionStorage.getItem(PLACE_KEY) ?? 'null');
+			return place?.view === view ? place : null;
+		} catch {
+			return null;
+		}
+	}
+
+	// Back from a group: as many groups as were there, at the same height.
+	afterNavigate(async ({ from }) => {
+		if (from?.route.id !== '/groups/[id]') return;
+		const place = rememberedPlace();
+		if (!place) return;
+		await Promise.all([load(view, place.shown), view === 'trash' ? loadTrashed() : null]);
+		await tick();
+		window.scrollTo({ top: place.top });
+	});
+
 	async function bringBack(id: string) {
 		try {
 			trashed = await restorePhotos([id]);
@@ -113,16 +176,15 @@
 	});
 
 	$effect(() => {
-		if (view !== 'trash') return;
-		getTrashedPhotos()
-			.then((answer) => (trashed = answer))
-			.catch((e) => (error = errorMessage(e)));
+		if (view === 'trash') loadTrashed();
 	});
 
 	// While the groups are being worked on, the numbers and the list change.
 	$effect(() => {
 		if (!working) return;
-		const timer = setInterval(() => load(view, Math.max(shown.length, PAGE)), POLL_MS);
+		const timer = setInterval(() => {
+			if (!loading) load(view, Math.max(shown.length, PAGE));
+		}, POLL_MS);
 		return () => clearInterval(timer);
 	});
 </script>
@@ -220,7 +282,11 @@
 						</button>
 					</div>
 				{:else}
-					<a class="group" href={resolve(`/groups/[id]${query}`, { id: group.id })}>
+					<a
+						class="group"
+						href={resolve(`/groups/[id]${query}`, { id: group.id })}
+						onclick={rememberPlace}
+					>
 						<span class="cover">
 							{#if group.cover}
 								<img
@@ -263,14 +329,7 @@
 			{/each}
 		</div>
 		{#if shown.length < total}
-			<button
-				type="button"
-				class="st-btn st-btn--secondary more"
-				disabled={loadingMore}
-				onclick={more}
-			>
-				{m.groups_more()}
-			</button>
+			<div class="more" use:nearScreen={{ at: shown.length, onnear: more }}></div>
 		{/if}
 	{:else if list.counts.all + list.counts.trash === 0}
 		<EmptyState icon="images" title={m.groups_empty_title()} text={m.groups_empty_text()} />
@@ -416,7 +475,6 @@
 		cursor: pointer;
 	}
 	.more {
-		display: block;
-		margin: var(--space-6) auto 0;
+		height: 1px;
 	}
 </style>

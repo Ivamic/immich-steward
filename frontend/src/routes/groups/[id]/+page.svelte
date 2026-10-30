@@ -19,6 +19,7 @@
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { longpress } from '#lib/gallery/longpress.js';
+	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import PhotoPeek from '#lib/gallery/PhotoPeek.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
@@ -33,10 +34,9 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-	import type { Action } from 'svelte/action';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	type PhotoFilter = 'all' | 'center' | 'with' | 'without';
+	type PhotoFilter = 'all' | 'center' | 'with' | 'without' | 'chosen';
 
 	// Photos added to the page at a time: a group may have thousands.
 	const PART = 120;
@@ -44,7 +44,8 @@
 		{ id: 'all', label: m.groups_view_all },
 		{ id: 'center', label: m.groups_filter_center },
 		{ id: 'with', label: m.groups_filter_with },
-		{ id: 'without', label: m.groups_filter_without }
+		{ id: 'without', label: m.groups_filter_without },
+		{ id: 'chosen', label: m.groups_filter_chosen }
 	];
 
 	// Read only, and thousands of photos: not reactive one by one.
@@ -86,22 +87,24 @@
 	const center = $derived(photos.filter((photo) => centerIds.has(photo.id)));
 	const withLocation = $derived(photos.filter((photo) => photo.has_location));
 	const withoutLocation = $derived(photos.filter((photo) => !photo.has_location));
+	const chosenIds = $derived(new Set(selection.ids));
+	const chosenPhotos = $derived(photos.filter((photo) => chosenIds.has(photo.id)));
+	const filtered = $derived<Record<PhotoFilter, AssetItem[]>>({
+		all: photos,
+		center,
+		with: withLocation,
+		without: withoutLocation,
+		chosen: chosenPhotos
+	});
+	// "Chosen" is there only while there are some.
+	const filters = $derived(FILTERS.filter((item) => item.id !== 'chosen' || selection.size > 0));
 	const closeness = $derived(detail?.closeness ?? {});
 	const listed = $derived.by(() => {
-		const chosen =
-			filter === 'center'
-				? center
-				: filter === 'with'
-					? withLocation
-					: filter === 'without'
-						? withoutLocation
-						: photos;
-		if (!byCloseness) return chosen;
+		if (!byCloseness) return filtered[filter];
 		const of = (photo: AssetItem) => closeness[photo.id] ?? Infinity;
-		return [...chosen].sort((a, b) => of(a) - of(b));
+		return [...filtered[filter]].sort((a, b) => of(a) - of(b));
 	});
 	const visible = $derived(listed.slice(0, shownCount));
-	const chosenIds = $derived(new Set(selection.ids));
 	const dots = $derived(
 		(detail?.points ?? []).map((point) => ({
 			id: point.id,
@@ -116,26 +119,6 @@
 		change();
 		shownCount = PART;
 	}
-
-	/** Calls back when the element comes near the screen; the parameter changing looks again. */
-	const nearScreen: Action<HTMLElement, number> = (node) => {
-		const observer = new IntersectionObserver(
-			(entries) => {
-				if (entries.some((entry) => entry.isIntersecting)) shownCount += PART;
-			},
-			{ rootMargin: '800px' }
-		);
-		observer.observe(node);
-		return {
-			update() {
-				observer.unobserve(node);
-				observer.observe(node);
-			},
-			destroy() {
-				observer.disconnect();
-			}
-		};
-	};
 
 	function show(answer: GroupDetail) {
 		detail = answer;
@@ -197,6 +180,12 @@
 		if (!nearChosen.delete(photo.id)) nearChosen.add(photo.id);
 	}
 
+	async function trashNear() {
+		const ids = [...nearChosen];
+		await act(() => trashPhotos(id, ids));
+		nearChosen.clear();
+	}
+
 	/** While some are chosen a click chooses, as among the photos of the group. */
 	function clickNear(event: MouseEvent, photo: AssetItem) {
 		if (nearChosen.size === 0) return;
@@ -244,6 +233,11 @@
 	$effect(() => {
 		void galleryChanges.count;
 		load(id);
+	});
+
+	// The last chosen photo gone: back from the filter of the chosen ones.
+	$effect(() => {
+		if (filter === 'chosen' && selection.size === 0) restart(() => (filter = 'all'));
 	});
 
 	// The first look at the map shows all the points.
@@ -375,6 +369,15 @@
 				<button
 					type="button"
 					class="st-btn st-btn--ghost st-btn--sm"
+					disabled={busy || nearChosen.size === 0}
+					onclick={trashNear}
+				>
+					<Icon name="ban" size={14} />
+					{m.groups_photos_trash()}
+				</button>
+				<button
+					type="button"
+					class="st-btn st-btn--ghost st-btn--sm"
 					onclick={() => near.forEach((photo) => nearChosen.add(photo.id))}
 				>
 					{m.groups_select_all()}
@@ -450,7 +453,7 @@
 
 	{#if photos.length > 0}
 		<div class="tools">
-			{#each FILTERS as item (item.id)}
+			{#each filters as item (item.id)}
 				<button
 					type="button"
 					class="st-btn st-btn--sm"
@@ -460,17 +463,7 @@
 					onclick={() => restart(() => (filter = item.id))}
 				>
 					{item.label()}
-					<span class="muted">
-						{count(
-							item.id === 'center'
-								? center.length
-								: item.id === 'with'
-									? withLocation.length
-									: item.id === 'without'
-										? withoutLocation.length
-										: photos.length
-						)}
-					</span>
+					<span class="muted">{count(filtered[item.id].length)}</span>
 				</button>
 			{/each}
 			<button
@@ -544,7 +537,10 @@
 			{/each}
 		</div>
 		{#if visible.length < listed.length}
-			<div class="more" use:nearScreen={shownCount}></div>
+			<div
+				class="more"
+				use:nearScreen={{ at: shownCount, onnear: () => (shownCount += PART) }}
+			></div>
 		{/if}
 	{:else}
 		<p class="numbers">{m.groups_no_photos()}</p>

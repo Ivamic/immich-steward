@@ -34,6 +34,7 @@
 	const PLACE_KEY = 'steward.groups.place';
 	const VIEWS: { id: GroupView; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
+		{ id: 'ready', label: m.groups_view_ready },
 		{ id: 'no_location', label: m.groups_view_no_location },
 		{ id: 'with_location', label: m.groups_view_with_location },
 		{ id: 'spread', label: m.groups_view_spread },

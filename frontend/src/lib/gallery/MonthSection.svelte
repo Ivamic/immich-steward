@@ -24,6 +24,7 @@
 	import { byDay, dayTitle, monthHeight, monthTitle, tileFor } from './month.js';
 	import { photoWork } from './bulk.svelte.js';
 	import { galleryChanges, type Selection } from './selection.svelte.js';
+	import { hoverTip } from './hoverTip.js';
 	import { longpress } from './longpress.js';
 
 	const NEAR_VIEWPORT = '1500px';
@@ -110,27 +111,6 @@
 			.catch(() => (failed = true));
 	}
 
-	// The tooltip waits a moment, so that moving across the grid does not flash it.
-	const TIP_DELAY_MS = 400;
-	let tipTimer: ReturnType<typeof setTimeout> | undefined;
-
-	function tipEnter(event: PointerEvent, item: AssetItem) {
-		if (!tooltip || event.pointerType !== 'mouse') return;
-		const tile = event.currentTarget as HTMLElement;
-		clearTimeout(tipTimer);
-		tipTimer = setTimeout(
-			() => ontip({ item, anchor: tile.getBoundingClientRect() }),
-			TIP_DELAY_MS
-		);
-	}
-
-	function tipLeave() {
-		clearTimeout(tipTimer);
-		ontip(null);
-	}
-
-	$effect(() => () => clearTimeout(tipTimer));
-
 	/** While photos are being chosen, a click chooses rather than opens. */
 	function onclick(event: MouseEvent, item: AssetItem) {
 		if (selection.size || event.shiftKey) {
@@ -173,9 +153,7 @@
 									href={resolve(`/photo/[id]${query}`, { id: item.id })}
 									title={tooltip ? undefined : item.file_name}
 									data-asset={item.id}
-									onpointerenter={(e) => tipEnter(e, item)}
-									onpointerleave={tipLeave}
-									onpointerdown={tipLeave}
+									use:hoverTip={{ item, enabled: tooltip, ontip }}
 									use:longpress={() => onpeek(item)}
 									onclick={(e) => onclick(e, item)}
 								>

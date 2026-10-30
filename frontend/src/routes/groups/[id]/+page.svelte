@@ -17,13 +17,17 @@
 		type GroupDetail,
 		type MapConfig
 	} from '#lib/api.js';
+	import { accountSettings } from '#lib/accountSettings.svelte.js';
+	import type { LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
+	import { hoverTip, type Tip } from '#lib/gallery/hoverTip.js';
 	import { longpress } from '#lib/gallery/longpress.js';
 	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import PhotoPeek from '#lib/gallery/PhotoPeek.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
 	import { galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
+	import TileTooltip from '#lib/gallery/TileTooltip.svelte';
 	import MapView from '#lib/map/MapView.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
@@ -57,16 +61,23 @@
 	let name = $state('');
 	let busy = $state(false);
 	let locationOpen = $state(false);
+	// The place the window of the location opens with.
+	let locationPoint = $state<LatLon | null>(null);
 	// The user took photos out: the groups are being built again without them.
 	let recounting = $state(false);
 	let confirmDissolve = $state(false);
 	let peek = $state<AssetItem | null>(null);
+	// The tile the mouse rests on, for its tooltip.
+	let tip = $state<Tip>(null);
 	let shownCount = $state(PART);
 	let filter = $state<PhotoFilter>('all');
 	let byCloseness = $state(false);
 	const selection = new Selection();
 	// Photos just short of the group, chosen to be added.
 	const nearChosen = new SvelteSet<string>();
+
+	accountSettings.load();
+	const tooltips = $derived(accountSettings.values.gallery_tooltip);
 
 	const numbers = new Intl.NumberFormat(getLocale());
 	const count = (n: number) => numbers.format(n);
@@ -178,6 +189,21 @@
 
 	function toggleNear(photo: AssetItem) {
 		if (!nearChosen.delete(photo.id)) nearChosen.add(photo.id);
+	}
+
+	/** All the photos without a location, to the place the others share. */
+	function setSpot() {
+		const spot = detail?.group.spot;
+		if (!spot) return;
+		selection.clear();
+		selection.setAll(withoutLocation, true);
+		locationPoint = { lat: spot.latitude, lon: spot.longitude };
+		locationOpen = true;
+	}
+
+	function closeLocation() {
+		locationOpen = false;
+		locationPoint = null;
 	}
 
 	async function trashNear() {
@@ -332,6 +358,20 @@
 	{#if recounting}
 		<p class="hint" role="status">{m.groups_recount_hint()}</p>
 	{/if}
+	{#if detail.group.ready && detail.group.spot && !detail.group.trash}
+		<div class="ready">
+			<p>
+				{m.groups_ready_text({
+					photos: count(detail.group.spot.photos),
+					located: count(detail.group.with_location)
+				})}
+			</p>
+			<button type="button" class="st-btn st-btn--primary st-btn--sm" onclick={setSpot}>
+				<Icon name="map-pin" size={14} />
+				{m.groups_ready_set({ count: count(detail.group.without_location) })}
+			</button>
+		</div>
+	{/if}
 
 	{#if mapConfig && dots.length > 0}
 		<div class="map">
@@ -399,7 +439,8 @@
 						<a
 							class="tile"
 							href={resolve('/photo/[id]', { id: photo.id })}
-							title={photo.file_name}
+							title={tooltips ? undefined : photo.file_name}
+							use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
 							use:longpress={() => (peek = photo)}
 							onclick={(event) => clickNear(event, photo)}
 						>
@@ -430,7 +471,8 @@
 						<a
 							class="tile"
 							href={resolve('/photo/[id]', { id: photo.id })}
-							title={photo.file_name}
+							title={tooltips ? undefined : photo.file_name}
+							use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
 							use:longpress={() => (peek = photo)}
 						>
 							{@render thumbnail(photo)}
@@ -504,7 +546,8 @@
 					<a
 						class="tile"
 						href={resolve('/photo/[id]', { id: photo.id })}
-						title={photo.file_name}
+						title={tooltips ? undefined : photo.file_name}
+						use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
 						use:longpress={() => (peek = photo)}
 						onclick={(event) => clickTile(event, photo)}
 					>
@@ -584,16 +627,19 @@
 {/if}
 {#if peek}
 	<PhotoPeek item={peek} onclose={() => (peek = null)} />
+{:else if tip}
+	<TileTooltip item={tip.item} anchor={tip.anchor} onclose={() => (tip = null)} />
 {/if}
 {#if locationOpen}
 	<SelectionLocation
 		items={[...selection.items.values()]}
 		groupId={id}
+		point={locationPoint}
 		onsaved={() => {
-			locationOpen = false;
+			closeLocation();
 			selection.clear();
 		}}
-		onclose={() => (locationOpen = false)}
+		onclose={closeLocation}
 	/>
 {/if}
 
@@ -641,6 +687,22 @@
 	}
 	.bad {
 		color: var(--color-danger-text);
+	}
+	.ready {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2) var(--space-3);
+		margin-bottom: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		font-size: var(--text-sm);
+	}
+	.ready p {
+		flex: 1 1 16rem;
+		margin: 0;
 	}
 	.map {
 		height: min(24rem, 50dvh);

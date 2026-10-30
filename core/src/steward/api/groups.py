@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The page "Groups": the groups of photos of one view (`steward.view_groups`)."""
 
+from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -26,14 +27,22 @@ router = APIRouter(prefix="/groups")
 MAX_ASSETS = 2000
 # Photos of the trash shown at once.
 TRASHED_SHOWN = 300
+# Groups shown as lying in the same spot as a group.
+SAME_SPOT_SHOWN = 12
 
-GroupView = Literal["all", "no_location", "with_location", "spread", "trash", "dissolved"]
-VIEWS: tuple[GroupView, ...] = ("all", "no_location", "with_location", "spread", "trash")
+GroupView = Literal["all", "ready", "no_location", "with_location", "spread", "trash", "dissolved"]
+VIEWS: tuple[GroupView, ...] = ("all", "ready", "no_location", "with_location", "spread", "trash")
 
 
 class Cover(BaseModel):
     id: UUID
     version: str | None
+
+
+class GroupSpot(BaseModel):
+    latitude: float
+    longitude: float
+    photos: int
 
 
 class GroupOut(BaseModel):
@@ -46,6 +55,10 @@ class GroupOut(BaseModel):
     spread: bool
     # How close the photos are to each other; None until the next rebuild.
     similarity: float | None
+    # Where most of the photos with a location lie.
+    spot: GroupSpot | None = None
+    # The photos without a location can get the place of the spot.
+    ready: bool = False
     cover: Cover | None = None
 
     @classmethod
@@ -59,6 +72,8 @@ class GroupOut(BaseModel):
             with_location=summary.with_location,
             spread=summary.spread,
             similarity=summary.similarity,
+            spot=GroupSpot(**asdict(summary.spot)) if summary.spot else None,
+            ready=summary.ready,
             cover=Cover(id=cover[0], version=cover[1]) if cover else None,
         )
 
@@ -81,6 +96,8 @@ class GroupPoint(BaseModel):
     id: UUID
     latitude: float
     longitude: float
+    # The number of its spot in the group: 0 for the largest.
+    spot: int
 
 
 class GroupDetail(BaseModel):
@@ -119,6 +136,8 @@ def _in_view(summary: Summary, view: GroupView) -> bool:
         return summary.trash
     if summary.trash:
         return False
+    if view == "ready":
+        return summary.ready
     if view == "no_location":
         return summary.without_location > 0
     if view == "with_location":
@@ -146,13 +165,14 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
     covers = await view_groups.covers(db, [group.id])
     photos = await view_groups.photos_of(db, group.id)
     closeness = await view_groups.photo_closeness(db, group.id)
+    points = [a for a in photos if is_located(a)]
+    spots = view_groups.spots_of({a.id: (a.latitude or 0.0, a.longitude or 0.0) for a in points})
     return GroupDetail(
         group=GroupOut.of(summary, covers.get(group.id)),
         photos=[AssetItem.of(asset) for asset in photos],
         points=[
-            GroupPoint(id=a.id, latitude=a.latitude, longitude=a.longitude)
-            for a in photos
-            if is_located(a)
+            GroupPoint(id=a.id, latitude=a.latitude, longitude=a.longitude, spot=spots[a.id])
+            for a in points
         ],
         excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
         closeness=closeness,
@@ -174,7 +194,10 @@ async def list_groups(
         page = dissolved[offset : offset + limit]
         covers = await view_groups.excluded_cover(db, [s.id for s in page])
     else:
-        page = [s for s in summaries if _in_view(s, view)][offset : offset + limit]
+        listed = [s for s in summaries if _in_view(s, view)]
+        if view == "ready":  # the most to gain first
+            listed.sort(key=lambda s: -s.without_location)
+        page = listed[offset : offset + limit]
         covers = await view_groups.covers(db, [s.id for s in page])
     job = await db.scalar(
         select(Job)
@@ -249,6 +272,16 @@ async def update_group(
         group.trash = body.trash
     await db.commit()
     return await _detail(db, account, group)
+
+
+@router.get("/{group_id}/same-spot")
+async def same_spot_groups(group_id: UUID, account: CurrentAccount, db: DbDep) -> list[GroupOut]:
+    """Other groups in the main spot of this one: other sides of one place."""
+    group = await _own_group(db, account, group_id)
+    found = view_groups.same_spot(await view_groups.summaries(db, account.id), group.id)
+    found = found[:SAME_SPOT_SHOWN]
+    covers = await view_groups.covers(db, [s.id for s in found])
+    return [GroupOut.of(s, covers.get(s.id)) for s in found]
 
 
 @router.get("/{group_id}/near")

@@ -569,5 +569,8 @@
 	"groups_center_hint": "Les photos les plus proches du reste du groupe : ce sur quoi il repose.",
 	"groups_view_dissolved": "Dissous",
 	"groups_dissolve": "Dissoudre",
-	"groups_dissolve_warning": "Ses photos ne se relient plus entre elles et peuvent rejoindre d’autres groupes, ou aucun. Le groupe garde son nom dans la liste Dissous, d’où il peut être remis."
+	"groups_dissolve_warning": "Ses photos ne se relient plus entre elles et peuvent rejoindre d’autres groupes, ou aucun. Le groupe garde son nom dans la liste Dissous, d’où il peut être remis.",
+	"groups_view_ready": "Lieu à appliquer",
+	"groups_ready_text": "{photos} des {located} photos avec lieu sont au même endroit. Vérifiez-le d’abord sur la carte : si ces photos sont mal placées, l’endroit l’est aussi.",
+	"groups_ready_set": "Appliquer à {count} photos"
 }

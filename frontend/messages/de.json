@@ -569,5 +569,8 @@
 	"groups_center_hint": "Die Fotos, die dem Rest der Gruppe am nächsten sind: darauf stützt sie sich.",
 	"groups_view_dissolved": "Aufgelöst",
 	"groups_dissolve": "Auflösen",
-	"groups_dissolve_warning": "Die Fotos verbinden sich nicht mehr miteinander und können anderen Gruppen beitreten oder in keiner sein. Die Gruppe behält ihren Namen in der Liste Aufgelöst und lässt sich dort zurückholen."
+	"groups_dissolve_warning": "Die Fotos verbinden sich nicht mehr miteinander und können anderen Gruppen beitreten oder in keiner sein. Die Gruppe behält ihren Namen in der Liste Aufgelöst und lässt sich dort zurückholen.",
+	"groups_view_ready": "Ort kann gesetzt werden",
+	"groups_ready_text": "{photos} von {located} Fotos mit Ort liegen an einer Stelle. Prüfen Sie sie zuerst auf der Karte: Sind diese Fotos falsch verortet, ist es auch die Stelle.",
+	"groups_ready_set": "Für {count} Fotos setzen"
 }

@@ -37,10 +37,12 @@
 	import HoverPreview from './HoverPreview.svelte';
 	import { longpress } from './longpress.js';
 	import PhotoPeek from './PhotoPeek.svelte';
+	import { untrack } from 'svelte';
 
 	let {
 		items,
 		groupId = null,
+		point = null,
 		onsaved,
 		onclose
 	}: {
@@ -48,6 +50,8 @@
 		items: AssetItem[];
 		/** The group they were chosen in: its places are suggested too. */
 		groupId?: string | null;
+		/** The place the window opens with, to confirm on the map. */
+		point?: LatLon | null;
 		/** The save is queued (it can still be cancelled from its notice). */
 		onsaved: () => void;
 		onclose: () => void;
@@ -84,6 +88,7 @@
 
 	$effect(() => {
 		dialog.showModal();
+		untrack(() => point && pick(point));
 		return () => dialog.close();
 	});
 
@@ -113,7 +118,7 @@
 			})),
 			...module.track.filter((p) => p.role).map((p) => ({ lat: p.latitude, lon: p.longitude }))
 		]);
-		mapView.fitTo(points);
+		mapView.fitTo(picked ? [...points, picked] : points);
 	});
 
 	function pick(point: LatLon) {

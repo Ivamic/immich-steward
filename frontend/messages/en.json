@@ -569,5 +569,8 @@
 	"groups_center_hint": "The photos closest to the rest of the group: what it holds on to.",
 	"groups_view_dissolved": "Dissolved",
 	"groups_dissolve": "Dissolve",
-	"groups_dissolve_warning": "Its photos stop linking to each other and may join other groups, or stay in none. The group keeps its name in the list Dissolved, where it can be brought back."
+	"groups_dissolve_warning": "Its photos stop linking to each other and may join other groups, or stay in none. The group keeps its name in the list Dissolved, where it can be brought back.",
+	"groups_view_ready": "Place can be set",
+	"groups_ready_text": "{photos} of {located} photos with a location lie in one spot. Look at it on the map first: if those photos are wrong, the spot is wrong too.",
+	"groups_ready_set": "Set it on {count} photos"
 }

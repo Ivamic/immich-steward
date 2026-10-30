@@ -32,8 +32,10 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    Numeric,
     Select,
     bindparam,
+    cast,
     delete,
     exists,
     func,
@@ -89,6 +91,8 @@ SPLIT_TOP = 0.75
 SPOT_SHARE = 0.7
 SPOT_MIN_PHOTOS = 3
 SPOT_DECIMALS = 2
+# Mean latitude, mean longitude and the photos of a cell of `SPOT_DECIMALS`.
+Cell = tuple[float, float, int]
 
 # Photos this much less similar than a group asks for are shown next to it.
 NEAR_MARGIN = 0.1
@@ -347,6 +351,57 @@ def cluster(
         if best is not None:
             groups[find(best[1])][a] = ATTACHED
     return sorted(groups.values(), key=len, reverse=True)
+
+
+@dataclass(frozen=True)
+class Spot:
+    """Where photos of a group lie together."""
+
+    latitude: float
+    longitude: float
+    photos: int
+
+
+def gathered(cells: Iterable[Cell]) -> list[list[Cell]]:
+    """The cells of a group in spots, largest first: a spot is the largest cell left and the cells
+    within `similar.JOIN_M` of it, so that a place on the border of two cells stays one."""
+    left = sorted(cells, key=lambda c: (-c[2], c[0], c[1]))
+    spots = []
+    while left:
+        seed = left[0]
+        spot = [c for c in left if distance_m(seed[0], seed[1], c[0], c[1]) <= similar.JOIN_M]
+        spots.append(spot)
+        left = [c for c in left if c not in spot]
+    spots.sort(key=lambda spot: -sum(c[2] for c in spot))
+    return spots
+
+
+def spot_of(cells: list[Cell]) -> Spot:
+    photos = sum(c[2] for c in cells)
+    return Spot(
+        latitude=sum(c[0] * c[2] for c in cells) / photos,
+        longitude=sum(c[1] * c[2] for c in cells) / photos,
+        photos=photos,
+    )
+
+
+def spots_of(places: dict[UUID, tuple[float, float]]) -> dict[UUID, int]:
+    """Photo -> the number of its spot in the group, 0 for the largest."""
+    by_cell: dict[tuple[float, float], list[UUID]] = {}
+    for asset_id, (latitude, longitude) in places.items():
+        key = (round(latitude, SPOT_DECIMALS), round(longitude, SPOT_DECIMALS))
+        by_cell.setdefault(key, []).append(asset_id)
+    cells = {}
+    for photos in by_cell.values():
+        latitude = sum(places[a][0] for a in photos) / len(photos)
+        longitude = sum(places[a][1] for a in photos) / len(photos)
+        cells[(latitude, longitude, len(photos))] = photos
+    return {
+        asset_id: number
+        for number, spot in enumerate(gathered(cells))
+        for cell in spot
+        for asset_id in cells[cell]
+    }
 
 
 def spot_share(members: Iterable[UUID], places: dict[UUID, tuple[float, float]]) -> float | None:
@@ -650,6 +705,72 @@ class Summary:
     # The photos with a location lie further apart than one spot.
     spread: bool
     similarity: float | None
+    # Where most of the photos with a location lie; None with too few of them.
+    spot: Spot | None = None
+
+    @property
+    def ready(self) -> bool:
+        """The photos without a location can get the one the others share."""
+        return (
+            self.without_location > 0
+            and self.spot is not None
+            and self.spot.photos / self.with_location >= SPOT_SHARE
+        )
+
+
+async def _main_spots(
+    db: AsyncSession, account_id: UUID, group_id: UUID | None
+) -> dict[UUID, Spot]:
+    """Group -> its largest spot, for the groups with enough photos with a location."""
+    latitude = func.round(cast(Asset.latitude, Numeric), SPOT_DECIMALS)
+    longitude = func.round(cast(Asset.longitude, Numeric), SPOT_DECIMALS)
+    query = (
+        select(
+            ViewGroup.id,
+            func.avg(Asset.latitude).label("latitude"),
+            func.avg(Asset.longitude).label("longitude"),
+            func.count().label("photos"),
+        )
+        .join(ViewGroupMember, ViewGroupMember.group_id == ViewGroup.id)
+        .join(Asset, Asset.id == ViewGroupMember.asset_id)
+        .where(
+            ViewGroup.account_id == account_id,
+            ViewGroup.kind == KIND,
+            ViewGroupMember.role != EXCLUDED,
+            Asset.is_trashed.is_(False),
+            located(),
+        )
+        .group_by(ViewGroup.id, latitude, longitude)
+    )
+    if group_id is not None:
+        query = query.where(ViewGroup.id == group_id)
+    cells: dict[UUID, list[Cell]] = {}
+    for row in await db.execute(query):
+        cells.setdefault(row.id, []).append((float(row.latitude), float(row.longitude), row.photos))
+    return {
+        group: spot_of(gathered(of_group)[0])
+        for group, of_group in cells.items()
+        if sum(c[2] for c in of_group) >= SPOT_MIN_PHOTOS
+    }
+
+
+def same_spot(found: list[Summary], group_id: UUID) -> list[Summary]:
+    """The other groups whose main spot is that of the group, the largest first."""
+    own = next((s.spot for s in found if s.id == group_id), None)
+    if own is None:
+        return []
+    return sorted(
+        (
+            s
+            for s in found
+            if s.id != group_id
+            and s.spot is not None
+            and not s.trash
+            and distance_m(own.latitude, own.longitude, s.spot.latitude, s.spot.longitude)
+            <= similar.JOIN_M
+        ),
+        key=lambda s: -s.photos,
+    )
 
 
 async def summaries(
@@ -684,6 +805,7 @@ async def summaries(
     if group_id is not None:
         query = query.where(ViewGroup.id == group_id)
     rows = await db.execute(query)
+    spots = await _main_spots(db, account_id, group_id)
     found = [
         Summary(
             id=row.id,
@@ -695,6 +817,7 @@ async def summaries(
             spread=row.with_location > 1
             and distance_m(row.south, row.west, row.north, row.east) > similar.JOIN_M,
             similarity=row.similarity,
+            spot=spots.get(row.id),
         )
         for row in rows
     ]

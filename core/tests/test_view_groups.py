@@ -22,8 +22,11 @@ from steward.view_groups import (
     center_of,
     closeness,
     cluster,
+    gathered,
     matched,
     merged,
+    spot_of,
+    spots_of,
     uncut,
 )
 
@@ -460,6 +463,7 @@ def test_the_views_of_the_list(signed_in: TestClient, library: dict[str, str]) -
     counts = signed_in.get("/api/groups").json()["counts"]
     assert counts == {
         "all": 1,
+        "ready": 0,
         "no_location": 0,
         "with_location": 1,
         "spread": 0,
@@ -604,7 +608,9 @@ def test_the_map_points_are_the_photos_with_a_location(
     locate(signed_in, library["yard0.jpg"], 42.4, 19.26)
     locate(signed_in, library["yard1.jpg"], 0, 0)  # what Immich takes for "no location"
     group = signed_in.get(f"/api/groups/{group_of(signed_in, library, 'yard0.jpg')}").json()
-    assert group["points"] == [{"id": library["yard0.jpg"], "latitude": 42.4, "longitude": 19.26}]
+    assert group["points"] == [
+        {"id": library["yard0.jpg"], "latitude": 42.4, "longitude": 19.26, "spot": 0}
+    ]
 
 
 def test_a_photo_taken_out_comes_back_by_hand_and_stays(
@@ -795,3 +801,96 @@ def test_the_places_of_the_group_are_suggested_for_its_photos(
         "/api/selection/suggestions", json={"ids": [library["yard3.jpg"]], "group_id": str(uuid4())}
     )
     assert refused.status_code == 404
+
+
+# --- Spots ----------------------------------------------------------------------------------------
+
+YARD = (42.4231, 19.2601)
+FAR = (45.0612, 7.6801)
+
+
+def place(
+    client: TestClient, names: dict[str, str], *photos: tuple[str, tuple[float, float]]
+) -> None:
+    for name, (latitude, longitude) in photos:
+        locate(client, names[name], latitude, longitude)
+
+
+def test_a_place_on_the_border_of_two_cells_is_one_spot() -> None:
+    assert [len(spot) for spot in gathered([(42.4249, 19.26, 5), (42.4251, 19.26, 4)])] == [2]
+    spot = spot_of(gathered([(42.4249, 19.26, 5), (42.4251, 19.26, 5)])[0])
+    assert (round(spot.latitude, 3), spot.photos) == (42.425, 10)
+
+
+def test_spots_are_numbered_from_the_largest() -> None:
+    lonely, far, also_far, *main = ids(6)
+    places = {lonely: (10.0, 10.0), far: FAR, also_far: FAR} | {p: YARD for p in main}
+    assert spots_of(places) == {lonely: 2, far: 1, also_far: 1} | {p: 0 for p in main}
+
+
+def test_a_group_is_ready_when_the_photos_with_a_location_share_a_spot(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    place(
+        signed_in,
+        library,
+        ("yard0.jpg", YARD),
+        ("yard1.jpg", YARD),
+        ("yard2.jpg", YARD),
+        ("kitchen0.jpg", YARD),
+        ("kitchen1.jpg", YARD),
+        ("kitchen2.jpg", FAR),
+        ("kitchen3.jpg", FAR),
+    )
+    answer = signed_in.get("/api/groups", params={"view": "ready"}).json()
+    assert answer["counts"]["ready"] == 1
+    group = answer["groups"][0]
+    assert group["without_location"] == 2 and group["ready"]
+    assert group["spot"]["photos"] == 3
+    assert abs(group["spot"]["latitude"] - YARD[0]) < 0.001
+
+    # The yard photos are the spot; a photo far from it is told apart.
+    place(signed_in, library, ("yard3.jpg", FAR))
+    detail = signed_in.get(f"/api/groups/{group['id']}").json()
+    numbers = {point["id"]: point["spot"] for point in detail["points"]}
+    assert numbers[library["yard0.jpg"]] == 0 and numbers[library["yard3.jpg"]] == 1
+    assert detail["group"]["ready"]
+
+
+def test_too_few_photos_with_a_location_name_no_spot(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    place(signed_in, library, ("yard0.jpg", YARD), ("yard1.jpg", YARD))
+    assert signed_in.get("/api/groups", params={"view": "ready"}).json()["counts"]["ready"] == 0
+
+
+def test_a_group_marked_as_having_no_sign_of_a_place_is_not_ready(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    place(signed_in, library, *((f"yard{i}.jpg", YARD) for i in range(3)))
+    group = signed_in.get("/api/groups", params={"view": "ready"}).json()["groups"][0]
+    signed_in.patch(f"/api/groups/{group['id']}", json={"trash": True})
+    assert signed_in.get("/api/groups", params={"view": "ready"}).json()["counts"]["ready"] == 0
+
+
+def test_groups_in_one_spot_are_shown_together(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    place(
+        signed_in,
+        library,
+        *((f"yard{i}.jpg", YARD) for i in range(3)),
+        *((f"kitchen{i}.jpg", YARD) for i in range(3)),
+    )
+    found = groups(signed_in, library)
+    yard = next(i for i, g in found.items() if "yard0.jpg" in g)
+    kitchen = next(i for i, g in found.items() if "kitchen0.jpg" in g)
+    same = signed_in.get(f"/api/groups/{yard}/same-spot").json()
+    assert [group["id"] for group in same] == [str(kitchen)]
+
+    place(signed_in, library, *((f"kitchen{i}.jpg", FAR) for i in range(5)))
+    assert signed_in.get(f"/api/groups/{yard}/same-spot").json() == []

@@ -2,12 +2,13 @@
 // HTML markers over the map: module suggestions (shape × color × number) and pins (the picked
 // point, the location in Immich). Styles: `.st-marker`, `.st-pin` (styles/components/map.css).
 
-/** A photo shown as a point on the map; `chosen` marks it. */
+/** A photo shown as a point on the map; `chosen` marks it, `apart` tells it from the others. */
 export interface MapDot {
 	id: string;
 	lat: number;
 	lon: number;
 	chosen: boolean;
+	apart?: boolean;
 }
 
 // Shapes on a 28 × 28 grid. Shape tells modules apart without relying on color (FR-31).

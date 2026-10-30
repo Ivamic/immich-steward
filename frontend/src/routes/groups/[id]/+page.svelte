@@ -9,6 +9,7 @@
 		getGroup,
 		getGroupNear,
 		getGroupParts,
+		getGroupSameSpot,
 		getMapConfig,
 		includeInGroup,
 		thumbnailUrl,
@@ -16,6 +17,7 @@
 		updateGroup,
 		type AssetItem,
 		type GroupDetail,
+		type GroupOut,
 		type MapConfig
 	} from '#lib/api.js';
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
@@ -49,7 +51,7 @@
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	type PhotoFilter = 'all' | 'center' | 'with' | 'without' | 'chosen';
+	type PhotoFilter = 'all' | 'center' | 'with' | 'without' | 'apart' | 'chosen';
 	type Grouping = 'none' | 'month' | 'similar';
 
 	// Photos added to the page at a time: a group may have thousands.
@@ -59,6 +61,7 @@
 		{ id: 'center', label: m.groups_filter_center },
 		{ id: 'with', label: m.groups_filter_with },
 		{ id: 'without', label: m.groups_filter_without },
+		{ id: 'apart', label: m.groups_filter_apart },
 		{ id: 'chosen', label: m.groups_filter_chosen }
 	];
 	const GROUPINGS: { id: Grouping; label: () => string }[] = [
@@ -76,6 +79,7 @@
 	// Read only, and thousands of photos: not reactive one by one.
 	let detail = $state.raw<GroupDetail | null>(null);
 	let near = $state.raw<AssetItem[]>([]);
+	let sameSpot = $state.raw<GroupOut[]>([]);
 	let mapConfig = $state<MapConfig | null>(null);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let error = $state<string | null>(null);
@@ -118,6 +122,11 @@
 		const view = page.url.searchParams.get('view');
 		return resolve(view ? `/groups?view=${encodeURIComponent(view)}` : '/groups');
 	});
+	// Goes along to another group, for its way back to the same view.
+	const query = $derived.by((): '' | `?${string}` => {
+		const view = page.url.searchParams.get('view');
+		return view ? `?view=${encodeURIComponent(view)}` : '';
+	});
 	const photos = $derived(detail?.photos ?? []);
 	const centerIds = $derived(new Set(detail?.center ?? []));
 	const center = $derived(photos.filter((photo) => centerIds.has(photo.id)));
@@ -125,22 +134,30 @@
 	const withoutLocation = $derived(photos.filter((photo) => !photo.has_location));
 	const chosenIds = $derived(new Set(selection.ids));
 	const chosenPhotos = $derived(photos.filter((photo) => chosenIds.has(photo.id)));
+	const spotOf = $derived(new Map((detail?.points ?? []).map((p) => [p.id, p.spot])));
+	// Far from the main spot; nothing is apart from a group with too few photos to have one.
+	const apartPhotos = $derived(
+		detail?.group.spot ? photos.filter((photo) => (spotOf.get(photo.id) ?? 0) > 0) : []
+	);
+	const apartIds = $derived(new Set(apartPhotos.map((photo) => photo.id)));
 	const filtered = $derived<Record<PhotoFilter, AssetItem[]>>({
 		all: photos,
 		center,
 		with: withLocation,
 		without: withoutLocation,
+		apart: apartPhotos,
 		chosen: chosenPhotos
 	});
-	// "Chosen" is there only while there are some.
-	const filters = $derived(FILTERS.filter((item) => item.id !== 'chosen' || selection.size > 0));
+	// Those of what may be missing are there only while there are some.
+	const filters = $derived(
+		FILTERS.filter((item) => !['apart', 'chosen'].includes(item.id) || filtered[item.id].length > 0)
+	);
 	const closeness = $derived(detail?.closeness ?? {});
 	const listed = $derived.by(() => {
 		if (!byCloseness) return filtered[filter];
 		const of = (photo: AssetItem) => closeness[photo.id] ?? Infinity;
 		return [...filtered[filter]].sort((a, b) => of(a) - of(b));
 	});
-	const spotOf = $derived(new Map((detail?.points ?? []).map((p) => [p.id, p.spot])));
 	const spots = $derived(photosBySpot(photos, spotOf));
 	const sections = $derived.by(() => {
 		if (grouping === 'month') return byMonth(listed, spotOf);
@@ -157,7 +174,8 @@
 			id: point.id,
 			lat: point.latitude,
 			lon: point.longitude,
-			chosen: chosenIds.has(point.id)
+			chosen: chosenIds.has(point.id),
+			apart: apartIds.has(point.id)
 		}))
 	);
 
@@ -188,10 +206,31 @@
 		for (const chosen of selection.ids) if (!here.has(chosen)) selection.items.delete(chosen);
 	}
 
+	/** Another group opened from this page: nothing of this one goes along. */
+	function forget() {
+		detail = null;
+		near = [];
+		sameSpot = [];
+		parts = null;
+		filter = 'all';
+		grouping = 'none';
+		shownCount = PART;
+		recounting = false;
+		fitted = false;
+		selection.clear();
+		nearChosen.clear();
+	}
+
 	async function load(group: string) {
+		if (detail && detail.group.id !== group) forget();
 		try {
-			show(await getGroup(group));
-			near = await getGroupNear(group);
+			const answer = await getGroup(group);
+			if (group !== id) return;
+			show(answer);
+			const [nearby, others] = await Promise.all([getGroupNear(group), getGroupSameSpot(group)]);
+			if (group !== id) return;
+			near = nearby;
+			sameSpot = others;
 		} catch (e) {
 			error = errorMessage(e);
 		}
@@ -307,7 +346,8 @@
 	// Also after a location saved anywhere: the points move.
 	$effect(() => {
 		void galleryChanges.count;
-		load(id);
+		const group = id;
+		untrack(() => load(group));
 	});
 
 	// A look at the photos as they are now, so again whenever they change.
@@ -322,9 +362,9 @@
 			.catch((e) => (error = errorMessage(e)));
 	});
 
-	// The last chosen photo gone: back from the filter of the chosen ones.
+	// The last photo of a filter gone: back from it.
 	$effect(() => {
-		if (filter === 'chosen' && selection.size === 0) restart(() => (filter = 'all'));
+		if (detail && filtered[filter].length === 0) restart(() => (filter = 'all'));
 	});
 
 	// The first look at the map shows all the points.
@@ -489,7 +529,34 @@
 				scrollingPage
 			/>
 		</div>
-		<p class="hint">{m.groups_map_hint()}</p>
+		<p class="hint">
+			{m.groups_map_hint()}
+			{#if apartPhotos.length > 0}{m.groups_apart_map_hint()}{/if}
+		</p>
+	{/if}
+
+	{#if sameSpot.length > 0}
+		<details>
+			<summary>{m.groups_same_spot_heading({ count: count(sameSpot.length) })}</summary>
+			<p class="hint">{m.groups_same_spot_hint()}</p>
+			<div class="grid">
+				{#each sameSpot as group (group.id)}
+					<a class="cell other" href={resolve(`/groups/[id]${query}`, { id: group.id })}>
+						{#if group.cover}
+							<img
+								src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
+								alt=""
+								loading="lazy"
+								decoding="async"
+							/>
+						{/if}
+						<span class="caption"
+							>{group.name ?? m.groups_photos({ count: count(group.photos) })}</span
+						>
+					</a>
+				{/each}
+			</div>
+		</details>
 	{/if}
 
 	{#if near.length > 0}
@@ -620,6 +687,9 @@
 				{m.groups_sort_similarity()}
 			</button>
 		</div>
+		{#if filter === 'apart'}
+			<p class="hint">{m.groups_apart_hint()}</p>
+		{/if}
 		<div class="tools">
 			{#each GROUPINGS as item (item.id)}
 				<button
@@ -980,6 +1050,29 @@
 	}
 	.more {
 		height: 1px;
+	}
+	.other {
+		display: block;
+		color: white;
+		text-decoration: none;
+	}
+	.other img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.caption {
+		position: absolute;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		overflow: hidden;
+		padding: var(--space-1);
+		background: rgb(0 0 0 / 0.6);
+		font-size: var(--text-xs);
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.part-head {
 		display: flex;

@@ -587,5 +587,10 @@
 	"groups_level_loose": "Loose",
 	"groups_level_medium": "Medium",
 	"groups_level_strict": "Strict",
-	"groups_level_hint": "The stricter, the smaller and closer the scenes. Photos that fit no scene are under “The rest”. The group itself does not change."
+	"groups_level_hint": "The stricter, the smaller and closer the scenes. Photos that fit no scene are under “The rest”. The group itself does not change.",
+	"groups_filter_apart": "Apart from the main spot",
+	"groups_apart_hint": "These photos lie more than 1 km from the main spot of the group. That does not make them wrong: the main spot itself may be the mistake.",
+	"groups_apart_map_hint": "Violet points lie apart from the main spot.",
+	"groups_same_spot_heading": "Other groups in this spot ({count})",
+	"groups_same_spot_hint": "Other views of the same place, found by the coordinates of their photos, not by similarity."
 }

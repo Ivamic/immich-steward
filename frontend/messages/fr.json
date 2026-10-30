@@ -587,5 +587,10 @@
 	"groups_level_loose": "Souple",
 	"groups_level_medium": "Moyen",
 	"groups_level_strict": "Strict",
-	"groups_level_hint": "Plus c’est strict, plus les scènes sont petites et homogènes. Les photos sans scène sont dans « Les autres ». Le groupe lui-même ne change pas."
+	"groups_level_hint": "Plus c’est strict, plus les scènes sont petites et homogènes. Les photos sans scène sont dans « Les autres ». Le groupe lui-même ne change pas.",
+	"groups_filter_apart": "Loin de l’endroit principal",
+	"groups_apart_hint": "Ces photos sont à plus de 1 km de l’endroit principal du groupe. Elles ne sont pas forcément fausses : l’erreur peut venir de l’endroit principal lui-même.",
+	"groups_apart_map_hint": "Les points violets sont loin de l’endroit principal.",
+	"groups_same_spot_heading": "Autres groupes à cet endroit ({count})",
+	"groups_same_spot_hint": "Autres vues du même lieu, trouvées d’après les coordonnées des photos et non la similarité."
 }

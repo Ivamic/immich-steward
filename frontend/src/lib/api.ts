@@ -802,6 +802,9 @@ export const getGroup = (id: string) => request<GroupDetail>('GET', `/api/groups
 export const updateGroup = (id: string, change: { name?: string; trash?: boolean }) =>
 	request<GroupDetail>('PATCH', `/api/groups/${id}`, change);
 export const getGroupNear = (id: string) => request<AssetItem[]>('GET', `/api/groups/${id}/near`);
+/** Other groups in the main spot of a group: other sides of one place. */
+export const getGroupSameSpot = (id: string) =>
+	request<GroupOut[]>('GET', `/api/groups/${id}/same-spot`);
 /** The scenes inside a group: the higher the level, the stricter. */
 export const getGroupParts = (id: string, level: number) =>
 	request<{ similarity: number; parts: string[][] }>(

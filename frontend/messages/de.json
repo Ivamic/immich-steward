@@ -587,5 +587,10 @@
 	"groups_level_loose": "Locker",
 	"groups_level_medium": "Mittel",
 	"groups_level_strict": "Streng",
-	"groups_level_hint": "Je strenger, desto kleiner und enger die Szenen. Fotos ohne Szene stehen unter „Übrige“. Die Gruppe selbst bleibt unverändert."
+	"groups_level_hint": "Je strenger, desto kleiner und enger die Szenen. Fotos ohne Szene stehen unter „Übrige“. Die Gruppe selbst bleibt unverändert.",
+	"groups_filter_apart": "Abseits der Hauptstelle",
+	"groups_apart_hint": "Diese Fotos liegen mehr als 1 km von der Hauptstelle der Gruppe entfernt. Das heißt nicht, dass sie falsch sind: Auch die Hauptstelle selbst kann der Fehler sein.",
+	"groups_apart_map_hint": "Violette Punkte liegen abseits der Hauptstelle.",
+	"groups_same_spot_heading": "Andere Gruppen an dieser Stelle ({count})",
+	"groups_same_spot_hint": "Andere Ansichten desselben Ortes, gefunden über die Koordinaten der Fotos, nicht über die Ähnlichkeit."
 }

@@ -133,6 +133,7 @@
 	const DOT_COUNTS = 'steward-dot-counts';
 	const DOT_COLOR = '#0969da';
 	const DOT_CHOSEN_COLOR = '#bc4c00';
+	const DOT_APART_COLOR = '#8250df';
 
 	let container: HTMLDivElement;
 	let map = $state.raw<MapLibreMap>();
@@ -484,15 +485,16 @@
 			cluster: true,
 			clusterRadius: 32,
 			clusterMaxZoom: 17,
-			clusterProperties: { chosen: ['+', ['get', 'chosen']] }
+			clusterProperties: { chosen: ['+', ['get', 'chosen']], apart: ['+', ['get', 'apart']] }
 		});
 		const chosen: ExpressionSpecification = ['>', ['get', 'chosen'], 0];
+		const apart: ExpressionSpecification = ['>', ['get', 'apart'], 0];
 		instance.addLayer({
 			id: DOT_CIRCLES,
 			type: 'circle',
 			source: DOTS,
 			paint: {
-				'circle-color': ['case', chosen, DOT_CHOSEN_COLOR, DOT_COLOR],
+				'circle-color': ['case', chosen, DOT_CHOSEN_COLOR, apart, DOT_APART_COLOR, DOT_COLOR],
 				'circle-radius': ['step', ['coalesce', ['get', 'point_count'], 1], 6, 2, 13, 50, 17],
 				'circle-stroke-color': '#ffffff',
 				'circle-stroke-width': 2
@@ -526,7 +528,7 @@
 		const features: Feature[] = dots.map((dot) => ({
 			type: 'Feature',
 			geometry: { type: 'Point', coordinates: [dot.lon, dot.lat] },
-			properties: { id: dot.id, chosen: dot.chosen ? 1 : 0 }
+			properties: { id: dot.id, chosen: dot.chosen ? 1 : 0, apart: dot.apart ? 1 : 0 }
 		}));
 		if (!map || !ready) return;
 		(map.getSource(DOTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });

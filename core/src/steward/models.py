@@ -467,6 +467,21 @@ class ViewGroup(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
 
+class ViewPhotoTrash(Base):
+    """A photo that shows nothing of the place (a pet, a document): never suggested, and left out
+    of the groups, which it links no more."""
+
+    __tablename__ = "view_photo_trash"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class ViewGroupMember(Base):
     """A photo of a group: found by the rule ("core", "attached"), added by the user ("added"), or
     taken out by the user ("excluded": not in the group, and kept out by the rebuilds)."""

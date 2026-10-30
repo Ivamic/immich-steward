@@ -31,7 +31,7 @@ TABLES = (
     "account, auth_session, asset, album, asset_album, job, location_change, worker, module_run, "
     "embedding, module_pause, module_display, "
     "map_source_setting, map_tile_usage, map_auto, app_setting, account_setting, "
-    "view_neighbor, view_group, view_group_member"
+    "view_neighbor, view_group, view_group_member, view_photo_trash"
 )
 WORKER_TOKEN = "test-worker-token"
 

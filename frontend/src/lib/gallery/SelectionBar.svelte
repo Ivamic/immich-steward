@@ -188,8 +188,11 @@
 	}
 	.group {
 		display: inline-flex;
+		flex-wrap: wrap;
 		align-items: center;
+		justify-content: center;
 		gap: var(--space-1);
+		max-width: 100%;
 		padding-inline-start: var(--space-3);
 		border-inline-start: var(--border-width) solid var(--color-border);
 	}

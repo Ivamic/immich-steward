@@ -72,6 +72,8 @@ _SEARCH = text(
         SELECT 1 FROM view_group_member AS member
         JOIN view_group ON view_group.id = member.group_id
         WHERE member.asset_id = near.asset_id AND view_group.trash AND member.role <> 'excluded'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM view_photo_trash AS trashed WHERE trashed.asset_id = near.asset_id
     )
     ORDER BY near.vector <#> {_QUERY}
     LIMIT :limit

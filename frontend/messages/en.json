@@ -554,5 +554,9 @@
 	"groups_filter_without": "Without a location",
 	"groups_similarity": "Similarity {value}",
 	"groups_similarity_hint": "How close photos are to the others of the group, from 0 to 1. A photo much lower than the rest may not belong here.",
-	"groups_sort_similarity": "Least similar first"
+	"groups_sort_similarity": "Least similar first",
+	"groups_photos_trash": "To trash",
+	"groups_recount_hint": "The groups are being built again without these photos; it takes about a minute. Reload the page to see the result.",
+	"groups_trashed_heading": "Single photos in the trash ({count})",
+	"groups_trashed_hint": "These photos are not used to suggest a place and link no groups. Their locations in Immich stay as they are."
 }

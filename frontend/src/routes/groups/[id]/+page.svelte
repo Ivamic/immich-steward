@@ -10,6 +10,7 @@
 		getMapConfig,
 		includeInGroup,
 		thumbnailUrl,
+		trashPhotos,
 		updateGroup,
 		type AssetItem,
 		type GroupDetail,
@@ -50,6 +51,8 @@
 	let name = $state('');
 	let busy = $state(false);
 	let locationOpen = $state(false);
+	// The user took photos out: the groups are being built again without them.
+	let recounting = $state(false);
 	let peek = $state<AssetItem | null>(null);
 	let shownCount = $state(PART);
 	let filter = $state<PhotoFilter>('all');
@@ -150,6 +153,13 @@
 	async function exclude() {
 		const ids = selection.ids;
 		await act(() => excludeFromGroup(id, ids));
+		recounting = true;
+	}
+
+	async function toTrash() {
+		const ids = selection.ids;
+		await act(() => trashPhotos(id, ids));
+		recounting = true;
 	}
 
 	/** A click on the map: its photos join the choice, or leave it if all are chosen. */
@@ -267,6 +277,9 @@
 	</p>
 	{#if detail.group.trash}
 		<p class="hint">{m.groups_trash_hint()}</p>
+	{/if}
+	{#if recounting}
+		<p class="hint" role="status">{m.groups_recount_hint()}</p>
 	{/if}
 
 	{#if mapConfig && dots.length > 0}
@@ -452,6 +465,10 @@
 		<button type="button" class="st-btn st-btn--ghost st-btn--sm" disabled={busy} onclick={exclude}>
 			<Icon name="x" size={14} />
 			{m.groups_exclude()}
+		</button>
+		<button type="button" class="st-btn st-btn--ghost st-btn--sm" disabled={busy} onclick={toTrash}>
+			<Icon name="ban" size={14} />
+			{m.groups_photos_trash()}
 		</button>
 	</SelectionBar>
 {/if}

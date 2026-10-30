@@ -23,6 +23,7 @@ from steward.view_groups import (
     cluster,
     matched,
     merged,
+    uncut,
 )
 
 # --- The rule, without a database -----------------------------------------------------------------
@@ -130,6 +131,33 @@ def test_splitting_stops_at_the_top(monkeypatch: pytest.MonkeyPatch) -> None:
     places = {p: (40.0 + i, 10.0) for i, p in enumerate(photos)}  # no two in one spot
     found = build(clique(photos, 0.95), places, RULE)
     assert [len(g) for g in found] == [12]
+
+
+def two_held_by_one() -> tuple[list[UUID], list[UUID], UUID, list[tuple[UUID, UUID, float]]]:
+    """Two sets of photos, not close to each other, both close to one photo (the dog)."""
+    first, second, dog = ids(4), ids(4), uuid4()
+    pairs = clique(first) + clique(second)
+    pairs += both_ways([(dog, p, 0.6) for p in first[:3] + second[:3]])
+    return first, second, dog, pairs
+
+
+def test_a_photo_in_the_trash_links_nothing() -> None:
+    first, second, dog, pairs = two_held_by_one()
+    assert [len(g) for g in cluster(pairs, 3)] == [9]
+    found = cluster(uncut(pairs, {dog}, {}, {}), 3)
+    assert {frozenset(g) for g in found} == {frozenset(first), frozenset(second)}
+
+
+def test_a_photo_taken_out_links_nothing_in_that_group() -> None:
+    first, second, dog, pairs = two_held_by_one()
+    group = uuid4()
+    found = cluster(uncut(pairs, set(), {group: {dog}}, {group: {*first, *second}}), 3)
+    assert {frozenset(g) for g in found} == {frozenset(first), frozenset(second)}
+
+    # In another group it still may.
+    other = uuid4()
+    kept = uncut(pairs, set(), {other: {dog}}, {group: {*first, *second}})
+    assert [len(g) for g in cluster(kept, 3)] == [9]
 
 
 def test_a_new_cluster_continues_the_old_group_sharing_most_photos() -> None:
@@ -564,6 +592,61 @@ def test_a_photo_with_only_trash_around_gets_its_hint_once(
             return await similar_hints.any_due(db, account_id)
 
     assert not signed_in.portal.call(due)  # type: ignore[union-attr]
+
+
+def test_a_photo_in_the_trash_suggests_no_place_and_stays_out(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    location = {"latitude": 42.4, "longitude": 19.26}
+    assert signed_in.put(f"/api/assets/{library['yard0.jpg']}/location", json=location).is_success
+    yard = group_of(signed_in, library, "yard0.jpg")
+
+    def similar_candidates() -> list[Any]:
+        blocks = signed_in.get(f"/api/assets/{library['yard1.jpg']}/suggestions").json()
+        return next(b for b in blocks if b["key"] == "similar")["candidates"]
+
+    assert len(similar_candidates()) == 1
+
+    answer = signed_in.post(f"/api/groups/{yard}/trash", json={"ids": [library["yard0.jpg"]]})
+    assert answer.status_code == 200
+    assert answer.json()["group"]["photos"] == 4
+    assert similar_candidates() == []
+    trash = signed_in.get("/api/groups/trash-photos").json()
+    assert (trash["total"], [p["file_name"] for p in trash["photos"]]) == (1, ["yard0.jpg"])
+    assert signed_in.get(f"/api/groups/{yard}/near").json() == []
+
+    # The rebuild it asked for leaves it out, and the group goes on.
+    run_jobs(signed_in)
+    assert "yard0.jpg" not in groups(signed_in, library)[yard]
+    assert len(groups(signed_in, library)[yard]) == 4
+
+    restored = signed_in.post(
+        "/api/groups/trash-photos/restore", json={"ids": [library["yard0.jpg"]]}
+    )
+    assert restored.json() == {"total": 0, "photos": []}
+    run_jobs(signed_in)
+    assert "yard0.jpg" in groups(signed_in, library)[yard]
+    assert len(similar_candidates()) == 1
+
+
+def test_taking_a_photo_out_asks_for_a_rebuild(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
+    before = len(signed_in.portal.call(view_group_jobs, signed_in))  # type: ignore[union-attr]
+    run_jobs(signed_in)
+    jobs = signed_in.portal.call(view_group_jobs, signed_in)  # type: ignore[union-attr]
+    assert len(jobs) == before
+    assert jobs[-1]["rebuilt"] is True
+    assert groups(signed_in, library)[yard]["yard4.jpg"] == "excluded"
+
+
+def test_the_trash_of_another_group_is_not_reached(signed_in: TestClient) -> None:
+    response = signed_in.post(f"/api/groups/{uuid4()}/trash", json={"ids": [str(uuid4())]})
+    assert response.status_code == 404
 
 
 def test_the_photos_of_a_trash_group_suggest_no_place(

@@ -554,5 +554,9 @@
 	"groups_filter_without": "Ohne Ort",
 	"groups_similarity": "Ähnlichkeit {value}",
 	"groups_similarity_hint": "Wie nah Fotos den anderen der Gruppe sind, von 0 bis 1. Ein Foto weit unter den übrigen gehört vielleicht nicht hierher.",
-	"groups_sort_similarity": "Unähnlichste zuerst"
+	"groups_sort_similarity": "Unähnlichste zuerst",
+	"groups_photos_trash": "In den Papierkorb",
+	"groups_recount_hint": "Die Gruppen werden ohne diese Fotos neu aufgebaut; das dauert etwa eine Minute. Laden Sie die Seite neu, um das Ergebnis zu sehen.",
+	"groups_trashed_heading": "Einzelne Fotos im Papierkorb ({count})",
+	"groups_trashed_hint": "Diese Fotos werden nicht für Ortsvorschläge verwendet und verbinden keine Gruppen. Ihre Orte in Immich bleiben unverändert."
 }

@@ -4,11 +4,14 @@
 <script lang="ts">
 	import {
 		getGroups,
+		getTrashedPhotos,
 		isActive,
+		restorePhotos,
 		thumbnailUrl,
 		type GroupList,
 		type GroupOut,
-		type GroupView
+		type GroupView,
+		type TrashedPhotos
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -34,6 +37,7 @@
 	let shown = $state.raw<GroupOut[]>([]);
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
+	let trashed = $state.raw<TrashedPhotos | null>(null);
 
 	const numbers = new Intl.NumberFormat(getLocale());
 	const count = (n: number) => numbers.format(n);
@@ -83,8 +87,23 @@
 		});
 	}
 
+	async function bringBack(id: string) {
+		try {
+			trashed = await restorePhotos([id]);
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
 	$effect(() => {
 		load(view, PAGE);
+	});
+
+	$effect(() => {
+		if (view !== 'trash') return;
+		getTrashedPhotos()
+			.then((answer) => (trashed = answer))
+			.catch((e) => (error = errorMessage(e)));
 	});
 
 	// While the groups are being worked on, the numbers and the list change.
@@ -132,6 +151,34 @@
 			</button>
 		{/each}
 	</div>
+
+	{#if view === 'trash' && trashed && trashed.total > 0}
+		<h2>{m.groups_trashed_heading({ count: count(trashed.total) })}</h2>
+		<p class="muted">{m.groups_trashed_hint()}</p>
+		<div class="photos">
+			{#each trashed.photos as photo (photo.id)}
+				<div class="cell">
+					<a href={resolve('/photo/[id]', { id: photo.id })} title={photo.file_name}>
+						<img
+							src={thumbnailUrl(photo.id, 'thumbnail', 0, photo.version)}
+							alt={photo.file_name}
+							loading="lazy"
+							decoding="async"
+						/>
+					</a>
+					<button
+						type="button"
+						class="back"
+						aria-label={m.groups_bring_back()}
+						title={m.groups_bring_back()}
+						onclick={() => bringBack(photo.id)}
+					>
+						<Icon name="rotate-ccw" size={14} strokeWidth={2.5} />
+					</button>
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	{#if shown.length > 0}
 		<div class="grid">
@@ -289,6 +336,46 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-1);
+	}
+	h2 {
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-lg);
+	}
+	.photos {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+		gap: var(--space-1);
+		margin-bottom: var(--space-6);
+	}
+	.cell {
+		position: relative;
+		aspect-ratio: 1;
+		overflow: hidden;
+		background: var(--color-surface-sunken);
+	}
+	.cell a,
+	.cell img {
+		display: block;
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+	}
+	.back {
+		position: absolute;
+		top: var(--space-1);
+		left: var(--space-1);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		min-height: 0;
+		padding: 0;
+		border: 2px solid white;
+		border-radius: var(--radius-full);
+		background: rgb(0 0 0 / 0.35);
+		color: white;
+		cursor: pointer;
 	}
 	.more {
 		display: block;

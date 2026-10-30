@@ -24,6 +24,8 @@ router = APIRouter(prefix="/groups")
 
 # Far more than anyone chooses by hand; keeps a request bounded.
 MAX_ASSETS = 2000
+# Photos of the trash shown at once.
+TRASHED_SHOWN = 300
 
 GroupView = Literal["all", "no_location", "with_location", "spread", "trash"]
 VIEWS: tuple[GroupView, ...] = ("all", "no_location", "with_location", "spread", "trash")
@@ -104,6 +106,12 @@ class GroupPhotos(BaseModel):
     ids: Annotated[list[UUID], Field(min_length=1, max_length=MAX_ASSETS)]
 
 
+class TrashedPhotos(BaseModel):
+    total: int
+    # The ones put there last.
+    photos: list[AssetItem]
+
+
 def _in_view(summary: Summary, view: GroupView) -> bool:
     if view == "trash":
         return summary.trash
@@ -121,6 +129,11 @@ async def _own_group(db: AsyncSession, account: Account, group_id: UUID) -> View
     if group is None or group.account_id != account.id:
         raise ApiError(404, "group_not_found")
     return group
+
+
+async def _rebuild_soon(db: AsyncSession, account: Account) -> None:
+    """The groups are built again without what the user just took out."""
+    await enqueue(db, view_groups.JOB_KIND, account.id, {"rebuild": True})
 
 
 async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> GroupDetail:
@@ -178,6 +191,21 @@ async def refresh_groups(account: CurrentAccount, db: DbDep) -> JobOut:
     return JobOut.of(await enqueue(db, view_groups.JOB_KIND, account.id, payload))
 
 
+@router.get("/trash-photos")
+async def trash_photos(account: CurrentAccount, db: DbDep) -> TrashedPhotos:
+    total, photos = await view_groups.trashed_photos(db, account.id, TRASHED_SHOWN)
+    return TrashedPhotos(total=total, photos=[AssetItem.of(asset) for asset in photos])
+
+
+@router.post("/trash-photos/restore")
+async def restore_trash_photos(
+    body: GroupPhotos, account: CurrentAccount, db: DbDep
+) -> TrashedPhotos:
+    await view_groups.restore_photos(db, account.id, body.ids)
+    await _rebuild_soon(db, account)
+    return await trash_photos(account, db)
+
+
 @router.get("/{group_id}")
 async def get_group(group_id: UUID, account: CurrentAccount, db: DbDep) -> GroupDetail:
     return await _detail(db, account, await _own_group(db, account, group_id))
@@ -210,6 +238,18 @@ async def exclude_photos(
 ) -> GroupDetail:
     group = await _own_group(db, account, group_id)
     await view_groups.exclude(db, group.id, body.ids)
+    await _rebuild_soon(db, account)
+    return await _detail(db, account, group)
+
+
+@router.post("/{group_id}/trash")
+async def trash_group_photos(
+    group_id: UUID, body: GroupPhotos, account: CurrentAccount, db: DbDep
+) -> GroupDetail:
+    """Photos that show nothing of the place: out of the suggestions and of the groups."""
+    group = await _own_group(db, account, group_id)
+    await view_groups.trash_photos(db, account.id, body.ids)
+    await _rebuild_soon(db, account)
     return await _detail(db, account, group)
 
 
@@ -220,4 +260,5 @@ async def include_photos(
     """Adds photos by hand, or brings back those taken out."""
     group = await _own_group(db, account, group_id)
     await view_groups.include(db, group.id, account.id, body.ids)
+    await _rebuild_soon(db, account)
     return await _detail(db, account, group)

@@ -185,13 +185,32 @@ async def run_similar_hints(ctx: JobContext) -> dict[str, Any]:
     account_id = ctx.job.account_id
     if account_id is None:
         raise JobError("account_not_found")
-    return await similar_hints.refresh(
+    payload = ctx.job.payload
+    full = bool(payload.get("full"))
+    result = await similar_hints.refresh(
         ctx.db,
         account_id,
         ctx.settings,
-        full=bool(ctx.job.payload.get("full")),
+        full=full,
+        after=UUID(payload["after"]) if payload.get("after") else None,
+        done_before=int(payload.get("photos", 0)),
+        confident_before=int(payload.get("confident", 0)),
         on_progress=ctx.report,
     )
+    if result["left"]:
+        # Queued after the jobs waiting now: a long pass does not hold them up.
+        await add(
+            ctx.db,
+            SIMILAR_HINTS,
+            account_id,
+            {
+                "full": full,
+                "after": result["after"],
+                "photos": result["photos"],
+                "confident": result["confident"],
+            },
+        )
+    return result
 
 
 async def last_full_similar_hints(

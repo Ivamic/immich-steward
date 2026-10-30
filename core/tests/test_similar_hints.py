@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The badge "similar with a location" of the gallery, computed in the background."""
 
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -8,7 +9,7 @@ from conftest import FakeImmich, run_jobs, sync
 from fastapi.testclient import TestClient
 from test_embeddings import encoded, run_module, start_worker, unit
 
-from steward import locations
+from steward import locations, similar_hints
 
 GPS = {"latitude": 42.4, "longitude": 19.26}
 
@@ -62,9 +63,35 @@ def test_the_badge_after_a_full_pass(signed_in: TestClient) -> None:
     assert badges(signed_in) == {"gps.jpg": False, "alike.jpg": True, "other.jpg": False}
     library = signed_in.get("/api/library").json()
     assert library["similar_hints_at"] is not None
-    assert library["similar_hints_job"]["progress"] == {"full": True, "photos": 2, "confident": 1}
+    assert library["similar_hints_job"]["progress"] == {
+        "full": True,
+        "photos": 2,
+        "confident": 1,
+        "left": 0,
+    }
     # The filter of the gallery.
     assert list(items_by_name(signed_in, similar_confident=True)) == ["alike.jpg"]
+
+
+def test_a_long_pass_lets_other_jobs_through(
+    signed_in: TestClient, library: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(similar_hints, "BATCH", 1)
+    monkeypatch.setattr(similar_hints, "SEARCH_FOR", timedelta(0))
+    assert signed_in.post("/api/library/similar-hints").status_code == 202
+    # Something else asked for while a slice runs goes before the rest of the pass.
+    signed_in.post("/api/library/sync", json={"full": None})
+    runner = signed_in.app.state.job_runner  # type: ignore[attr-defined]
+    assert signed_in.portal.call(runner.run_once)  # type: ignore[union-attr]
+    assert signed_in.portal.call(runner.run_once)  # type: ignore[union-attr]
+    library_now = signed_in.get("/api/library").json()
+    assert library_now["sync_job"]["status"] == "done"
+    assert library_now["similar_hints_job"]["status"] == "queued"
+
+    run_jobs(signed_in)
+    done = signed_in.get("/api/library").json()["similar_hints_job"]
+    assert done["progress"] == {"full": True, "photos": 2, "confident": 1, "left": 0}
+    assert badges(signed_in) == {"gps.jpg": False, "alike.jpg": True, "other.jpg": False}
 
 
 def test_new_vectors_are_done_in_between(
@@ -80,7 +107,7 @@ def test_new_vectors_are_done_in_between(
 
     assert badges(signed_in)["new.jpg"] is True
     job = signed_in.get("/api/library").json()["similar_hints_job"]
-    assert job["progress"] == {"full": False, "photos": 1, "confident": 1}
+    assert job["progress"] == {"full": False, "photos": 1, "confident": 1, "left": 0}
 
 
 def test_a_located_photo_loses_the_badge(signed_in: TestClient, library: dict[str, str]) -> None:

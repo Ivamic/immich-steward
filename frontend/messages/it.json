@@ -554,5 +554,9 @@
 	"groups_filter_without": "Senza luogo",
 	"groups_similarity": "Somiglianza {value}",
 	"groups_similarity_hint": "Quanto le foto sono vicine alle altre del gruppo, da 0 a 1. Una foto molto più bassa delle altre forse non appartiene a questo gruppo.",
-	"groups_sort_similarity": "Prima le meno simili"
+	"groups_sort_similarity": "Prima le meno simili",
+	"groups_photos_trash": "Nel cestino",
+	"groups_recount_hint": "I gruppi vengono ricostruiti senza queste foto; ci vuole circa un minuto. Ricarica la pagina per vedere il risultato.",
+	"groups_trashed_heading": "Singole foto nel cestino ({count})",
+	"groups_trashed_hint": "Queste foto non vengono usate per suggerire un luogo e non collegano gruppi. I loro luoghi in Immich restano invariati."
 }

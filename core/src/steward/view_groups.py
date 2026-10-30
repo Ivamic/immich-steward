@@ -14,6 +14,8 @@ one group; any other photo joins the group of its most similar close core, but l
 Photos may look alike and be far apart (beaches): a large group whose photos with a location do
 not share one spot is built again, stricter, and photos that find no place in the parts leave
 (D-186). This is the one thing in a rebuild that looks at the locations.
+A photo in the trash links nothing, and a photo taken out of a group links nothing in that group:
+the group is built as if it were not there (D-188).
 A rebuild keeps the groups whose photos it finds again: their id, name, trash mark and the photos
 added or taken out by the user.
 """
@@ -41,6 +43,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import account_settings
@@ -53,6 +56,8 @@ from steward.models import (
     ViewGroup,
     ViewGroupMember,
     ViewNeighbor,
+    ViewPhotoTrash,
+    utcnow,
 )
 from steward.modules import similar
 from steward.modules.time_neighbors import distance_m
@@ -149,6 +154,7 @@ _NEAR = text(
             WHERE other.asset_id = p.b
                 AND (other.role <> 'excluded' OR other.group_id = :group_id)
         )
+        AND NOT EXISTS (SELECT 1 FROM view_photo_trash AS trashed WHERE trashed.asset_id = p.b)
     GROUP BY p.b
     ORDER BY max(p.s) DESC
     LIMIT :limit
@@ -376,6 +382,32 @@ def split_scattered(
     return sorted(done, key=len, reverse=True)
 
 
+def uncut(
+    close: list[tuple[UUID, UUID, float]],
+    trash: set[UUID],
+    excluded: dict[UUID, set[UUID]],
+    members: dict[UUID, set[UUID]],
+) -> list[tuple[UUID, UUID, float]]:
+    """The close pairs that may link photos: none with a photo in the trash, and none between a
+    photo taken out of a group and the photos of that group (`members`, group -> photos), so that
+    the group is built as if the photo were not there."""
+    group_of = {a: group for group, photos in members.items() for a in photos}
+    out_of: dict[UUID, set[UUID]] = {}
+    for group, photos in excluded.items():
+        for a in photos:
+            out_of.setdefault(a, set()).add(group)
+
+    def linked(a: UUID, b: UUID) -> bool:
+        return (
+            a not in trash
+            and b not in trash
+            and group_of.get(b) not in out_of.get(a, ())
+            and group_of.get(a) not in out_of.get(b, ())
+        )
+
+    return [pair for pair in close if linked(pair[0], pair[1])]
+
+
 def build(
     close: list[tuple[UUID, UUID, float]], places: dict[UUID, tuple[float, float]], rule: Rule
 ) -> list[dict[UUID, str]]:
@@ -421,7 +453,7 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     """Builds the groups from the neighbors anew, keeping what the user did (see the module)."""
     sql = text(_CLOSE.format(mutual=_MUTUAL if rule.mutual else ""))
     close = await db.execute(sql, {"account_id": account_id, "similarity": rule.similarity})
-    pairs = [(a, b, float(s)) for a, b, s in close]
+    all_pairs = [(a, b, float(s)) for a, b, s in close]
     places = {
         row.id: (float(row.latitude), float(row.longitude))
         for row in await db.execute(
@@ -430,10 +462,6 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
             )
         )
     }
-    # Millions of pairs on a large library: not on the event loop, the pages would wait for them.
-    clusters = await asyncio.to_thread(build, pairs, places, rule)
-    similarities = await asyncio.to_thread(closeness, clusters, pairs)
-
     old: dict[UUID, set[UUID]] = {}
     # Photos the user added to a group or took out of it.
     added: dict[UUID, set[UUID]] = {}
@@ -446,6 +474,21 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     for group_id, asset_id, role in members:
         by_role = old if role in AUTO_ROLES else added if role == ADDED else excluded
         by_role.setdefault(group_id, set()).add(asset_id)
+    trash = set(
+        await db.scalars(
+            select(ViewPhotoTrash.asset_id).where(ViewPhotoTrash.account_id == account_id)
+        )
+    )
+    in_group = {g: old.get(g, set()) | added.get(g, set()) for g in old.keys() | added.keys()}
+
+    def work() -> tuple[list[dict[UUID, str]], list[float | None]]:
+        pairs = uncut(all_pairs, trash, excluded, in_group)
+        built = build(pairs, places, rule)
+        return built, closeness(built, pairs)
+
+    # Millions of pairs on a large library: not on the event loop, the pages would wait for them.
+    clusters, similarities = await asyncio.to_thread(work)
+
     groups = {
         group.id: group
         for group in await db.scalars(
@@ -759,6 +802,50 @@ async def include(
         ],
     )
     await db.commit()
+
+
+async def trash_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    """Puts photos of the account into the trash, and out of their groups at once."""
+    own = list(
+        await db.scalars(
+            select(Asset.id).where(Asset.id.in_(asset_ids), Asset.account_id == account_id)
+        )
+    )
+    if not own:
+        return
+    await db.execute(
+        postgresql_insert(ViewPhotoTrash)
+        .values([{"asset_id": a, "account_id": account_id, "created_at": utcnow()} for a in own])
+        .on_conflict_do_nothing()
+    )
+    await db.execute(delete(ViewGroupMember).where(ViewGroupMember.asset_id.in_(own)))
+    await db.commit()
+
+
+async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    await db.execute(
+        delete(ViewPhotoTrash).where(
+            ViewPhotoTrash.account_id == account_id, ViewPhotoTrash.asset_id.in_(asset_ids)
+        )
+    )
+    await db.commit()
+
+
+async def trashed_photos(db: AsyncSession, account_id: UUID, limit: int) -> tuple[int, list[Asset]]:
+    """How many photos are in the trash, and the ones put there last."""
+    total = await db.scalar(
+        select(func.count())
+        .select_from(ViewPhotoTrash)
+        .where(ViewPhotoTrash.account_id == account_id)
+    )
+    found = await db.scalars(
+        select(Asset)
+        .join(ViewPhotoTrash, ViewPhotoTrash.asset_id == Asset.id)
+        .where(ViewPhotoTrash.account_id == account_id)
+        .order_by(ViewPhotoTrash.created_at.desc(), Asset.id)
+        .limit(limit)
+    )
+    return total or 0, list(found)
 
 
 async def progress_counts(db: AsyncSession, account_id: UUID) -> dict[str, int]:

@@ -787,6 +787,17 @@ export const getGroup = (id: string) => request<GroupDetail>('GET', `/api/groups
 export const updateGroup = (id: string, change: { name?: string; trash?: boolean }) =>
 	request<GroupDetail>('PATCH', `/api/groups/${id}`, change);
 export const getGroupNear = (id: string) => request<AssetItem[]>('GET', `/api/groups/${id}/near`);
+/** Photos that show nothing of the place: out of the suggestions and of the groups. */
+export const trashPhotos = (id: string, ids: string[]) =>
+	request<GroupDetail>('POST', `/api/groups/${id}/trash`, { ids });
+export interface TrashedPhotos {
+	total: number;
+	/** The ones put there last. */
+	photos: AssetItem[];
+}
+export const getTrashedPhotos = () => request<TrashedPhotos>('GET', '/api/groups/trash-photos');
+export const restorePhotos = (ids: string[]) =>
+	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore', { ids });
 export const excludeFromGroup = (id: string, ids: string[]) =>
 	request<GroupDetail>('POST', `/api/groups/${id}/exclude`, { ids });
 export const includeInGroup = (id: string, ids: string[]) =>

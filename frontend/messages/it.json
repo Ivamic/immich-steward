@@ -546,5 +546,6 @@
 	"groups_add": "Aggiungi al gruppo",
 	"groups_excluded_heading": "Tolte ({count})",
 	"groups_bring_back": "Riporta",
-	"candidate_group": "{count} foto di questo gruppo sono qui"
+	"candidate_group": "{count} foto di questo gruppo sono qui",
+	"groups_settings_split_hint": "I gruppi grandi con foto in luoghi diversi (ad esempio spiagge) vengono divisi con una somiglianza più severa; le foto che non si adattano a nessuno escono dai gruppi."
 }

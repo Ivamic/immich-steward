@@ -16,6 +16,8 @@
 		type MapConfig
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
+	import { longpress } from '#lib/gallery/longpress.js';
+	import PhotoPeek from '#lib/gallery/PhotoPeek.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
 	import { galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
@@ -36,6 +38,7 @@
 	let name = $state('');
 	let busy = $state(false);
 	let locationOpen = $state(false);
+	let peek = $state<AssetItem | null>(null);
 	const selection = new Selection();
 
 	const numbers = new Intl.NumberFormat(getLocale());
@@ -109,7 +112,7 @@
 	}
 
 	function onkeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && selection.size && !locationOpen) {
+		if (event.key === 'Escape' && selection.size && !locationOpen && !peek) {
 			event.preventDefault();
 			selection.clear();
 		}
@@ -244,6 +247,7 @@
 						class="tile"
 						href={resolve('/photo/[id]', { id: photo.id })}
 						title={photo.file_name}
+						use:longpress={() => (peek = photo)}
 						onclick={(event) => clickTile(event, photo)}
 					>
 						{@render thumbnail(photo)}
@@ -276,7 +280,12 @@
 		<div class="grid">
 			{#each near as photo (photo.id)}
 				<div class="cell">
-					<a class="tile" href={resolve('/photo/[id]', { id: photo.id })} title={photo.file_name}>
+					<a
+						class="tile"
+						href={resolve('/photo/[id]', { id: photo.id })}
+						title={photo.file_name}
+						use:longpress={() => (peek = photo)}
+					>
 						{@render thumbnail(photo)}
 					</a>
 					<button
@@ -300,7 +309,12 @@
 			<div class="grid">
 				{#each detail.excluded as photo (photo.id)}
 					<div class="cell">
-						<a class="tile" href={resolve('/photo/[id]', { id: photo.id })} title={photo.file_name}>
+						<a
+							class="tile"
+							href={resolve('/photo/[id]', { id: photo.id })}
+							title={photo.file_name}
+							use:longpress={() => (peek = photo)}
+						>
 							{@render thumbnail(photo)}
 						</a>
 						<button
@@ -330,6 +344,9 @@
 		</button>
 	</SelectionBar>
 {/if}
+{#if peek}
+	<PhotoPeek item={peek} onclose={() => (peek = null)} />
+{/if}
 {#if locationOpen}
 	<SelectionLocation
 		items={[...selection.items.values()]}
@@ -343,11 +360,20 @@
 {/if}
 
 <style>
+	/* Stays under the header: a group can be thousands of photos long. */
 	.back {
+		position: sticky;
+		top: calc(var(--header-height) + var(--space-2));
+		z-index: var(--z-panel);
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-1);
 		margin-bottom: var(--space-3);
+		padding: var(--space-1) var(--space-3);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-full);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-sm);
 		font-size: var(--text-sm);
 	}
 	.head {
@@ -414,6 +440,9 @@
 		display: block;
 		width: 100%;
 		height: 100%;
+		/* A long press shows the preview, not the menu of the phone. */
+		-webkit-touch-callout: none;
+		user-select: none;
 	}
 	.tile img {
 		display: block;

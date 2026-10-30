@@ -546,5 +546,6 @@
 	"groups_add": "Add to the group",
 	"groups_excluded_heading": "Taken out ({count})",
 	"groups_bring_back": "Bring back",
-	"candidate_group": "{count} photos of this group are here"
+	"candidate_group": "{count} photos of this group are here",
+	"groups_settings_split_hint": "Large groups whose photos lie in different places (beaches, say) are split with a stricter similarity; photos that fit nowhere then leave the groups."
 }

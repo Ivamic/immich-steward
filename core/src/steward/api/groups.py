@@ -115,8 +115,8 @@ async def _own_group(db: AsyncSession, account: Account, group_id: UUID) -> View
 
 
 async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> GroupDetail:
-    summaries = await view_groups.summaries(db, account.id)
-    summary = next((s for s in summaries if s.id == group.id), None)
+    summaries = await view_groups.summaries(db, account.id, group.id)
+    summary = summaries[0] if summaries else None
     if summary is None:  # all its photos left: moved to the trash of Immich, or taken out
         summary = Summary(group.id, group.name, group.trash, 0, 0, False)
     covers = await view_groups.covers(db, [group.id])

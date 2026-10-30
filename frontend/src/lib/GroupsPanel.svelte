@@ -109,6 +109,7 @@
 			<span class="hint">{m.groups_settings_mutual_hint()}</span>
 		</span>
 	</label>
+	<p class="hint">{m.groups_settings_split_hint()}</p>
 	<p class="hint">{m.groups_settings_rebuild_hint()}</p>
 	<div>
 		<button

@@ -14,7 +14,7 @@ from test_embeddings import encoded, run_module, start_worker
 
 from steward import view_groups
 from steward.models import EMBEDDING_DIM, Account, Asset, Job, ViewGroup, ViewGroupMember
-from steward.view_groups import ATTACHED, CORE, cluster, matched, merged
+from steward.view_groups import ATTACHED, CORE, Rule, build, cluster, matched, merged
 
 # --- The rule, without a database -----------------------------------------------------------------
 
@@ -65,6 +65,62 @@ def test_a_new_neighbor_takes_its_place_in_the_list(monkeypatch: pytest.MonkeyPa
     assert merged([a, b], [0.9, 0.8], new, 0.1) == ([a, b, new], [0.9, 0.8, 0.1])
     # A photo with a new vector: its older entry goes.
     assert merged([a, b, c], [0.9, 0.8, 0.7], b, 0.95) == ([b, a, c], [0.95, 0.9, 0.7])
+
+
+def two_beaches() -> tuple[list[UUID], list[UUID], list[tuple[UUID, UUID, float]]]:
+    """Close inside (0.8), and just close to each other (0.45)."""
+    first, second = ids(6), ids(6)
+    pairs = clique(first, 0.8) + clique(second, 0.8)
+    return first, second, pairs + both_ways(list(zip(first, second, [0.45] * 6, strict=True)))
+
+
+RULE = Rule(similarity=0.4, core_neighbors=3, mutual=True)
+
+
+def test_a_large_group_far_apart_is_built_again_stricter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(view_groups, "SPLIT_FROM", 10)
+    first, second, pairs = two_beaches()
+    places = {p: (42.4, 19.26) for p in first[:3]} | {p: (45.0, 7.0) for p in second[:3]}
+    found = {frozenset(g) for g in build(pairs, places, RULE)}
+    assert found == {frozenset(first), frozenset(second)}
+
+
+def test_a_group_in_one_spot_stays_whole(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(view_groups, "SPLIT_FROM", 10)
+    first, second, pairs = two_beaches()
+    places = {p: (42.4, 19.26) for p in first + second}
+    assert [len(g) for g in build(pairs, places, RULE)] == [12]
+
+
+def test_a_group_with_too_few_locations_stays_whole(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(view_groups, "SPLIT_FROM", 10)
+    first, _, pairs = two_beaches()
+    assert [len(g) for g in build(pairs, {first[0]: (42.4, 19.26)}, RULE)] == [12]
+
+
+def test_a_small_group_far_apart_stays_whole() -> None:
+    first, second, pairs = two_beaches()
+    places = {p: (42.4, 19.26) for p in first[:3]} | {p: (45.0, 7.0) for p in second[:3]}
+    assert [len(g) for g in build(pairs, places, RULE)] == [12]
+
+
+def test_photos_that_find_no_place_in_the_parts_leave(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(view_groups, "SPLIT_FROM", 10)
+    first, second, pairs = two_beaches()
+    stray = uuid4()
+    pairs += both_ways([(stray, first[0], 0.45), (stray, second[0], 0.45)])
+    places = {p: (42.4, 19.26) for p in first[:3]} | {p: (45.0, 7.0) for p in second[:3]}
+    found = build(pairs, places, RULE)
+    assert not any(stray in g for g in found)
+    assert sum(len(g) for g in found) == 12
+
+
+def test_splitting_stops_at_the_top(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(view_groups, "SPLIT_FROM", 10)
+    photos = ids(12)
+    places = {p: (40.0 + i, 10.0) for i, p in enumerate(photos)}  # no two in one spot
+    found = build(clique(photos, 0.95), places, RULE)
+    assert [len(g) for g in found] == [12]
 
 
 def test_a_new_cluster_continues_the_old_group_sharing_most_photos() -> None:
@@ -190,6 +246,45 @@ async def view_group_jobs(client: TestClient) -> list[dict[str, Any]]:
             select(Job).where(Job.kind == view_groups.JOB_KIND).order_by(Job.created_at)
         )
         return [job.progress for job in rows]
+
+
+def test_a_rebuild_splits_a_scattered_group_and_one_part_keeps_its_name(
+    signed_in: TestClient, fake_immich: FakeImmich, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(view_groups, "SPLIT_FROM", 5)
+    # Similarity ~0.97 inside a beach, ~0.49 between the two.
+    vectors = {}
+    for beach, axis in (("north", 1), ("south", 2)):
+        for i in range(4):
+            values = [0.0] * EMBEDDING_DIM
+            values[0], values[axis], values[200 + 10 * axis + i] = 0.7, 0.7, 0.14
+            vectors[f"{beach}{i}.jpg"] = values
+    for minute, name in enumerate(vectors):
+        fake_immich.add_asset(taken=f"2024-05-01T10:{minute:02}:00", originalFileName=name)
+    sync(signed_in)
+    items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    names = {item["file_name"]: item["id"] for item in items}
+    worker = start_worker(signed_in)
+    for name, vector in vectors.items():
+        run_module(signed_in, worker, names[name], {"embedding": encoded(vector)})
+
+    schedule(signed_in)
+    found = groups(signed_in, names)
+    assert [len(g) for g in found.values()] == [8]
+    whole = next(iter(found))
+    in_db(signed_in, update(ViewGroup).where(ViewGroup.id == whole).values(name="Beaches"))
+
+    for name in names:
+        locate(signed_in, names[name], *((42.4, 19.26) if "north" in name else (45.0, 7.0)))
+    signed_in.put("/api/settings", json={"groups_core_neighbors": 2})
+    run_jobs(signed_in)
+
+    found = groups(signed_in, names)
+    assert names_of(found) == [
+        {f"north{i}.jpg" for i in range(4)},
+        {f"south{i}.jpg" for i in range(4)},
+    ]
+    assert whole in found
 
 
 def test_a_new_photo_joins_its_group(

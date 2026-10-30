@@ -11,10 +11,14 @@ The groups follow the core rule measured on the user's library (`_dev/tools/grou
 photo with at least `core_neighbors` close neighbors (similarity >= `similarity`, and with
 `mutual`, each keeping the other among its own neighbors) is a core; cores close to each other are
 one group; any other photo joins the group of its most similar close core, but links no groups.
+Photos may look alike and be far apart (beaches): a large group whose photos with a location do
+not share one spot is built again, stricter, and photos that find no place in the parts leave
+(D-186). This is the one thing in a rebuild that looks at the locations.
 A rebuild keeps the groups whose photos it finds again: their id, name, trash mark and the photos
 added or taken out by the user.
 """
 
+import asyncio
 from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
@@ -68,6 +72,16 @@ ATTACHED = "attached"
 ADDED = "added"
 EXCLUDED = "excluded"
 AUTO_ROLES = (CORE, ATTACHED)
+
+# Groups from this size that do not share one spot are split (D-186, measured on a library of
+# 133 thousand photos): similarity raised by a step until they do, up to the top.
+SPLIT_FROM = 300
+SPLIT_STEP = 0.05
+SPLIT_TOP = 0.75
+# One spot: this share of the photos with a location, at least this many, in a cell of ~1 km.
+SPOT_SHARE = 0.7
+SPOT_MIN_PHOTOS = 3
+SPOT_DECIMALS = 2
 
 # Photos this much less similar than a group asks for are shown next to it.
 NEAR_MARGIN = 0.1
@@ -310,6 +324,50 @@ def cluster(
     return sorted(groups.values(), key=len, reverse=True)
 
 
+def spot_share(members: Iterable[UUID], places: dict[UUID, tuple[float, float]]) -> float | None:
+    """The share of the photos with a location in their most common spot; None with too few."""
+    spots = Counter(
+        (round(places[a][0], SPOT_DECIMALS), round(places[a][1], SPOT_DECIMALS))
+        for a in members
+        if a in places
+    )
+    total = sum(spots.values())
+    return spots.most_common(1)[0][1] / total if total >= SPOT_MIN_PHOTOS else None
+
+
+def split_scattered(
+    clusters: list[dict[UUID, str]],
+    close: list[tuple[UUID, UUID, float]],
+    places: dict[UUID, tuple[float, float]],
+    rule: Rule,
+) -> list[dict[UUID, str]]:
+    """The groups with the large ones that share no spot built again, stricter (see the module).
+    A group with too few photos with a location stays: nothing tells that it is scattered."""
+    near: dict[UUID, list[tuple[UUID, float]]] = {}
+    for a, b, s in close:
+        near.setdefault(a, []).append((b, s))
+    done = []
+    todo = [(members, rule.similarity) for members in clusters]
+    while todo:
+        members, similarity = todo.pop()
+        share = spot_share(members, places) if len(members) >= SPLIT_FROM else None
+        if share is None or share >= SPOT_SHARE or similarity >= SPLIT_TOP:
+            done.append(members)
+            continue
+        stricter = similarity + SPLIT_STEP
+        pairs = [
+            (a, b, s) for a in members for b, s in near.get(a, ()) if s >= stricter and b in members
+        ]
+        todo.extend((part, stricter) for part in cluster(pairs, rule.core_neighbors))
+    return sorted(done, key=len, reverse=True)
+
+
+def build(
+    close: list[tuple[UUID, UUID, float]], places: dict[UUID, tuple[float, float]], rule: Rule
+) -> list[dict[UUID, str]]:
+    return split_scattered(cluster(close, rule.core_neighbors), close, places, rule)
+
+
 def matched(clusters: list[dict[UUID, str]], old: dict[UUID, set[UUID]]) -> dict[int, UUID]:
     """Which old group each new cluster continues: the one sharing most photos with it, each old
     group continued once."""
@@ -332,7 +390,17 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     """Builds the groups from the neighbors anew, keeping what the user did (see the module)."""
     sql = text(_CLOSE.format(mutual=_MUTUAL if rule.mutual else ""))
     close = await db.execute(sql, {"account_id": account_id, "similarity": rule.similarity})
-    clusters = cluster(((a, b, float(s)) for a, b, s in close), rule.core_neighbors)
+    pairs = [(a, b, float(s)) for a, b, s in close]
+    places = {
+        row.id: (float(row.latitude), float(row.longitude))
+        for row in await db.execute(
+            select(Asset.id, Asset.latitude, Asset.longitude).where(
+                Asset.account_id == account_id, located()
+            )
+        )
+    }
+    # Millions of pairs on a large library: not on the event loop, the pages would wait for them.
+    clusters = await asyncio.to_thread(build, pairs, places, rule)
 
     old: dict[UUID, set[UUID]] = {}
     # Photos the user added to a group or took out of it.
@@ -483,10 +551,13 @@ class Summary:
     spread: bool
 
 
-async def summaries(db: AsyncSession, account_id: UUID) -> list[Summary]:
-    """The groups of the account: those named by the user first, then the largest."""
+async def summaries(
+    db: AsyncSession, account_id: UUID, group_id: UUID | None = None
+) -> list[Summary]:
+    """The groups of the account (or just that one): those named by the user first, then the
+    largest."""
     place = located()
-    rows = await db.execute(
+    query = (
         select(
             ViewGroup.id,
             ViewGroup.name,
@@ -508,6 +579,9 @@ async def summaries(db: AsyncSession, account_id: UUID) -> list[Summary]:
         )
         .group_by(ViewGroup.id)
     )
+    if group_id is not None:
+        query = query.where(ViewGroup.id == group_id)
+    rows = await db.execute(query)
     found = [
         Summary(
             id=row.id,

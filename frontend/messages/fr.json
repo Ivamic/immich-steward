@@ -546,5 +546,6 @@
 	"groups_add": "Ajouter au groupe",
 	"groups_excluded_heading": "Retirées ({count})",
 	"groups_bring_back": "Remettre",
-	"candidate_group": "{count} photos de ce groupe sont ici"
+	"candidate_group": "{count} photos de ce groupe sont ici",
+	"groups_settings_split_hint": "Les grands groupes dont les photos sont dans des lieux différents (des plages, par exemple) sont divisés avec une similarité plus stricte ; les photos qui ne vont nulle part quittent alors les groupes."
 }

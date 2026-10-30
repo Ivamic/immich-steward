@@ -572,5 +572,13 @@
 	"groups_dissolve_warning": "Le sue foto non si collegano più tra loro e possono entrare in altri gruppi, o in nessuno. Il gruppo conserva il nome nell’elenco Sciolti, da cui si può riportare.",
 	"groups_view_ready": "Luogo applicabile",
 	"groups_ready_text": "{photos} delle {located} foto con luogo sono nello stesso punto. Controllalo prima sulla mappa: se queste foto sono sbagliate, lo è anche il punto.",
-	"groups_ready_set": "Applica a {count} foto"
+	"groups_ready_set": "Applica a {count} foto",
+	"groups_grouping_none": "Di seguito",
+	"groups_grouping_month": "Per mese",
+	"groups_spots": "Punti:",
+	"groups_spot_hint": "Foto con luogo per punto: A è quello con più foto. Un clic le seleziona e le mostra sulla mappa.",
+	"groups_section_choose": "Scegli quelle senza luogo",
+	"groups_section_earlier": "Senza: questo e prima",
+	"groups_section_later": "Senza: questo e dopo",
+	"groups_section_border_hint": "Sceglie le foto senza luogo fino a questo mese: un soggetto può essersi spostato a un certo punto."
 }

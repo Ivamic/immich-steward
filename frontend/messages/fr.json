@@ -572,5 +572,13 @@
 	"groups_dissolve_warning": "Ses photos ne se relient plus entre elles et peuvent rejoindre d’autres groupes, ou aucun. Le groupe garde son nom dans la liste Dissous, d’où il peut être remis.",
 	"groups_view_ready": "Lieu à appliquer",
 	"groups_ready_text": "{photos} des {located} photos avec lieu sont au même endroit. Vérifiez-le d’abord sur la carte : si ces photos sont mal placées, l’endroit l’est aussi.",
-	"groups_ready_set": "Appliquer à {count} photos"
+	"groups_ready_set": "Appliquer à {count} photos",
+	"groups_grouping_none": "À la suite",
+	"groups_grouping_month": "Par mois",
+	"groups_spots": "Endroits :",
+	"groups_spot_hint": "Photos avec lieu par endroit : A est celui qui en compte le plus. Un clic les sélectionne et les montre sur la carte.",
+	"groups_section_choose": "Choisir celles sans lieu",
+	"groups_section_earlier": "Sans : ce mois et avant",
+	"groups_section_later": "Sans : ce mois et après",
+	"groups_section_border_hint": "Sélectionne les photos sans lieu jusqu’à ce mois : un sujet a pu changer d’endroit à un moment donné."
 }

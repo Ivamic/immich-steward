@@ -572,5 +572,13 @@
 	"groups_dissolve_warning": "Its photos stop linking to each other and may join other groups, or stay in none. The group keeps its name in the list Dissolved, where it can be brought back.",
 	"groups_view_ready": "Place can be set",
 	"groups_ready_text": "{photos} of {located} photos with a location lie in one spot. Look at it on the map first: if those photos are wrong, the spot is wrong too.",
-	"groups_ready_set": "Set it on {count} photos"
+	"groups_ready_set": "Set it on {count} photos",
+	"groups_grouping_none": "In a row",
+	"groups_grouping_month": "By month",
+	"groups_spots": "Spots:",
+	"groups_spot_hint": "Photos with a location by spot: A is where most of them lie. A click chooses them and shows them on the map.",
+	"groups_section_choose": "Choose those without a location",
+	"groups_section_earlier": "Without: this and earlier",
+	"groups_section_later": "Without: this and later",
+	"groups_section_border_hint": "Chooses the photos without a location up to this month: a subject may have moved at some point."
 }

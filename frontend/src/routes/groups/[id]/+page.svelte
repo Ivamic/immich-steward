@@ -26,6 +26,13 @@
 	import PhotoPeek from '#lib/gallery/PhotoPeek.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
+	import {
+		byMonth,
+		firstPhotos,
+		photosBySpot,
+		spotLetter,
+		type Section
+	} from '#lib/gallery/sections.js';
 	import { galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
 	import TileTooltip from '#lib/gallery/TileTooltip.svelte';
 	import MapView from '#lib/map/MapView.svelte';
@@ -41,6 +48,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 
 	type PhotoFilter = 'all' | 'center' | 'with' | 'without' | 'chosen';
+	type Grouping = 'none' | 'month';
 
 	// Photos added to the page at a time: a group may have thousands.
 	const PART = 120;
@@ -50,6 +58,10 @@
 		{ id: 'with', label: m.groups_filter_with },
 		{ id: 'without', label: m.groups_filter_without },
 		{ id: 'chosen', label: m.groups_filter_chosen }
+	];
+	const GROUPINGS: { id: Grouping; label: () => string }[] = [
+		{ id: 'none', label: m.groups_grouping_none },
+		{ id: 'month', label: m.groups_grouping_month }
 	];
 
 	// Read only, and thousands of photos: not reactive one by one.
@@ -72,6 +84,7 @@
 	let shownCount = $state(PART);
 	let filter = $state<PhotoFilter>('all');
 	let byCloseness = $state(false);
+	let grouping = $state<Grouping>('none');
 	const selection = new Selection();
 	// Photos just short of the group, chosen to be added.
 	const nearChosen = new SvelteSet<string>();
@@ -115,7 +128,13 @@
 		const of = (photo: AssetItem) => closeness[photo.id] ?? Infinity;
 		return [...filtered[filter]].sort((a, b) => of(a) - of(b));
 	});
+	const spotOf = $derived(new Map((detail?.points ?? []).map((p) => [p.id, p.spot])));
+	const spots = $derived(photosBySpot(photos, spotOf));
+	const sections = $derived(grouping === 'none' ? [] : byMonth(listed, spotOf));
+	// As shown: Shift + click chooses by this order.
+	const ordered = $derived(grouping === 'none' ? listed : sections.flatMap((s) => s.photos));
 	const visible = $derived(listed.slice(0, shownCount));
+	const visibleSections = $derived(firstPhotos(sections, shownCount));
 	const dots = $derived(
 		(detail?.points ?? []).map((point) => ({
 			id: point.id,
@@ -124,6 +143,19 @@
 			chosen: chosenIds.has(point.id)
 		}))
 	);
+
+	/** Chooses the photos without a location of these sections: all of them, or up to a border. */
+	function chooseWithout(chosen: Section[]) {
+		selection.setAll(
+			chosen.flatMap((part) => part.photos).filter((photo) => !photo.has_location),
+			true
+		);
+	}
+
+	/** The photos of a spot join the choice, which shows them on the map; or leave it. */
+	function chooseSpot(of: AssetItem[]) {
+		selection.setAll(of, !of.every((photo) => chosenIds.has(photo.id)));
+	}
 
 	/** Another filter or order starts from the top. */
 	function restart(change: () => void) {
@@ -235,7 +267,7 @@
 	function clickTile(event: MouseEvent, photo: AssetItem) {
 		if (event.shiftKey && selection.anchor) {
 			event.preventDefault();
-			selection.extend(photo, listed);
+			selection.extend(photo, ordered);
 		} else if (selection.size > 0 || event.ctrlKey || event.metaKey) {
 			event.preventDefault();
 			selection.toggle(photo);
@@ -276,6 +308,45 @@
 </script>
 
 <svelte:window {onkeydown} />
+
+{#snippet groupTile(photo: AssetItem)}
+	{@const chosen = chosenIds.has(photo.id)}
+	<div class="cell" class:chosen>
+		<a
+			class="tile"
+			href={resolve('/photo/[id]', { id: photo.id })}
+			title={tooltips ? undefined : photo.file_name}
+			use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
+			use:longpress={() => (peek = photo)}
+			onclick={(event) => clickTile(event, photo)}
+		>
+			{@render thumbnail(photo)}
+			{#if photo.has_location}
+				<span class="pin" role="img" aria-label={m.asset_has_location()}>
+					<Icon name="map-pin" size={13} strokeWidth={2.25} />
+				</span>
+			{/if}
+			{#if centerIds.has(photo.id)}
+				<span class="center" title={m.groups_center_hint()}>
+					<Icon name="crosshair" size={13} strokeWidth={2.25} />
+				</span>
+			{/if}
+			{#if byCloseness && closeness[photo.id] !== undefined}
+				<span class="score">{similarity(closeness[photo.id])}</span>
+			{/if}
+		</a>
+		<button
+			type="button"
+			class="check"
+			aria-pressed={chosen}
+			aria-label={m.groups_choose_photo()}
+			title={m.groups_choose_photo()}
+			onclick={() => selection.toggle(photo)}
+		>
+			<Icon name="check" size={12} strokeWidth={3} />
+		</button>
+	</div>
+{/snippet}
 
 {#snippet thumbnail(photo: AssetItem)}
 	<img
@@ -521,6 +592,20 @@
 			</button>
 		</div>
 		<div class="tools">
+			{#each GROUPINGS as item (item.id)}
+				<button
+					type="button"
+					class="st-btn st-btn--sm"
+					class:st-btn--secondary={item.id === grouping}
+					class:st-btn--ghost={item.id !== grouping}
+					aria-pressed={item.id === grouping}
+					onclick={() => restart(() => (grouping = item.id))}
+				>
+					{item.label()}
+				</button>
+			{/each}
+		</div>
+		<div class="tools">
 			{#if withoutLocation.length > 0}
 				<button
 					type="button"
@@ -539,46 +624,79 @@
 				{m.groups_select_all()}
 			</button>
 		</div>
-		<div class="grid">
-			{#each visible as photo (photo.id)}
-				{@const chosen = chosenIds.has(photo.id)}
-				<div class="cell" class:chosen>
-					<a
-						class="tile"
-						href={resolve('/photo/[id]', { id: photo.id })}
-						title={tooltips ? undefined : photo.file_name}
-						use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
-						use:longpress={() => (peek = photo)}
-						onclick={(event) => clickTile(event, photo)}
-					>
-						{@render thumbnail(photo)}
-						{#if photo.has_location}
-							<span class="pin" role="img" aria-label={m.asset_has_location()}>
-								<Icon name="map-pin" size={13} strokeWidth={2.25} />
-							</span>
-						{/if}
-						{#if centerIds.has(photo.id)}
-							<span class="center" title={m.groups_center_hint()}>
-								<Icon name="crosshair" size={13} strokeWidth={2.25} />
-							</span>
-						{/if}
-						{#if byCloseness && closeness[photo.id] !== undefined}
-							<span class="score">{similarity(closeness[photo.id])}</span>
-						{/if}
-					</a>
+		{#if grouping !== 'none' && spots.length > 1}
+			<div class="tools spots" aria-label={m.groups_spots()}>
+				<span class="muted">{m.groups_spots()}</span>
+				{#each spots as [number, of] (number)}
 					<button
 						type="button"
-						class="check"
-						aria-pressed={chosen}
-						aria-label={m.groups_choose_photo()}
-						title={m.groups_choose_photo()}
-						onclick={() => selection.toggle(photo)}
+						class="st-btn st-btn--ghost st-btn--sm"
+						title={m.groups_spot_hint()}
+						onclick={() => chooseSpot(of)}
 					>
-						<Icon name="check" size={12} strokeWidth={3} />
+						<span class="spot">{spotLetter(number)}</span>
+						<span class="muted">{count(of.length)}</span>
 					</button>
-				</div>
+				{/each}
+			</div>
+		{/if}
+		{#if grouping === 'none'}
+			<div class="grid">
+				{#each visible as photo (photo.id)}
+					{@render groupTile(photo)}
+				{/each}
+			</div>
+		{:else}
+			{#each visibleSections as part, index (part.key)}
+				{@const whole = sections[index]}
+				{@const without = whole.photos.filter((photo) => !photo.has_location).length}
+				<section class="part">
+					<div class="part-head">
+						<h3>{part.title}</h3>
+						<span class="muted">{m.groups_photos({ count: count(whole.photos.length) })}</span>
+						{#if without > 0}
+							<span class="muted">{m.groups_without_location({ count: count(without) })}</span>
+						{/if}
+						{#each part.spots as [number, photosThere] (number)}
+							<span class="st-badge" title={m.groups_spot_hint()}>
+								<span class="spot">{spotLetter(number)}</span>
+								<span>{count(photosThere)}</span>
+							</span>
+						{/each}
+						{#if without > 0}
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								onclick={() => chooseWithout([whole])}
+							>
+								{m.groups_section_choose()}
+							</button>
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								title={m.groups_section_border_hint()}
+								onclick={() => chooseWithout(sections.slice(0, index + 1))}
+							>
+								{m.groups_section_earlier()}
+							</button>
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								title={m.groups_section_border_hint()}
+								onclick={() => chooseWithout(sections.slice(index))}
+							>
+								{m.groups_section_later()}
+							</button>
+						{/if}
+					</div>
+					<div class="grid">
+						{#each part.photos as photo (photo.id)}
+							{@render groupTile(photo)}
+						{/each}
+					</div>
+				</section>
 			{/each}
-		</div>
+		{/if}
 		{#if visible.length < listed.length}
 			<div
 				class="more"
@@ -815,6 +933,25 @@
 	}
 	.more {
 		height: 1px;
+	}
+	.part-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1) var(--space-2);
+		margin-bottom: var(--space-2);
+		font-size: var(--text-sm);
+	}
+	.part-head h3 {
+		margin: 0;
+		font-size: var(--text-base);
+	}
+	.spots {
+		align-items: center;
+		font-size: var(--text-sm);
+	}
+	.spot {
+		font-weight: var(--weight-medium);
 	}
 	summary {
 		margin-bottom: var(--space-3);

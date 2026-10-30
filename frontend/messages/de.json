@@ -572,5 +572,13 @@
 	"groups_dissolve_warning": "Die Fotos verbinden sich nicht mehr miteinander und können anderen Gruppen beitreten oder in keiner sein. Die Gruppe behält ihren Namen in der Liste Aufgelöst und lässt sich dort zurückholen.",
 	"groups_view_ready": "Ort kann gesetzt werden",
 	"groups_ready_text": "{photos} von {located} Fotos mit Ort liegen an einer Stelle. Prüfen Sie sie zuerst auf der Karte: Sind diese Fotos falsch verortet, ist es auch die Stelle.",
-	"groups_ready_set": "Für {count} Fotos setzen"
+	"groups_ready_set": "Für {count} Fotos setzen",
+	"groups_grouping_none": "Fortlaufend",
+	"groups_grouping_month": "Nach Monat",
+	"groups_spots": "Stellen:",
+	"groups_spot_hint": "Fotos mit Ort nach Stelle: A ist die Stelle mit den meisten. Ein Klick wählt sie aus und zeigt sie auf der Karte.",
+	"groups_section_choose": "Ohne Ort auswählen",
+	"groups_section_earlier": "Ohne: dieser und frühere",
+	"groups_section_later": "Ohne: dieser und spätere",
+	"groups_section_border_hint": "Wählt die Fotos ohne Ort bis zu diesem Monat: Ein Motiv kann irgendwann umgezogen sein."
 }

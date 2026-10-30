@@ -94,6 +94,9 @@ SPOT_DECIMALS = 2
 # Mean latitude, mean longitude and the photos of a cell of `SPOT_DECIMALS`.
 Cell = tuple[float, float, int]
 
+# How much stricter than the group its parts are, per level of strictness.
+PART_STEP = 0.1
+
 # Photos this much less similar than a group asks for are shown next to it.
 NEAR_MARGIN = 0.1
 NEAR_LIMIT = 60
@@ -147,6 +150,19 @@ _PHOTO_CLOSENESS = text(
         ON other.group_id = member.group_id AND other.asset_id = p.b AND other.role <> 'excluded'
     WHERE member.group_id = :group_id AND member.role <> 'excluded'
     GROUP BY member.asset_id
+    """
+)
+
+# The pairs of photos of a group, for its parts.
+_GROUP_PAIRS = text(
+    """
+    SELECT member.asset_id AS a, p.b, p.s
+    FROM view_group_member AS member
+    JOIN view_neighbor AS n ON n.asset_id = member.asset_id
+    CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
+    JOIN view_group_member AS other
+        ON other.group_id = member.group_id AND other.asset_id = p.b AND other.role <> 'excluded'
+    WHERE member.group_id = :group_id AND member.role <> 'excluded' AND p.s >= :similarity
     """
 )
 
@@ -402,6 +418,14 @@ def spots_of(places: dict[UUID, tuple[float, float]]) -> dict[UUID, int]:
         for cell in spot
         for asset_id in cells[cell]
     }
+
+
+def parts_of(pairs: list[tuple[UUID, UUID, float]], rule: Rule) -> list[list[UUID]]:
+    """The scenes of a group by the rule of the groups, from pairs of the stricter similarity."""
+    if rule.mutual:
+        linked = {(a, b) for a, b, _ in pairs}
+        pairs = [pair for pair in pairs if (pair[1], pair[0]) in linked]
+    return [list(part) for part in cluster(pairs, rule.core_neighbors)]
 
 
 def spot_share(members: Iterable[UUID], places: dict[UUID, tuple[float, float]]) -> float | None:
@@ -860,6 +884,16 @@ async def photos_of(db: AsyncSession, group_id: UUID) -> list[Asset]:
         .order_by(Asset.local_taken_at, Asset.id)
     )
     return list(found)
+
+
+async def parts(
+    db: AsyncSession, group_id: UUID, rule: Rule, level: int
+) -> tuple[float, list[list[UUID]]]:
+    """The similarity of this level of strictness and the scenes of the group at it; only a look
+    at the photos: nothing is stored and the group stays as it is."""
+    similarity = round(rule.similarity + level * PART_STEP, 3)
+    rows = await db.execute(_GROUP_PAIRS, {"group_id": group_id, "similarity": similarity})
+    return similarity, parts_of([(a, b, float(s)) for a, b, s in rows], rule)
 
 
 async def photo_closeness(db: AsyncSession, group_id: UUID) -> dict[UUID, float]:

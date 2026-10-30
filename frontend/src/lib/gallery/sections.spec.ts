@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { AssetItem } from '#lib/api.js';
 import { describe, expect, it } from 'vitest';
-import { byMonth, firstPhotos, photosBySpot, spotLetter } from './sections.js';
+import { byMonth, byPart, firstPhotos, photosBySpot, spotLetter } from './sections.js';
 
 const photo = (id: string, month: string) =>
 	({ id, local_taken_at: `${month}-10T12:00:00` }) as AssetItem;
@@ -66,5 +66,23 @@ describe('firstPhotos', () => {
 describe('spotLetter', () => {
 	it('runs out at the end of the alphabet', () => {
 		expect([spotLetter(0), spotLetter(25), spotLetter(26)]).toEqual(['A', 'Z', '…']);
+	});
+});
+
+describe('byPart', () => {
+	const photos = ['a', 'b', 'c', 'd'].map((id) => photo(id, '2024-05'));
+
+	it('keeps the order of the scenes and puts the others last', () => {
+		const sections = byPart(photos, [['c', 'd'], ['a']], new Map(), (n) => `Scene ${n}`, 'Rest');
+		expect(sections.map((s) => [s.title, s.photos.map((p) => p.id)])).toEqual([
+			['Scene 1', ['c', 'd']],
+			['Scene 2', ['a']],
+			['Rest', ['b']]
+		]);
+	});
+
+	it('leaves out a scene the filter emptied, and a rest with nothing in it', () => {
+		const sections = byPart(photos.slice(0, 2), [['c'], ['a', 'b']], new Map(), String, 'Rest');
+		expect(sections.map((s) => s.key)).toEqual(['part-1']);
 	});
 });

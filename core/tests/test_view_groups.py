@@ -25,6 +25,7 @@ from steward.view_groups import (
     gathered,
     matched,
     merged,
+    parts_of,
     spot_of,
     spots_of,
     uncut,
@@ -894,3 +895,38 @@ def test_groups_in_one_spot_are_shown_together(
 
     place(signed_in, library, *((f"kitchen{i}.jpg", FAR) for i in range(5)))
     assert signed_in.get(f"/api/groups/{yard}/same-spot").json() == []
+
+
+# --- Parts ----------------------------------------------------------------------------------------
+
+
+def test_a_group_falls_into_its_scenes() -> None:
+    first, second, stray = ids(4), ids(4), uuid4()
+    pairs = clique(first) + clique(second) + both_ways([(stray, first[0], 0.9)])
+    found = {frozenset(part) for part in parts_of(pairs, RULE)}
+    assert found == {frozenset([*first, stray]), frozenset(second)}
+
+
+def test_only_mutual_pairs_make_a_scene() -> None:
+    photos = ids(4)
+    one_way = [(a, b, 0.9) for a in photos for b in photos if a < b]
+    assert parts_of(one_way, RULE) == []
+
+
+def test_the_parts_of_a_group_leave_out_those_taken_out(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    answer = signed_in.get(f"/api/groups/{yard}/parts").json()
+    assert answer["similarity"] == 0.67
+    assert {frozenset(part) for part in answer["parts"]} == {
+        frozenset(library[f"yard{i}.jpg"] for i in range(5))
+    }
+
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
+    answer = signed_in.get(f"/api/groups/{yard}/parts", params={"level": 3}).json()
+    assert answer["similarity"] == 0.77
+    assert len(answer["parts"][0]) == 4
+
+    assert signed_in.get(f"/api/groups/{yard}/parts", params={"level": 4}).status_code == 422

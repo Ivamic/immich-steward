@@ -580,5 +580,12 @@
 	"groups_section_choose": "Choose those without a location",
 	"groups_section_earlier": "Without: this and earlier",
 	"groups_section_later": "Without: this and later",
-	"groups_section_border_hint": "Chooses the photos without a location up to this month: a subject may have moved at some point."
+	"groups_section_border_hint": "Chooses the photos without a location up to this month: a subject may have moved at some point.",
+	"groups_grouping_similar": "By similarity",
+	"groups_part": "Scene {number}",
+	"groups_part_rest": "The rest",
+	"groups_level_loose": "Loose",
+	"groups_level_medium": "Medium",
+	"groups_level_strict": "Strict",
+	"groups_level_hint": "The stricter, the smaller and closer the scenes. Photos that fit no scene are under “The rest”. The group itself does not change."
 }

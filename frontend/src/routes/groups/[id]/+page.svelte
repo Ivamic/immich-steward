@@ -8,6 +8,7 @@
 		excludeFromGroup,
 		getGroup,
 		getGroupNear,
+		getGroupParts,
 		getMapConfig,
 		includeInGroup,
 		thumbnailUrl,
@@ -28,6 +29,7 @@
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
 	import {
 		byMonth,
+		byPart,
 		firstPhotos,
 		photosBySpot,
 		spotLetter,
@@ -48,7 +50,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 
 	type PhotoFilter = 'all' | 'center' | 'with' | 'without' | 'chosen';
-	type Grouping = 'none' | 'month';
+	type Grouping = 'none' | 'month' | 'similar';
 
 	// Photos added to the page at a time: a group may have thousands.
 	const PART = 120;
@@ -61,7 +63,14 @@
 	];
 	const GROUPINGS: { id: Grouping; label: () => string }[] = [
 		{ id: 'none', label: m.groups_grouping_none },
-		{ id: 'month', label: m.groups_grouping_month }
+		{ id: 'month', label: m.groups_grouping_month },
+		{ id: 'similar', label: m.groups_grouping_similar }
+	];
+	// How strict the scenes of a group are.
+	const LEVELS: { id: number; label: () => string }[] = [
+		{ id: 1, label: m.groups_level_loose },
+		{ id: 2, label: m.groups_level_medium },
+		{ id: 3, label: m.groups_level_strict }
 	];
 
 	// Read only, and thousands of photos: not reactive one by one.
@@ -85,6 +94,9 @@
 	let filter = $state<PhotoFilter>('all');
 	let byCloseness = $state(false);
 	let grouping = $state<Grouping>('none');
+	let level = $state(2);
+	// Scenes of the group at this level; null until they arrive.
+	let parts = $state.raw<string[][] | null>(null);
 	const selection = new Selection();
 	// Photos just short of the group, chosen to be added.
 	const nearChosen = new SvelteSet<string>();
@@ -130,7 +142,12 @@
 	});
 	const spotOf = $derived(new Map((detail?.points ?? []).map((p) => [p.id, p.spot])));
 	const spots = $derived(photosBySpot(photos, spotOf));
-	const sections = $derived(grouping === 'none' ? [] : byMonth(listed, spotOf));
+	const sections = $derived.by(() => {
+		if (grouping === 'month') return byMonth(listed, spotOf);
+		if (grouping !== 'similar' || !parts) return [];
+		const title = (number: number) => m.groups_part({ number });
+		return byPart(listed, parts, spotOf, title, m.groups_part_rest());
+	});
 	// As shown: Shift + click chooses by this order.
 	const ordered = $derived(grouping === 'none' ? listed : sections.flatMap((s) => s.photos));
 	const visible = $derived(listed.slice(0, shownCount));
@@ -291,6 +308,18 @@
 	$effect(() => {
 		void galleryChanges.count;
 		load(id);
+	});
+
+	// A look at the photos as they are now, so again whenever they change.
+	$effect(() => {
+		if (grouping !== 'similar' || !detail) return;
+		const asked = level;
+		parts = null;
+		getGroupParts(detail.group.id, asked)
+			.then((answer) => {
+				if (asked === level) parts = answer.parts;
+			})
+			.catch((e) => (error = errorMessage(e)));
 	});
 
 	// The last chosen photo gone: back from the filter of the chosen ones.
@@ -604,6 +633,20 @@
 					{item.label()}
 				</button>
 			{/each}
+			{#if grouping === 'similar'}
+				{#each LEVELS as item (item.id)}
+					<button
+						type="button"
+						class="st-btn st-btn--sm st-btn--ghost"
+						aria-pressed={item.id === level}
+						title={m.groups_level_hint()}
+						onclick={() => restart(() => (level = item.id))}
+					>
+						{#if item.id === level}<Icon name="check" size={12} />{/if}
+						{item.label()}
+					</button>
+				{/each}
+			{/if}
 		</div>
 		<div class="tools">
 			{#if withoutLocation.length > 0}
@@ -640,7 +683,9 @@
 				{/each}
 			</div>
 		{/if}
-		{#if grouping === 'none'}
+		{#if grouping === 'similar' && !parts}
+			<Skeleton />
+		{:else if grouping === 'none'}
 			<div class="grid">
 				{#each visible as photo (photo.id)}
 					{@render groupTile(photo)}
@@ -671,22 +716,24 @@
 							>
 								{m.groups_section_choose()}
 							</button>
-							<button
-								type="button"
-								class="st-btn st-btn--ghost st-btn--sm"
-								title={m.groups_section_border_hint()}
-								onclick={() => chooseWithout(sections.slice(0, index + 1))}
-							>
-								{m.groups_section_earlier()}
-							</button>
-							<button
-								type="button"
-								class="st-btn st-btn--ghost st-btn--sm"
-								title={m.groups_section_border_hint()}
-								onclick={() => chooseWithout(sections.slice(index))}
-							>
-								{m.groups_section_later()}
-							</button>
+							{#if grouping === 'month'}
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									title={m.groups_section_border_hint()}
+									onclick={() => chooseWithout(sections.slice(0, index + 1))}
+								>
+									{m.groups_section_earlier()}
+								</button>
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									title={m.groups_section_border_hint()}
+									onclick={() => chooseWithout(sections.slice(index))}
+								>
+									{m.groups_section_later()}
+								</button>
+							{/if}
 						{/if}
 					</div>
 					<div class="grid">

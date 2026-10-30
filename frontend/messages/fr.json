@@ -580,5 +580,12 @@
 	"groups_section_choose": "Choisir celles sans lieu",
 	"groups_section_earlier": "Sans : ce mois et avant",
 	"groups_section_later": "Sans : ce mois et après",
-	"groups_section_border_hint": "Sélectionne les photos sans lieu jusqu’à ce mois : un sujet a pu changer d’endroit à un moment donné."
+	"groups_section_border_hint": "Sélectionne les photos sans lieu jusqu’à ce mois : un sujet a pu changer d’endroit à un moment donné.",
+	"groups_grouping_similar": "Par similarité",
+	"groups_part": "Scène {number}",
+	"groups_part_rest": "Les autres",
+	"groups_level_loose": "Souple",
+	"groups_level_medium": "Moyen",
+	"groups_level_strict": "Strict",
+	"groups_level_hint": "Plus c’est strict, plus les scènes sont petites et homogènes. Les photos sans scène sont dans « Les autres ». Le groupe lui-même ne change pas."
 }

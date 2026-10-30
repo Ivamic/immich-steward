@@ -580,5 +580,12 @@
 	"groups_section_choose": "Выбрать без места",
 	"groups_section_earlier": "Без места: этот и раньше",
 	"groups_section_later": "Без места: этот и позже",
-	"groups_section_border_hint": "Выбирает фото без места до этого месяца: предмет или питомец мог в какой-то момент переехать."
+	"groups_section_border_hint": "Выбирает фото без места до этого месяца: предмет или питомец мог в какой-то момент переехать.",
+	"groups_grouping_similar": "По похожести",
+	"groups_part": "Сцена {number}",
+	"groups_part_rest": "Остальные",
+	"groups_level_loose": "Мягко",
+	"groups_level_medium": "Средне",
+	"groups_level_strict": "Строго",
+	"groups_level_hint": "Чем строже, тем мельче и однороднее сцены. Фото, не вошедшие ни в одну, — в «Остальных». Сама группа не меняется."
 }

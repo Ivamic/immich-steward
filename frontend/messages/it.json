@@ -580,5 +580,12 @@
 	"groups_section_choose": "Scegli quelle senza luogo",
 	"groups_section_earlier": "Senza: questo e prima",
 	"groups_section_later": "Senza: questo e dopo",
-	"groups_section_border_hint": "Sceglie le foto senza luogo fino a questo mese: un soggetto può essersi spostato a un certo punto."
+	"groups_section_border_hint": "Sceglie le foto senza luogo fino a questo mese: un soggetto può essersi spostato a un certo punto.",
+	"groups_grouping_similar": "Per somiglianza",
+	"groups_part": "Scena {number}",
+	"groups_part_rest": "Le altre",
+	"groups_level_loose": "Ampio",
+	"groups_level_medium": "Medio",
+	"groups_level_strict": "Stretto",
+	"groups_level_hint": "Più è stretto, più le scene sono piccole e omogenee. Le foto senza scena sono in «Le altre». Il gruppo non cambia."
 }

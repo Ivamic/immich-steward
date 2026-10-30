@@ -580,5 +580,12 @@
 	"groups_section_choose": "Ohne Ort auswählen",
 	"groups_section_earlier": "Ohne: dieser und frühere",
 	"groups_section_later": "Ohne: dieser und spätere",
-	"groups_section_border_hint": "Wählt die Fotos ohne Ort bis zu diesem Monat: Ein Motiv kann irgendwann umgezogen sein."
+	"groups_section_border_hint": "Wählt die Fotos ohne Ort bis zu diesem Monat: Ein Motiv kann irgendwann umgezogen sein.",
+	"groups_grouping_similar": "Nach Ähnlichkeit",
+	"groups_part": "Szene {number}",
+	"groups_part_rest": "Übrige",
+	"groups_level_loose": "Locker",
+	"groups_level_medium": "Mittel",
+	"groups_level_strict": "Streng",
+	"groups_level_hint": "Je strenger, desto kleiner und enger die Szenen. Fotos ohne Szene stehen unter „Übrige“. Die Gruppe selbst bleibt unverändert."
 }

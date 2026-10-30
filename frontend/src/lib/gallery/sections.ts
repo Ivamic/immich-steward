@@ -60,6 +60,27 @@ export function byMonth(photos: AssetItem[], spotOf: Map<string, number>): Secti
 		.map(([month, of]) => section(month, monthTitle(month), of, spotOf));
 }
 
+/** The scenes of a group, the largest first, and the photos in none of them at the end. */
+export function byPart(
+	photos: AssetItem[],
+	parts: string[][],
+	spotOf: Map<string, number>,
+	title: (number: number) => string,
+	rest: string
+): Section[] {
+	const partOf = new Map(parts.flatMap((part, index) => part.map((id) => [id, index])));
+	const found: AssetItem[][] = parts.map(() => []);
+	const others: AssetItem[] = [];
+	for (const photo of photos) {
+		const index = partOf.get(photo.id);
+		(index === undefined ? others : found[index]).push(photo);
+	}
+	const sections = found.flatMap((of, index) =>
+		of.length ? [section(`part-${index}`, title(index + 1), of, spotOf)] : []
+	);
+	return others.length ? [...sections, section('rest', rest, others, spotOf)] : sections;
+}
+
 /** The sections up to `limit` photos, with what is left of the last one. */
 export function firstPhotos(sections: Section[], limit: number): Section[] {
 	const shown: Section[] = [];

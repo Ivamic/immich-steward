@@ -113,6 +113,12 @@ class GroupDetail(BaseModel):
     center: list[UUID]
 
 
+class GroupParts(BaseModel):
+    similarity: float
+    # Scenes of the group, the largest first; photos in none of them are not listed.
+    parts: list[list[UUID]]
+
+
 class GroupUpdate(BaseModel):
     """Only what is given changes."""
 
@@ -282,6 +288,20 @@ async def same_spot_groups(group_id: UUID, account: CurrentAccount, db: DbDep) -
     found = found[:SAME_SPOT_SHOWN]
     covers = await view_groups.covers(db, [s.id for s in found])
     return [GroupOut.of(s, covers.get(s.id)) for s in found]
+
+
+@router.get("/{group_id}/parts")
+async def group_parts(
+    group_id: UUID,
+    account: CurrentAccount,
+    db: DbDep,
+    level: int = Query(default=2, ge=1, le=3),
+) -> GroupParts:
+    """The scenes inside the group, by the rule of the groups made stricter."""
+    group = await _own_group(db, account, group_id)
+    rule = await view_groups.rule_of(db, account.id)
+    similarity, parts = await view_groups.parts(db, group.id, rule, level)
+    return GroupParts(similarity=similarity, parts=parts)
 
 
 @router.get("/{group_id}/near")

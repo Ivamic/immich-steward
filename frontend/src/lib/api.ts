@@ -757,6 +757,8 @@ export interface GroupOut {
 	similarity: number | null;
 	/** Where most of the photos with a location lie; null with too few of them. */
 	spot: { latitude: number; longitude: number; photos: number } | null;
+	/** Most of the photos with a location lie in the spot. */
+	main_spot: boolean;
 	/** The photos without a location can get the place of the spot. */
 	ready: boolean;
 	cover: { id: string; version: string | null } | null;
@@ -780,6 +782,8 @@ export interface GroupPoint {
 	longitude: number;
 	/** The number of its spot in the group: 0 for the largest. */
 	spot: number;
+	/** The location was written by this app. */
+	set_in_app: boolean;
 }
 
 export interface GroupDetail {
@@ -802,6 +806,12 @@ export const getGroup = (id: string) => request<GroupDetail>('GET', `/api/groups
 export const updateGroup = (id: string, change: { name?: string; trash?: boolean }) =>
 	request<GroupDetail>('PATCH', `/api/groups/${id}`, change);
 export const getGroupNear = (id: string) => request<AssetItem[]>('GET', `/api/groups/${id}/near`);
+/** What the groups say about a photo: its group, and whether it shows nothing of the place. */
+export const getPhotoGroup = (id: string) =>
+	request<{ group: { id: string; name: string | null } | null; no_sign: boolean }>(
+		'GET',
+		`/api/groups/of-photo/${id}`
+	);
 /** Other groups in the main spot of a group: other sides of one place. */
 export const getGroupSameSpot = (id: string) =>
 	request<GroupOut[]>('GET', `/api/groups/${id}/same-spot`);

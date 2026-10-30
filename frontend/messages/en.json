@@ -592,5 +592,10 @@
 	"groups_apart_hint": "These photos lie more than 1 km from the main spot of the group. That does not make them wrong: the main spot itself may be the mistake.",
 	"groups_apart_map_hint": "Violet points lie apart from the main spot.",
 	"groups_same_spot_heading": "Other groups in this spot ({count})",
-	"groups_same_spot_hint": "Other views of the same place, found by the coordinates of their photos, not by similarity."
+	"groups_same_spot_hint": "Other views of the same place, found by the coordinates of their photos, not by similarity.",
+	"groups_ready_set_in_app": "{count} of them were placed in Steward.",
+	"photo_group": "Group",
+	"photo_no_sign_label": "Signs of a place",
+	"photo_no_sign": "None: other photos do not get their place from this one.",
+	"photo_no_sign_change": "Change"
 }

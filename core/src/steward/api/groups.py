@@ -57,6 +57,8 @@ class GroupOut(BaseModel):
     similarity: float | None
     # Where most of the photos with a location lie.
     spot: GroupSpot | None = None
+    # Most of the photos with a location lie in the spot.
+    main_spot: bool = False
     # The photos without a location can get the place of the spot.
     ready: bool = False
     cover: Cover | None = None
@@ -73,6 +75,7 @@ class GroupOut(BaseModel):
             spread=summary.spread,
             similarity=summary.similarity,
             spot=GroupSpot(**asdict(summary.spot)) if summary.spot else None,
+            main_spot=summary.main_spot,
             ready=summary.ready,
             cover=Cover(id=cover[0], version=cover[1]) if cover else None,
         )
@@ -98,6 +101,8 @@ class GroupPoint(BaseModel):
     longitude: float
     # The number of its spot in the group: 0 for the largest.
     spot: int
+    # The location was written by this app; where it came from before, nobody knows here.
+    set_in_app: bool
 
 
 class GroupDetail(BaseModel):
@@ -111,6 +116,17 @@ class GroupDetail(BaseModel):
     closeness: dict[UUID, float]
     # The photos closest to the rest of the group: what it holds on to.
     center: list[UUID]
+
+
+class PhotoGroup(BaseModel):
+    id: UUID
+    name: str | None
+
+
+class PhotoGroups(BaseModel):
+    group: PhotoGroup | None
+    # Other photos do not get their place from this one.
+    no_sign: bool
 
 
 class GroupParts(BaseModel):
@@ -173,11 +189,18 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
     closeness = await view_groups.photo_closeness(db, group.id)
     points = [a for a in photos if is_located(a)]
     spots = view_groups.spots_of({a.id: (a.latitude or 0.0, a.longitude or 0.0) for a in points})
+    in_app = await view_groups.set_in_app(db, [a.id for a in points])
     return GroupDetail(
         group=GroupOut.of(summary, covers.get(group.id)),
         photos=[AssetItem.of(asset) for asset in photos],
         points=[
-            GroupPoint(id=a.id, latitude=a.latitude, longitude=a.longitude, spot=spots[a.id])
+            GroupPoint(
+                id=a.id,
+                latitude=a.latitude,
+                longitude=a.longitude,
+                spot=spots[a.id],
+                set_in_app=a.id in in_app,
+            )
             for a in points
         ],
         excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
@@ -245,6 +268,14 @@ async def reset_groups(account: CurrentAccount, db: DbDep) -> JobOut:
         raise ApiError(409, "groups_busy")
     payload = {"rebuild": True, "reset": True}
     return JobOut.of(await enqueue(db, view_groups.JOB_KIND, account.id, payload))
+
+
+@router.get("/of-photo/{asset_id}")
+async def groups_of_photo(asset_id: UUID, account: CurrentAccount, db: DbDep) -> PhotoGroups:
+    """What the groups say about a photo, for its card."""
+    group, no_sign = await view_groups.of_photo(db, account.id, asset_id)
+    found = PhotoGroup(id=group.id, name=group.name) if group else None
+    return PhotoGroups(group=found, no_sign=no_sign)
 
 
 @router.get("/trash-photos")

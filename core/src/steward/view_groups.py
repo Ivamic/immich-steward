@@ -56,6 +56,7 @@ from steward.models import (
     Asset,
     Embedding,
     Job,
+    LocationChange,
     ViewGroup,
     ViewGroupMember,
     ViewNeighbor,
@@ -733,13 +734,14 @@ class Summary:
     spot: Spot | None = None
 
     @property
+    def main_spot(self) -> bool:
+        """Most of the photos with a location share one spot, so the group has a place."""
+        return self.spot is not None and self.spot.photos / self.with_location >= SPOT_SHARE
+
+    @property
     def ready(self) -> bool:
         """The photos without a location can get the one the others share."""
-        return (
-            self.without_location > 0
-            and self.spot is not None
-            and self.spot.photos / self.with_location >= SPOT_SHARE
-        )
+        return self.main_spot and self.without_location > 0
 
 
 async def _main_spots(
@@ -1061,6 +1063,41 @@ async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUI
         )
     )
     await db.commit()
+
+
+async def of_photo(
+    db: AsyncSession, account_id: UUID, asset_id: UUID
+) -> tuple[ViewGroup | None, bool]:
+    """The group of the photo, and whether it is marked as showing nothing of the place: by
+    itself or with its group."""
+    group = await db.scalar(
+        select(ViewGroup)
+        .join(ViewGroupMember, ViewGroupMember.group_id == ViewGroup.id)
+        .where(
+            ViewGroupMember.asset_id == asset_id,
+            ViewGroupMember.role != EXCLUDED,
+            ViewGroup.account_id == account_id,
+            ViewGroup.dissolved.is_(False),
+        )
+    )
+    marked = await db.scalar(
+        select(
+            exists().where(
+                ViewPhotoTrash.asset_id == asset_id, ViewPhotoTrash.account_id == account_id
+            )
+        )
+    )
+    return group, bool(marked) or (group is not None and group.trash)
+
+
+async def set_in_app(db: AsyncSession, asset_ids: list[UUID]) -> set[UUID]:
+    """Those of the photos whose location was written by this app."""
+    rows = await db.scalars(
+        select(LocationChange.asset_id)
+        .where(LocationChange.asset_id.in_(asset_ids), LocationChange.status == "applied")
+        .distinct()
+    )
+    return set(rows)
 
 
 async def trashed_photos(db: AsyncSession, account_id: UUID, limit: int) -> tuple[int, list[Asset]]:

@@ -592,5 +592,10 @@
 	"groups_apart_hint": "Ces photos sont à plus de 1 km de l’endroit principal du groupe. Elles ne sont pas forcément fausses : l’erreur peut venir de l’endroit principal lui-même.",
 	"groups_apart_map_hint": "Les points violets sont loin de l’endroit principal.",
 	"groups_same_spot_heading": "Autres groupes à cet endroit ({count})",
-	"groups_same_spot_hint": "Autres vues du même lieu, trouvées d’après les coordonnées des photos et non la similarité."
+	"groups_same_spot_hint": "Autres vues du même lieu, trouvées d’après les coordonnées des photos et non la similarité.",
+	"groups_ready_set_in_app": "Dont {count} placées dans Steward.",
+	"photo_group": "Groupe",
+	"photo_no_sign_label": "Indices de lieu",
+	"photo_no_sign": "Aucun : les autres photos n’en tirent pas leur lieu.",
+	"photo_no_sign_change": "Modifier"
 }

@@ -9,11 +9,19 @@ from uuid import UUID, uuid4
 import pytest
 from conftest import FakeImmich, run_jobs, sync
 from fastapi.testclient import TestClient
-from sqlalchemy import select, update
+from sqlalchemy import insert, select, update
 from test_embeddings import encoded, run_module, start_worker
 
 from steward import similar_hints, view_groups
-from steward.models import EMBEDDING_DIM, Account, Asset, Job, ViewGroup, ViewGroupMember
+from steward.models import (
+    EMBEDDING_DIM,
+    Account,
+    Asset,
+    Job,
+    LocationChange,
+    ViewGroup,
+    ViewGroupMember,
+)
 from steward.view_groups import (
     ATTACHED,
     CORE,
@@ -610,7 +618,13 @@ def test_the_map_points_are_the_photos_with_a_location(
     locate(signed_in, library["yard1.jpg"], 0, 0)  # what Immich takes for "no location"
     group = signed_in.get(f"/api/groups/{group_of(signed_in, library, 'yard0.jpg')}").json()
     assert group["points"] == [
-        {"id": library["yard0.jpg"], "latitude": 42.4, "longitude": 19.26, "spot": 0}
+        {
+            "id": library["yard0.jpg"],
+            "latitude": 42.4,
+            "longitude": 19.26,
+            "spot": 0,
+            "set_in_app": False,
+        }
     ]
 
 
@@ -847,7 +861,7 @@ def test_a_group_is_ready_when_the_photos_with_a_location_share_a_spot(
     answer = signed_in.get("/api/groups", params={"view": "ready"}).json()
     assert answer["counts"]["ready"] == 1
     group = answer["groups"][0]
-    assert group["without_location"] == 2 and group["ready"]
+    assert group["without_location"] == 2 and group["ready"] and group["main_spot"]
     assert group["spot"]["photos"] == 3
     assert abs(group["spot"]["latitude"] - YARD[0]) < 0.001
 
@@ -930,3 +944,77 @@ def test_the_parts_of_a_group_leave_out_those_taken_out(
     assert len(answer["parts"][0]) == 4
 
     assert signed_in.get(f"/api/groups/{yard}/parts", params={"level": 4}).status_code == 422
+
+
+def test_half_of_the_photos_in_one_spot_is_no_main_spot(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    place(
+        signed_in,
+        library,
+        ("kitchen0.jpg", YARD),
+        ("kitchen1.jpg", YARD),
+        ("kitchen2.jpg", FAR),
+        ("kitchen3.jpg", FAR),
+    )
+    kitchen = group_of(signed_in, library, "kitchen0.jpg")
+    group = signed_in.get(f"/api/groups/{kitchen}").json()["group"]
+    assert group["spot"] is not None and not group["main_spot"] and not group["ready"]
+
+
+def test_a_point_tells_a_location_set_in_the_app(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    place(signed_in, library, ("yard0.jpg", YARD), ("yard1.jpg", YARD))
+    yard = group_of(signed_in, library, "yard0.jpg")
+
+    def write(status: str, name: str) -> None:
+        in_db(
+            signed_in,
+            insert(LocationChange).values(
+                asset_id=UUID(library[name]),
+                latitude=YARD[0],
+                longitude=YARD[1],
+                source="manual",
+                status=status,
+            ),
+        )
+
+    write("applied", "yard0.jpg")
+    write("undone", "yard1.jpg")
+    points = signed_in.get(f"/api/groups/{yard}").json()["points"]
+    assert {p["id"]: p["set_in_app"] for p in points} == {
+        library["yard0.jpg"]: True,
+        library["yard1.jpg"]: False,
+    }
+
+
+def test_the_card_of_a_photo_tells_its_group(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    photo = library["yard0.jpg"]
+    signed_in.patch(f"/api/groups/{yard}", json={"name": "Yard"})
+
+    answer = signed_in.get(f"/api/groups/of-photo/{photo}").json()
+    assert answer == {"group": {"id": str(yard), "name": "Yard"}, "no_sign": False}
+
+    signed_in.patch(f"/api/groups/{yard}", json={"trash": True})
+    assert signed_in.get(f"/api/groups/of-photo/{photo}").json()["no_sign"]
+    signed_in.patch(f"/api/groups/{yard}", json={"trash": False})
+
+    alone = library["alone.jpg"]
+    assert signed_in.get(f"/api/groups/of-photo/{alone}").json() == {
+        "group": None,
+        "no_sign": False,
+    }
+
+    # Marked by itself, it left the group.
+    signed_in.post(f"/api/groups/{yard}/trash", json={"ids": [photo]})
+    assert signed_in.get(f"/api/groups/of-photo/{photo}").json() == {
+        "group": None,
+        "no_sign": True,
+    }

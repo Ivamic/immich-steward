@@ -8,6 +8,7 @@
 <script lang="ts">
 	import {
 		getAsset,
+		getPhotoGroup,
 		getMapConfig,
 		getSuggestions,
 		isPending,
@@ -62,10 +63,26 @@
 	const id = $derived(page.params.id ?? '');
 	const filter = $derived(filterFromUrl(page.url.searchParams));
 	const query = $derived(filterToUrl(filter));
-	// Back to the gallery at the photo shown now (after stepping through others, too).
-	const backUrl = $derived(resolve(`/${atPhoto(query, id)}`));
+	// Opened from a group: the way back goes there, also after stepping through other photos.
+	const fromGroup = $derived(page.url.searchParams.get('group'));
+	const groupView = $derived.by((): '' | `?${string}` => {
+		const view = page.url.searchParams.get('view');
+		return view ? `?view=${encodeURIComponent(view)}` : '';
+	});
+	const stepQuery = $derived.by((): `?${string}` => {
+		if (!fromGroup) return query;
+		const view = groupView ? `&${groupView.slice(1)}` : '';
+		return `${query}&group=${encodeURIComponent(fromGroup)}${view}`;
+	});
+	// Else back to the gallery at the photo shown now (after stepping through others, too).
+	const backUrl = $derived(
+		fromGroup
+			? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
+			: resolve(`/${atPhoto(query, id)}`)
+	);
 
 	let asset = $state<AssetDetail | null>(null);
+	let groups = $state<Awaited<ReturnType<typeof getPhotoGroup>> | null>(null);
 	let mapConfig = $state<MapConfig | null>(null);
 	let error = $state<string | null>(null);
 	let busy = $state(false);
@@ -129,6 +146,17 @@
 		timeStyle: 'short'
 	});
 	const place = $derived([asset?.city, asset?.state, asset?.country].filter(Boolean).join(', '));
+
+	// Apart from the photo: the card works without it.
+	$effect(() => {
+		const asked = id;
+		groups = null;
+		getPhotoGroup(asked)
+			.then((answer) => {
+				if (asked === id) groups = answer;
+			})
+			.catch(() => {});
+	});
 
 	$effect(() => {
 		getMapConfig()
@@ -350,7 +378,7 @@
 	}
 
 	function open(targetId: string | null | undefined) {
-		if (targetId) goto(resolve(`/photo/[id]${query}`, { id: targetId }));
+		if (targetId) goto(resolve(`/photo/[id]${stepQuery}`, { id: targetId }));
 	}
 
 	async function review(status: ReviewStatus) {
@@ -812,6 +840,27 @@
 						{#if asset.albums.length}
 							<dt>{m.photo_albums()}</dt>
 							<dd>{asset.albums.join(', ')}</dd>
+						{/if}
+						{#if groups?.group}
+							<dt>{m.photo_group()}</dt>
+							<dd>
+								<a href={resolve('/groups/[id]', { id: groups.group.id })}>
+									{groups.group.name ?? m.groups_unnamed()}
+								</a>
+							</dd>
+						{/if}
+						{#if groups?.no_sign}
+							<dt>{m.photo_no_sign_label()}</dt>
+							<dd>
+								{m.photo_no_sign()}
+								<a
+									href={groups.group
+										? resolve('/groups/[id]', { id: groups.group.id })
+										: resolve('/groups?view=trash')}
+								>
+									{m.photo_no_sign_change()}
+								</a>
+							</dd>
 						{/if}
 						<dt>{m.photo_location()}</dt>
 						<dd>

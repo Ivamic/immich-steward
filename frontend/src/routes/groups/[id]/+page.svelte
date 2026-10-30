@@ -45,10 +45,10 @@
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Skeleton from '#lib/ui/Skeleton.svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	type PhotoFilter = 'all' | 'center' | 'with' | 'without' | 'apart' | 'chosen';
@@ -56,6 +56,8 @@
 
 	// Photos added to the page at a time: a group may have thousands.
 	const PART = 120;
+	// What the page looked like when a photo was opened from it.
+	const PLACE_KEY = 'steward.group.place';
 	const FILTERS: { id: PhotoFilter; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
 		{ id: 'center', label: m.groups_filter_center },
@@ -99,8 +101,14 @@
 	let byCloseness = $state(false);
 	let grouping = $state<Grouping>('none');
 	let level = $state(2);
-	// Scenes of the group at this level; null until they arrive.
+	// Scenes of the group at the last level that arrived: those shown stay until the next ones are
+	// there, so that the page keeps its height and does not jump to the top.
 	let parts = $state.raw<string[][] | null>(null);
+	let partsBusy = $state(false);
+	// For the way back from a photo: the page is ready for its height when these are done.
+	let loaded: Promise<unknown> = Promise.resolve();
+	let configLoaded: Promise<unknown> = Promise.resolve();
+	let partsLoaded: Promise<unknown> = Promise.resolve();
 	const selection = new Selection();
 	// Photos just short of the group, chosen to be added.
 	const nearChosen = new SvelteSet<string>();
@@ -127,6 +135,9 @@
 		const view = page.url.searchParams.get('view');
 		return view ? `?view=${encodeURIComponent(view)}` : '';
 	});
+	const photoQuery = $derived<`?${string}`>(
+		`?group=${encodeURIComponent(id)}${query ? `&${query.slice(1)}` : ''}`
+	);
 	const photos = $derived(detail?.photos ?? []);
 	const centerIds = $derived(new Set(detail?.center ?? []));
 	const center = $derived(photos.filter((photo) => centerIds.has(photo.id)));
@@ -135,9 +146,9 @@
 	const chosenIds = $derived(new Set(selection.ids));
 	const chosenPhotos = $derived(photos.filter((photo) => chosenIds.has(photo.id)));
 	const spotOf = $derived(new Map((detail?.points ?? []).map((p) => [p.id, p.spot])));
-	// Far from the main spot; nothing is apart from a group with too few photos to have one.
+	// Far from the main spot: only a group where most photos with a location share one has it.
 	const apartPhotos = $derived(
-		detail?.group.spot ? photos.filter((photo) => (spotOf.get(photo.id) ?? 0) > 0) : []
+		detail?.group.main_spot ? photos.filter((photo) => (spotOf.get(photo.id) ?? 0) > 0) : []
 	);
 	const apartIds = $derived(new Set(apartPhotos.map((photo) => photo.id)));
 	const filtered = $derived<Record<PhotoFilter, AssetItem[]>>({
@@ -166,9 +177,13 @@
 		return byPart(listed, parts, spotOf, title, m.groups_part_rest());
 	});
 	// As shown: Shift + click chooses by this order.
-	const ordered = $derived(grouping === 'none' ? listed : sections.flatMap((s) => s.photos));
+	const inOneRow = $derived(grouping === 'none' || (grouping === 'similar' && !parts));
+	const ordered = $derived(inOneRow ? listed : sections.flatMap((s) => s.photos));
 	const visible = $derived(listed.slice(0, shownCount));
 	const visibleSections = $derived(firstPhotos(sections, shownCount));
+	const setInAppAtSpot = $derived(
+		(detail?.points ?? []).filter((point) => point.spot === 0 && point.set_in_app).length
+	);
 	const dots = $derived(
 		(detail?.points ?? []).map((point) => ({
 			id: point.id,
@@ -337,8 +352,57 @@
 		}
 	}
 
+	/** Storage may be unavailable: the page then just opens from the top. */
+	function rememberPlace() {
+		const place = {
+			id,
+			shown: shownCount,
+			top: window.scrollY,
+			filter,
+			grouping,
+			level,
+			byCloseness
+		};
+		try {
+			sessionStorage.setItem(PLACE_KEY, JSON.stringify(place));
+		} catch {
+			// nothing to do
+		}
+	}
+
+	function rememberedPlace() {
+		try {
+			const place = JSON.parse(sessionStorage.getItem(PLACE_KEY) ?? 'null');
+			return place?.id === id ? place : null;
+		} catch {
+			return null;
+		}
+	}
+
+	beforeNavigate(({ to }) => {
+		if (to?.route.id === '/photo/[id]') rememberPlace();
+	});
+
+	// Back from a photo: the same view of the photos, at the same height.
+	afterNavigate(async ({ from }) => {
+		if (from?.route.id !== '/photo/[id]') return;
+		const place = rememberedPlace();
+		if (!place) return;
+		// What was chosen is gone with the page.
+		filter = place.filter === 'chosen' ? 'all' : place.filter;
+		grouping = place.grouping;
+		level = place.level;
+		byCloseness = place.byCloseness;
+		shownCount = place.shown;
+		await Promise.all([loaded, configLoaded]);
+		await tick();
+		await partsLoaded;
+		await tick();
+		window.scrollTo({ top: place.top });
+	});
+
 	$effect(() => {
-		getMapConfig()
+		configLoaded = getMapConfig()
 			.then((config) => (mapConfig = config))
 			.catch((e) => (error = errorMessage(e)));
 	});
@@ -347,19 +411,20 @@
 	$effect(() => {
 		void galleryChanges.count;
 		const group = id;
-		untrack(() => load(group));
+		loaded = untrack(() => load(group));
 	});
 
 	// A look at the photos as they are now, so again whenever they change.
 	$effect(() => {
 		if (grouping !== 'similar' || !detail) return;
 		const asked = level;
-		parts = null;
-		getGroupParts(detail.group.id, asked)
+		partsBusy = true;
+		partsLoaded = getGroupParts(detail.group.id, asked)
 			.then((answer) => {
 				if (asked === level) parts = answer.parts;
 			})
-			.catch((e) => (error = errorMessage(e)));
+			.catch((e) => (error = errorMessage(e)))
+			.finally(() => (partsBusy = false));
 	});
 
 	// The last photo of a filter gone: back from it.
@@ -383,7 +448,7 @@
 	<div class="cell" class:chosen>
 		<a
 			class="tile"
-			href={resolve('/photo/[id]', { id: photo.id })}
+			href={resolve(`/photo/[id]${photoQuery}`, { id: photo.id })}
 			title={tooltips ? undefined : photo.file_name}
 			use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
 			use:longpress={() => (peek = photo)}
@@ -505,6 +570,9 @@
 					photos: count(detail.group.spot.photos),
 					located: count(detail.group.with_location)
 				})}
+				{#if setInAppAtSpot > 0}
+					{m.groups_ready_set_in_app({ count: count(setInAppAtSpot) })}
+				{/if}
 			</p>
 			<button type="button" class="st-btn st-btn--primary st-btn--sm" onclick={setSpot}>
 				<Icon name="map-pin" size={14} />
@@ -605,7 +673,7 @@
 					<div class="cell" class:chosen>
 						<a
 							class="tile"
-							href={resolve('/photo/[id]', { id: photo.id })}
+							href={resolve(`/photo/[id]${photoQuery}`, { id: photo.id })}
 							title={tooltips ? undefined : photo.file_name}
 							use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
 							use:longpress={() => (peek = photo)}
@@ -637,7 +705,7 @@
 					<div class="cell">
 						<a
 							class="tile"
-							href={resolve('/photo/[id]', { id: photo.id })}
+							href={resolve(`/photo/[id]${photoQuery}`, { id: photo.id })}
 							title={tooltips ? undefined : photo.file_name}
 							use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
 							use:longpress={() => (peek = photo)}
@@ -716,6 +784,9 @@
 						{item.label()}
 					</button>
 				{/each}
+				{#if partsBusy}
+					<span class="st-spin"><Icon name="loader-circle" size={14} /></span>
+				{/if}
 			{/if}
 		</div>
 		<div class="tools">
@@ -753,9 +824,7 @@
 				{/each}
 			</div>
 		{/if}
-		{#if grouping === 'similar' && !parts}
-			<Skeleton />
-		{:else if grouping === 'none'}
+		{#if inOneRow}
 			<div class="grid">
 				{#each visible as photo (photo.id)}
 					{@render groupTile(photo)}

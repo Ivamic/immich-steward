@@ -2,6 +2,14 @@
 // HTML markers over the map: module suggestions (shape × color × number) and pins (the picked
 // point, the location in Immich). Styles: `.st-marker`, `.st-pin` (styles/components/map.css).
 
+/** A photo shown as a point on the map; `chosen` marks it. */
+export interface MapDot {
+	id: string;
+	lat: number;
+	lon: number;
+	chosen: boolean;
+}
+
 // Shapes on a 28 × 28 grid. Shape tells modules apart without relying on color (FR-31).
 const SHAPES: Record<string, string> = {
 	circle: '<circle cx="14" cy="14" r="12"/>',

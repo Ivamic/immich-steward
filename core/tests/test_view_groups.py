@@ -347,3 +347,128 @@ def test_the_button_searches_all_the_photos_again(
     assert progress[-1]["searched"] == 11
     assert progress[-1]["rebuilt"] is True
     assert len(groups(signed_in, library)) == 2
+
+
+def test_the_map_points_are_the_photos_with_a_location(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    locate(signed_in, library["yard0.jpg"], 42.4, 19.26)
+    locate(signed_in, library["yard1.jpg"], 0, 0)  # what Immich takes for "no location"
+    group = signed_in.get(f"/api/groups/{group_of(signed_in, library, 'yard0.jpg')}").json()
+    assert group["points"] == [{"id": library["yard0.jpg"], "latitude": 42.4, "longitude": 19.26}]
+
+
+def test_a_photo_taken_out_comes_back_by_hand_and_stays(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    photo = library["yard4.jpg"]
+
+    answer = signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [photo]}).json()
+    assert [p["file_name"] for p in answer["excluded"]] == ["yard4.jpg"]
+    assert answer["group"]["photos"] == 4
+
+    answer = signed_in.post(f"/api/groups/{yard}/include", json={"ids": [photo]}).json()
+    assert answer["excluded"] == []
+    assert answer["group"]["photos"] == 5
+    assert groups(signed_in, library)[yard]["yard4.jpg"] == "added"
+
+    # A rebuild leaves it as the user put it, and does not repeat it as found by the rule.
+    signed_in.put("/api/settings", json={"groups_similarity": 0.5})
+    run_jobs(signed_in)
+    assert groups(signed_in, library)[yard]["yard4.jpg"] == "added"
+
+
+def test_a_photo_added_to_a_group_leaves_its_old_one(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    kitchen = group_of(signed_in, library, "kitchen0.jpg")
+    signed_in.post(f"/api/groups/{yard}/include", json={"ids": [library["kitchen0.jpg"]]})
+    found = groups(signed_in, library)
+    assert "kitchen0.jpg" in found[yard]
+    assert "kitchen0.jpg" not in found[kitchen]
+
+
+def test_the_photos_just_short_of_a_group(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    fake_immich.add_asset(taken="2024-05-01T11:00:00", originalFileName="almost.jpg")
+    sync(signed_in, full=True)
+    items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    library = {item["file_name"]: item["id"] for item in items}
+    # Similarity to the yard: ~0.36, under the 0.40 of a group, above 0.30.
+    vector = [0.0] * EMBEDDING_DIM
+    vector[0], vector[300] = 0.38, 0.925
+    worker = start_worker(signed_in)
+    run_module(signed_in, worker, library["almost.jpg"], {"embedding": encoded(vector)})
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    kitchen = group_of(signed_in, library, "kitchen0.jpg")
+
+    assert [p["file_name"] for p in signed_in.get(f"/api/groups/{yard}/near").json()] == [
+        "almost.jpg"
+    ]
+    assert signed_in.get(f"/api/groups/{kitchen}/near").json() == []
+
+    signed_in.post(f"/api/groups/{yard}/include", json={"ids": [library["almost.jpg"]]})
+    assert signed_in.get(f"/api/groups/{yard}/near").json() == []
+
+
+def test_the_photos_of_a_trash_group_suggest_no_place(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    location = {"latitude": 42.4, "longitude": 19.26}
+    assert signed_in.put(f"/api/assets/{library['yard0.jpg']}/location", json=location).is_success
+
+    def similar_candidates() -> list[Any]:
+        blocks = signed_in.get(f"/api/assets/{library['yard1.jpg']}/suggestions").json()
+        return next(b for b in blocks if b["key"] == "similar")["candidates"]
+
+    assert len(similar_candidates()) == 1
+
+    yard = group_of(signed_in, library, "yard0.jpg")
+    response = signed_in.patch(f"/api/groups/{yard}", json={"trash": True})
+    assert response.json()["group"]["trash"] is True
+    assert response.json()["group"]["name"] is None
+    assert similar_candidates() == []
+
+    # A photo taken out of the group is a place again.
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard0.jpg"]]})
+    assert len(similar_candidates()) == 1
+
+
+def test_the_places_of_the_group_are_suggested_for_its_photos(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    locate(signed_in, library["yard0.jpg"], 42.4, 19.26)
+    locate(signed_in, library["yard1.jpg"], 42.4, 19.2601)
+    locate(signed_in, library["yard2.jpg"], 45.0, 7.0)
+
+    def blocks(ids: list[str], group: UUID | None) -> dict[str, Any]:
+        body = {"ids": ids, "group_id": str(group) if group else None}
+        response = signed_in.post("/api/selection/suggestions", json=body)
+        assert response.status_code == 200
+        return {b["key"]: b for b in response.json()}
+
+    found = blocks([library["yard3.jpg"], library["yard4.jpg"]], yard)
+    places = found["group"]["candidates"]
+    assert [round(c["latitude"]) for c in places] == [42, 45]  # the larger place first
+    assert [(c["kind"], c["evidence"]["photos"]) for c in places] == [("group", 2), ("group", 1)]
+    assert next(iter(found)) == "group"
+
+    # A photo chosen is not a place of its own.
+    found = blocks([library["yard2.jpg"]], yard)
+    assert [round(c["latitude"]) for c in found["group"]["candidates"]] == [42]
+
+    assert "group" not in blocks([library["yard3.jpg"]], None)
+    refused = signed_in.post(
+        "/api/selection/suggestions", json={"ids": [library["yard3.jpg"]], "group_id": str(uuid4())}
+    )
+    assert refused.status_code == 404

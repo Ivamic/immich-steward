@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.config import Settings
+from steward.embeddings import is_located
 from steward.gallery import CAMERA_SEPARATOR
 from steward.models import Asset, LocationChange, ModuleRun
 from steward.modules import REMOTE_MODULES, similar
@@ -37,6 +38,13 @@ from steward.worker_queue import whole_photo
 SELECTION_ID = "selection"
 SELECTION_COLOR = "#8250df"
 SELECTION_SHAPE: MarkerShape = "circle"
+
+# The other photos of the group the chosen ones came from (D-185): each place they form is a
+# suggestion.
+GROUP_ID = "group"
+GROUP_COLOR = "#bc4c00"
+GROUP_SHAPE: MarkerShape = "pentagon"
+MAX_GROUP_PLACES = 9
 
 # Locations closer than this are one suggestion.
 MERGE_DISTANCE_M = 100.0
@@ -70,9 +78,10 @@ async def suggest(
     assets: list[Asset],
     settings: Settings,
     confident: Callable[[str, float], bool],
+    group_photos: list[Asset] | None = None,
 ) -> list[Block]:
     """Suggestion blocks for the chosen photos, in display order; `confident(module, score)` tells
-    the results of a worker module worth showing."""
+    the results of a worker module worth showing; `group_photos`: the group they were chosen in."""
     neighbors = TimeNeighbors()
     blocks = [
         Block(SELECTION_ID, await _located(db, assets), SELECTION_COLOR, SELECTION_SHAPE),
@@ -87,10 +96,21 @@ async def suggest(
     for remote in REMOTE_MODULES.values():
         result = await _remote(db, account_id, assets, remote.id, settings, confident)
         blocks.append(Block(remote.id, result, remote.color, remote.shape))
+    chosen = {a.id for a in assets}
+    others = [a for a in group_photos or [] if a.id not in chosen and is_located(a)]
+    if others:
+        places = await _located(db, others, similar.JOIN_M, "group")
+        places.candidates = places.candidates[:MAX_GROUP_PLACES]
+        blocks.append(Block(GROUP_ID, places, GROUP_COLOR, GROUP_SHAPE))
     return blocks
 
 
-async def _located(db: AsyncSession, assets: list[Asset]) -> ModuleResult:
+async def _located(
+    db: AsyncSession,
+    assets: list[Asset],
+    merge_m: float = MERGE_DISTANCE_M,
+    kind: str = "selected",
+) -> ModuleResult:
     located = [a for a in assets if a.latitude is not None and a.longitude is not None]
     if not located:
         return ModuleResult(note="none_located")
@@ -103,9 +123,9 @@ async def _located(db: AsyncSession, assets: list[Asset]) -> ModuleResult:
             longitude=asset.longitude,  # type: ignore[arg-type]
             score=0.0,
             radius_m=BASE_RADIUS_M,
-            kind="selected",
+            kind=kind,
         )
-        _add(clusters, candidate, asset.id, [point], MERGE_DISTANCE_M)
+        _add(clusters, candidate, asset.id, [point], merge_m)
     candidates = [
         replace(
             cluster.best,

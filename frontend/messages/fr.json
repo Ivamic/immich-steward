@@ -531,5 +531,20 @@
 	"groups_settings_mutual_hint": "Deux photos ne sont proches que si chacune figure parmi les plus similaires de l’autre. Désactivé : les groupes peuvent s’enchaîner jusqu’à des milliers de photos de lieux différents.",
 	"groups_settings_rebuild_hint": "Une modification reconstruit les groupes en arrière-plan. Les noms et vos changements sont conservés.",
 	"groups_settings_search_again": "Comparer à nouveau toutes les photos",
-	"groups_settings_search_again_hint": "Les nouvelles photos sont comparées automatiquement. C’est rarement nécessaire et peut prendre environ une heure sur une grande bibliothèque."
+	"groups_settings_search_again_hint": "Les nouvelles photos sont comparées automatiquement. C’est rarement nécessaire et peut prendre environ une heure sur une grande bibliothèque.",
+	"module_group": "Ce groupe",
+	"groups_select_without_location": "Choisir toutes celles sans lieu ({count})",
+	"groups_select_all": "Tout choisir",
+	"groups_choose_photo": "Choisir cette photo",
+	"groups_exclude": "Retirer du groupe",
+	"groups_trash": "Marquer comme corbeille",
+	"groups_untrash": "Pas de la corbeille",
+	"groups_trash_hint": "Ces photos ne montrent rien du lieu (un animal, un document) : elles ne servent jamais à suggérer un lieu. Leurs lieux dans Immich ne changent pas.",
+	"groups_map_hint": "Un clic sur un point ou un nombre choisit ses photos ; un autre clic les retire du choix.",
+	"groups_near_heading": "Juste en dehors de ce groupe",
+	"groups_near_hint": "Des photos similaires qui ne sont dans aucun groupe. Ajoutez celles qui ont leur place ici.",
+	"groups_add": "Ajouter au groupe",
+	"groups_excluded_heading": "Retirées ({count})",
+	"groups_bring_back": "Remettre",
+	"candidate_group": "{count} photos de ce groupe sont ici"
 }

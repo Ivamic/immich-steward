@@ -94,6 +94,8 @@ export function moduleName(id: string): string {
 			return m.module_similar();
 		case 'selection':
 			return m.module_selection();
+		case 'group':
+			return m.module_group();
 		default:
 			return id;
 	}
@@ -137,13 +139,18 @@ export function candidateLabel(candidate: Candidate): string {
 	const label = singleLabel(candidate);
 	// Several chosen photos with the same suggestion (D-149).
 	const photos = candidate.evidence.photos;
-	return candidate.kind !== 'selected' && typeof photos === 'number' && photos > 1
+	const counted = candidate.kind === 'selected' || candidate.kind === 'group';
+	return !counted && typeof photos === 'number' && photos > 1
 		? m.candidate_photos({ label, count: photos })
 		: label;
 }
 
 function singleLabel(candidate: Candidate): string {
 	const neighbors = candidate.evidence.neighbors ?? [];
+	if (candidate.kind === 'group') {
+		const photos = typeof candidate.evidence.photos === 'number' ? candidate.evidence.photos : 1;
+		return m.candidate_group({ count: photos });
+	}
 	if (candidate.kind === 'selected') {
 		const photos = typeof candidate.evidence.photos === 'number' ? candidate.evidence.photos : 1;
 		return photos === 1 && neighbors.length

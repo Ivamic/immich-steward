@@ -531,5 +531,20 @@
 	"groups_settings_mutual_hint": "Due foto sono vicine solo se ciascuna è tra le più simili dell’altra. Disattivato: i gruppi possono concatenarsi fino a migliaia di foto di luoghi diversi.",
 	"groups_settings_rebuild_hint": "Una modifica ricostruisce i gruppi in background. I nomi e le tue modifiche restano.",
 	"groups_settings_search_again": "Confronta di nuovo tutte le foto",
-	"groups_settings_search_again_hint": "Le nuove foto vengono confrontate da sole. Serve di rado e su una libreria grande può richiedere circa un’ora."
+	"groups_settings_search_again_hint": "Le nuove foto vengono confrontate da sole. Serve di rado e su una libreria grande può richiedere circa un’ora.",
+	"module_group": "Questo gruppo",
+	"groups_select_without_location": "Scegli tutte quelle senza luogo ({count})",
+	"groups_select_all": "Scegli tutte",
+	"groups_choose_photo": "Scegli questa foto",
+	"groups_exclude": "Togli dal gruppo",
+	"groups_trash": "Segna come cestino",
+	"groups_untrash": "Non è cestino",
+	"groups_trash_hint": "Queste foto non mostrano nulla del luogo (un animale, un documento): non vengono mai usate per suggerire un luogo. I loro luoghi in Immich restano invariati.",
+	"groups_map_hint": "Un clic su un punto o un numero sceglie le sue foto; un altro clic le toglie dalla scelta.",
+	"groups_near_heading": "Appena fuori da questo gruppo",
+	"groups_near_hint": "Foto simili che non sono in nessun gruppo. Aggiungi quelle che appartengono a questo.",
+	"groups_add": "Aggiungi al gruppo",
+	"groups_excluded_heading": "Tolte ({count})",
+	"groups_bring_back": "Riporta",
+	"candidate_group": "{count} foto di questo gruppo sono qui"
 }

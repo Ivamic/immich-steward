@@ -65,6 +65,14 @@ _SEARCH = text(
         LIMIT :pool
     ) AS near
     JOIN asset ON asset.id = near.asset_id
+    -- Photos of a group marked as trash tell nothing about the place (D-185). Here, not in the
+    -- search above, so that the index stays usable: a photo of the pet finds only the pet, and
+    -- gets no suggestion rather than whatever comes after it.
+    WHERE NOT EXISTS (
+        SELECT 1 FROM view_group_member AS member
+        JOIN view_group ON view_group.id = member.group_id
+        WHERE member.asset_id = near.asset_id AND view_group.trash AND member.role <> 'excluded'
+    )
     ORDER BY near.vector <#> {_QUERY}
     LIMIT :limit
     """

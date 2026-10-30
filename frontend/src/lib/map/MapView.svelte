@@ -35,6 +35,7 @@
 		type TrackPoint
 	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
+	import type { MapDot } from './markers.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import {
 		formatDelta,
@@ -85,7 +86,9 @@
 		onpick,
 		highlight = null,
 		onhighlight = () => {},
-		scrollingPage = false
+		scrollingPage = false,
+		dots = [],
+		ondots = () => {}
 	}: {
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
@@ -104,6 +107,10 @@
 		/** The map is part of a page that scrolls (the photo card on a phone): there one finger
 		 * scrolls the page and two move the map, on touch screens only. */
 		scrollingPage?: boolean;
+		/** Photos as points, gathered into numbered circles where they lie close (a group). */
+		dots?: MapDot[];
+		/** A click on a point or a numbered circle: the photos it stands for. */
+		ondots?: (ids: string[]) => void;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -121,6 +128,11 @@
 	// A click this close (px) to the before–after segment lands on it.
 	const SNAP_PX = 10;
 	const EMPTY: FeatureCollection = { type: 'FeatureCollection', features: [] };
+	const DOTS = 'steward-dots';
+	const DOT_CIRCLES = 'steward-dot-circles';
+	const DOT_COUNTS = 'steward-dot-counts';
+	const DOT_COLOR = '#0969da';
+	const DOT_CHOSEN_COLOR = '#bc4c00';
 
 	let container: HTMLDivElement;
 	let map = $state.raw<MapLibreMap>();
@@ -241,6 +253,12 @@
 		);
 		instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
 		instance.on('click', (event: MapMouseEvent) => onclick(instance, event));
+		instance.on('mouseenter', DOT_CIRCLES, () => {
+			instance.getCanvas().style.cursor = 'pointer';
+		});
+		instance.on('mouseleave', DOT_CIRCLES, () => {
+			instance.getCanvas().style.cursor = '';
+		});
 		zoom = instance.getZoom();
 		instance.on('zoomend', () => (zoom = instance.getZoom()));
 		instance.on('mousemove', 'steward-track-points', (event) => {
@@ -456,6 +474,76 @@
 			// Thin white dashes over the colored route: marks the segment, keeps its colors visible.
 			paint: { 'line-color': '#ffffff', 'line-width': 2, 'line-dasharray': [2, 2] }
 		});
+		addDotLayers(instance);
+	}
+
+	function addDotLayers(instance: MapLibreMap) {
+		instance.addSource(DOTS, {
+			type: 'geojson',
+			data: EMPTY,
+			cluster: true,
+			clusterRadius: 32,
+			clusterMaxZoom: 17,
+			clusterProperties: { chosen: ['+', ['get', 'chosen']] }
+		});
+		const chosen: ExpressionSpecification = ['>', ['get', 'chosen'], 0];
+		instance.addLayer({
+			id: DOT_CIRCLES,
+			type: 'circle',
+			source: DOTS,
+			paint: {
+				'circle-color': ['case', chosen, DOT_CHOSEN_COLOR, DOT_COLOR],
+				'circle-radius': ['step', ['coalesce', ['get', 'point_count'], 1], 6, 2, 13, 50, 17],
+				'circle-stroke-color': '#ffffff',
+				'circle-stroke-width': 2
+			}
+		});
+		// The numbers take a font of the style itself: a style has only the fonts it names.
+		const font = instance
+			.getStyle()
+			.layers.flatMap((layer) =>
+				layer.type === 'symbol' && Array.isArray(layer.layout?.['text-font'])
+					? [layer.layout['text-font'] as string[]]
+					: []
+			)[0];
+		if (!font) return;
+		instance.addLayer({
+			id: DOT_COUNTS,
+			type: 'symbol',
+			source: DOTS,
+			filter: ['has', 'point_count'],
+			layout: {
+				'text-field': ['get', 'point_count_abbreviated'],
+				'text-font': font,
+				'text-size': 12,
+				'text-allow-overlap': true
+			},
+			paint: { 'text-color': '#ffffff' }
+		});
+	}
+
+	$effect(() => {
+		const features: Feature[] = dots.map((dot) => ({
+			type: 'Feature',
+			geometry: { type: 'Point', coordinates: [dot.lon, dot.lat] },
+			properties: { id: dot.id, chosen: dot.chosen ? 1 : 0 }
+		}));
+		if (!map || !ready) return;
+		(map.getSource(DOTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
+	});
+
+	/** The photos behind what the click hit, if it hit a point or a numbered circle. */
+	async function clickedDots(instance: MapLibreMap, event: MapMouseEvent): Promise<void> {
+		const [feature] = instance.queryRenderedFeatures(event.point, { layers: [DOT_CIRCLES] });
+		if (!feature) return;
+		const cluster = feature.properties.cluster_id as number | undefined;
+		if (cluster === undefined) {
+			ondots([feature.properties.id as string]);
+			return;
+		}
+		const source = instance.getSource(DOTS) as GeoJSONSource;
+		const leaves = await source.getClusterLeaves(cluster, Infinity, 0);
+		ondots(leaves.map((leaf) => leaf.properties?.id as string));
 	}
 
 	$effect(() => {
@@ -715,6 +803,10 @@
 	}
 
 	function onclick(instance: MapLibreMap, event: MapMouseEvent) {
+		if (dots.length) {
+			clickedDots(instance, event);
+			return;
+		}
 		// A click on a "before"/"after" label pins its photo (handled by the label itself).
 		if ((event.originalEvent.target as HTMLElement | null)?.closest?.('.steward-tag')) return;
 		// The first click after a pinned preview only closes it.

@@ -2,7 +2,7 @@
 """The page "Groups": the groups of photos of one view (`steward.view_groups`)."""
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Query
@@ -14,12 +14,16 @@ from steward import view_groups
 from steward.api.assets import AssetItem
 from steward.api.library import JobOut
 from steward.deps import CurrentAccount, DbDep
+from steward.embeddings import is_located
 from steward.errors import ApiError
 from steward.jobs import enqueue
 from steward.models import Account, Job, ViewGroup
 from steward.view_groups import Summary
 
 router = APIRouter(prefix="/groups")
+
+# Far more than anyone chooses by hand; keeps a request bounded.
+MAX_ASSETS = 2000
 
 GroupView = Literal["all", "no_location", "spread", "trash"]
 VIEWS: tuple[GroupView, ...] = ("all", "no_location", "spread", "trash")
@@ -66,14 +70,31 @@ class GroupList(BaseModel):
     groups: list[GroupOut]
 
 
+class GroupPoint(BaseModel):
+    id: UUID
+    latitude: float
+    longitude: float
+
+
 class GroupDetail(BaseModel):
     group: GroupOut
     photos: list[AssetItem]
+    # The photos with a location, for the map.
+    points: list[GroupPoint]
+    # Taken out by the user.
+    excluded: list[AssetItem]
 
 
 class GroupUpdate(BaseModel):
+    """Only what is given changes."""
+
     # Empty: no name.
-    name: str = Field(max_length=200)
+    name: str | None = Field(default=None, max_length=200)
+    trash: bool | None = None
+
+
+class GroupPhotos(BaseModel):
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=MAX_ASSETS)]
 
 
 def _in_view(summary: Summary, view: GroupView) -> bool:
@@ -99,9 +120,16 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
     if summary is None:  # all its photos left: moved to the trash of Immich, or taken out
         summary = Summary(group.id, group.name, group.trash, 0, 0, False)
     covers = await view_groups.covers(db, [group.id])
+    photos = await view_groups.photos_of(db, group.id)
     return GroupDetail(
         group=GroupOut.of(summary, covers.get(group.id)),
-        photos=[AssetItem.of(asset) for asset in await view_groups.photos_of(db, group.id)],
+        photos=[AssetItem.of(asset) for asset in photos],
+        points=[
+            GroupPoint(id=a.id, latitude=a.latitude, longitude=a.longitude)
+            for a in photos
+            if is_located(a)
+        ],
+        excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
     )
 
 
@@ -150,6 +178,36 @@ async def update_group(
     group_id: UUID, body: GroupUpdate, account: CurrentAccount, db: DbDep
 ) -> GroupDetail:
     group = await _own_group(db, account, group_id)
-    group.name = body.name.strip() or None
+    if body.name is not None:
+        group.name = body.name.strip() or None
+    if body.trash is not None:
+        group.trash = body.trash
     await db.commit()
+    return await _detail(db, account, group)
+
+
+@router.get("/{group_id}/near")
+async def near_photos(group_id: UUID, account: CurrentAccount, db: DbDep) -> list[AssetItem]:
+    """Photos just short of the group: where its border runs."""
+    group = await _own_group(db, account, group_id)
+    rule = await view_groups.rule_of(db, account.id)
+    return [AssetItem.of(asset) for asset in await view_groups.near(db, group.id, rule)]
+
+
+@router.post("/{group_id}/exclude")
+async def exclude_photos(
+    group_id: UUID, body: GroupPhotos, account: CurrentAccount, db: DbDep
+) -> GroupDetail:
+    group = await _own_group(db, account, group_id)
+    await view_groups.exclude(db, group.id, body.ids)
+    return await _detail(db, account, group)
+
+
+@router.post("/{group_id}/include")
+async def include_photos(
+    group_id: UUID, body: GroupPhotos, account: CurrentAccount, db: DbDep
+) -> GroupDetail:
+    """Adds photos by hand, or brings back those taken out."""
+    group = await _own_group(db, account, group_id)
+    await view_groups.include(db, group.id, account.id, body.ids)
     return await _detail(db, account, group)

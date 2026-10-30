@@ -531,5 +531,20 @@
 	"groups_settings_mutual_hint": "Zwei Fotos sind nur nah, wenn jedes zu den ähnlichsten des anderen gehört. Aus: Gruppen können sich zu Tausenden Fotos verschiedener Orte verketten.",
 	"groups_settings_rebuild_hint": "Eine Änderung baut die Gruppen im Hintergrund neu auf. Namen und Ihre Änderungen an Gruppen bleiben.",
 	"groups_settings_search_again": "Alle Fotos neu vergleichen",
-	"groups_settings_search_again_hint": "Neue Fotos werden von selbst verglichen. Das ist selten nötig und kann bei einer großen Bibliothek etwa eine Stunde dauern."
+	"groups_settings_search_again_hint": "Neue Fotos werden von selbst verglichen. Das ist selten nötig und kann bei einer großen Bibliothek etwa eine Stunde dauern.",
+	"module_group": "Diese Gruppe",
+	"groups_select_without_location": "Alle ohne Ort auswählen ({count})",
+	"groups_select_all": "Alle auswählen",
+	"groups_choose_photo": "Dieses Foto auswählen",
+	"groups_exclude": "Aus der Gruppe nehmen",
+	"groups_trash": "Als Papierkorb markieren",
+	"groups_untrash": "Kein Papierkorb",
+	"groups_trash_hint": "Diese Fotos zeigen nichts vom Ort (ein Haustier, ein Dokument): Sie werden nie für Ortsvorschläge verwendet. Ihre Orte in Immich bleiben unverändert.",
+	"groups_map_hint": "Ein Klick auf einen Punkt oder eine Zahl wählt die Fotos aus, ein weiterer hebt die Auswahl auf.",
+	"groups_near_heading": "Knapp außerhalb dieser Gruppe",
+	"groups_near_hint": "Ähnliche Fotos, die in keiner Gruppe sind. Fügen Sie die passenden hinzu.",
+	"groups_add": "Zur Gruppe hinzufügen",
+	"groups_excluded_heading": "Herausgenommen ({count})",
+	"groups_bring_back": "Zurückholen",
+	"candidate_group": "{count} Fotos dieser Gruppe sind hier"
 }

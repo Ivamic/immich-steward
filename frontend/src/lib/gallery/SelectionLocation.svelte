@@ -40,11 +40,14 @@
 
 	let {
 		items,
+		groupId = null,
 		onsaved,
 		onclose
 	}: {
 		/** The chosen photos. */
 		items: AssetItem[];
+		/** The group they were chosen in: its places are suggested too. */
+		groupId?: string | null;
 		/** The save is queued (it can still be cancelled from its notice). */
 		onsaved: () => void;
 		onclose: () => void;
@@ -88,7 +91,10 @@
 		getMapConfig()
 			.then((config) => (mapConfig = config))
 			.catch((e) => (error = errorMessage(e)));
-		getSelectionSuggestions(items.map((item) => item.id))
+		getSelectionSuggestions(
+			items.map((item) => item.id),
+			groupId
+		)
 			.then((result) => (suggestions = result))
 			.catch((e) => (error = errorMessage(e)))
 			.finally(() => (loading = false));

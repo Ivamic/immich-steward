@@ -8,10 +8,20 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
+	import type { Snippet } from 'svelte';
 	import { bulkNotices } from './bulk.svelte.js';
 	import { galleryChanged, type Selection } from './selection.svelte.js';
 
-	let { selection, onlocation }: { selection: Selection; onlocation: () => void } = $props();
+	let {
+		selection,
+		onlocation,
+		children
+	}: {
+		selection: Selection;
+		onlocation: () => void;
+		/** Further actions of the page, next to the location. */
+		children?: Snippet;
+	} = $props();
 
 	let busy = $state(false);
 	let error = $state<string | null>(null);
@@ -86,6 +96,7 @@
 			<Icon name="map-pin" size={14} />
 			{m.selection_location()}
 		</button>
+		{@render children?.()}
 	</span>
 
 	<span class="group" title={photos ? undefined : m.selection_rotate_videos_only()}>

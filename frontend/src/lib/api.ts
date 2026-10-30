@@ -698,8 +698,9 @@ export interface SelectionUndone {
 }
 
 /** Suggestions from what is already known for the photos; nothing is run. */
-export const getSelectionSuggestions = (ids: string[]) =>
-	request<ModuleSuggestions[]>('POST', '/api/selection/suggestions', { ids });
+/** `groupId`: the group the photos were chosen in, whose places are suggested too. */
+export const getSelectionSuggestions = (ids: string[], groupId: string | null = null) =>
+	request<ModuleSuggestions[]>('POST', '/api/selection/suggestions', { ids, group_id: groupId });
 export const setSelectionLocation = (
 	ids: string[],
 	point: { lat: number; lon: number },
@@ -768,14 +769,23 @@ export interface GroupList {
 export interface GroupDetail {
 	group: GroupOut;
 	photos: AssetItem[];
+	/** The photos with a location, for the map. */
+	points: { id: string; latitude: number; longitude: number }[];
+	/** Taken out by the user. */
+	excluded: AssetItem[];
 }
 
 export const getGroups = (view: GroupView, offset: number, limit: number) =>
 	request<GroupList>('GET', `/api/groups?view=${view}&offset=${offset}&limit=${limit}`);
 export const getGroup = (id: string) => request<GroupDetail>('GET', `/api/groups/${id}`);
-/** An empty name takes the name away. */
-export const renameGroup = (id: string, name: string) =>
-	request<GroupDetail>('PATCH', `/api/groups/${id}`, { name });
+/** Only what is given changes; an empty name takes the name away. */
+export const updateGroup = (id: string, change: { name?: string; trash?: boolean }) =>
+	request<GroupDetail>('PATCH', `/api/groups/${id}`, change);
+export const getGroupNear = (id: string) => request<AssetItem[]>('GET', `/api/groups/${id}/near`);
+export const excludeFromGroup = (id: string, ids: string[]) =>
+	request<GroupDetail>('POST', `/api/groups/${id}/exclude`, { ids });
+export const includeInGroup = (id: string, ids: string[]) =>
+	request<GroupDetail>('POST', `/api/groups/${id}/include`, { ids });
 export const refreshGroups = () => request<Job>('POST', '/api/groups/refresh');
 export const login = (apiKey: string) =>
 	request<Me>('POST', '/api/auth/login', { api_key: apiKey });

@@ -531,5 +531,20 @@
 	"groups_settings_mutual_hint": "Two photos are close only when each is among the most similar of the other. Off: groups can chain into thousands of photos from different places.",
 	"groups_settings_rebuild_hint": "A change rebuilds the groups in the background. Names and your changes to groups stay.",
 	"groups_settings_search_again": "Compare all photos again",
-	"groups_settings_search_again_hint": "New photos are compared on their own. This is rarely needed and can take about an hour on a large library."
+	"groups_settings_search_again_hint": "New photos are compared on their own. This is rarely needed and can take about an hour on a large library.",
+	"module_group": "This group",
+	"groups_select_without_location": "Choose all without a location ({count})",
+	"groups_select_all": "Choose all",
+	"groups_choose_photo": "Choose this photo",
+	"groups_exclude": "Take out of the group",
+	"groups_trash": "Mark as trash",
+	"groups_untrash": "Not trash",
+	"groups_trash_hint": "These photos show nothing of the place (a pet, a document): they are never used to suggest a place. Their locations in Immich stay as they are.",
+	"groups_map_hint": "A click on a point or a number chooses its photos; another click takes them off the choice.",
+	"groups_near_heading": "Just short of this group",
+	"groups_near_hint": "Similar photos that are in no group. Add those that belong here.",
+	"groups_add": "Add to the group",
+	"groups_excluded_heading": "Taken out ({count})",
+	"groups_bring_back": "Bring back",
+	"candidate_group": "{count} photos of this group are here"
 }

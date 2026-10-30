@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import jobs, locations, module_display, selection
+from steward import jobs, locations, module_display, selection, view_groups
 from steward.api.assets import (
     CandidateItem,
     ModuleSuggestions,
@@ -28,7 +28,7 @@ from steward.deps import (
     get_secret_box,
 )
 from steward.errors import ApiError
-from steward.models import Asset, Job
+from steward.models import Asset, Job, ViewGroup
 from steward.worker_queue import PRIORITY_USER
 
 router = APIRouter(prefix="/selection")
@@ -41,6 +41,8 @@ AssetIds = Annotated[list[UUID], Field(min_length=1, max_length=MAX_ASSETS)]
 
 class SelectionIn(BaseModel):
     ids: AssetIds
+    # The group the photos were chosen in: its places are suggested too.
+    group_id: UUID | None = None
 
 
 class SelectionLocation(BaseModel):
@@ -107,7 +109,13 @@ async def suggestions(
     def confident(module_id: str, score: float) -> bool:
         return score >= _thresholds(module_id, settings)[2]
 
-    blocks = await selection.suggest(db, account.id, assets, settings, confident)
+    group_photos = None
+    if body.group_id is not None:
+        group = await db.get(ViewGroup, body.group_id)
+        if group is None or group.account_id != account.id:
+            raise ApiError(404, "group_not_found")
+        group_photos = await view_groups.photos_of(db, group.id)
+    blocks = await selection.suggest(db, account.id, assets, settings, confident, group_photos)
     displays = await module_display.get(db, account.id)
     order = {d.module: i for i, d in enumerate(displays)}
     hidden = {d.module for d in displays if d.hidden}
@@ -124,7 +132,8 @@ async def suggestions(
                     CandidateItem(
                         rank=rank,
                         tier=_tier(c.score, weak_below, confident_from)
-                        if block.module not in (selection.SELECTION_ID, "time_neighbors")
+                        if block.module
+                        not in (selection.GROUP_ID, selection.SELECTION_ID, "time_neighbors")
                         else "normal",
                         **vars(c),
                     )
@@ -137,11 +146,10 @@ async def suggestions(
                 hidden=block.module in hidden,
             )
         )
-    # The chosen photos' own locations first, then the modules in the order of the account.
-    return sorted(
-        result,
-        key=lambda b: -1 if b.module == selection.SELECTION_ID else order.get(b.module, len(order)),
-    )
+    # The places of the group and the chosen photos' own locations first, then the modules in
+    # the order of the account.
+    first = {selection.GROUP_ID: -2, selection.SELECTION_ID: -1}
+    return sorted(result, key=lambda b: first.get(b.module, order.get(b.module, len(order))))
 
 
 @router.post("/location")

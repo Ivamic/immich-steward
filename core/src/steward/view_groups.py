@@ -23,7 +23,18 @@ from time import monotonic
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Select, bindparam, delete, exists, func, insert, or_, select, text
+from sqlalchemy import (
+    Select,
+    bindparam,
+    delete,
+    exists,
+    func,
+    insert,
+    or_,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,6 +68,10 @@ ATTACHED = "attached"
 ADDED = "added"
 EXCLUDED = "excluded"
 AUTO_ROLES = (CORE, ATTACHED)
+
+# Photos this much less similar than a group asks for are shown next to it.
+NEAR_MARGIN = 0.1
+NEAR_LIMIT = 60
 
 JOB_KIND = "view_groups"
 
@@ -92,6 +107,25 @@ _CLOSE = """
     WHERE pair.s >= :similarity
 """
 _MUTUAL = "JOIN pair AS back ON back.a = pair.b AND back.b = pair.a"
+
+_NEAR = text(
+    """
+    SELECT p.b AS asset_id
+    FROM view_group_member AS member
+    JOIN view_neighbor AS n ON n.asset_id = member.asset_id
+    CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
+    JOIN asset ON asset.id = p.b AND NOT asset.is_trashed
+    WHERE member.group_id = :group_id AND member.role <> 'excluded' AND p.s >= :similarity
+        AND NOT EXISTS (
+            SELECT 1 FROM view_group_member AS other
+            WHERE other.asset_id = p.b
+                AND (other.role <> 'excluded' OR other.group_id = :group_id)
+        )
+    GROUP BY p.b
+    ORDER BY max(p.s) DESC
+    LIMIT :limit
+    """
+)
 
 
 @dataclass(frozen=True)
@@ -525,6 +559,80 @@ async def photos_of(db: AsyncSession, group_id: UUID) -> list[Asset]:
         .order_by(Asset.local_taken_at, Asset.id)
     )
     return list(found)
+
+
+async def excluded_of(db: AsyncSession, group_id: UUID) -> list[Asset]:
+    """The photos the user took out of the group, oldest first."""
+    found = await db.scalars(
+        select(Asset)
+        .join(ViewGroupMember, ViewGroupMember.asset_id == Asset.id)
+        .where(
+            ViewGroupMember.group_id == group_id,
+            ViewGroupMember.role == EXCLUDED,
+            Asset.is_trashed.is_(False),
+        )
+        .order_by(Asset.local_taken_at, Asset.id)
+    )
+    return list(found)
+
+
+async def near(db: AsyncSession, group_id: UUID, rule: Rule) -> list[Asset]:
+    """Photos in no group that are almost close to a photo of the group: where its border runs.
+    The most similar first."""
+    rows = await db.execute(
+        _NEAR,
+        {
+            "group_id": group_id,
+            "similarity": rule.similarity - NEAR_MARGIN,
+            "limit": NEAR_LIMIT,
+        },
+    )
+    order = [row.asset_id for row in rows]
+    found = {a.id: a for a in await db.scalars(select(Asset).where(Asset.id.in_(order)))}
+    return [found[asset_id] for asset_id in order if asset_id in found]
+
+
+async def exclude(db: AsyncSession, group_id: UUID, asset_ids: list[UUID]) -> None:
+    """Takes photos out of the group; rebuilds keep them out."""
+    await db.execute(
+        update(ViewGroupMember)
+        .where(ViewGroupMember.group_id == group_id, ViewGroupMember.asset_id.in_(asset_ids))
+        .values(role=EXCLUDED)
+    )
+    await db.commit()
+
+
+async def include(
+    db: AsyncSession, group_id: UUID, account_id: UUID, asset_ids: list[UUID]
+) -> None:
+    """Puts photos of the account into the group by hand, out of any other group."""
+    own = list(
+        await db.scalars(
+            select(Asset.id).where(Asset.id.in_(asset_ids), Asset.account_id == account_id)
+        )
+    )
+    if not own:
+        return
+    await db.execute(
+        delete(ViewGroupMember).where(
+            ViewGroupMember.asset_id.in_(own),
+            or_(ViewGroupMember.role != EXCLUDED, ViewGroupMember.group_id == group_id),
+        )
+    )
+    await db.execute(
+        insert(ViewGroupMember),
+        [
+            {
+                "group_id": group_id,
+                "asset_id": asset_id,
+                "account_id": account_id,
+                "role": ADDED,
+                "created_at": datetime.now(UTC),
+            }
+            for asset_id in own
+        ],
+    )
+    await db.commit()
 
 
 async def progress_counts(db: AsyncSession, account_id: UUID) -> dict[str, int]:

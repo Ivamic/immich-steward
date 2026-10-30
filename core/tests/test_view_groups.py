@@ -1068,3 +1068,47 @@ def test_the_marked_photos_come_in_pages_and_back_all_at_once(
 def test_bringing_all_back_with_nothing_marked_is_harmless(signed_in: TestClient) -> None:
     answer = signed_in.post("/api/groups/trash-photos/restore-all")
     assert answer.json() == {"total": 0, "photos": []}
+
+
+def test_a_group_of_marked_photos_only_stays_and_takes_a_name(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    ids = [library[f"yard{i}.jpg"] for i in range(5)]
+    signed_in.post(f"/api/groups/{yard}/trash", json={"ids": ids})
+    run_jobs(signed_in)
+
+    # The rebuild found nothing of it, and it is still there.
+    response = signed_in.patch(f"/api/groups/{yard}", json={"name": "Dog"})
+    assert response.status_code == 200
+    detail = response.json()
+    assert detail["group"]["name"] == "Dog"
+    assert (detail["group"]["photos"], detail["group"]["marked"]) == (0, 5)
+    assert len(detail["marked"]) == 5
+
+    def view(name: str) -> dict[str, Any]:
+        found = signed_in.get("/api/groups", params={"view": name}).json()
+        return {group["id"]: group for group in found["groups"]}
+
+    assert str(yard) not in view("all")
+    listed = view("trash")[str(yard)]
+    assert listed["marked"] == 5 and listed["cover"] is not None
+
+    # One photo back, and it is a group like any other, with its name.
+    signed_in.post("/api/groups/trash-photos/restore", json={"ids": ids[:1]})
+    signed_in.post(f"/api/groups/{yard}/include", json={"ids": ids[:1]})
+    run_jobs(signed_in)
+    assert str(yard) in view("all")
+    assert view("all")[str(yard)]["name"] == "Dog"
+
+
+def test_a_group_with_all_its_photos_taken_out_by_hand_goes(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    ids = [library[f"yard{i}.jpg"] for i in range(5)]
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": ids})
+    run_jobs(signed_in)
+    assert signed_in.get(f"/api/groups/{yard}").status_code == 404

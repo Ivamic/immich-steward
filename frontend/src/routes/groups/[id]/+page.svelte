@@ -723,7 +723,7 @@
 	{/if}
 
 	{#if marked.length > 0}
-		<details>
+		<details open={photos.length === 0}>
 			<summary>{m.groups_marked_heading({ count: count(marked.length) })}</summary>
 			<p class="hint">{m.groups_marked_hint()}</p>
 			<div class="grid">
@@ -951,7 +951,7 @@
 				use:nearScreen={{ at: shownCount, onnear: () => (shownCount += PART) }}
 			></div>
 		{/if}
-	{:else}
+	{:else if marked.length === 0}
 		<p class="numbers">{m.groups_no_photos()}</p>
 	{/if}
 {:else if !error}

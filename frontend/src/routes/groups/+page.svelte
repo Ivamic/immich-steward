@@ -429,7 +429,9 @@
 							{/if}
 						</span>
 						<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
-						<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
+						<span class="numbers">
+							{m.groups_photos({ count: count(group.photos || group.marked) })}
+						</span>
 						<span class="badges">
 							{#if group.with_location > 0}
 								<span class="st-badge st-badge--success">
@@ -613,7 +615,7 @@
 	.back {
 		position: absolute;
 		top: var(--space-1);
-		left: var(--space-1);
+		right: var(--space-1);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -654,7 +656,7 @@
 	.pick {
 		position: absolute;
 		top: var(--space-1);
-		right: var(--space-1);
+		left: var(--space-1);
 		display: flex;
 		align-items: center;
 		justify-content: center;

@@ -626,8 +626,14 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     await db.flush()
     for start in range(0, len(rows), 5000):
         await db.execute(insert(ViewGroupMember), rows[start : start + 5000])
-    # A group not found again stays while the user added photos to it.
-    gone = [g for g in groups if g not in kept and g not in added and g not in dissolved]
+    # A group not found again stays while the user added photos to it, and while photos marked
+    # as showing nothing of the place are with it: they would be lost, and its name with them.
+    with_marked = {group for group, photos in excluded.items() if photos & trash}
+    gone = [
+        g
+        for g in groups
+        if g not in kept and g not in added and g not in dissolved and g not in with_marked
+    ]
     if gone:
         await db.execute(delete(ViewGroup).where(ViewGroup.id.in_(gone)))
     await db.commit()
@@ -732,6 +738,8 @@ class Summary:
     similarity: float | None
     # Where most of the photos with a location lie; None with too few of them.
     spot: Spot | None = None
+    # Photos with it, marked as showing nothing of the place.
+    marked: int = 0
 
     @property
     def main_spot(self) -> bool:
@@ -778,6 +786,35 @@ async def _main_spots(
         for group, of_group in cells.items()
         if sum(c[2] for c in of_group) >= SPOT_MIN_PHOTOS
     }
+
+
+async def _marked_photos(
+    db: AsyncSession, account_id: UUID, group_id: UUID | None
+) -> dict[UUID, Any]:
+    """Group -> its row with how many marked photos are with it."""
+    query = (
+        select(
+            ViewGroup.id,
+            ViewGroup.name,
+            ViewGroup.trash,
+            ViewGroup.similarity,
+            func.count().label("photos"),
+        )
+        .join(ViewGroupMember, ViewGroupMember.group_id == ViewGroup.id)
+        .join(Asset, Asset.id == ViewGroupMember.asset_id)
+        .join(ViewPhotoTrash, ViewPhotoTrash.asset_id == Asset.id)
+        .where(
+            ViewGroup.account_id == account_id,
+            ViewGroup.kind == KIND,
+            ViewGroup.dissolved.is_(False),
+            ViewGroupMember.role == EXCLUDED,
+            Asset.is_trashed.is_(False),
+        )
+        .group_by(ViewGroup.id)
+    )
+    if group_id is not None:
+        query = query.where(ViewGroup.id == group_id)
+    return {row.id: row for row in await db.execute(query)}
 
 
 def same_spot(found: list[Summary], group_id: UUID) -> list[Summary]:
@@ -832,6 +869,7 @@ async def summaries(
         query = query.where(ViewGroup.id == group_id)
     rows = await db.execute(query)
     spots = await _main_spots(db, account_id, group_id)
+    marked = await _marked_photos(db, account_id, group_id)
     found = [
         Summary(
             id=row.id,
@@ -844,8 +882,16 @@ async def summaries(
             and distance_m(row.south, row.west, row.north, row.east) > similar.JOIN_M,
             similarity=row.similarity,
             spot=spots.get(row.id),
+            marked=marked[row.id].photos if row.id in marked else 0,
         )
         for row in rows
+    ]
+    # Only marked photos left: the group lives on.
+    listed = {summary.id for summary in found}
+    found += [
+        Summary(r.id, r.name, r.trash, 0, 0, 0, False, r.similarity, marked=r.photos)
+        for r in marked.values()
+        if r.id not in listed
     ]
     found.sort(key=lambda s: (s.name is None, -s.photos, s.id))
     return found

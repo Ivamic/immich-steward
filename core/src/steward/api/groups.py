@@ -58,6 +58,8 @@ class GroupOut(BaseModel):
     similarity: float | None
     # Where most of the photos with a location lie.
     spot: GroupSpot | None = None
+    # Photos with it, marked as showing nothing of the place.
+    marked: int = 0
     # Most of the photos with a location lie in the spot.
     main_spot: bool = False
     # The photos without a location can get the place of the spot.
@@ -76,6 +78,7 @@ class GroupOut(BaseModel):
             spread=summary.spread,
             similarity=summary.similarity,
             spot=GroupSpot(**asdict(summary.spot)) if summary.spot else None,
+            marked=summary.marked,
             main_spot=summary.main_spot,
             ready=summary.ready,
             cover=Cover(id=cover[0], version=cover[1]) if cover else None,
@@ -157,9 +160,10 @@ class TrashedPhotos(BaseModel):
 
 
 def _in_view(summary: Summary, view: GroupView) -> bool:
+    # Only marked photos left, the group is one of those marked.
     if view == "trash":
-        return summary.trash
-    if summary.trash:
+        return summary.trash or summary.photos == 0
+    if summary.trash or summary.photos == 0:
         return False
     if view == "ready":
         return summary.ready
@@ -232,7 +236,9 @@ async def list_groups(
         if view == "ready":  # the most to gain first
             listed.sort(key=lambda s: -s.without_location)
         page = listed[offset : offset + limit]
-        covers = await view_groups.covers(db, [s.id for s in page])
+        covers = await view_groups.covers(db, [s.id for s in page if s.photos])
+        empty = [s.id for s in page if not s.photos]
+        covers |= await view_groups.excluded_cover(db, empty)
     job = await db.scalar(
         select(Job)
         .where(Job.account_id == account.id, Job.kind == view_groups.JOB_KIND)

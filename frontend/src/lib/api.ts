@@ -757,6 +757,8 @@ export interface GroupOut {
 	similarity: number | null;
 	/** Where most of the photos with a location lie; null with too few of them. */
 	spot: { latitude: number; longitude: number; photos: number } | null;
+	/** Photos with it, marked as showing nothing of the place. */
+	marked: number;
 	/** Most of the photos with a location lie in the spot. */
 	main_spot: boolean;
 	/** The photos without a location can get the place of the spot. */

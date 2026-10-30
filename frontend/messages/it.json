@@ -547,5 +547,12 @@
 	"groups_excluded_heading": "Tolte ({count})",
 	"groups_bring_back": "Riporta",
 	"candidate_group": "{count} foto di questo gruppo sono qui",
-	"groups_settings_split_hint": "I gruppi grandi con foto in luoghi diversi (ad esempio spiagge) vengono divisi con una somiglianza più severa; le foto che non si adattano a nessuno escono dai gruppi."
+	"groups_settings_split_hint": "I gruppi grandi con foto in luoghi diversi (ad esempio spiagge) vengono divisi con una somiglianza più severa; le foto che non si adattano a nessuno escono dai gruppi.",
+	"groups_view_with_location": "Con foto con un luogo",
+	"groups_with_location": "{count} con luogo",
+	"groups_filter_with": "Con luogo",
+	"groups_filter_without": "Senza luogo",
+	"groups_similarity": "Somiglianza {value}",
+	"groups_similarity_hint": "Quanto le foto sono vicine alle altre del gruppo, da 0 a 1. Una foto molto più bassa delle altre forse non appartiene a questo gruppo.",
+	"groups_sort_similarity": "Prima le meno simili"
 }

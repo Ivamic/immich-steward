@@ -25,17 +25,23 @@
 	const VIEWS: { id: GroupView; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
 		{ id: 'no_location', label: m.groups_view_no_location },
+		{ id: 'with_location', label: m.groups_view_with_location },
 		{ id: 'spread', label: m.groups_view_spread },
 		{ id: 'trash', label: m.groups_view_trash }
 	];
 
-	let list = $state<GroupList | null>(null);
-	let shown = $state<GroupOut[]>([]);
+	let list = $state.raw<GroupList | null>(null);
+	let shown = $state.raw<GroupOut[]>([]);
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
 
 	const numbers = new Intl.NumberFormat(getLocale());
 	const count = (n: number) => numbers.format(n);
+	const similarities = new Intl.NumberFormat(getLocale(), {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2
+	});
+	const similarity = (value: number) => similarities.format(value);
 
 	const view = $derived.by((): GroupView => {
 		const asked = page.url.searchParams.get('view');
@@ -144,6 +150,12 @@
 					<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
 					<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
 					<span class="badges">
+						{#if group.with_location > 0}
+							<span class="st-badge st-badge--success">
+								<Icon name="map-pin" size={11} />
+								<span>{m.groups_with_location({ count: count(group.with_location) })}</span>
+							</span>
+						{/if}
 						{#if group.without_location > 0}
 							<span class="st-badge st-badge--info">
 								<Icon name="map-pin-off" size={11} />
@@ -154,6 +166,11 @@
 							<span class="st-badge st-badge--warning" title={m.groups_spread_hint()}>
 								<Icon name="route" size={11} />
 								<span>{m.groups_spread()}</span>
+							</span>
+						{/if}
+						{#if group.similarity !== null}
+							<span class="st-badge" title={m.groups_similarity_hint()}>
+								<span>{m.groups_similarity({ value: similarity(group.similarity) })}</span>
 							</span>
 						{/if}
 					</span>

@@ -23,6 +23,7 @@ from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from statistics import median
 from time import monotonic
 from typing import Any
 from uuid import UUID, uuid4
@@ -121,6 +122,19 @@ _CLOSE = """
     WHERE pair.s >= :similarity
 """
 _MUTUAL = "JOIN pair AS back ON back.a = pair.b AND back.b = pair.a"
+
+_PHOTO_CLOSENESS = text(
+    """
+    SELECT member.asset_id, avg(p.s) AS similarity
+    FROM view_group_member AS member
+    JOIN view_neighbor AS n ON n.asset_id = member.asset_id
+    CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
+    JOIN view_group_member AS other
+        ON other.group_id = member.group_id AND other.asset_id = p.b AND other.role <> 'excluded'
+    WHERE member.group_id = :group_id AND member.role <> 'excluded'
+    GROUP BY member.asset_id
+    """
+)
 
 _NEAR = text(
     """
@@ -368,6 +382,23 @@ def build(
     return split_scattered(cluster(close, rule.core_neighbors), close, places, rule)
 
 
+def closeness(
+    clusters: list[dict[UUID, str]], close: list[tuple[UUID, UUID, float]]
+) -> list[float | None]:
+    """Per group, how close its photos are: the median of each photo's mean similarity to the
+    photos of the group among its close neighbors."""
+    group_of = {a: index for index, members in enumerate(clusters) for a in members}
+    totals: dict[UUID, tuple[float, int]] = {}
+    for a, b, s in close:
+        if a in group_of and group_of[a] == group_of.get(b):
+            total, count = totals.get(a, (0.0, 0))
+            totals[a] = (total + s, count + 1)
+    means: list[list[float]] = [[] for _ in clusters]
+    for a, (total, count) in totals.items():
+        means[group_of[a]].append(total / count)
+    return [round(median(values), 3) if values else None for values in means]
+
+
 def matched(clusters: list[dict[UUID, str]], old: dict[UUID, set[UUID]]) -> dict[int, UUID]:
     """Which old group each new cluster continues: the one sharing most photos with it, each old
     group continued once."""
@@ -401,6 +432,7 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     }
     # Millions of pairs on a large library: not on the event loop, the pages would wait for them.
     clusters = await asyncio.to_thread(build, pairs, places, rule)
+    similarities = await asyncio.to_thread(closeness, clusters, pairs)
 
     old: dict[UUID, set[UUID]] = {}
     # Photos the user added to a group or took out of it.
@@ -434,9 +466,18 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     for index, members_of in enumerate(clusters):
         if index in continued:
             group_id = continued[index]
+            groups[group_id].similarity = similarities[index]
         else:
             group_id = uuid4()
-            db.add(ViewGroup(id=group_id, account_id=account_id, kind=KIND, trash=False))
+            db.add(
+                ViewGroup(
+                    id=group_id,
+                    account_id=account_id,
+                    kind=KIND,
+                    trash=False,
+                    similarity=similarities[index],
+                )
+            )
         kept.add(group_id)
         out = excluded.get(group_id, set())
         rows.extend(
@@ -547,8 +588,10 @@ class Summary:
     trash: bool
     photos: int
     without_location: int
+    with_location: int
     # The photos with a location lie further apart than one spot.
     spread: bool
+    similarity: float | None
 
 
 async def summaries(
@@ -562,6 +605,7 @@ async def summaries(
             ViewGroup.id,
             ViewGroup.name,
             ViewGroup.trash,
+            ViewGroup.similarity,
             func.count().label("photos"),
             func.count().filter(place).label("with_location"),
             func.min(Asset.latitude).filter(place).label("south"),
@@ -589,8 +633,10 @@ async def summaries(
             trash=row.trash,
             photos=row.photos,
             without_location=row.photos - row.with_location,
+            with_location=row.with_location,
             spread=row.with_location > 1
             and distance_m(row.south, row.west, row.north, row.east) > similar.JOIN_M,
+            similarity=row.similarity,
         )
         for row in rows
     ]
@@ -633,6 +679,12 @@ async def photos_of(db: AsyncSession, group_id: UUID) -> list[Asset]:
         .order_by(Asset.local_taken_at, Asset.id)
     )
     return list(found)
+
+
+async def photo_closeness(db: AsyncSession, group_id: UUID) -> dict[UUID, float]:
+    """Photo -> its mean similarity to the photos of the group among its neighbors."""
+    rows = await db.execute(_PHOTO_CLOSENESS, {"group_id": group_id})
+    return {row.asset_id: round(float(row.similarity), 3) for row in rows}
 
 
 async def excluded_of(db: AsyncSession, group_id: UUID) -> list[Asset]:

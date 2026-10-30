@@ -461,6 +461,8 @@ class ViewGroup(Base):
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # Photos of the group tell nothing about the place (a pet, documents): never suggested.
     trash: Mapped[bool] = mapped_column(Boolean, default=False)
+    # How close its photos are to each other, as of the last rebuild (`view_groups.closeness`).
+    similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 

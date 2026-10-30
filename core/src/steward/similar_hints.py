@@ -85,16 +85,15 @@ async def refresh(
             found = await similar.search(
                 db, vector, account_id, asset_id, settings.similar_include_estimated, limit=1
             )
-            if not found:
-                await db.execute(delete(SimilarHint).where(SimilarHint.asset_id == asset_id))
-                continue
-            best = found[0]
-            score = round(similar.calibrated(best.similarity), 4)
+            # Without a neighbor (all of them trash) the hint says so: a photo with no hint
+            # would wait for one at every look.
+            best = found[0] if found else None
+            score = round(similar.calibrated(best.similarity), 4) if best else 0.0
             confident_count += score >= settings.similar_confident_from
             values = {
-                "similarity": best.similarity,
+                "similarity": best.similarity if best else 0.0,
                 "score": score,
-                "neighbor_id": best.asset_id,
+                "neighbor_id": best.asset_id if best else None,
                 "computed_at": datetime.now(UTC),
             }
             await db.execute(

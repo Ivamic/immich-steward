@@ -740,7 +740,7 @@ export const startSync = (full: boolean | null = null) =>
 export const startSimilarHints = () => request<Job>('POST', '/api/library/similar-hints');
 
 /** What the list of groups shows: all but the trash, a part of them, or the trash. */
-export type GroupView = 'all' | 'no_location' | 'spread' | 'trash';
+export type GroupView = 'all' | 'no_location' | 'with_location' | 'spread' | 'trash';
 
 export interface GroupOut {
 	id: string;
@@ -749,8 +749,11 @@ export interface GroupOut {
 	trash: boolean;
 	photos: number;
 	without_location: number;
+	with_location: number;
 	/** The photos with a location lie more than 1 km apart. */
 	spread: boolean;
+	/** How close the photos are to each other; null until the next rebuild. */
+	similarity: number | null;
 	cover: { id: string; version: string | null } | null;
 }
 
@@ -773,6 +776,8 @@ export interface GroupDetail {
 	points: { id: string; latitude: number; longitude: number }[];
 	/** Taken out by the user. */
 	excluded: AssetItem[];
+	/** Per photo: how close it is to the others of the group. */
+	closeness: Record<string, number>;
 }
 
 export const getGroups = (view: GroupView, offset: number, limit: number) =>

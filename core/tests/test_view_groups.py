@@ -12,9 +12,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from test_embeddings import encoded, run_module, start_worker
 
-from steward import view_groups
+from steward import similar_hints, view_groups
 from steward.models import EMBEDDING_DIM, Account, Asset, Job, ViewGroup, ViewGroupMember
-from steward.view_groups import ATTACHED, CORE, Rule, build, cluster, matched, merged
+from steward.view_groups import (
+    ATTACHED,
+    CORE,
+    Rule,
+    build,
+    closeness,
+    cluster,
+    matched,
+    merged,
+)
 
 # --- The rule, without a database -----------------------------------------------------------------
 
@@ -411,6 +420,7 @@ def test_the_views_of_the_list(signed_in: TestClient, library: dict[str, str]) -
         return [g["id"] for g in answer["groups"]]
 
     assert view("no_location") == [str(kitchen)]
+    assert set(view("with_location")) == {str(yard), str(kitchen)}
     assert view("spread") == [str(kitchen)]
     assert set(view("all")) == {str(yard), str(kitchen)}
     assert view("trash") == []
@@ -419,12 +429,35 @@ def test_the_views_of_the_list(signed_in: TestClient, library: dict[str, str]) -
     assert view("all") == [str(yard)]
     assert view("trash") == [str(kitchen)]
     counts = signed_in.get("/api/groups").json()["counts"]
-    assert counts == {"all": 1, "no_location": 0, "spread": 0, "trash": 1}
+    assert counts == {"all": 1, "no_location": 0, "with_location": 1, "spread": 0, "trash": 1}
 
     group = signed_in.get(f"/api/groups/{kitchen}").json()
     assert group["group"]["without_location"] == 3
+    assert group["group"]["with_location"] == 2
     assert group["group"]["spread"] is True
     assert [p["file_name"] for p in group["photos"]] == [f"kitchen{i}.jpg" for i in range(5)]
+
+
+def test_how_close_the_photos_of_a_group_are(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    group = signed_in.get(f"/api/groups/{yard}").json()
+    assert group["group"]["similarity"] == pytest.approx(0.917, abs=0.01)
+    assert set(group["closeness"]) == {library[f"yard{i}.jpg"] for i in range(5)}
+    assert all(s == pytest.approx(0.917, abs=0.01) for s in group["closeness"].values())
+
+    # A photo taken out no longer counts, and is no longer counted for the others.
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
+    assert library["yard4.jpg"] not in signed_in.get(f"/api/groups/{yard}").json()["closeness"]
+
+
+def test_closeness_is_the_median_of_the_photos() -> None:
+    a, b, c, stray = ids(4)
+    pairs = clique([a, b, c], 0.9) + both_ways([(stray, a, 0.3)])
+    assert closeness([{a: CORE, b: CORE, c: CORE, stray: ATTACHED}], pairs) == [0.8]
+    assert closeness([{a: CORE}], []) == [None]
 
 
 def test_a_group_nobody_has(signed_in: TestClient) -> None:
@@ -511,6 +544,26 @@ def test_the_photos_just_short_of_a_group(
 
     signed_in.post(f"/api/groups/{yard}/include", json={"ids": [library["almost.jpg"]]})
     assert signed_in.get(f"/api/groups/{yard}/near").json() == []
+
+
+def test_a_photo_with_only_trash_around_gets_its_hint_once(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    location = {"latitude": 42.4, "longitude": 19.26}
+    assert signed_in.put(f"/api/assets/{library['yard0.jpg']}/location", json=location).is_success
+    yard = group_of(signed_in, library, "yard0.jpg")
+    signed_in.patch(f"/api/groups/{yard}", json={"trash": True})
+    signed_in.post("/api/library/similar-hints")
+    run_jobs(signed_in)
+
+    async def due() -> bool:
+        async with signed_in.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            account_id = await db.scalar(select(Account.id))
+            assert account_id is not None
+            return await similar_hints.any_due(db, account_id)
+
+    assert not signed_in.portal.call(due)  # type: ignore[union-attr]
 
 
 def test_the_photos_of_a_trash_group_suggest_no_place(

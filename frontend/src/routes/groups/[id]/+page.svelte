@@ -29,9 +29,21 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
+	import type { Action } from 'svelte/action';
 
-	let detail = $state<GroupDetail | null>(null);
-	let near = $state<AssetItem[]>([]);
+	type PhotoFilter = 'all' | 'with' | 'without';
+
+	// Photos added to the page at a time: a group may have thousands.
+	const PART = 120;
+	const FILTERS: { id: PhotoFilter; label: () => string }[] = [
+		{ id: 'all', label: m.groups_view_all },
+		{ id: 'with', label: m.groups_filter_with },
+		{ id: 'without', label: m.groups_filter_without }
+	];
+
+	// Read only, and thousands of photos: not reactive one by one.
+	let detail = $state.raw<GroupDetail | null>(null);
+	let near = $state.raw<AssetItem[]>([]);
 	let mapConfig = $state<MapConfig | null>(null);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let error = $state<string | null>(null);
@@ -39,22 +51,67 @@
 	let busy = $state(false);
 	let locationOpen = $state(false);
 	let peek = $state<AssetItem | null>(null);
+	let shownCount = $state(PART);
+	let filter = $state<PhotoFilter>('all');
+	let byCloseness = $state(false);
 	const selection = new Selection();
 
 	const numbers = new Intl.NumberFormat(getLocale());
 	const count = (n: number) => numbers.format(n);
+	const similarities = new Intl.NumberFormat(getLocale(), {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2
+	});
+	const similarity = (value: number) => similarities.format(value);
 
 	const id = $derived(page.params.id ?? '');
 	const photos = $derived(detail?.photos ?? []);
+	const withLocation = $derived(photos.filter((photo) => photo.has_location));
 	const withoutLocation = $derived(photos.filter((photo) => !photo.has_location));
+	const closeness = $derived(detail?.closeness ?? {});
+	const listed = $derived.by(() => {
+		const chosen =
+			filter === 'with' ? withLocation : filter === 'without' ? withoutLocation : photos;
+		if (!byCloseness) return chosen;
+		const of = (photo: AssetItem) => closeness[photo.id] ?? Infinity;
+		return [...chosen].sort((a, b) => of(a) - of(b));
+	});
+	const visible = $derived(listed.slice(0, shownCount));
+	const chosenIds = $derived(new Set(selection.ids));
 	const dots = $derived(
 		(detail?.points ?? []).map((point) => ({
 			id: point.id,
 			lat: point.latitude,
 			lon: point.longitude,
-			chosen: selection.has(point.id)
+			chosen: chosenIds.has(point.id)
 		}))
 	);
+
+	/** Another filter or order starts from the top. */
+	function restart(change: () => void) {
+		change();
+		shownCount = PART;
+	}
+
+	/** Calls back when the element comes near the screen; the parameter changing looks again. */
+	const nearScreen: Action<HTMLElement, number> = (node) => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) shownCount += PART;
+			},
+			{ rootMargin: '800px' }
+		);
+		observer.observe(node);
+		return {
+			update() {
+				observer.unobserve(node);
+				observer.observe(node);
+			},
+			destroy() {
+				observer.disconnect();
+			}
+		};
+	};
 
 	function show(answer: GroupDetail) {
 		detail = answer;
@@ -97,14 +154,15 @@
 
 	/** A click on the map: its photos join the choice, or leave it if all are chosen. */
 	function chooseDots(ids: string[]) {
-		const items = photos.filter((photo) => ids.includes(photo.id));
-		selection.setAll(items, !items.every((photo) => selection.has(photo.id)));
+		const wanted = new Set(ids);
+		const items = photos.filter((photo) => wanted.has(photo.id));
+		selection.setAll(items, !items.every((photo) => chosenIds.has(photo.id)));
 	}
 
 	function clickTile(event: MouseEvent, photo: AssetItem) {
 		if (event.shiftKey && selection.anchor) {
 			event.preventDefault();
-			selection.extend(photo, photos);
+			selection.extend(photo, listed);
 		} else if (selection.size > 0 || event.ctrlKey || event.metaKey) {
 			event.preventDefault();
 			selection.toggle(photo);
@@ -183,10 +241,21 @@
 	</div>
 	<p class="numbers">
 		<span>{m.groups_photos({ count: count(detail.group.photos) })}</span>
+		{#if detail.group.with_location > 0}
+			<span class="st-badge st-badge--success">
+				<Icon name="map-pin" size={11} />
+				<span>{m.groups_with_location({ count: count(detail.group.with_location) })}</span>
+			</span>
+		{/if}
 		{#if detail.group.without_location > 0}
 			<span class="st-badge st-badge--info">
 				<Icon name="map-pin-off" size={11} />
 				<span>{m.groups_without_location({ count: count(detail.group.without_location) })}</span>
+			</span>
+		{/if}
+		{#if detail.group.similarity !== null}
+			<span class="st-badge" title={m.groups_similarity_hint()}>
+				<span>{m.groups_similarity({ value: similarity(detail.group.similarity) })}</span>
 			</span>
 		{/if}
 		{#if detail.group.spread}
@@ -219,88 +288,35 @@
 		<p class="hint">{m.groups_map_hint()}</p>
 	{/if}
 
-	{#if photos.length > 0}
-		<div class="tools">
-			{#if withoutLocation.length > 0}
-				<button
-					type="button"
-					class="st-btn st-btn--secondary st-btn--sm"
-					onclick={() => selection.setAll(withoutLocation, true)}
-				>
-					<Icon name="map-pin-off" size={14} />
-					{m.groups_select_without_location({ count: count(withoutLocation.length) })}
-				</button>
-			{/if}
-			<button
-				type="button"
-				class="st-btn st-btn--ghost st-btn--sm"
-				onclick={() => selection.setAll(photos, true)}
-			>
-				{m.groups_select_all()}
-			</button>
-		</div>
-		<div class="grid">
-			{#each photos as photo (photo.id)}
-				{@const chosen = selection.has(photo.id)}
-				<div class="cell" class:chosen>
-					<a
-						class="tile"
-						href={resolve('/photo/[id]', { id: photo.id })}
-						title={photo.file_name}
-						use:longpress={() => (peek = photo)}
-						onclick={(event) => clickTile(event, photo)}
-					>
-						{@render thumbnail(photo)}
-						{#if photo.has_location}
-							<span class="pin" role="img" aria-label={m.asset_has_location()}>
-								<Icon name="map-pin" size={13} strokeWidth={2.25} />
-							</span>
-						{/if}
-					</a>
-					<button
-						type="button"
-						class="check"
-						aria-pressed={chosen}
-						aria-label={m.groups_choose_photo()}
-						title={m.groups_choose_photo()}
-						onclick={() => selection.toggle(photo)}
-					>
-						<Icon name="check" size={12} strokeWidth={3} />
-					</button>
-				</div>
-			{/each}
-		</div>
-	{:else}
-		<p class="numbers">{m.groups_no_photos()}</p>
-	{/if}
-
 	{#if near.length > 0}
-		<h2>{m.groups_near_heading()}</h2>
-		<p class="hint">{m.groups_near_hint()}</p>
-		<div class="grid">
-			{#each near as photo (photo.id)}
-				<div class="cell">
-					<a
-						class="tile"
-						href={resolve('/photo/[id]', { id: photo.id })}
-						title={photo.file_name}
-						use:longpress={() => (peek = photo)}
-					>
-						{@render thumbnail(photo)}
-					</a>
-					<button
-						type="button"
-						class="corner"
-						disabled={busy}
-						aria-label={m.groups_add()}
-						title={m.groups_add()}
-						onclick={() => act(() => includeInGroup(id, [photo.id]))}
-					>
-						<Icon name="plus" size={14} strokeWidth={2.5} />
-					</button>
-				</div>
-			{/each}
-		</div>
+		<details>
+			<summary>{m.groups_near_heading()} ({count(near.length)})</summary>
+			<p class="hint">{m.groups_near_hint()}</p>
+			<div class="grid">
+				{#each near as photo (photo.id)}
+					<div class="cell">
+						<a
+							class="tile"
+							href={resolve('/photo/[id]', { id: photo.id })}
+							title={photo.file_name}
+							use:longpress={() => (peek = photo)}
+						>
+							{@render thumbnail(photo)}
+						</a>
+						<button
+							type="button"
+							class="corner"
+							disabled={busy}
+							aria-label={m.groups_add()}
+							title={m.groups_add()}
+							onclick={() => act(() => includeInGroup(id, [photo.id]))}
+						>
+							<Icon name="plus" size={14} strokeWidth={2.5} />
+						</button>
+					</div>
+				{/each}
+			</div>
+		</details>
 	{/if}
 
 	{#if detail.excluded.length > 0}
@@ -331,6 +347,101 @@
 				{/each}
 			</div>
 		</details>
+	{/if}
+
+	{#if photos.length > 0}
+		<div class="tools">
+			{#each FILTERS as item (item.id)}
+				<button
+					type="button"
+					class="st-btn st-btn--sm"
+					class:st-btn--secondary={item.id === filter}
+					class:st-btn--ghost={item.id !== filter}
+					aria-pressed={item.id === filter}
+					onclick={() => restart(() => (filter = item.id))}
+				>
+					{item.label()}
+					<span class="muted">
+						{count(
+							item.id === 'with'
+								? withLocation.length
+								: item.id === 'without'
+									? withoutLocation.length
+									: photos.length
+						)}
+					</span>
+				</button>
+			{/each}
+			<button
+				type="button"
+				class="st-btn st-btn--sm"
+				class:st-btn--secondary={byCloseness}
+				class:st-btn--ghost={!byCloseness}
+				aria-pressed={byCloseness}
+				title={m.groups_similarity_hint()}
+				onclick={() => restart(() => (byCloseness = !byCloseness))}
+			>
+				{m.groups_sort_similarity()}
+			</button>
+		</div>
+		<div class="tools">
+			{#if withoutLocation.length > 0}
+				<button
+					type="button"
+					class="st-btn st-btn--secondary st-btn--sm"
+					onclick={() => selection.setAll(withoutLocation, true)}
+				>
+					<Icon name="map-pin-off" size={14} />
+					{m.groups_select_without_location({ count: count(withoutLocation.length) })}
+				</button>
+			{/if}
+			<button
+				type="button"
+				class="st-btn st-btn--ghost st-btn--sm"
+				onclick={() => selection.setAll(listed, true)}
+			>
+				{m.groups_select_all()}
+			</button>
+		</div>
+		<div class="grid">
+			{#each visible as photo (photo.id)}
+				{@const chosen = chosenIds.has(photo.id)}
+				<div class="cell" class:chosen>
+					<a
+						class="tile"
+						href={resolve('/photo/[id]', { id: photo.id })}
+						title={photo.file_name}
+						use:longpress={() => (peek = photo)}
+						onclick={(event) => clickTile(event, photo)}
+					>
+						{@render thumbnail(photo)}
+						{#if photo.has_location}
+							<span class="pin" role="img" aria-label={m.asset_has_location()}>
+								<Icon name="map-pin" size={13} strokeWidth={2.25} />
+							</span>
+						{/if}
+						{#if byCloseness && closeness[photo.id] !== undefined}
+							<span class="score">{similarity(closeness[photo.id])}</span>
+						{/if}
+					</a>
+					<button
+						type="button"
+						class="check"
+						aria-pressed={chosen}
+						aria-label={m.groups_choose_photo()}
+						title={m.groups_choose_photo()}
+						onclick={() => selection.toggle(photo)}
+					>
+						<Icon name="check" size={12} strokeWidth={3} />
+					</button>
+				</div>
+			{/each}
+		</div>
+		{#if visible.length < listed.length}
+			<div class="more" use:nearScreen={shownCount}></div>
+		{/if}
+	{:else}
+		<p class="numbers">{m.groups_no_photos()}</p>
 	{/if}
 {:else if !error}
 	<Skeleton />
@@ -491,9 +602,22 @@
 		opacity: 0.5;
 		cursor: default;
 	}
-	h2 {
-		margin: 0 0 var(--space-2);
-		font-size: var(--text-lg);
+	.muted {
+		color: var(--color-text-muted);
+	}
+	.score {
+		position: absolute;
+		left: var(--space-1);
+		bottom: var(--space-1);
+		padding: 0 var(--space-1);
+		border-radius: var(--radius-sm);
+		background: rgb(0 0 0 / 0.6);
+		color: white;
+		font-size: var(--text-xs);
+		font-variant-numeric: tabular-nums;
+	}
+	.more {
+		height: 1px;
 	}
 	summary {
 		margin-bottom: var(--space-3);

@@ -547,5 +547,12 @@
 	"groups_excluded_heading": "Herausgenommen ({count})",
 	"groups_bring_back": "Zurückholen",
 	"candidate_group": "{count} Fotos dieser Gruppe sind hier",
-	"groups_settings_split_hint": "Große Gruppen, deren Fotos an verschiedenen Orten liegen (etwa Strände), werden mit strengerer Ähnlichkeit aufgeteilt; Fotos, die nirgends passen, verlassen dann die Gruppen."
+	"groups_settings_split_hint": "Große Gruppen, deren Fotos an verschiedenen Orten liegen (etwa Strände), werden mit strengerer Ähnlichkeit aufgeteilt; Fotos, die nirgends passen, verlassen dann die Gruppen.",
+	"groups_view_with_location": "Mit Fotos mit Ort",
+	"groups_with_location": "{count} mit Ort",
+	"groups_filter_with": "Mit Ort",
+	"groups_filter_without": "Ohne Ort",
+	"groups_similarity": "Ähnlichkeit {value}",
+	"groups_similarity_hint": "Wie nah Fotos den anderen der Gruppe sind, von 0 bis 1. Ein Foto weit unter den übrigen gehört vielleicht nicht hierher.",
+	"groups_sort_similarity": "Unähnlichste zuerst"
 }

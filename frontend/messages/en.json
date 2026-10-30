@@ -547,5 +547,12 @@
 	"groups_excluded_heading": "Taken out ({count})",
 	"groups_bring_back": "Bring back",
 	"candidate_group": "{count} photos of this group are here",
-	"groups_settings_split_hint": "Large groups whose photos lie in different places (beaches, say) are split with a stricter similarity; photos that fit nowhere then leave the groups."
+	"groups_settings_split_hint": "Large groups whose photos lie in different places (beaches, say) are split with a stricter similarity; photos that fit nowhere then leave the groups.",
+	"groups_view_with_location": "With photos with a location",
+	"groups_with_location": "{count} with a location",
+	"groups_filter_with": "With a location",
+	"groups_filter_without": "Without a location",
+	"groups_similarity": "Similarity {value}",
+	"groups_similarity_hint": "How close photos are to the others of the group, from 0 to 1. A photo much lower than the rest may not belong here.",
+	"groups_sort_similarity": "Least similar first"
 }

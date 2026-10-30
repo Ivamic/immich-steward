@@ -25,8 +25,8 @@ router = APIRouter(prefix="/groups")
 # Far more than anyone chooses by hand; keeps a request bounded.
 MAX_ASSETS = 2000
 
-GroupView = Literal["all", "no_location", "spread", "trash"]
-VIEWS: tuple[GroupView, ...] = ("all", "no_location", "spread", "trash")
+GroupView = Literal["all", "no_location", "with_location", "spread", "trash"]
+VIEWS: tuple[GroupView, ...] = ("all", "no_location", "with_location", "spread", "trash")
 
 
 class Cover(BaseModel):
@@ -40,7 +40,10 @@ class GroupOut(BaseModel):
     trash: bool
     photos: int
     without_location: int
+    with_location: int
     spread: bool
+    # How close the photos are to each other; None until the next rebuild.
+    similarity: float | None
     cover: Cover | None = None
 
     @classmethod
@@ -51,7 +54,9 @@ class GroupOut(BaseModel):
             trash=summary.trash,
             photos=summary.photos,
             without_location=summary.without_location,
+            with_location=summary.with_location,
             spread=summary.spread,
+            similarity=summary.similarity,
             cover=Cover(id=cover[0], version=cover[1]) if cover else None,
         )
 
@@ -83,6 +88,8 @@ class GroupDetail(BaseModel):
     points: list[GroupPoint]
     # Taken out by the user.
     excluded: list[AssetItem]
+    # Per photo: how close it is to the others of the group.
+    closeness: dict[UUID, float]
 
 
 class GroupUpdate(BaseModel):
@@ -104,6 +111,8 @@ def _in_view(summary: Summary, view: GroupView) -> bool:
         return False
     if view == "no_location":
         return summary.without_location > 0
+    if view == "with_location":
+        return summary.with_location > 0
     return view == "all" or summary.spread
 
 
@@ -118,7 +127,7 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
     summaries = await view_groups.summaries(db, account.id, group.id)
     summary = summaries[0] if summaries else None
     if summary is None:  # all its photos left: moved to the trash of Immich, or taken out
-        summary = Summary(group.id, group.name, group.trash, 0, 0, False)
+        summary = Summary(group.id, group.name, group.trash, 0, 0, 0, False, None)
     covers = await view_groups.covers(db, [group.id])
     photos = await view_groups.photos_of(db, group.id)
     return GroupDetail(
@@ -130,6 +139,7 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
             if is_located(a)
         ],
         excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
+        closeness=await view_groups.photo_closeness(db, group.id),
     )
 
 

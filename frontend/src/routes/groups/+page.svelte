@@ -53,6 +53,8 @@
 		const asked = page.url.searchParams.get('view');
 		return VIEWS.find((v) => v.id === asked)?.id ?? 'all';
 	});
+	// Goes along to a group, for its way back to this view.
+	const query = $derived<'' | `?${string}`>(view === 'all' ? '' : `?view=${view}`);
 	const status = $derived(list?.status ?? null);
 	const working = $derived(isActive(status?.job ?? null));
 	const total = $derived(list?.counts[view] ?? 0);
@@ -218,7 +220,7 @@
 						</button>
 					</div>
 				{:else}
-					<a class="group" href={resolve('/groups/[id]', { id: group.id })}>
+					<a class="group" href={resolve(`/groups/[id]${query}`, { id: group.id })}>
 						<span class="cover">
 							{#if group.cover}
 								<img

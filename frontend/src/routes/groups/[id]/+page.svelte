@@ -76,6 +76,11 @@
 	const similarity = (value: number) => similarities.format(value);
 
 	const id = $derived(page.params.id ?? '');
+	// The view of the list this group was opened from.
+	const list = $derived.by(() => {
+		const view = page.url.searchParams.get('view');
+		return resolve(view ? `/groups?view=${encodeURIComponent(view)}` : '/groups');
+	});
 	const photos = $derived(detail?.photos ?? []);
 	const centerIds = $derived(new Set(detail?.center ?? []));
 	const center = $derived(photos.filter((photo) => centerIds.has(photo.id)));
@@ -176,7 +181,7 @@
 		confirmDissolve = false;
 		try {
 			await dissolveGroup(id);
-			await goto(resolve('/groups'));
+			await goto(list);
 		} catch (e) {
 			error = errorMessage(e);
 		}
@@ -261,7 +266,7 @@
 	/>
 {/snippet}
 
-<a class="back" href={resolve('/groups')}>
+<a class="back" href={list}>
 	<Icon name="arrow-left" size={14} />
 	{m.groups_back()}
 </a>

@@ -558,5 +558,12 @@
 	"groups_photos_trash": "Nel cestino",
 	"groups_recount_hint": "I gruppi vengono ricostruiti senza queste foto; ci vuole circa un minuto. Ricarica la pagina per vedere il risultato.",
 	"groups_trashed_heading": "Singole foto nel cestino ({count})",
-	"groups_trashed_hint": "Queste foto non vengono usate per suggerire un luogo e non collegano gruppi. I loro luoghi in Immich restano invariati."
+	"groups_trashed_hint": "Queste foto non vengono usate per suggerire un luogo e non collegano gruppi. I loro luoghi in Immich restano invariati.",
+	"error_groups_busy": "I gruppi sono in elaborazione. Riprova quando è finita.",
+	"groups_settings_reset": "Ricostruisci i gruppi da zero",
+	"groups_settings_reset_hint": "Richiede circa un minuto. I nomi dei gruppi e le tue modifiche vengono rimossi.",
+	"groups_reset_warning": "Tutti i gruppi vengono ricostruiti. I loro nomi, le foto aggiunte o tolte e i segni di cestino dei gruppi vengono rimossi e non si possono recuperare. Le singole foto nel cestino restano lì.",
+	"groups_reset_cancel": "Annulla",
+	"groups_reset_confirm": "Rimuovi e ricostruisci",
+	"groups_filter_core": "Nucleo"
 }

@@ -488,6 +488,43 @@ def test_closeness_is_the_median_of_the_photos() -> None:
     assert closeness([{a: CORE}], []) == [None]
 
 
+def test_a_reset_drops_the_groups_with_all_done_to_them_but_not_the_trash(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    signed_in.patch(f"/api/groups/{yard}", json={"name": "Yard", "trash": True})
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
+    signed_in.post(f"/api/groups/{yard}/trash", json={"ids": [library["yard3.jpg"]]})
+
+    # While the job those asked for waits, a reset is refused.
+    refused = signed_in.post("/api/groups/reset")
+    assert (refused.status_code, refused.json()["code"]) == (409, "groups_busy")
+    run_jobs(signed_in)
+
+    assert signed_in.post("/api/groups/reset").status_code == 202
+    run_jobs(signed_in)
+
+    found = signed_in.get("/api/groups").json()
+    assert all(g["name"] is None and not g["trash"] for g in found["groups"])
+    new_yard = group_of(signed_in, library, "yard0.jpg")
+    assert new_yard != yard
+    assert groups(signed_in, library)[new_yard]["yard4.jpg"] == CORE  # taken out no more
+    assert "yard3.jpg" not in groups(signed_in, library)[new_yard]  # still in the trash
+    assert signed_in.get("/api/groups/trash-photos").json()["total"] == 1
+
+
+def test_the_core_of_a_group(signed_in: TestClient, library: dict[str, str]) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    group = signed_in.get(f"/api/groups/{yard}").json()
+    assert set(group["core"]) == {library[f"yard{i}.jpg"] for i in range(5)}
+
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
+    group = signed_in.get(f"/api/groups/{yard}").json()
+    assert library["yard4.jpg"] not in group["core"]
+
+
 def test_a_group_nobody_has(signed_in: TestClient) -> None:
     assert signed_in.get(f"/api/groups/{uuid4()}").json()["code"] == "group_not_found"
     assert signed_in.patch(f"/api/groups/{uuid4()}", json={"name": "x"}).status_code == 404
@@ -556,9 +593,9 @@ def test_the_photos_just_short_of_a_group(
     sync(signed_in, full=True)
     items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
     library = {item["file_name"]: item["id"] for item in items}
-    # Similarity to the yard: ~0.36, under the 0.40 of a group, above 0.30.
+    # Similarity to the yard: ~0.42, under the 0.47 of a group, above 0.37.
     vector = [0.0] * EMBEDDING_DIM
-    vector[0], vector[300] = 0.38, 0.925
+    vector[0], vector[300] = 0.44, 0.898
     worker = start_worker(signed_in)
     run_module(signed_in, worker, library["almost.jpg"], {"embedding": encoded(vector)})
     schedule(signed_in)

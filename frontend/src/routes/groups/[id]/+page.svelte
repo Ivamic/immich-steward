@@ -32,12 +32,13 @@
 	import { untrack } from 'svelte';
 	import type { Action } from 'svelte/action';
 
-	type PhotoFilter = 'all' | 'with' | 'without';
+	type PhotoFilter = 'all' | 'core' | 'with' | 'without';
 
 	// Photos added to the page at a time: a group may have thousands.
 	const PART = 120;
 	const FILTERS: { id: PhotoFilter; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
+		{ id: 'core', label: m.groups_filter_core },
 		{ id: 'with', label: m.groups_filter_with },
 		{ id: 'without', label: m.groups_filter_without }
 	];
@@ -69,12 +70,22 @@
 
 	const id = $derived(page.params.id ?? '');
 	const photos = $derived(detail?.photos ?? []);
+	const core = $derived.by(() => {
+		const ids = new Set(detail?.core ?? []);
+		return photos.filter((photo) => ids.has(photo.id));
+	});
 	const withLocation = $derived(photos.filter((photo) => photo.has_location));
 	const withoutLocation = $derived(photos.filter((photo) => !photo.has_location));
 	const closeness = $derived(detail?.closeness ?? {});
 	const listed = $derived.by(() => {
 		const chosen =
-			filter === 'with' ? withLocation : filter === 'without' ? withoutLocation : photos;
+			filter === 'core'
+				? core
+				: filter === 'with'
+					? withLocation
+					: filter === 'without'
+						? withoutLocation
+						: photos;
 		if (!byCloseness) return chosen;
 		const of = (photo: AssetItem) => closeness[photo.id] ?? Infinity;
 		return [...chosen].sort((a, b) => of(a) - of(b));
@@ -376,11 +387,13 @@
 					{item.label()}
 					<span class="muted">
 						{count(
-							item.id === 'with'
-								? withLocation.length
-								: item.id === 'without'
-									? withoutLocation.length
-									: photos.length
+							item.id === 'core'
+								? core.length
+								: item.id === 'with'
+									? withLocation.length
+									: item.id === 'without'
+										? withoutLocation.length
+										: photos.length
 						)}
 					</span>
 				</button>

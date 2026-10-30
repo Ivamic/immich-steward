@@ -558,5 +558,12 @@
 	"groups_photos_trash": "To trash",
 	"groups_recount_hint": "The groups are being built again without these photos; it takes about a minute. Reload the page to see the result.",
 	"groups_trashed_heading": "Single photos in the trash ({count})",
-	"groups_trashed_hint": "These photos are not used to suggest a place and link no groups. Their locations in Immich stay as they are."
+	"groups_trashed_hint": "These photos are not used to suggest a place and link no groups. Their locations in Immich stay as they are.",
+	"error_groups_busy": "The groups are being worked on. Try again when it is over.",
+	"groups_settings_reset": "Build the groups from scratch",
+	"groups_settings_reset_hint": "Takes about a minute. Group names and your changes to groups are removed.",
+	"groups_reset_warning": "All groups are built anew. Their names, the photos you added or took out and the trash marks of groups are removed and cannot be brought back. Single photos in the trash stay there.",
+	"groups_reset_cancel": "Cancel",
+	"groups_reset_confirm": "Remove and build anew",
+	"groups_filter_core": "Core"
 }

@@ -558,5 +558,12 @@
 	"groups_photos_trash": "Vers la corbeille",
 	"groups_recount_hint": "Les groupes sont reconstruits sans ces photos, ce qui prend environ une minute. Rechargez la page pour voir le résultat.",
 	"groups_trashed_heading": "Photos seules dans la corbeille ({count})",
-	"groups_trashed_hint": "Ces photos ne servent pas à suggérer un lieu et ne relient aucun groupe. Leurs lieux dans Immich ne changent pas."
+	"groups_trashed_hint": "Ces photos ne servent pas à suggérer un lieu et ne relient aucun groupe. Leurs lieux dans Immich ne changent pas.",
+	"error_groups_busy": "Les groupes sont en cours de traitement. Réessayez quand ce sera terminé.",
+	"groups_settings_reset": "Reconstruire les groupes de zéro",
+	"groups_settings_reset_hint": "Prend environ une minute. Les noms des groupes et vos changements sont supprimés.",
+	"groups_reset_warning": "Tous les groupes sont reconstruits. Leurs noms, les photos ajoutées ou retirées et les marques de corbeille des groupes sont supprimés définitivement. Les photos seules dans la corbeille y restent.",
+	"groups_reset_cancel": "Annuler",
+	"groups_reset_confirm": "Supprimer et reconstruire",
+	"groups_filter_core": "Noyau"
 }

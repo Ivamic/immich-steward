@@ -778,6 +778,8 @@ export interface GroupDetail {
 	excluded: AssetItem[];
 	/** Per photo: how close it is to the others of the group. */
 	closeness: Record<string, number>;
+	/** The photos that hold the group together. */
+	core: string[];
 }
 
 export const getGroups = (view: GroupView, offset: number, limit: number) =>
@@ -803,6 +805,8 @@ export const excludeFromGroup = (id: string, ids: string[]) =>
 export const includeInGroup = (id: string, ids: string[]) =>
 	request<GroupDetail>('POST', `/api/groups/${id}/include`, { ids });
 export const refreshGroups = () => request<Job>('POST', '/api/groups/refresh');
+/** Drops the groups with their names and all that was done to them, and builds them anew. */
+export const resetGroups = () => request<Job>('POST', '/api/groups/reset');
 export const login = (apiKey: string) =>
 	request<Me>('POST', '/api/auth/login', { api_key: apiKey });
 export const loginWithPassword = (email: string, password: string) =>

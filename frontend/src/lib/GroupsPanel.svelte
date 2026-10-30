@@ -3,12 +3,21 @@
 <script lang="ts">
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
-	import { getGroups, isActive, refreshGroups, type AccountSettings, type Job } from '#lib/api.js';
+	import {
+		getGroups,
+		isActive,
+		refreshGroups,
+		resetGroups,
+		type AccountSettings,
+		type Job
+	} from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import Dialog from '#lib/ui/Dialog.svelte';
 
 	let error = $state<string | null>(null);
 	let saving = $state(false);
 	let job = $state<Job | null>(null);
+	let confirmReset = $state(false);
 
 	async function loadJob() {
 		try {
@@ -34,6 +43,17 @@
 			saving = false;
 		}
 		await loadJob();
+	}
+
+	async function reset() {
+		confirmReset = false;
+		try {
+			job = await resetGroups();
+			error = null;
+		} catch (e) {
+			error = errorMessage(e);
+			await loadJob();
+		}
 	}
 
 	async function searchAgain() {
@@ -73,7 +93,7 @@
 				type="number"
 				min="0.1"
 				max="0.95"
-				step="0.05"
+				step="0.01"
 				value={accountSettings.values.groups_similarity}
 				disabled={saving}
 				onchange={saveSimilarity}
@@ -122,10 +142,39 @@
 		</button>
 		<p class="hint">{m.groups_settings_search_again_hint()}</p>
 	</div>
+	<div>
+		<button
+			type="button"
+			class="st-btn st-btn--secondary st-btn--sm"
+			disabled={isActive(job)}
+			onclick={() => (confirmReset = true)}
+		>
+			{m.groups_settings_reset()}
+		</button>
+		<p class="hint">{m.groups_settings_reset_hint()}</p>
+	</div>
 	{#if error}
 		<p class="error" role="alert">{error}</p>
 	{/if}
 </section>
+
+{#if confirmReset}
+	<Dialog
+		title={m.groups_settings_reset()}
+		icon="triangle-alert"
+		onclose={() => (confirmReset = false)}
+	>
+		<p>{m.groups_reset_warning()}</p>
+		{#snippet footer()}
+			<button type="button" class="st-btn st-btn--secondary" onclick={() => (confirmReset = false)}>
+				{m.groups_reset_cancel()}
+			</button>
+			<button type="button" class="st-btn st-btn--danger" onclick={reset}>
+				{m.groups_reset_confirm()}
+			</button>
+		{/snippet}
+	</Dialog>
+{/if}
 
 <style>
 	section {

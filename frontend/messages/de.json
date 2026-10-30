@@ -558,5 +558,12 @@
 	"groups_photos_trash": "In den Papierkorb",
 	"groups_recount_hint": "Die Gruppen werden ohne diese Fotos neu aufgebaut; das dauert etwa eine Minute. Laden Sie die Seite neu, um das Ergebnis zu sehen.",
 	"groups_trashed_heading": "Einzelne Fotos im Papierkorb ({count})",
-	"groups_trashed_hint": "Diese Fotos werden nicht für Ortsvorschläge verwendet und verbinden keine Gruppen. Ihre Orte in Immich bleiben unverändert."
+	"groups_trashed_hint": "Diese Fotos werden nicht für Ortsvorschläge verwendet und verbinden keine Gruppen. Ihre Orte in Immich bleiben unverändert.",
+	"error_groups_busy": "Die Gruppen werden gerade bearbeitet. Versuchen Sie es danach erneut.",
+	"groups_settings_reset": "Gruppen von Grund auf neu bilden",
+	"groups_settings_reset_hint": "Dauert etwa eine Minute. Gruppennamen und Ihre Änderungen an Gruppen werden entfernt.",
+	"groups_reset_warning": "Alle Gruppen werden neu gebildet. Ihre Namen, von Ihnen hinzugefügte oder herausgenommene Fotos und die Papierkorb-Markierungen von Gruppen werden entfernt und lassen sich nicht wiederherstellen. Einzelne Fotos im Papierkorb bleiben dort.",
+	"groups_reset_cancel": "Abbrechen",
+	"groups_reset_confirm": "Entfernen und neu bilden",
+	"groups_filter_core": "Kern"
 }

@@ -20,7 +20,7 @@ DEFAULTS: dict[str, Any] = {
     # Groups of photos of one view (`steward.view_groups`), by the measure on a family library
     # (D-181, D-182): photos at least this similar are close; a photo with this many close
     # neighbors is a core; close only when each keeps the other among its own neighbors.
-    "groups_similarity": 0.4,
+    "groups_similarity": 0.47,
     "groups_core_neighbors": 3,
     "groups_mutual": True,
 }

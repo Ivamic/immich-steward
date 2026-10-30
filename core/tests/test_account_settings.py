@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 DEFAULTS = {
     "gallery_tooltip": True,
     "video_sound": False,
-    "groups_similarity": 0.4,
+    "groups_similarity": 0.47,
     "groups_core_neighbors": 3,
     "groups_mutual": True,
 }

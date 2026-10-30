@@ -5,7 +5,7 @@ import { getAccountSettings, setAccountSettings, type AccountSettings } from '#l
 const DEFAULTS: AccountSettings = {
 	gallery_tooltip: true,
 	video_sound: false,
-	groups_similarity: 0.4,
+	groups_similarity: 0.47,
 	groups_core_neighbors: 3,
 	groups_mutual: true
 };

@@ -16,7 +16,7 @@ from steward.api.library import JobOut
 from steward.deps import CurrentAccount, DbDep
 from steward.embeddings import is_located
 from steward.errors import ApiError
-from steward.jobs import enqueue
+from steward.jobs import ACTIVE_STATUSES, enqueue
 from steward.models import Account, Job, ViewGroup
 from steward.view_groups import Summary
 
@@ -92,6 +92,8 @@ class GroupDetail(BaseModel):
     excluded: list[AssetItem]
     # Per photo: how close it is to the others of the group.
     closeness: dict[UUID, float]
+    # The photos that hold the group together.
+    core: list[UUID]
 
 
 class GroupUpdate(BaseModel):
@@ -153,6 +155,7 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
         ],
         excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
         closeness=await view_groups.photo_closeness(db, group.id),
+        core=await view_groups.core_of(db, group.id),
     )
 
 
@@ -188,6 +191,23 @@ async def list_groups(
 async def refresh_groups(account: CurrentAccount, db: DbDep) -> JobOut:
     """Searches the neighbors of all the photos again and rebuilds the groups."""
     payload = {"since": datetime.now(UTC).isoformat(), "rebuild": True}
+    return JobOut.of(await enqueue(db, view_groups.JOB_KIND, account.id, payload))
+
+
+@router.post("/reset", status_code=202)
+async def reset_groups(account: CurrentAccount, db: DbDep) -> JobOut:
+    """Drops the groups, with their names and all that was done to them, and builds them anew.
+    The neighbors stay, and so do the photos in the trash."""
+    active = await db.scalar(
+        select(Job).where(
+            Job.account_id == account.id,
+            Job.kind == view_groups.JOB_KIND,
+            Job.status.in_(ACTIVE_STATUSES),
+        )
+    )
+    if active is not None:
+        raise ApiError(409, "groups_busy")
+    payload = {"rebuild": True, "reset": True}
     return JobOut.of(await enqueue(db, view_groups.JOB_KIND, account.id, payload))
 
 

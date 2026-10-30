@@ -603,7 +603,8 @@ async def run(
     (now if asked to, or once `REBUILD_EVERY` has passed since the last rebuild).
 
     Payload: "since" (ISO time) searches again the neighbors older than it (all the photos, by
-    the button); "rebuild" rebuilds whatever the time since the last one.
+    the button); "rebuild" rebuilds whatever the time since the last one; "reset" drops the groups
+    first, with all that the user did to them (not the photos in the trash).
     """
     since = datetime.fromisoformat(payload["since"]) if payload.get("since") else None
     result: dict[str, Any] = await refresh_neighbors(
@@ -616,6 +617,11 @@ async def run(
     if payload.get("rebuild") or last is None or last < datetime.now(UTC) - REBUILD_EVERY:
         if on_progress is not None:
             await on_progress({"stage": "groups"})
+        if payload.get("reset"):
+            await db.execute(
+                delete(ViewGroup).where(ViewGroup.account_id == account_id, ViewGroup.kind == KIND)
+            )
+            await db.commit()
         result |= await rebuild(db, account_id, await rule_of(db, account_id))
         result["rebuilt"] = True
     return result
@@ -728,6 +734,16 @@ async def photo_closeness(db: AsyncSession, group_id: UUID) -> dict[UUID, float]
     """Photo -> its mean similarity to the photos of the group among its neighbors."""
     rows = await db.execute(_PHOTO_CLOSENESS, {"group_id": group_id})
     return {row.asset_id: round(float(row.similarity), 3) for row in rows}
+
+
+async def core_of(db: AsyncSession, group_id: UUID) -> list[UUID]:
+    """The photos that hold the group together, as of the last rebuild."""
+    found = await db.scalars(
+        select(ViewGroupMember.asset_id).where(
+            ViewGroupMember.group_id == group_id, ViewGroupMember.role == CORE
+        )
+    )
+    return list(found)
 
 
 async def excluded_of(db: AsyncSession, group_id: UUID) -> list[Asset]:

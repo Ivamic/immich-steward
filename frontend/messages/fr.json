@@ -600,5 +600,8 @@
 	"photo_no_sign_change": "Modifier",
 	"groups_marked_heading": "Sans indice de lieu ({count})",
 	"groups_marked_hint": "Elles ne donnent de lieu à aucune autre photo et ne lient pas le groupe, mais peuvent recevoir son lieu.",
-	"groups_ready_with_marked": "Aussi celles sans indice de lieu : {count}"
+	"groups_ready_with_marked": "Aussi celles sans indice de lieu : {count}",
+	"groups_restore_all": "Tout récupérer ({count})",
+	"groups_restore_chosen": "Récupérer la sélection ({count})",
+	"groups_restore_all_warning": "La marque est retirée de toutes les photos seules, même celles pas encore affichées. Elles suggèrent à nouveau des lieux et rejoignent des groupes à la prochaine reconstruction. C’est définitif : il faudrait marquer de nouveau les photos."
 }

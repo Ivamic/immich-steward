@@ -7,6 +7,7 @@
 		getGroups,
 		getTrashedPhotos,
 		isActive,
+		restoreAllPhotos,
 		restorePhotos,
 		thumbnailUrl,
 		type GroupList,
@@ -18,6 +19,7 @@
 	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Skeleton from '#lib/ui/Skeleton.svelte';
@@ -25,10 +27,15 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tick } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	const PAGE = 60;
 	// The most the server gives at a time.
 	const MOST = 200;
+	// Photos with no sign of a place: a page of them, the most at a time, the most sent at a time.
+	const TRASHED_PAGE = 120;
+	const TRASHED_MOST = 500;
+	const SENT_MOST = 2000;
 	const POLL_MS = 5000;
 	// Where the list was when a group was opened.
 	const PLACE_KEY = 'steward.groups.place';
@@ -47,6 +54,10 @@
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
 	let trashed = $state.raw<TrashedPhotos | null>(null);
+	let loadingTrashed = false;
+	let restoring = $state(false);
+	let confirmRestore = $state(false);
+	const chosenTrashed = new SvelteSet<string>();
 	// Only the answer to the last request counts.
 	let latest = 0;
 	let loading = false;
@@ -114,6 +125,7 @@
 	}
 
 	function choose(next: GroupView) {
+		chosenTrashed.clear();
 		goto(resolve(next === 'all' ? '/groups' : `/groups?view=${next}`), {
 			replace: true,
 			reset: false
@@ -129,23 +141,95 @@
 		}
 	}
 
-	function loadTrashed() {
-		return getTrashedPhotos()
-			.then((answer) => (trashed = answer))
-			.catch((e) => (error = errorMessage(e)));
+	/** The first page, or as many as were shown. */
+	async function loadTrashed(upTo = TRASHED_PAGE) {
+		try {
+			const answer = await getTrashedPhotos(0, Math.min(upTo, TRASHED_MOST));
+			let photos = answer.photos;
+			while (photos.length < Math.min(upTo, answer.total)) {
+				const left = Math.min(upTo - photos.length, TRASHED_MOST);
+				const next = await getTrashedPhotos(photos.length, left);
+				if (next.photos.length === 0) break;
+				photos = [...photos, ...next.photos];
+			}
+			trashed = { total: answer.total, photos };
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
+	async function moreTrashed() {
+		if (loadingTrashed || !trashed) return;
+		loadingTrashed = true;
+		try {
+			const answer = await getTrashedPhotos(trashed.photos.length, TRASHED_PAGE);
+			const known = new Set(trashed.photos.map((photo) => photo.id));
+			const fresh = answer.photos.filter((photo) => !known.has(photo.id));
+			trashed = { total: answer.total, photos: [...trashed.photos, ...fresh] };
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			loadingTrashed = false;
+		}
+	}
+
+	function toggleTrashed(id: string) {
+		if (!chosenTrashed.delete(id)) chosenTrashed.add(id);
+	}
+
+	/** While some are chosen a click chooses, as among the photos of a group. */
+	function clickTrashed(event: MouseEvent, id: string) {
+		if (chosenTrashed.size === 0) return;
+		event.preventDefault();
+		toggleTrashed(id);
+	}
+
+	/** Takes the mark off, a part at a time: a request is bounded. The groups are built again. */
+	async function restore(ids: string[]) {
+		restoring = true;
+		try {
+			let total = trashed?.total ?? 0;
+			for (let start = 0; start < ids.length; start += SENT_MOST) {
+				total = (await restorePhotos(ids.slice(start, start + SENT_MOST))).total;
+			}
+			const gone = new Set(ids);
+			const left = (trashed?.photos ?? []).filter((photo) => !gone.has(photo.id));
+			trashed = { total, photos: left };
+			ids.forEach((id) => chosenTrashed.delete(id));
+			await load(view, Math.max(shown.length, PAGE));
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			restoring = false;
+		}
+	}
+
+	async function restoreAll() {
+		confirmRestore = false;
+		restoring = true;
+		try {
+			trashed = await restoreAllPhotos();
+			chosenTrashed.clear();
+			await load(view, Math.max(shown.length, PAGE));
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			restoring = false;
+		}
 	}
 
 	/** Storage may be unavailable: the list then just opens from the top. */
 	function rememberPlace() {
 		try {
-			const place = { view, shown: shown.length, top: window.scrollY };
+			const trashedShown = trashed?.photos.length ?? 0;
+			const place = { view, shown: shown.length, trashedShown, top: window.scrollY };
 			sessionStorage.setItem(PLACE_KEY, JSON.stringify(place));
 		} catch {
 			// nothing to do
 		}
 	}
 
-	function rememberedPlace(): { shown: number; top: number } | null {
+	function rememberedPlace(): { shown: number; trashedShown?: number; top: number } | null {
 		try {
 			const place = JSON.parse(sessionStorage.getItem(PLACE_KEY) ?? 'null');
 			return place?.view === view ? place : null;
@@ -159,18 +243,13 @@
 		if (from?.route.id !== '/groups/[id]') return;
 		const place = rememberedPlace();
 		if (!place) return;
-		await Promise.all([load(view, place.shown), view === 'trash' ? loadTrashed() : null]);
+		await Promise.all([
+			load(view, place.shown),
+			view === 'trash' ? loadTrashed(place.trashedShown || TRASHED_PAGE) : null
+		]);
 		await tick();
 		window.scrollTo({ top: place.top });
 	});
-
-	async function bringBack(id: string) {
-		try {
-			trashed = await restorePhotos([id]);
-		} catch (e) {
-			error = errorMessage(e);
-		}
-	}
 
 	$effect(() => {
 		load(view, PAGE);
@@ -231,10 +310,47 @@
 	{#if view === 'trash' && trashed && trashed.total > 0}
 		<h2>{m.groups_trashed_heading({ count: count(trashed.total) })}</h2>
 		<p class="muted">{m.groups_trashed_hint()}</p>
+		<div class="trashed-tools">
+			{#if chosenTrashed.size > 0}
+				<button
+					type="button"
+					class="st-btn st-btn--primary st-btn--sm"
+					disabled={restoring}
+					onclick={() => restore([...chosenTrashed])}
+				>
+					<Icon name="rotate-ccw" size={14} />
+					{m.groups_restore_chosen({ count: count(chosenTrashed.size) })}
+				</button>
+				<button
+					type="button"
+					class="st-btn st-btn--ghost st-btn--sm"
+					onclick={() => chosenTrashed.clear()}
+				>
+					{m.selection_clear()}
+				</button>
+			{/if}
+			<button
+				type="button"
+				class="st-btn st-btn--secondary st-btn--sm"
+				disabled={restoring}
+				onclick={() => (confirmRestore = true)}
+			>
+				<Icon name="rotate-ccw" size={14} />
+				{m.groups_restore_all({ count: count(trashed.total) })}
+			</button>
+			{#if restoring}
+				<span class="st-spin"><Icon name="loader-circle" size={14} /></span>
+			{/if}
+		</div>
 		<div class="photos">
 			{#each trashed.photos as photo (photo.id)}
-				<div class="cell">
-					<a href={resolve('/photo/[id]', { id: photo.id })} title={photo.file_name}>
+				{@const chosen = chosenTrashed.has(photo.id)}
+				<div class="cell" class:chosen>
+					<a
+						href={resolve('/photo/[id]', { id: photo.id })}
+						title={photo.file_name}
+						onclick={(event) => clickTrashed(event, photo.id)}
+					>
 						<img
 							src={thumbnailUrl(photo.id, 'thumbnail', 0, photo.version)}
 							alt={photo.file_name}
@@ -247,13 +363,27 @@
 						class="back"
 						aria-label={m.groups_bring_back()}
 						title={m.groups_bring_back()}
-						onclick={() => bringBack(photo.id)}
+						disabled={restoring}
+						onclick={() => restore([photo.id])}
 					>
 						<Icon name="rotate-ccw" size={14} strokeWidth={2.5} />
+					</button>
+					<button
+						type="button"
+						class="pick"
+						aria-pressed={chosen}
+						aria-label={m.groups_choose_photo()}
+						title={m.groups_choose_photo()}
+						onclick={() => toggleTrashed(photo.id)}
+					>
+						<Icon name="check" size={12} strokeWidth={3} />
 					</button>
 				</div>
 			{/each}
 		</div>
+		{#if trashed.photos.length < trashed.total}
+			<div class="more" use:nearScreen={{ at: trashed.photos.length, onnear: moreTrashed }}></div>
+		{/if}
 	{/if}
 
 	{#if shown.length > 0}
@@ -339,6 +469,28 @@
 	{/if}
 {:else if !error}
 	<Skeleton />
+{/if}
+
+{#if confirmRestore && trashed}
+	<Dialog
+		title={m.groups_restore_all({ count: count(trashed.total) })}
+		icon="triangle-alert"
+		onclose={() => (confirmRestore = false)}
+	>
+		<p>{m.groups_restore_all_warning()}</p>
+		{#snippet footer()}
+			<button
+				type="button"
+				class="st-btn st-btn--secondary"
+				onclick={() => (confirmRestore = false)}
+			>
+				{m.groups_reset_cancel()}
+			</button>
+			<button type="button" class="st-btn st-btn--danger" onclick={restoreAll}>
+				{m.groups_restore_all({ count: count(trashed?.total ?? 0) })}
+			</button>
+		{/snippet}
+	</Dialog>
 {/if}
 
 <style>
@@ -477,5 +629,51 @@
 	}
 	.more {
 		height: 1px;
+	}
+	/* Stays under the header: the list can be thousands of photos long. */
+	.trashed-tools {
+		position: sticky;
+		top: calc(var(--header-height) + var(--space-2));
+		z-index: var(--z-panel);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-3);
+		padding: var(--space-1) var(--space-2);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-sm);
+	}
+	.cell.chosen img {
+		opacity: 0.75;
+		outline: 3px solid var(--color-accent);
+		outline-offset: -3px;
+	}
+	.pick {
+		position: absolute;
+		top: var(--space-1);
+		right: var(--space-1);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		min-height: 0;
+		padding: 0;
+		border: 2px solid white;
+		border-radius: var(--radius-full);
+		background: rgb(0 0 0 / 0.35);
+		color: transparent;
+		cursor: pointer;
+	}
+	.pick:hover {
+		color: white;
+	}
+	.pick[aria-pressed='true'] {
+		border-color: var(--color-accent);
+		background: var(--color-accent);
+		color: white;
 	}
 </style>

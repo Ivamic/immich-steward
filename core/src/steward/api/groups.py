@@ -25,8 +25,9 @@ router = APIRouter(prefix="/groups")
 
 # Far more than anyone chooses by hand; keeps a request bounded.
 MAX_ASSETS = 2000
-# Photos of the trash shown at once.
-TRASHED_SHOWN = 300
+# Photos of the trash given at a time.
+TRASHED_PAGE = 120
+TRASHED_MOST = 500
 # Groups shown as lying in the same spot as a group.
 SAME_SPOT_SHOWN = 12
 
@@ -151,7 +152,7 @@ class GroupPhotos(BaseModel):
 
 class TrashedPhotos(BaseModel):
     total: int
-    # The ones put there last.
+    # A page of them, those put there last first.
     photos: list[AssetItem]
 
 
@@ -282,10 +283,21 @@ async def groups_of_photo(asset_id: UUID, account: CurrentAccount, db: DbDep) ->
     return PhotoGroups(group=found, no_sign=no_sign)
 
 
-@router.get("/trash-photos")
-async def trash_photos(account: CurrentAccount, db: DbDep) -> TrashedPhotos:
-    total, photos = await view_groups.trashed_photos(db, account.id, TRASHED_SHOWN)
+async def _trashed(
+    db: AsyncSession, account: Account, offset: int = 0, limit: int = TRASHED_PAGE
+) -> TrashedPhotos:
+    total, photos = await view_groups.trashed_photos(db, account.id, offset, limit)
     return TrashedPhotos(total=total, photos=[AssetItem.of(asset) for asset in photos])
+
+
+@router.get("/trash-photos")
+async def trash_photos(
+    account: CurrentAccount,
+    db: DbDep,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=TRASHED_PAGE, ge=1, le=TRASHED_MOST),
+) -> TrashedPhotos:
+    return await _trashed(db, account, offset, limit)
 
 
 @router.post("/trash-photos/restore")
@@ -294,7 +306,15 @@ async def restore_trash_photos(
 ) -> TrashedPhotos:
     await view_groups.restore_photos(db, account.id, body.ids)
     await _rebuild_soon(db, account)
-    return await trash_photos(account, db)
+    return await _trashed(db, account)
+
+
+@router.post("/trash-photos/restore-all")
+async def restore_all_trash_photos(account: CurrentAccount, db: DbDep) -> TrashedPhotos:
+    """All of them, also those no page has shown."""
+    await view_groups.restore_all_photos(db, account.id)
+    await _rebuild_soon(db, account)
+    return await _trashed(db, account)
 
 
 @router.get("/{group_id}")

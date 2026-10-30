@@ -600,5 +600,8 @@
 	"photo_no_sign_change": "Modifica",
 	"groups_marked_heading": "Senza indizi di luogo ({count})",
 	"groups_marked_hint": "Non danno il luogo ad altre foto e non tengono unito il gruppo, ma possono ricevere il suo luogo.",
-	"groups_ready_with_marked": "Anche quelle senza indizi di luogo: {count}"
+	"groups_ready_with_marked": "Anche quelle senza indizi di luogo: {count}",
+	"groups_restore_all": "Recupera tutte ({count})",
+	"groups_restore_chosen": "Recupera le scelte ({count})",
+	"groups_restore_all_warning": "Il segno viene tolto da tutte le singole foto, anche da quelle non ancora mostrate. Torneranno a suggerire luoghi ed entreranno nei gruppi alla prossima ricostruzione. Non si può annullare: le foto andrebbero segnate di nuovo."
 }

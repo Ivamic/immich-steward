@@ -600,5 +600,8 @@
 	"photo_no_sign_change": "Change",
 	"groups_marked_heading": "No sign of a place ({count})",
 	"groups_marked_hint": "They give no place to other photos and do not hold the group together, but may get its place.",
-	"groups_ready_with_marked": "Also those with no sign of a place: {count}"
+	"groups_ready_with_marked": "Also those with no sign of a place: {count}",
+	"groups_restore_all": "Bring all back ({count})",
+	"groups_restore_chosen": "Bring back the chosen ({count})",
+	"groups_restore_all_warning": "The mark comes off all single photos, also those not shown yet. They suggest places again and join groups at the next rebuild. This cannot be undone: the photos would have to be marked again one by one."
 }

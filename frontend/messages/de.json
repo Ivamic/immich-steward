@@ -600,5 +600,8 @@
 	"photo_no_sign_change": "Ändern",
 	"groups_marked_heading": "Ohne Ortsmerkmale ({count})",
 	"groups_marked_hint": "Sie geben anderen Fotos keinen Ort und halten die Gruppe nicht zusammen, können aber ihren Ort erhalten.",
-	"groups_ready_with_marked": "Auch die ohne Ortsmerkmale: {count}"
+	"groups_ready_with_marked": "Auch die ohne Ortsmerkmale: {count}",
+	"groups_restore_all": "Alle zurückholen ({count})",
+	"groups_restore_chosen": "Ausgewählte zurückholen ({count})",
+	"groups_restore_all_warning": "Die Markierung wird von allen einzelnen Fotos entfernt, auch von noch nicht angezeigten. Sie schlagen wieder Orte vor und kommen bei der nächsten Neubildung in Gruppen. Das lässt sich nicht rückgängig machen: Die Fotos müssten neu markiert werden."
 }

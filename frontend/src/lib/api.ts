@@ -828,12 +828,16 @@ export const trashPhotos = (id: string, ids: string[]) =>
 	request<GroupDetail>('POST', `/api/groups/${id}/trash`, { ids });
 export interface TrashedPhotos {
 	total: number;
-	/** The ones put there last. */
+	/** A page of them, those put there last first. */
 	photos: AssetItem[];
 }
-export const getTrashedPhotos = () => request<TrashedPhotos>('GET', '/api/groups/trash-photos');
+export const getTrashedPhotos = (offset: number, limit: number) =>
+	request<TrashedPhotos>('GET', `/api/groups/trash-photos?offset=${offset}&limit=${limit}`);
 export const restorePhotos = (ids: string[]) =>
 	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore', { ids });
+/** All of them, also those no page has shown. */
+export const restoreAllPhotos = () =>
+	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore-all');
 /** Takes the group apart; the rule builds it no more. */
 export const dissolveGroup = (id: string) => request<Job>('POST', `/api/groups/${id}/dissolve`);
 export const bringBackGroup = (id: string) => request<Job>('POST', `/api/groups/${id}/bring-back`);

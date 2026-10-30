@@ -1132,8 +1132,23 @@ async def set_in_app(db: AsyncSession, asset_ids: list[UUID]) -> set[UUID]:
     return set(rows)
 
 
-async def trashed_photos(db: AsyncSession, account_id: UUID, limit: int) -> tuple[int, list[Asset]]:
-    """How many photos are in the trash, and the ones put there last."""
+async def restore_all_photos(db: AsyncSession, account_id: UUID) -> None:
+    """Takes all the single photos of the account out of the trash."""
+    await restore_photos(
+        db,
+        account_id,
+        list(
+            await db.scalars(
+                select(ViewPhotoTrash.asset_id).where(ViewPhotoTrash.account_id == account_id)
+            )
+        ),
+    )
+
+
+async def trashed_photos(
+    db: AsyncSession, account_id: UUID, offset: int, limit: int
+) -> tuple[int, list[Asset]]:
+    """How many photos are in the trash, and a page of them, those put there last first."""
     total = await db.scalar(
         select(func.count())
         .select_from(ViewPhotoTrash)
@@ -1144,6 +1159,7 @@ async def trashed_photos(db: AsyncSession, account_id: UUID, limit: int) -> tupl
         .join(ViewPhotoTrash, ViewPhotoTrash.asset_id == Asset.id)
         .where(ViewPhotoTrash.account_id == account_id)
         .order_by(ViewPhotoTrash.created_at.desc(), Asset.id)
+        .offset(offset)
         .limit(limit)
     )
     return total or 0, list(found)

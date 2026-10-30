@@ -1043,3 +1043,28 @@ def test_a_marked_photo_stays_marked_when_a_group_comes_back(
     signed_in.post(f"/api/groups/{yard}/bring-back")
     run_jobs(signed_in)
     assert groups(signed_in, library)[yard]["yard0.jpg"] == "excluded"
+
+
+def test_the_marked_photos_come_in_pages_and_back_all_at_once(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    ids = [library[f"yard{i}.jpg"] for i in range(3)]
+    signed_in.post(f"/api/groups/{yard}/trash", json={"ids": ids})
+
+    first = signed_in.get("/api/groups/trash-photos", params={"limit": 2}).json()
+    second = signed_in.get("/api/groups/trash-photos", params={"offset": 2, "limit": 2}).json()
+    assert (first["total"], len(first["photos"]), len(second["photos"])) == (3, 2, 1)
+    assert {p["id"] for p in first["photos"] + second["photos"]} == set(ids)
+
+    answer = signed_in.post("/api/groups/trash-photos/restore-all")
+    assert answer.json() == {"total": 0, "photos": []}
+    run_jobs(signed_in)
+    assert groups(signed_in, library)[yard]["yard0.jpg"] != "excluded"
+    assert signed_in.get(f"/api/groups/{yard}").json()["marked"] == []
+
+
+def test_bringing_all_back_with_nothing_marked_is_harmless(signed_in: TestClient) -> None:
+    answer = signed_in.post("/api/groups/trash-photos/restore-all")
+    assert answer.json() == {"total": 0, "photos": []}

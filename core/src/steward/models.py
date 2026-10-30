@@ -463,6 +463,9 @@ class ViewGroup(Base):
     trash: Mapped[bool] = mapped_column(Boolean, default=False)
     # How close its photos are to each other, as of the last rebuild (`view_groups.closeness`).
     similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Taken apart by the user: its photos, all taken out, link nothing among them. The row stays,
+    # or the next rebuild would build the group again, and it can be brought back.
+    dissolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 

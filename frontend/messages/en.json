@@ -543,7 +543,6 @@
 	"groups_map_hint": "A click on a point or a number chooses its photos; another click takes them off the choice.",
 	"groups_near_heading": "Just short of this group",
 	"groups_near_hint": "Similar photos that are in no group. Add those that belong here.",
-	"groups_add": "Add to the group",
 	"groups_excluded_heading": "Taken out ({count})",
 	"groups_bring_back": "Bring back",
 	"candidate_group": "{count} photos of this group are here",
@@ -565,5 +564,10 @@
 	"groups_reset_warning": "All groups are built anew. Their names, the photos you added or took out and the trash marks of groups are removed and cannot be brought back. Single photos in the trash stay there.",
 	"groups_reset_cancel": "Cancel",
 	"groups_reset_confirm": "Remove and build anew",
-	"groups_filter_core": "Core"
+	"groups_add_chosen": "Add the chosen ({count})",
+	"groups_filter_center": "Center",
+	"groups_center_hint": "The photos closest to the rest of the group: what it holds on to.",
+	"groups_view_dissolved": "Dissolved",
+	"groups_dissolve": "Dissolve",
+	"groups_dissolve_warning": "Its photos stop linking to each other and may join other groups, or stay in none. The group keeps its name in the list Dissolved, where it can be brought back."
 }

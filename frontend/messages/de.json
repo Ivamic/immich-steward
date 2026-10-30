@@ -543,7 +543,6 @@
 	"groups_map_hint": "Ein Klick auf einen Punkt oder eine Zahl wählt die Fotos aus, ein weiterer hebt die Auswahl auf.",
 	"groups_near_heading": "Knapp außerhalb dieser Gruppe",
 	"groups_near_hint": "Ähnliche Fotos, die in keiner Gruppe sind. Fügen Sie die passenden hinzu.",
-	"groups_add": "Zur Gruppe hinzufügen",
 	"groups_excluded_heading": "Herausgenommen ({count})",
 	"groups_bring_back": "Zurückholen",
 	"candidate_group": "{count} Fotos dieser Gruppe sind hier",
@@ -565,5 +564,10 @@
 	"groups_reset_warning": "Alle Gruppen werden neu gebildet. Ihre Namen, von Ihnen hinzugefügte oder herausgenommene Fotos und die Papierkorb-Markierungen von Gruppen werden entfernt und lassen sich nicht wiederherstellen. Einzelne Fotos im Papierkorb bleiben dort.",
 	"groups_reset_cancel": "Abbrechen",
 	"groups_reset_confirm": "Entfernen und neu bilden",
-	"groups_filter_core": "Kern"
+	"groups_add_chosen": "Ausgewählte hinzufügen ({count})",
+	"groups_filter_center": "Zentrum",
+	"groups_center_hint": "Die Fotos, die dem Rest der Gruppe am nächsten sind: darauf stützt sie sich.",
+	"groups_view_dissolved": "Aufgelöst",
+	"groups_dissolve": "Auflösen",
+	"groups_dissolve_warning": "Die Fotos verbinden sich nicht mehr miteinander und können anderen Gruppen beitreten oder in keiner sein. Die Gruppe behält ihren Namen in der Liste Aufgelöst und lässt sich dort zurückholen."
 }

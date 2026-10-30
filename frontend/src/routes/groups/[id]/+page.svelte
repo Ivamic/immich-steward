@@ -4,6 +4,7 @@
      the group. Below, the photos just short of the group and those taken out of it. -->
 <script lang="ts">
 	import {
+		dissolveGroup,
 		excludeFromGroup,
 		getGroup,
 		getGroupNear,
@@ -25,20 +26,23 @@
 	import MapView from '#lib/map/MapView.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import Dialog from '#lib/ui/Dialog.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Skeleton from '#lib/ui/Skeleton.svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 	import type { Action } from 'svelte/action';
+	import { SvelteSet } from 'svelte/reactivity';
 
-	type PhotoFilter = 'all' | 'core' | 'with' | 'without';
+	type PhotoFilter = 'all' | 'center' | 'with' | 'without';
 
 	// Photos added to the page at a time: a group may have thousands.
 	const PART = 120;
 	const FILTERS: { id: PhotoFilter; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
-		{ id: 'core', label: m.groups_filter_core },
+		{ id: 'center', label: m.groups_filter_center },
 		{ id: 'with', label: m.groups_filter_with },
 		{ id: 'without', label: m.groups_filter_without }
 	];
@@ -54,11 +58,14 @@
 	let locationOpen = $state(false);
 	// The user took photos out: the groups are being built again without them.
 	let recounting = $state(false);
+	let confirmDissolve = $state(false);
 	let peek = $state<AssetItem | null>(null);
 	let shownCount = $state(PART);
 	let filter = $state<PhotoFilter>('all');
 	let byCloseness = $state(false);
 	const selection = new Selection();
+	// Photos just short of the group, chosen to be added.
+	const nearChosen = new SvelteSet<string>();
 
 	const numbers = new Intl.NumberFormat(getLocale());
 	const count = (n: number) => numbers.format(n);
@@ -70,17 +77,15 @@
 
 	const id = $derived(page.params.id ?? '');
 	const photos = $derived(detail?.photos ?? []);
-	const core = $derived.by(() => {
-		const ids = new Set(detail?.core ?? []);
-		return photos.filter((photo) => ids.has(photo.id));
-	});
+	const centerIds = $derived(new Set(detail?.center ?? []));
+	const center = $derived(photos.filter((photo) => centerIds.has(photo.id)));
 	const withLocation = $derived(photos.filter((photo) => photo.has_location));
 	const withoutLocation = $derived(photos.filter((photo) => !photo.has_location));
 	const closeness = $derived(detail?.closeness ?? {});
 	const listed = $derived.by(() => {
 		const chosen =
-			filter === 'core'
-				? core
+			filter === 'center'
+				? center
 				: filter === 'with'
 					? withLocation
 					: filter === 'without'
@@ -167,10 +172,37 @@
 		recounting = true;
 	}
 
+	async function dissolve() {
+		confirmDissolve = false;
+		try {
+			await dissolveGroup(id);
+			await goto(resolve('/groups'));
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
 	async function toTrash() {
 		const ids = selection.ids;
 		await act(() => trashPhotos(id, ids));
 		recounting = true;
+	}
+
+	function toggleNear(photo: AssetItem) {
+		if (!nearChosen.delete(photo.id)) nearChosen.add(photo.id);
+	}
+
+	/** While some are chosen a click chooses, as among the photos of the group. */
+	function clickNear(event: MouseEvent, photo: AssetItem) {
+		if (nearChosen.size === 0) return;
+		event.preventDefault();
+		toggleNear(photo);
+	}
+
+	async function addNear() {
+		const ids = [...nearChosen];
+		await act(() => includeInGroup(id, ids));
+		nearChosen.clear();
 	}
 
 	/** A click on the map: its photos join the choice, or leave it if all are chosen. */
@@ -259,6 +291,15 @@
 			<Icon name="ban" size={14} />
 			{detail.group.trash ? m.groups_untrash() : m.groups_trash()}
 		</button>
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			disabled={busy}
+			onclick={() => (confirmDissolve = true)}
+		>
+			<Icon name="layers" size={14} />
+			{m.groups_dissolve()}
+		</button>
 	</div>
 	<p class="numbers">
 		<span>{m.groups_photos({ count: count(detail.group.photos) })}</span>
@@ -316,26 +357,55 @@
 		<details>
 			<summary>{m.groups_near_heading()} ({count(near.length)})</summary>
 			<p class="hint">{m.groups_near_hint()}</p>
+			<div class="tools">
+				<button
+					type="button"
+					class="st-btn st-btn--primary st-btn--sm"
+					disabled={busy || nearChosen.size === 0}
+					onclick={addNear}
+				>
+					<Icon name="plus" size={14} />
+					{m.groups_add_chosen({ count: count(nearChosen.size) })}
+				</button>
+				<button
+					type="button"
+					class="st-btn st-btn--ghost st-btn--sm"
+					onclick={() => near.forEach((photo) => nearChosen.add(photo.id))}
+				>
+					{m.groups_select_all()}
+				</button>
+				{#if nearChosen.size > 0}
+					<button
+						type="button"
+						class="st-btn st-btn--ghost st-btn--sm"
+						onclick={() => nearChosen.clear()}
+					>
+						{m.selection_clear()}
+					</button>
+				{/if}
+			</div>
 			<div class="grid">
 				{#each near as photo (photo.id)}
-					<div class="cell">
+					{@const chosen = nearChosen.has(photo.id)}
+					<div class="cell" class:chosen>
 						<a
 							class="tile"
 							href={resolve('/photo/[id]', { id: photo.id })}
 							title={photo.file_name}
 							use:longpress={() => (peek = photo)}
+							onclick={(event) => clickNear(event, photo)}
 						>
 							{@render thumbnail(photo)}
 						</a>
 						<button
 							type="button"
-							class="corner"
-							disabled={busy}
-							aria-label={m.groups_add()}
-							title={m.groups_add()}
-							onclick={() => act(() => includeInGroup(id, [photo.id]))}
+							class="check"
+							aria-pressed={chosen}
+							aria-label={m.groups_choose_photo()}
+							title={m.groups_choose_photo()}
+							onclick={() => toggleNear(photo)}
 						>
-							<Icon name="plus" size={14} strokeWidth={2.5} />
+							<Icon name="check" size={12} strokeWidth={3} />
 						</button>
 					</div>
 				{/each}
@@ -387,8 +457,8 @@
 					{item.label()}
 					<span class="muted">
 						{count(
-							item.id === 'core'
-								? core.length
+							item.id === 'center'
+								? center.length
 								: item.id === 'with'
 									? withLocation.length
 									: item.id === 'without'
@@ -446,6 +516,11 @@
 								<Icon name="map-pin" size={13} strokeWidth={2.25} />
 							</span>
 						{/if}
+						{#if centerIds.has(photo.id)}
+							<span class="center" title={m.groups_center_hint()}>
+								<Icon name="crosshair" size={13} strokeWidth={2.25} />
+							</span>
+						{/if}
 						{#if byCloseness && closeness[photo.id] !== undefined}
 							<span class="score">{similarity(closeness[photo.id])}</span>
 						{/if}
@@ -484,6 +559,27 @@
 			{m.groups_photos_trash()}
 		</button>
 	</SelectionBar>
+{/if}
+{#if confirmDissolve}
+	<Dialog
+		title={m.groups_dissolve()}
+		icon="triangle-alert"
+		onclose={() => (confirmDissolve = false)}
+	>
+		<p>{m.groups_dissolve_warning()}</p>
+		{#snippet footer()}
+			<button
+				type="button"
+				class="st-btn st-btn--secondary"
+				onclick={() => (confirmDissolve = false)}
+			>
+				{m.groups_reset_cancel()}
+			</button>
+			<button type="button" class="st-btn st-btn--danger" onclick={dissolve}>
+				{m.groups_dissolve()}
+			</button>
+		{/snippet}
+	</Dialog>
 {/if}
 {#if peek}
 	<PhotoPeek item={peek} onclose={() => (peek = null)} />
@@ -634,6 +730,14 @@
 	}
 	.muted {
 		color: var(--color-text-muted);
+	}
+	.center {
+		position: absolute;
+		top: var(--space-1);
+		right: var(--space-1);
+		display: flex;
+		color: white;
+		filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.8));
 	}
 	.score {
 		position: absolute;

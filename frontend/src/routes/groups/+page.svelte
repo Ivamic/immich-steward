@@ -3,6 +3,7 @@
      named by the user come first, then the largest; the views narrow the list. -->
 <script lang="ts">
 	import {
+		bringBackGroup,
 		getGroups,
 		getTrashedPhotos,
 		isActive,
@@ -30,7 +31,8 @@
 		{ id: 'no_location', label: m.groups_view_no_location },
 		{ id: 'with_location', label: m.groups_view_with_location },
 		{ id: 'spread', label: m.groups_view_spread },
-		{ id: 'trash', label: m.groups_view_trash }
+		{ id: 'trash', label: m.groups_view_trash },
+		{ id: 'dissolved', label: m.groups_view_dissolved }
 	];
 
 	let list = $state.raw<GroupList | null>(null);
@@ -85,6 +87,15 @@
 			replace: true,
 			reset: false
 		});
+	}
+
+	async function bringBackDissolved(id: string) {
+		try {
+			await bringBackGroup(id);
+			await load(view, Math.max(shown.length, PAGE));
+		} catch (e) {
+			error = errorMessage(e);
+		}
 	}
 
 	async function bringBack(id: string) {
@@ -183,45 +194,70 @@
 	{#if shown.length > 0}
 		<div class="grid">
 			{#each shown as group (group.id)}
-				<a class="group" href={resolve('/groups/[id]', { id: group.id })}>
-					<span class="cover">
-						{#if group.cover}
-							<img
-								src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
-								alt=""
-								loading="lazy"
-								decoding="async"
-							/>
-						{/if}
-					</span>
-					<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
-					<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
-					<span class="badges">
-						{#if group.with_location > 0}
-							<span class="st-badge st-badge--success">
-								<Icon name="map-pin" size={11} />
-								<span>{m.groups_with_location({ count: count(group.with_location) })}</span>
-							</span>
-						{/if}
-						{#if group.without_location > 0}
-							<span class="st-badge st-badge--info">
-								<Icon name="map-pin-off" size={11} />
-								<span>{m.groups_without_location({ count: count(group.without_location) })}</span>
-							</span>
-						{/if}
-						{#if group.spread}
-							<span class="st-badge st-badge--warning" title={m.groups_spread_hint()}>
-								<Icon name="route" size={11} />
-								<span>{m.groups_spread()}</span>
-							</span>
-						{/if}
-						{#if group.similarity !== null}
-							<span class="st-badge" title={m.groups_similarity_hint()}>
-								<span>{m.groups_similarity({ value: similarity(group.similarity) })}</span>
-							</span>
-						{/if}
-					</span>
-				</a>
+				{#if view === 'dissolved'}
+					<div class="group">
+						<span class="cover">
+							{#if group.cover}
+								<img
+									src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
+									alt=""
+									loading="lazy"
+									decoding="async"
+								/>
+							{/if}
+						</span>
+						<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
+						<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
+						<button
+							type="button"
+							class="st-btn st-btn--secondary st-btn--sm"
+							onclick={() => bringBackDissolved(group.id)}
+						>
+							<Icon name="rotate-ccw" size={14} />
+							{m.groups_bring_back()}
+						</button>
+					</div>
+				{:else}
+					<a class="group" href={resolve('/groups/[id]', { id: group.id })}>
+						<span class="cover">
+							{#if group.cover}
+								<img
+									src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
+									alt=""
+									loading="lazy"
+									decoding="async"
+								/>
+							{/if}
+						</span>
+						<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
+						<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
+						<span class="badges">
+							{#if group.with_location > 0}
+								<span class="st-badge st-badge--success">
+									<Icon name="map-pin" size={11} />
+									<span>{m.groups_with_location({ count: count(group.with_location) })}</span>
+								</span>
+							{/if}
+							{#if group.without_location > 0}
+								<span class="st-badge st-badge--info">
+									<Icon name="map-pin-off" size={11} />
+									<span>{m.groups_without_location({ count: count(group.without_location) })}</span>
+								</span>
+							{/if}
+							{#if group.spread}
+								<span class="st-badge st-badge--warning" title={m.groups_spread_hint()}>
+									<Icon name="route" size={11} />
+									<span>{m.groups_spread()}</span>
+								</span>
+							{/if}
+							{#if group.similarity !== null}
+								<span class="st-badge" title={m.groups_similarity_hint()}>
+									<span>{m.groups_similarity({ value: similarity(group.similarity) })}</span>
+								</span>
+							{/if}
+						</span>
+					</a>
+				{/if}
 			{/each}
 		</div>
 		{#if shown.length < total}

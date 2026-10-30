@@ -740,7 +740,7 @@ export const startSync = (full: boolean | null = null) =>
 export const startSimilarHints = () => request<Job>('POST', '/api/library/similar-hints');
 
 /** What the list of groups shows: all but the trash, a part of them, or the trash. */
-export type GroupView = 'all' | 'no_location' | 'with_location' | 'spread' | 'trash';
+export type GroupView = 'all' | 'no_location' | 'with_location' | 'spread' | 'trash' | 'dissolved';
 
 export interface GroupOut {
 	id: string;
@@ -778,8 +778,8 @@ export interface GroupDetail {
 	excluded: AssetItem[];
 	/** Per photo: how close it is to the others of the group. */
 	closeness: Record<string, number>;
-	/** The photos that hold the group together. */
-	core: string[];
+	/** The photos closest to the rest of the group: what it holds on to. */
+	center: string[];
 }
 
 export const getGroups = (view: GroupView, offset: number, limit: number) =>
@@ -800,6 +800,9 @@ export interface TrashedPhotos {
 export const getTrashedPhotos = () => request<TrashedPhotos>('GET', '/api/groups/trash-photos');
 export const restorePhotos = (ids: string[]) =>
 	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore', { ids });
+/** Takes the group apart; the rule builds it no more. */
+export const dissolveGroup = (id: string) => request<Job>('POST', `/api/groups/${id}/dissolve`);
+export const bringBackGroup = (id: string) => request<Job>('POST', `/api/groups/${id}/bring-back`);
 export const excludeFromGroup = (id: string, ids: string[]) =>
 	request<GroupDetail>('POST', `/api/groups/${id}/exclude`, { ids });
 export const includeInGroup = (id: string, ids: string[]) =>

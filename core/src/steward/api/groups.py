@@ -27,7 +27,7 @@ MAX_ASSETS = 2000
 # Photos of the trash shown at once.
 TRASHED_SHOWN = 300
 
-GroupView = Literal["all", "no_location", "with_location", "spread", "trash"]
+GroupView = Literal["all", "no_location", "with_location", "spread", "trash", "dissolved"]
 VIEWS: tuple[GroupView, ...] = ("all", "no_location", "with_location", "spread", "trash")
 
 
@@ -92,8 +92,8 @@ class GroupDetail(BaseModel):
     excluded: list[AssetItem]
     # Per photo: how close it is to the others of the group.
     closeness: dict[UUID, float]
-    # The photos that hold the group together.
-    core: list[UUID]
+    # The photos closest to the rest of the group: what it holds on to.
+    center: list[UUID]
 
 
 class GroupUpdate(BaseModel):
@@ -145,6 +145,7 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
         summary = Summary(group.id, group.name, group.trash, 0, 0, 0, False, None)
     covers = await view_groups.covers(db, [group.id])
     photos = await view_groups.photos_of(db, group.id)
+    closeness = await view_groups.photo_closeness(db, group.id)
     return GroupDetail(
         group=GroupOut.of(summary, covers.get(group.id)),
         photos=[AssetItem.of(asset) for asset in photos],
@@ -154,8 +155,8 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
             if is_located(a)
         ],
         excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
-        closeness=await view_groups.photo_closeness(db, group.id),
-        core=await view_groups.core_of(db, group.id),
+        closeness=closeness,
+        center=view_groups.center_of(closeness),
     )
 
 
@@ -168,8 +169,13 @@ async def list_groups(
     limit: int = Query(default=60, ge=1, le=200),
 ) -> GroupList:
     summaries = await view_groups.summaries(db, account.id)
-    page = [s for s in summaries if _in_view(s, view)][offset : offset + limit]
-    covers = await view_groups.covers(db, [s.id for s in page])
+    dissolved = await view_groups.dissolved_summaries(db, account.id)
+    if view == "dissolved":
+        page = dissolved[offset : offset + limit]
+        covers = await view_groups.excluded_cover(db, [s.id for s in page])
+    else:
+        page = [s for s in summaries if _in_view(s, view)][offset : offset + limit]
+        covers = await view_groups.covers(db, [s.id for s in page])
     job = await db.scalar(
         select(Job)
         .where(Job.account_id == account.id, Job.kind == view_groups.JOB_KIND)
@@ -182,7 +188,8 @@ async def list_groups(
             rebuilt_at=await view_groups.last_rebuild(db, account.id),
             job=JobOut.of(job) if job else None,
         ),
-        counts={v: sum(_in_view(s, v) for s in summaries) for v in VIEWS},
+        counts={v: sum(_in_view(s, v) for s in summaries) for v in VIEWS}
+        | {"dissolved": len(dissolved)},
         groups=[GroupOut.of(s, covers.get(s.id)) for s in page],
     )
 
@@ -250,6 +257,21 @@ async def near_photos(group_id: UUID, account: CurrentAccount, db: DbDep) -> lis
     group = await _own_group(db, account, group_id)
     rule = await view_groups.rule_of(db, account.id)
     return [AssetItem.of(asset) for asset in await view_groups.near(db, group.id, rule)]
+
+
+@router.post("/{group_id}/dissolve", status_code=202)
+async def dissolve_group(group_id: UUID, account: CurrentAccount, db: DbDep) -> JobOut:
+    """Takes the group apart: its photos may join other groups, and link nothing among them."""
+    group = await _own_group(db, account, group_id)
+    await view_groups.dissolve(db, group)
+    return JobOut.of(await enqueue(db, view_groups.JOB_KIND, account.id, {"rebuild": True}))
+
+
+@router.post("/{group_id}/bring-back", status_code=202)
+async def bring_back_group(group_id: UUID, account: CurrentAccount, db: DbDep) -> JobOut:
+    group = await _own_group(db, account, group_id)
+    await view_groups.bring_back(db, group)
+    return JobOut.of(await enqueue(db, view_groups.JOB_KIND, account.id, {"rebuild": True}))
 
 
 @router.post("/{group_id}/exclude")

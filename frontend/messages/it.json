@@ -543,7 +543,6 @@
 	"groups_map_hint": "Un clic su un punto o un numero sceglie le sue foto; un altro clic le toglie dalla scelta.",
 	"groups_near_heading": "Appena fuori da questo gruppo",
 	"groups_near_hint": "Foto simili che non sono in nessun gruppo. Aggiungi quelle che appartengono a questo.",
-	"groups_add": "Aggiungi al gruppo",
 	"groups_excluded_heading": "Tolte ({count})",
 	"groups_bring_back": "Riporta",
 	"candidate_group": "{count} foto di questo gruppo sono qui",
@@ -565,5 +564,10 @@
 	"groups_reset_warning": "Tutti i gruppi vengono ricostruiti. I loro nomi, le foto aggiunte o tolte e i segni di cestino dei gruppi vengono rimossi e non si possono recuperare. Le singole foto nel cestino restano lì.",
 	"groups_reset_cancel": "Annulla",
 	"groups_reset_confirm": "Rimuovi e ricostruisci",
-	"groups_filter_core": "Nucleo"
+	"groups_add_chosen": "Aggiungi le scelte ({count})",
+	"groups_filter_center": "Centro",
+	"groups_center_hint": "Le foto più vicine al resto del gruppo: ciò su cui si regge.",
+	"groups_view_dissolved": "Sciolti",
+	"groups_dissolve": "Sciogli",
+	"groups_dissolve_warning": "Le sue foto non si collegano più tra loro e possono entrare in altri gruppi, o in nessuno. Il gruppo conserva il nome nell’elenco Sciolti, da cui si può riportare."
 }

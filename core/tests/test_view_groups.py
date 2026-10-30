@@ -19,6 +19,7 @@ from steward.view_groups import (
     CORE,
     Rule,
     build,
+    center_of,
     closeness,
     cluster,
     matched,
@@ -457,7 +458,14 @@ def test_the_views_of_the_list(signed_in: TestClient, library: dict[str, str]) -
     assert view("all") == [str(yard)]
     assert view("trash") == [str(kitchen)]
     counts = signed_in.get("/api/groups").json()["counts"]
-    assert counts == {"all": 1, "no_location": 0, "with_location": 1, "spread": 0, "trash": 1}
+    assert counts == {
+        "all": 1,
+        "no_location": 0,
+        "with_location": 1,
+        "spread": 0,
+        "trash": 1,
+        "dissolved": 0,
+    }
 
     group = signed_in.get(f"/api/groups/{kitchen}").json()
     assert group["group"]["without_location"] == 3
@@ -514,15 +522,62 @@ def test_a_reset_drops_the_groups_with_all_done_to_them_but_not_the_trash(
     assert signed_in.get("/api/groups/trash-photos").json()["total"] == 1
 
 
-def test_the_core_of_a_group(signed_in: TestClient, library: dict[str, str]) -> None:
+def test_the_center_of_a_group() -> None:
+    photos = ids(40)
+    closeness_of = {p: i / 100 for i, p in enumerate(photos)}
+    assert center_of(closeness_of) == photos[:33:-1]  # 15 %, closest first
+    few = {p: 0.5 for p in photos[:4]}
+    assert len(center_of(few)) == 3
+    assert center_of({}) == []
+
+
+def test_the_center_comes_with_the_group(signed_in: TestClient, library: dict[str, str]) -> None:
     schedule(signed_in)
     yard = group_of(signed_in, library, "yard0.jpg")
     group = signed_in.get(f"/api/groups/{yard}").json()
-    assert set(group["core"]) == {library[f"yard{i}.jpg"] for i in range(5)}
+    assert len(group["center"]) == 3
+    assert set(group["center"]) <= {library[f"yard{i}.jpg"] for i in range(5)}
 
-    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
-    group = signed_in.get(f"/api/groups/{yard}").json()
-    assert library["yard4.jpg"] not in group["core"]
+
+def test_a_dissolved_group_is_not_built_again_and_comes_back_with_its_name(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    signed_in.patch(f"/api/groups/{yard}", json={"name": "Yard"})
+
+    assert signed_in.post(f"/api/groups/{yard}/dissolve").status_code == 202
+    run_jobs(signed_in)
+    found = groups(signed_in, library)
+    assert all(role == "excluded" for role in found[yard].values())
+    assert not any("yard0.jpg" in g and g["yard0.jpg"] != "excluded" for g in found.values())
+    answer = signed_in.get("/api/groups").json()
+    assert all(g["id"] != str(yard) for g in answer["groups"])
+    assert answer["counts"]["dissolved"] == 1
+
+    # Rebuilds keep it apart.
+    signed_in.put("/api/settings", json={"groups_similarity": 0.5})
+    run_jobs(signed_in)
+    assert yard in groups(signed_in, library)
+    listed = signed_in.get("/api/groups", params={"view": "dissolved"}).json()["groups"]
+    assert [(g["id"], g["name"], g["photos"]) for g in listed] == [(str(yard), "Yard", 5)]
+    assert listed[0]["cover"] is not None
+
+    assert signed_in.post(f"/api/groups/{yard}/bring-back").status_code == 202
+    run_jobs(signed_in)
+    answer = signed_in.get("/api/groups").json()
+    assert answer["counts"]["dissolved"] == 0
+    assert ("Yard", 5) in [(g["name"], g["photos"]) for g in answer["groups"]]
+
+
+def test_two_photos_of_a_dissolved_group_link_nothing_but_others_do() -> None:
+    a, b, other = ids(3)
+    group = uuid4()
+    pairs = both_ways([(a, b, 0.9), (a, other, 0.9)])
+    kept = uncut(pairs, set(), {group: {a, b}}, {}, {group})
+    assert {(x, y) for x, y, _ in kept} == {(a, other), (other, a)}
+    # A group only taken out of keeps them linked to each other.
+    assert len(uncut(pairs, set(), {group: {a, b}}, {})) == 4
 
 
 def test_a_group_nobody_has(signed_in: TestClient) -> None:

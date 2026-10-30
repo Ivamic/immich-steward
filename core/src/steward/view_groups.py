@@ -25,6 +25,7 @@ from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from math import ceil
 from statistics import median
 from time import monotonic
 from typing import Any
@@ -92,6 +93,10 @@ SPOT_DECIMALS = 2
 # Photos this much less similar than a group asks for are shown next to it.
 NEAR_MARGIN = 0.1
 NEAR_LIMIT = 60
+
+# The center of a group: this share of its photos, at least so many.
+CENTER_SHARE = 0.15
+CENTER_MIN_PHOTOS = 3
 
 JOB_KIND = "view_groups"
 
@@ -387,10 +392,13 @@ def uncut(
     trash: set[UUID],
     excluded: dict[UUID, set[UUID]],
     members: dict[UUID, set[UUID]],
+    dissolved: set[UUID] | None = None,
 ) -> list[tuple[UUID, UUID, float]]:
-    """The close pairs that may link photos: none with a photo in the trash, and none between a
-    photo taken out of a group and the photos of that group (`members`, group -> photos), so that
-    the group is built as if the photo were not there."""
+    """The close pairs that may link photos: none with a photo in the trash, none between a photo
+    taken out of a group and the photos of that group (`members`, group -> photos), so that the
+    group is built as if the photo were not there, and none between two photos of a `dissolved`
+    group."""
+    gone = dissolved or set()
     group_of = {a: group for group, photos in members.items() for a in photos}
     out_of: dict[UUID, set[UUID]] = {}
     for group, photos in excluded.items():
@@ -403,6 +411,7 @@ def uncut(
             and b not in trash
             and group_of.get(b) not in out_of.get(a, ())
             and group_of.get(a) not in out_of.get(b, ())
+            and not (out_of.get(a, set()) & out_of.get(b, set()) & gone)
         )
 
     return [pair for pair in close if linked(pair[0], pair[1])]
@@ -480,21 +489,21 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
         )
     )
     in_group = {g: old.get(g, set()) | added.get(g, set()) for g in old.keys() | added.keys()}
-
-    def work() -> tuple[list[dict[UUID, str]], list[float | None]]:
-        pairs = uncut(all_pairs, trash, excluded, in_group)
-        built = build(pairs, places, rule)
-        return built, closeness(built, pairs)
-
-    # Millions of pairs on a large library: not on the event loop, the pages would wait for them.
-    clusters, similarities = await asyncio.to_thread(work)
-
     groups = {
         group.id: group
         for group in await db.scalars(
             select(ViewGroup).where(ViewGroup.account_id == account_id, ViewGroup.kind == KIND)
         )
     }
+    dissolved = {group.id for group in groups.values() if group.dissolved}
+
+    def work() -> tuple[list[dict[UUID, str]], list[float | None]]:
+        pairs = uncut(all_pairs, trash, excluded, in_group, dissolved)
+        built = build(pairs, places, rule)
+        return built, closeness(built, pairs)
+
+    # Millions of pairs on a large library: not on the event loop, the pages would wait for them.
+    clusters, similarities = await asyncio.to_thread(work)
     continued = matched(clusters, old)
     added_anywhere = set().union(*added.values())
 
@@ -538,7 +547,7 @@ async def rebuild(db: AsyncSession, account_id: UUID, rule: Rule) -> dict[str, A
     for start in range(0, len(rows), 5000):
         await db.execute(insert(ViewGroupMember), rows[start : start + 5000])
     # A group not found again stays while the user added photos to it.
-    gone = [group_id for group_id in groups if group_id not in kept and group_id not in added]
+    gone = [g for g in groups if g not in kept and g not in added and g not in dissolved]
     if gone:
         await db.execute(delete(ViewGroup).where(ViewGroup.id.in_(gone)))
     await db.commit()
@@ -736,14 +745,64 @@ async def photo_closeness(db: AsyncSession, group_id: UUID) -> dict[UUID, float]
     return {row.asset_id: round(float(row.similarity), 3) for row in rows}
 
 
-async def core_of(db: AsyncSession, group_id: UUID) -> list[UUID]:
-    """The photos that hold the group together, as of the last rebuild."""
-    found = await db.scalars(
-        select(ViewGroupMember.asset_id).where(
-            ViewGroupMember.group_id == group_id, ViewGroupMember.role == CORE
+def center_of(closeness_of: dict[UUID, float]) -> list[UUID]:
+    """The center of a group: the photos closest to the rest of it, closest first. More telling
+    than the core of the rule, which nearly every photo of a group of shots passes."""
+    ordered = sorted(closeness_of, key=lambda a: (-closeness_of[a], a))
+    return ordered[: max(CENTER_MIN_PHOTOS, ceil(len(ordered) * CENTER_SHARE))]
+
+
+async def dissolve(db: AsyncSession, group: ViewGroup) -> None:
+    """Takes the group apart: its photos are out of it and link nothing among them."""
+    group.dissolved = True
+    await db.execute(
+        update(ViewGroupMember).where(ViewGroupMember.group_id == group.id).values(role=EXCLUDED)
+    )
+    await db.commit()
+
+
+async def bring_back(db: AsyncSession, group: ViewGroup) -> None:
+    """Undoes `dissolve`: its photos in no other group are back, for the next rebuild to find it
+    again, with its name. What the user took out before it was dissolved comes back too."""
+    group.dissolved = False
+    taken = (
+        select(ViewGroupMember.asset_id).where(ViewGroupMember.role != EXCLUDED).scalar_subquery()
+    )
+    await db.execute(
+        delete(ViewGroupMember).where(
+            ViewGroupMember.group_id == group.id, ViewGroupMember.asset_id.in_(taken)
         )
     )
-    return list(found)
+    await db.execute(
+        update(ViewGroupMember).where(ViewGroupMember.group_id == group.id).values(role=ATTACHED)
+    )
+    await db.commit()
+
+
+async def dissolved_summaries(db: AsyncSession, account_id: UUID) -> list[Summary]:
+    """The groups the user took apart, the last ones first."""
+    rows = await db.execute(
+        select(ViewGroup.id, ViewGroup.name, ViewGroup.trash, func.count().label("photos"))
+        .join(ViewGroupMember, ViewGroupMember.group_id == ViewGroup.id)
+        .where(ViewGroup.account_id == account_id, ViewGroup.dissolved)
+        .group_by(ViewGroup.id)
+        .order_by(ViewGroup.updated_at.desc())
+    )
+    return [Summary(r.id, r.name, r.trash, r.photos, 0, 0, False, None) for r in rows]
+
+
+async def excluded_cover(
+    db: AsyncSession, group_ids: list[UUID]
+) -> dict[UUID, tuple[UUID, str | None]]:
+    """As `covers`, for groups whose photos are all taken out."""
+    rows = await db.execute(
+        select(ViewGroupMember.group_id, Asset.id, Asset.thumbhash)
+        .join(Asset, Asset.id == ViewGroupMember.asset_id)
+        .where(ViewGroupMember.group_id.in_(group_ids), Asset.is_trashed.is_(False))
+        .ext(distinct_on(ViewGroupMember.group_id))
+        .order_by(ViewGroupMember.group_id, Asset.local_taken_at.desc(), Asset.id)
+    )
+    return {group_id: (asset_id, version) for group_id, asset_id, version in rows}
 
 
 async def excluded_of(db: AsyncSession, group_id: UUID) -> list[Asset]:

@@ -543,7 +543,6 @@
 	"groups_map_hint": "Un clic sur un point ou un nombre choisit ses photos ; un autre clic les retire du choix.",
 	"groups_near_heading": "Juste en dehors de ce groupe",
 	"groups_near_hint": "Des photos similaires qui ne sont dans aucun groupe. Ajoutez celles qui ont leur place ici.",
-	"groups_add": "Ajouter au groupe",
 	"groups_excluded_heading": "Retirées ({count})",
 	"groups_bring_back": "Remettre",
 	"candidate_group": "{count} photos de ce groupe sont ici",
@@ -565,5 +564,10 @@
 	"groups_reset_warning": "Tous les groupes sont reconstruits. Leurs noms, les photos ajoutées ou retirées et les marques de corbeille des groupes sont supprimés définitivement. Les photos seules dans la corbeille y restent.",
 	"groups_reset_cancel": "Annuler",
 	"groups_reset_confirm": "Supprimer et reconstruire",
-	"groups_filter_core": "Noyau"
+	"groups_add_chosen": "Ajouter les photos choisies ({count})",
+	"groups_filter_center": "Centre",
+	"groups_center_hint": "Les photos les plus proches du reste du groupe : ce sur quoi il repose.",
+	"groups_view_dissolved": "Dissous",
+	"groups_dissolve": "Dissoudre",
+	"groups_dissolve_warning": "Ses photos ne se relient plus entre elles et peuvent rejoindre d’autres groupes, ou aucun. Le groupe garde son nom dans la liste Dissous, d’où il peut être remis."
 }

@@ -7,6 +7,55 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Groups: photos of one view, gathered by themselves.** A new page, tab **Environment**. The
+  app compares every photo with the others, with a location or not, and gathers those that look
+  like the same view. It needs the vectors of **Similar photos**, nothing else, and nothing is
+  written to Immich until you confirm it.
+- **Place can be set**: a view of the groups where the photos with a location share one spot and
+  others have none, the most to gain first. The page of such a group opens the location window
+  with that spot, to look at on the map and confirm; it tells how many of those photos were placed
+  in Steward. The photos with a location can themselves be wrong, so nothing is set by itself.
+- **The page of a group**: a map of its photos with a location, all its photos with filters, the
+  center of the group, the most and the least similar photos, and the bar of actions of the gallery.
+  A click on the map chooses its photos; the filter **Chosen** shows them.
+- **Photos of a group by month or by similarity.** By month, letters show the spots of each month,
+  so a subject that moved to another place shows, and the photos without a location can be chosen
+  for the month, up to it or from it. By similarity, the group falls into scenes at three levels of
+  strictness; this is only a look, the group stays as it is.
+- **Apart from the main spot**: a filter and violet points for the photos more than 1 km from the
+  place most of the group shares. They are not called wrong: the main spot itself may be.
+- **Other groups in this spot**: other views of one place, found by coordinates.
+- **Just short of a group**: photos in no group that nearly belong, to add or to mark.
+- **No sign of a place**: a mark for a group or for single photos (a pet, a document) that tell
+  nothing of where they were taken. They stop being a source of suggestions and link nothing; the
+  mark changes nothing in Immich. A marked photo stays with its group, shown apart, and may still
+  get its place. The photos can come back one by one, as chosen, or all at once.
+- **Take a group apart**, with a way back, and **take photos out of a group**; a rebuild keeps what
+  you did: names, photos added or taken out, marks. **Settings** set how strict groups are, and
+  rebuild them from scratch.
+- **Photo card**: the group of the photo, with a link, and whether it is marked. A photo opened from
+  a group goes back to it, with the same view at the same height.
+- **Large scattered groups are split.** Photos may look alike and be far apart, as beaches: a group
+  of 300 photos or more that shares no spot is built again, stricter.
+
+### Changed
+
+- **One way of choosing photos everywhere**: the circle is on the left, on hover, and on every photo
+  while some are chosen. On a touch screen, where nothing hovers, it always shows, in the gallery too.
+- **Similar photos** no longer suggest places from photos marked as showing no sign of a place.
+- A long job no longer holds up the others: the count for the badge of similar photos now goes in
+  slices.
+
+### Security
+
+- **certifi 2026.10.23**: the bundled store trusted a root certificate whose intermediate
+  authorities were compromised (GHSA-6q48-6c7w-9gw2). It is used for the connections to Immich over
+  TLS and for downloading models.
+- **setuptools 84.2.1**, a dependency of PyTorch (CVE-2026-59890, GHSA-xmj3-9gf7-h52w). The flaws
+  are in building and installing packages, which the app does not do.
+
 ## [0.7.0] - 2026-10-29
 
 Videos play, a badge for photos that look like a located one, the gallery by day, workers

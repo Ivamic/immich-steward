@@ -717,7 +717,8 @@ def test_a_photo_in_the_trash_suggests_no_place_and_stays_out(
 
     def similar_candidates() -> list[Any]:
         blocks = signed_in.get(f"/api/assets/{library['yard1.jpg']}/suggestions").json()
-        return next(b for b in blocks if b["key"] == "similar")["candidates"]
+        candidates: list[Any] = next(b for b in blocks if b["key"] == "similar")["candidates"]
+        return candidates
 
     assert len(similar_candidates()) == 1
 
@@ -778,7 +779,8 @@ def test_the_photos_of_a_trash_group_suggest_no_place(
 
     def similar_candidates() -> list[Any]:
         blocks = signed_in.get(f"/api/assets/{library['yard1.jpg']}/suggestions").json()
-        return next(b for b in blocks if b["key"] == "similar")["candidates"]
+        candidates: list[Any] = next(b for b in blocks if b["key"] == "similar")["candidates"]
+        return candidates
 
     assert len(similar_candidates()) == 1
 

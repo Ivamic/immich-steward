@@ -933,7 +933,12 @@ async def bring_back(db: AsyncSession, group: ViewGroup) -> None:
         )
     )
     await db.execute(
-        update(ViewGroupMember).where(ViewGroupMember.group_id == group.id).values(role=ATTACHED)
+        update(ViewGroupMember)
+        .where(
+            ViewGroupMember.group_id == group.id,
+            ViewGroupMember.asset_id.not_in(select(ViewPhotoTrash.asset_id)),
+        )
+        .values(role=ATTACHED)
     )
     await db.commit()
 
@@ -964,11 +969,13 @@ async def excluded_cover(
     return {group_id: (asset_id, version) for group_id, asset_id, version in rows}
 
 
-async def excluded_of(db: AsyncSession, group_id: UUID) -> list[Asset]:
-    """The photos the user took out of the group, oldest first."""
-    found = await db.scalars(
-        select(Asset)
+async def excluded_of(db: AsyncSession, group_id: UUID) -> tuple[list[Asset], list[Asset]]:
+    """The photos out of the group, oldest first: those the user took out, and those that stay
+    with it, marked as showing nothing of the place."""
+    rows = await db.execute(
+        select(Asset, ViewPhotoTrash.asset_id)
         .join(ViewGroupMember, ViewGroupMember.asset_id == Asset.id)
+        .outerjoin(ViewPhotoTrash, ViewPhotoTrash.asset_id == Asset.id)
         .where(
             ViewGroupMember.group_id == group_id,
             ViewGroupMember.role == EXCLUDED,
@@ -976,7 +983,11 @@ async def excluded_of(db: AsyncSession, group_id: UUID) -> list[Asset]:
         )
         .order_by(Asset.local_taken_at, Asset.id)
     )
-    return list(found)
+    taken_out: list[Asset] = []
+    marked: list[Asset] = []
+    for asset, trashed in rows:
+        (marked if trashed else taken_out).append(asset)
+    return taken_out, marked
 
 
 async def near(db: AsyncSession, group_id: UUID, rule: Rule) -> list[Asset]:
@@ -1039,7 +1050,9 @@ async def include(
 
 
 async def trash_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
-    """Puts photos of the account into the trash, and out of their groups at once."""
+    """Puts photos of the account into the trash. They leave the photos of their group at once
+    but stay with it, shown apart: a photo that tells nothing of the place was still taken there,
+    so it may get the place of the group; it just gives none to others and links nothing."""
     own = list(
         await db.scalars(
             select(Asset.id).where(Asset.id.in_(asset_ids), Asset.account_id == account_id)
@@ -1052,11 +1065,26 @@ async def trash_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]
         .values([{"asset_id": a, "account_id": account_id, "created_at": utcnow()} for a in own])
         .on_conflict_do_nothing()
     )
-    await db.execute(delete(ViewGroupMember).where(ViewGroupMember.asset_id.in_(own)))
+    await db.execute(
+        update(ViewGroupMember)
+        .where(ViewGroupMember.asset_id.in_(own), ViewGroupMember.role != EXCLUDED)
+        .values(role=EXCLUDED)
+    )
     await db.commit()
 
 
 async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    """Takes photos out of the trash, for the next rebuild to find them their group."""
+    await db.execute(
+        delete(ViewGroupMember).where(
+            ViewGroupMember.account_id == account_id,
+            ViewGroupMember.asset_id.in_(asset_ids),
+            ViewGroupMember.role == EXCLUDED,
+            ViewGroupMember.group_id.in_(
+                select(ViewGroup.id).where(ViewGroup.dissolved.is_(False))
+            ),
+        )
+    )
     await db.execute(
         delete(ViewPhotoTrash).where(
             ViewPhotoTrash.account_id == account_id, ViewPhotoTrash.asset_id.in_(asset_ids)
@@ -1070,16 +1098,6 @@ async def of_photo(
 ) -> tuple[ViewGroup | None, bool]:
     """The group of the photo, and whether it is marked as showing nothing of the place: by
     itself or with its group."""
-    group = await db.scalar(
-        select(ViewGroup)
-        .join(ViewGroupMember, ViewGroupMember.group_id == ViewGroup.id)
-        .where(
-            ViewGroupMember.asset_id == asset_id,
-            ViewGroupMember.role != EXCLUDED,
-            ViewGroup.account_id == account_id,
-            ViewGroup.dissolved.is_(False),
-        )
-    )
     marked = await db.scalar(
         select(
             exists().where(
@@ -1087,6 +1105,20 @@ async def of_photo(
             )
         )
     )
+    # A marked photo stays with its group, out of its photos.
+    query = (
+        select(ViewGroup)
+        .join(ViewGroupMember, ViewGroupMember.group_id == ViewGroup.id)
+        .where(
+            ViewGroupMember.asset_id == asset_id,
+            ViewGroup.account_id == account_id,
+            ViewGroup.dissolved.is_(False),
+        )
+        .limit(1)
+    )
+    if not marked:
+        query = query.where(ViewGroupMember.role != EXCLUDED)
+    group = await db.scalar(query)
     return group, bool(marked) or (group is not None and group.trash)
 
 

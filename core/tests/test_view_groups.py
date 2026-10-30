@@ -731,15 +731,22 @@ def test_a_photo_in_the_trash_suggests_no_place_and_stays_out(
 
     # The rebuild it asked for leaves it out, and the group goes on.
     run_jobs(signed_in)
-    assert "yard0.jpg" not in groups(signed_in, library)[yard]
-    assert len(groups(signed_in, library)[yard]) == 4
+    found = groups(signed_in, library)[yard]
+    assert found["yard0.jpg"] == "excluded"
+    assert sum(role != "excluded" for role in found.values()) == 4
+
+    detail = signed_in.get(f"/api/groups/{yard}").json()
+    assert [p["file_name"] for p in detail["marked"]] == ["yard0.jpg"]
+    assert detail["excluded"] == []
+    assert detail["group"]["photos"] == 4
 
     restored = signed_in.post(
         "/api/groups/trash-photos/restore", json={"ids": [library["yard0.jpg"]]}
     )
     assert restored.json() == {"total": 0, "photos": []}
     run_jobs(signed_in)
-    assert "yard0.jpg" in groups(signed_in, library)[yard]
+    assert groups(signed_in, library)[yard]["yard0.jpg"] != "excluded"
+    assert signed_in.get(f"/api/groups/{yard}").json()["marked"] == []
     assert len(similar_candidates()) == 1
 
 
@@ -1012,9 +1019,27 @@ def test_the_card_of_a_photo_tells_its_group(
         "no_sign": False,
     }
 
-    # Marked by itself, it left the group.
+    # Marked by itself, it stays with the group, out of its photos.
     signed_in.post(f"/api/groups/{yard}/trash", json={"ids": [photo]})
     assert signed_in.get(f"/api/groups/of-photo/{photo}").json() == {
-        "group": None,
+        "group": {"id": str(yard), "name": "Yard"},
         "no_sign": True,
     }
+
+    # Taken out by hand, it is in no group for the card.
+    other = library["yard1.jpg"]
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [other]})
+    assert signed_in.get(f"/api/groups/of-photo/{other}").json()["group"] is None
+
+
+def test_a_marked_photo_stays_marked_when_a_group_comes_back(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    signed_in.post(f"/api/groups/{yard}/trash", json={"ids": [library["yard0.jpg"]]})
+    signed_in.post(f"/api/groups/{yard}/dissolve")
+    run_jobs(signed_in)
+    signed_in.post(f"/api/groups/{yard}/bring-back")
+    run_jobs(signed_in)
+    assert groups(signed_in, library)[yard]["yard0.jpg"] == "excluded"

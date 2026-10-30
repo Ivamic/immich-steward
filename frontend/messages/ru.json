@@ -597,5 +597,8 @@
 	"photo_group": "Группа",
 	"photo_no_sign_label": "Признаки места",
 	"photo_no_sign": "Нет: по этому фото не определяются места других фото.",
-	"photo_no_sign_change": "Изменить"
+	"photo_no_sign_change": "Изменить",
+	"groups_marked_heading": "Без признаков места ({count})",
+	"groups_marked_hint": "Они не дают место другим фото и не связывают группу, но могут получить её место.",
+	"groups_ready_with_marked": "И без признаков места: {count}"
 }

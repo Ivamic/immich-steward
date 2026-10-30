@@ -112,6 +112,8 @@ class GroupDetail(BaseModel):
     points: list[GroupPoint]
     # Taken out by the user.
     excluded: list[AssetItem]
+    # Showing nothing of the place: out of the photos of the group, but with it.
+    marked: list[AssetItem]
     # Per photo: how close it is to the others of the group.
     closeness: dict[UUID, float]
     # The photos closest to the rest of the group: what it holds on to.
@@ -190,6 +192,7 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
     points = [a for a in photos if is_located(a)]
     spots = view_groups.spots_of({a.id: (a.latitude or 0.0, a.longitude or 0.0) for a in points})
     in_app = await view_groups.set_in_app(db, [a.id for a in points])
+    excluded, marked = await view_groups.excluded_of(db, group.id)
     return GroupDetail(
         group=GroupOut.of(summary, covers.get(group.id)),
         photos=[AssetItem.of(asset) for asset in photos],
@@ -203,7 +206,8 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
             )
             for a in points
         ],
-        excluded=[AssetItem.of(a) for a in await view_groups.excluded_of(db, group.id)],
+        excluded=[AssetItem.of(a) for a in excluded],
+        marked=[AssetItem.of(a) for a in marked],
         closeness=closeness,
         center=view_groups.center_of(closeness),
     )

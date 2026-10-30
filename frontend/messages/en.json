@@ -597,5 +597,8 @@
 	"photo_group": "Group",
 	"photo_no_sign_label": "Signs of a place",
 	"photo_no_sign": "None: other photos do not get their place from this one.",
-	"photo_no_sign_change": "Change"
+	"photo_no_sign_change": "Change",
+	"groups_marked_heading": "No sign of a place ({count})",
+	"groups_marked_hint": "They give no place to other photos and do not hold the group together, but may get its place.",
+	"groups_ready_with_marked": "Also those with no sign of a place: {count}"
 }

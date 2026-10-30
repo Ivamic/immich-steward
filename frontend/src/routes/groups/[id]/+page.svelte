@@ -12,6 +12,7 @@
 		getGroupSameSpot,
 		getMapConfig,
 		includeInGroup,
+		restorePhotos,
 		thumbnailUrl,
 		trashPhotos,
 		updateGroup,
@@ -90,6 +91,8 @@
 	let locationOpen = $state(false);
 	// The place the window of the location opens with.
 	let locationPoint = $state<LatLon | null>(null);
+	// The place of the group also goes to the photos with no sign of a place.
+	let withMarked = $state(false);
 	// The user took photos out: the groups are being built again without them.
 	let recounting = $state(false);
 	let confirmDissolve = $state(false);
@@ -163,6 +166,9 @@
 	const filters = $derived(
 		FILTERS.filter((item) => !['apart', 'chosen'].includes(item.id) || filtered[item.id].length > 0)
 	);
+	const marked = $derived(detail?.marked ?? []);
+	const markedWithout = $derived(marked.filter((photo) => !photo.has_location));
+	const toSet = $derived(withMarked ? [...withoutLocation, ...markedWithout] : withoutLocation);
 	const closeness = $derived(detail?.closeness ?? {});
 	const listed = $derived.by(() => {
 		if (!byCloseness) return filtered[filter];
@@ -217,7 +223,7 @@
 		detail = answer;
 		name = answer.group.name ?? '';
 		error = null;
-		const here = new Set(answer.photos.map((photo) => photo.id));
+		const here = new Set([...answer.photos, ...answer.marked].map((photo) => photo.id));
 		for (const chosen of selection.ids) if (!here.has(chosen)) selection.items.delete(chosen);
 	}
 
@@ -299,7 +305,7 @@
 		const spot = detail?.group.spot;
 		if (!spot) return;
 		selection.clear();
-		selection.setAll(withoutLocation, true);
+		selection.setAll(toSet, true);
 		locationPoint = { lat: spot.latitude, lon: spot.longitude };
 		locationOpen = true;
 	}
@@ -307,6 +313,14 @@
 	function closeLocation() {
 		locationOpen = false;
 		locationPoint = null;
+	}
+
+	/** Back among the photos of the group. */
+	async function bringBackMarked(photo: AssetItem) {
+		await act(async () => {
+			await restorePhotos([photo.id]);
+			return includeInGroup(id, [photo.id]);
+		});
 	}
 
 	async function trashNear() {
@@ -563,7 +577,7 @@
 	{#if recounting}
 		<p class="hint" role="status">{m.groups_recount_hint()}</p>
 	{/if}
-	{#if detail.group.ready && detail.group.spot && !detail.group.trash}
+	{#if detail.group.main_spot && detail.group.spot && !detail.group.trash && withoutLocation.length + markedWithout.length > 0}
 		<div class="ready">
 			<p>
 				{m.groups_ready_text({
@@ -574,9 +588,20 @@
 					{m.groups_ready_set_in_app({ count: count(setInAppAtSpot) })}
 				{/if}
 			</p>
-			<button type="button" class="st-btn st-btn--primary st-btn--sm" onclick={setSpot}>
+			{#if markedWithout.length > 0}
+				<label class="with-marked">
+					<input type="checkbox" bind:checked={withMarked} />
+					{m.groups_ready_with_marked({ count: count(markedWithout.length) })}
+				</label>
+			{/if}
+			<button
+				type="button"
+				class="st-btn st-btn--primary st-btn--sm"
+				disabled={toSet.length === 0}
+				onclick={setSpot}
+			>
 				<Icon name="map-pin" size={14} />
-				{m.groups_ready_set({ count: count(detail.group.without_location) })}
+				{m.groups_ready_set({ count: count(toSet.length) })}
 			</button>
 		</div>
 	{/if}
@@ -690,6 +715,43 @@
 							onclick={() => toggleNear(photo)}
 						>
 							<Icon name="check" size={12} strokeWidth={3} />
+						</button>
+					</div>
+				{/each}
+			</div>
+		</details>
+	{/if}
+
+	{#if marked.length > 0}
+		<details>
+			<summary>{m.groups_marked_heading({ count: count(marked.length) })}</summary>
+			<p class="hint">{m.groups_marked_hint()}</p>
+			<div class="grid">
+				{#each marked as photo (photo.id)}
+					<div class="cell">
+						<a
+							class="tile"
+							href={resolve(`/photo/[id]${photoQuery}`, { id: photo.id })}
+							title={tooltips ? undefined : photo.file_name}
+							use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
+							use:longpress={() => (peek = photo)}
+						>
+							{@render thumbnail(photo)}
+							{#if photo.has_location}
+								<span class="pin" role="img" aria-label={m.asset_has_location()}>
+									<Icon name="map-pin" size={13} strokeWidth={2.25} />
+								</span>
+							{/if}
+						</a>
+						<button
+							type="button"
+							class="corner"
+							disabled={busy}
+							aria-label={m.groups_bring_back()}
+							title={m.groups_bring_back()}
+							onclick={() => bringBackMarked(photo)}
+						>
+							<Icon name="rotate-ccw" size={14} strokeWidth={2.5} />
 						</button>
 					</div>
 				{/each}
@@ -1007,6 +1069,11 @@
 	.ready p {
 		flex: 1 1 16rem;
 		margin: 0;
+	}
+	.with-marked {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
 	}
 	.map {
 		height: min(24rem, 50dvh);

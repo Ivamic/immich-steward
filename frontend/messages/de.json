@@ -597,5 +597,8 @@
 	"photo_group": "Gruppe",
 	"photo_no_sign_label": "Ortsmerkmale",
 	"photo_no_sign": "Keine: Andere Fotos erhalten ihren Ort nicht von diesem.",
-	"photo_no_sign_change": "Ändern"
+	"photo_no_sign_change": "Ändern",
+	"groups_marked_heading": "Ohne Ortsmerkmale ({count})",
+	"groups_marked_hint": "Sie geben anderen Fotos keinen Ort und halten die Gruppe nicht zusammen, können aber ihren Ort erhalten.",
+	"groups_ready_with_marked": "Auch die ohne Ortsmerkmale: {count}"
 }

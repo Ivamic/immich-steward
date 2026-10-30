@@ -597,5 +597,8 @@
 	"photo_group": "Gruppo",
 	"photo_no_sign_label": "Indizi di luogo",
 	"photo_no_sign": "Nessuno: le altre foto non ricavano il luogo da questa.",
-	"photo_no_sign_change": "Modifica"
+	"photo_no_sign_change": "Modifica",
+	"groups_marked_heading": "Senza indizi di luogo ({count})",
+	"groups_marked_hint": "Non danno il luogo ad altre foto e non tengono unito il gruppo, ma possono ricevere il suo luogo.",
+	"groups_ready_with_marked": "Anche quelle senza indizi di luogo: {count}"
 }

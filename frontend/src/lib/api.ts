@@ -791,6 +791,8 @@ export interface GroupDetail {
 	photos: AssetItem[];
 	/** The photos with a location, for the map. */
 	points: GroupPoint[];
+	/** Showing nothing of the place: out of the photos of the group, but with it. */
+	marked: AssetItem[];
 	/** Taken out by the user. */
 	excluded: AssetItem[];
 	/** Per photo: how close it is to the others of the group. */

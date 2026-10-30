@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* A photo in a grid that can be chosen, the same wherever there is one: the gallery, the page of a
+   group, the marked photos. On the cell: `st-tile-cell`, with `chosen` and, while any photo is
+   chosen, `choosing`; on the link: `st-tile`; on the button: `st-tile-check`. */
+
+.st-tile-cell {
+	position: relative;
+}
+
+/* The check: on hover, and on every photo while some are chosen. */
+.st-tile-check {
+	position: absolute;
+	top: 6px;
+	left: 6px;
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	/* Buttons have a minimum height (elements.css): this one is a circle. */
+	min-height: 0;
+	aspect-ratio: 1;
+	padding: 0;
+	border: 2px solid var(--gray-0);
+	border-radius: 50%;
+	background: oklch(0 0 0 / 0.3);
+	color: transparent;
+	box-shadow: var(--shadow-badge);
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity var(--motion-fast) var(--ease-out);
+}
+.st-tile-cell:hover .st-tile-check,
+.st-tile-cell.choosing .st-tile-check,
+.st-tile-check:focus-visible {
+	opacity: 1;
+}
+/* Nothing hovers on a touch screen: the check would never show. */
+@media (hover: none) {
+	.st-tile-check {
+		opacity: 1;
+	}
+}
+.st-tile-check:hover {
+	background: oklch(0 0 0 / 0.5);
+	color: var(--gray-0);
+}
+.st-tile-cell.chosen .st-tile-check {
+	border-color: var(--color-accent);
+	background: var(--color-accent);
+	color: var(--color-on-accent);
+}
+
+/* A chosen photo shrinks into a frame of the accent color. */
+.st-tile-cell.chosen .st-tile {
+	box-shadow: inset 0 0 0 3px var(--color-accent);
+}
+.st-tile-cell.chosen .st-tile img,
+.st-tile-cell.chosen .st-tile:hover img {
+	transform: scale(0.88);
+	border-radius: 4px;
+}

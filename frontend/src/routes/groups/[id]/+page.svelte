@@ -459,9 +459,9 @@
 
 {#snippet groupTile(photo: AssetItem)}
 	{@const chosen = chosenIds.has(photo.id)}
-	<div class="cell" class:chosen>
+	<div class="cell st-tile-cell" class:chosen class:choosing={selection.size > 0}>
 		<a
-			class="tile"
+			class="tile st-tile"
 			href={resolve(`/photo/[id]${photoQuery}`, { id: photo.id })}
 			title={tooltips ? undefined : photo.file_name}
 			use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
@@ -485,7 +485,7 @@
 		</a>
 		<button
 			type="button"
-			class="check"
+			class="st-tile-check"
 			aria-pressed={chosen}
 			aria-label={m.groups_choose_photo()}
 			title={m.groups_choose_photo()}
@@ -695,9 +695,9 @@
 			<div class="grid">
 				{#each near as photo (photo.id)}
 					{@const chosen = nearChosen.has(photo.id)}
-					<div class="cell" class:chosen>
+					<div class="cell st-tile-cell" class:chosen class:choosing={nearChosen.size > 0}>
 						<a
-							class="tile"
+							class="tile st-tile"
 							href={resolve(`/photo/[id]${photoQuery}`, { id: photo.id })}
 							title={tooltips ? undefined : photo.file_name}
 							use:hoverTip={{ item: photo, enabled: tooltips, ontip: (next) => (tip = next) }}
@@ -708,7 +708,7 @@
 						</a>
 						<button
 							type="button"
-							class="check"
+							class="st-tile-check"
 							aria-pressed={chosen}
 							aria-label={m.groups_choose_photo()}
 							title={m.groups_choose_photo()}
@@ -1100,13 +1100,6 @@
 		overflow: hidden;
 		background: var(--color-surface-sunken);
 	}
-	.cell.chosen .tile {
-		outline: 3px solid var(--color-accent);
-		outline-offset: -3px;
-	}
-	.cell.chosen img {
-		opacity: 0.75;
-	}
 	.tile {
 		display: block;
 		width: 100%;
@@ -1129,7 +1122,6 @@
 		color: white;
 		filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.7));
 	}
-	.check,
 	.corner {
 		position: absolute;
 		top: var(--space-1);
@@ -1144,19 +1136,8 @@
 		border: 2px solid white;
 		border-radius: var(--radius-full);
 		background: rgb(0 0 0 / 0.35);
-		color: transparent;
+		color: white;
 		cursor: pointer;
-	}
-	.check:hover {
-		color: white;
-	}
-	.check[aria-pressed='true'] {
-		border-color: var(--color-accent);
-		background: var(--color-accent);
-		color: white;
-	}
-	.corner {
-		color: white;
 	}
 	.corner:disabled {
 		opacity: 0.5;

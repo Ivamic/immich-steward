@@ -147,9 +147,9 @@
 						{#each dayItems as item (item.id)}
 							{@const chosen = selection.has(item.id)}
 							{@const work = photoWork(item.id)}
-							<div class="cell" class:chosen class:choosing={selection.size > 0}>
+							<div class="cell st-tile-cell" class:chosen class:choosing={selection.size > 0}>
 								<a
-									class="tile"
+									class="tile st-tile"
 									href={resolve(`/photo/[id]${query}`, { id: item.id })}
 									title={tooltip ? undefined : item.file_name}
 									data-asset={item.id}
@@ -243,7 +243,7 @@
 								{/if}
 								<button
 									type="button"
-									class="check"
+									class="st-tile-check"
 									aria-pressed={chosen}
 									aria-label={m.select_photo({ file: item.file_name })}
 									title={m.select_photo_hint()}
@@ -345,53 +345,6 @@
 	}
 	.work .st-spin {
 		display: inline-flex;
-	}
-	/* The check: on hover, and on every photo while some are chosen. */
-	.check {
-		position: absolute;
-		top: 6px;
-		left: 6px;
-		display: grid;
-		place-items: center;
-		width: 22px;
-		height: 22px;
-		/* Buttons have a minimum height (elements.css): this one is a circle. */
-		min-height: 0;
-		aspect-ratio: 1;
-		padding: 0;
-		border: 2px solid var(--gray-0);
-		border-radius: 50%;
-		background: oklch(0 0 0 / 0.3);
-		color: transparent;
-		box-shadow: var(--shadow-badge);
-		cursor: pointer;
-		opacity: 0;
-		transition: opacity var(--motion-fast) var(--ease-out);
-	}
-	.cell:hover .check,
-	.cell.choosing .check,
-	.check:focus-visible {
-		opacity: 1;
-	}
-	.check:hover {
-		background: oklch(0 0 0 / 0.5);
-		color: var(--gray-0);
-	}
-	.chosen .check {
-		border-color: var(--color-accent);
-		background: var(--color-accent);
-		color: var(--color-on-accent);
-	}
-	/* A chosen photo shrinks into a frame of the accent color. */
-	.chosen .tile {
-		box-shadow: inset 0 0 0 3px var(--color-accent);
-	}
-	.chosen img {
-		transform: scale(0.88);
-		border-radius: 4px;
-	}
-	.chosen .tile:hover img {
-		transform: scale(0.88);
 	}
 	.tile {
 		position: relative;

@@ -345,8 +345,9 @@
 		<div class="photos">
 			{#each trashed.photos as photo (photo.id)}
 				{@const chosen = chosenTrashed.has(photo.id)}
-				<div class="cell" class:chosen>
+				<div class="cell st-tile-cell" class:chosen class:choosing={chosenTrashed.size > 0}>
 					<a
+						class="st-tile"
 						href={resolve('/photo/[id]', { id: photo.id })}
 						title={photo.file_name}
 						onclick={(event) => clickTrashed(event, photo.id)}
@@ -370,7 +371,7 @@
 					</button>
 					<button
 						type="button"
-						class="pick"
+						class="st-tile-check"
 						aria-pressed={chosen}
 						aria-label={m.groups_choose_photo()}
 						title={m.groups_choose_photo()}
@@ -647,35 +648,5 @@
 		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		box-shadow: var(--shadow-sm);
-	}
-	.cell.chosen img {
-		opacity: 0.75;
-		outline: 3px solid var(--color-accent);
-		outline-offset: -3px;
-	}
-	.pick {
-		position: absolute;
-		top: var(--space-1);
-		left: var(--space-1);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.5rem;
-		height: 1.5rem;
-		min-height: 0;
-		padding: 0;
-		border: 2px solid white;
-		border-radius: var(--radius-full);
-		background: rgb(0 0 0 / 0.35);
-		color: transparent;
-		cursor: pointer;
-	}
-	.pick:hover {
-		color: white;
-	}
-	.pick[aria-pressed='true'] {
-		border-color: var(--color-accent);
-		background: var(--color-accent);
-		color: white;
 	}
 </style>

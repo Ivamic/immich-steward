@@ -208,7 +208,7 @@ What it needs:
   0.9 GB), which are downloaded on their first use.
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
-`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.7.0` with
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.8.0` with
 the version of the app on your server (shown in **Settings → Updates**).
 
 ### GPU worker on Windows (PowerShell)
@@ -223,7 +223,7 @@ winget install --id astral-sh.uv -e
 Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 
 ```powershell
-git clone --branch v0.7.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+git clone --branch v0.8.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
@@ -243,7 +243,7 @@ Install once (Git is usually installed already; otherwise `sudo apt install git`
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-git clone --branch v0.7.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+git clone --branch v0.8.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
@@ -310,12 +310,12 @@ driver with `nvidia-smi`). The other messages are the same as in the
 Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Processing**
 page shows the worker as not connected right away.
 
-Update to a new version (replace `0.7.0` with the new version), on Windows:
+Update to a new version (replace `0.8.0` with the new version), on Windows:
 
 ```powershell
 cd D:\steward-worker
 git fetch --tags
-git checkout v0.7.0
+git checkout v0.8.0
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 
@@ -324,7 +324,7 @@ On Linux:
 ```sh
 cd ~/steward-worker
 git fetch --tags
-git checkout v0.7.0
+git checkout v0.8.0
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
 ```
 

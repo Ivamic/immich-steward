@@ -113,6 +113,28 @@ the gallery (the photo card has a link to open the photo in Immich), and **Run a
 once more, e.g. after fixing a file in Immich. "Immich could not give the photo" usually means a
 broken or unsupported file: Immich cannot make its preview either.
 
+## Groups
+
+### The Groups page is empty, or only shows progress
+
+Groups appear once the photos have been compared with each other. The first pass takes about 40 ms
+per photo, more than an hour for 100 000 photos, and goes on in the background; the page shows how far
+it got. Only photos with a vector take part: without a [worker](workers.md) running **Similar photos**
+there are no groups. See [Groups](usage.md#groups).
+
+### "This group no longer exists"
+
+Groups are built again in the background. A group goes when none of its photos are found together any
+more, for example when you took all of them out. Go back to the list: its photos are in other groups,
+or in none. A group whose photos are all marked as showing no sign of a place stays, under the view
+**No sign of a place**.
+
+### A place set from a group is wrong
+
+**Undo** in the notice of the save, or in the card of a photo, puts back what the photos had. The spot
+of a group comes from photos with a location; if those are wrong, it is wrong too. **Apart from the main
+spot** and **Spread out on the map** help to find them.
+
 ## Still stuck?
 
 Open an [issue](https://github.com/Ivamic/immich-steward/issues) with the versions of Steward and

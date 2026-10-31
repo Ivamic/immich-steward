@@ -13,7 +13,7 @@ each one was taken, all on one map, and you pick. It runs on your own server, ne
 | You want to… | Read |
 |---|---|
 | Install the app for the first time | [Installation](install.md): step by step, with every command explained |
-| Learn how to work with it: the gallery, the photo card, the suggestions, the keys | [Using the app](usage.md) |
+| Learn how to work with it: the gallery, the photo card, the suggestions, groups, the keys | [Using the app](usage.md) |
 | Turn on GeoCLIP and similar photos, or use another computer or a graphics card to speed them up | [Workers](workers.md) |
 | Look up a setting | [Configuration](configuration.md): every setting in one place |
 | Update to a new version, back up, remove the app | [Updating and maintenance](updating.md) |
@@ -35,5 +35,7 @@ What changed in each version: [changelog](../CHANGELOG.md).
   finds photos of the same place in your library.
 - **Worker**: a separate program that runs the modules that are neural networks (GeoCLIP and
   similar photos). It is optional and can run on the server or on another computer.
+- **Group**: photos of one view, gathered by the app, so that a place known for some of them can be
+  set on the others.
 - **Suggestion**: a place a module proposes for a photo. Nothing is written to Immich until you
   choose one (or pick a point yourself) and save it.

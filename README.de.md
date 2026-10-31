@@ -107,12 +107,18 @@ Foto mit Standort wenige Minuten davor oder danach, eine sichere GeoCLIP-Schätz
 Foto mit Standort. Videos spielen in der Galerie und in der Fotokarte. Alles funktioniert auch
 auf dem Handy.
 
+**Gruppen** fassen Fotos derselben Ansicht von selbst zusammen, mit und ohne Standort: Liegen die
+Fotos mit Standort an einer Stelle, lässt sich dieser Ort in einem Schritt auf die übrigen
+übertragen, nachdem du ihn auf der Karte geprüft hast. Was im Lauf der Jahre umgezogen ist, zeigt
+sich Monat für Monat, eine unpassende Stelle fällt auf, und Fotos ohne Ortsmerkmale (ein Haustier,
+ein Dokument) lassen sich markieren, damit sie nichts vorschlagen.
+
 Geplant:
 
 - **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.
 - **Geometrische Prüfung** ähnlicher Fotos (übereinstimmende Details, nicht nur der
-  Gesamteindruck) und das Erkennen von Fotos, die gar keinen Ort zeigen: Nahaufnahmen von
-  Personen, Haustiere, Pflanzen, Gegenstände.
+  Gesamteindruck) und das automatische Erkennen von Fotos, die gar keinen Ort zeigen:
+  Nahaufnahmen von Personen, Haustiere, Pflanzen, Gegenstände.
 - **Schlussfolgern mit einem LLM** (im Stil von Img2Loc) — ein Bild-Sprach-Modell denkt über das
   Foto und die von den anderen Modulen gesammelten Hinweise nach.
 - **Externe Dienste** — optionale Cloud-Erkennung, ein Modul pro Dienst.

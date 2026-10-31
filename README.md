@@ -98,11 +98,18 @@ The gallery shows your photos by month and day and marks the ones with an easy a
 with a location taken minutes before or after, a confident GeoCLIP guess, a similar photo with a
 location. Videos play in the gallery and in the photo card. Everything works on a phone too.
 
+**Groups** gather the photos of one view by themselves, with a location or without: when the photos
+with a location agree on a spot, the place can be set on the others in one step, after a look at
+the map. A subject that moved over the years shows month by month, a spot that does not fit stands
+out, and photos that tell nothing of the place (a pet, a document) can be marked, so that they
+suggest nothing.
+
 Planned:
 
 - **Street-level panoramas** on the map, to check a place by eye.
 - **Geometric verification** of similar photos (matching details, not only the overall look),
-  and telling apart photos that show no place at all: close-up portraits, pets, plants, objects.
+  and finding by itself the photos that show no place at all: close-up portraits, pets, plants,
+  objects.
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
   plus the evidence collected by the other modules.
 - **External services** — optional cloud recognizers, one module per service.

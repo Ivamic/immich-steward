@@ -104,12 +104,18 @@ con posizione scattata pochi minuti prima o dopo, una stima GeoCLIP affidabile, 
 con posizione. I video si riproducono nella galleria e nella scheda della foto. Tutto funziona
 anche sul telefono.
 
+**I gruppi** riuniscono da soli le foto di una stessa vista, con o senza posizione: quando le foto
+con posizione stanno nello stesso punto, quel luogo si applica alle altre in un solo passo, dopo
+averlo controllato sulla mappa. Un soggetto che ha cambiato posto negli anni si vede mese per mese,
+un punto fuori posto salta all'occhio e le foto senza indizi di luogo (un animale, un documento) si
+possono segnare perché non suggeriscano nulla.
+
 In programma:
 
 - **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.
 - **Verifica geometrica** delle foto simili (corrispondenza dei dettagli, non solo dell'aspetto
-  generale), e riconoscimento delle foto che non mostrano alcun luogo: primi piani, animali,
-  piante, oggetti.
+  generale), e riconoscimento automatico delle foto che non mostrano alcun luogo: primi piani,
+  animali, piante, oggetti.
 - **Ragionamento con un LLM** (sul modello di Img2Loc) — un modello visione-linguaggio ragiona
   sulla foto e sugli indizi raccolti dagli altri moduli.
 - **Servizi esterni** — riconoscimento facoltativo nel cloud, un modulo per servizio.

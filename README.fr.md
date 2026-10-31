@@ -107,12 +107,18 @@ une photo avec un lieu prise quelques minutes avant ou après, une estimation Ge
 photo similaire avec un lieu. Les vidéos se lisent dans la galerie et dans la fiche photo. Tout
 fonctionne aussi sur un téléphone.
 
+**Les groupes** rassemblent d'eux-mêmes les photos d'une même vue, avec ou sans lieu : quand les
+photos avec un lieu se trouvent au même endroit, ce lieu s'applique aux autres en une fois, après
+un coup d'œil sur la carte. Un sujet qui a changé d'endroit au fil des ans se voit mois par mois,
+un endroit qui ne colle pas saute aux yeux, et les photos sans indice de lieu (un animal, un
+document) peuvent être marquées pour ne plus rien suggérer.
+
 Prévu :
 
 - **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.
 - **Vérification géométrique** des photos similaires (concordance des détails, pas seulement de
-  l'aspect général), et reconnaissance des photos qui ne montrent aucun lieu : portraits en gros
-  plan, animaux, plantes, objets.
+  l'aspect général), et reconnaissance automatique des photos qui ne montrent aucun lieu :
+  portraits en gros plan, animaux, plantes, objets.
 - **Raisonnement par LLM** (dans l'esprit d'Img2Loc) — un modèle vision-langage raisonne sur la
   photo et sur les indices rassemblés par les autres modules.
 - **Services externes** — des services de reconnaissance en ligne facultatifs, un module par

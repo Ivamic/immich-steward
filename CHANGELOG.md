@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-31
+
+Groups: photos of one view gathered by themselves, so that a place known for some of them can be
+set on the others in one step, and a place that does not fit shows.
+
 ### Added
 
 - **Groups: photos of one view, gathered by themselves.** A new page, tab **Environment**. The
@@ -592,7 +597,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Ivamic/immich-steward/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Ivamic/immich-steward/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Ivamic/immich-steward/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/Ivamic/immich-steward/compare/v0.5.0...v0.5.1

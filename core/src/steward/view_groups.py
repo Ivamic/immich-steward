@@ -58,6 +58,7 @@ from steward.models import (
     Embedding,
     Job,
     LocationChange,
+    ViewFolder,
     ViewGroup,
     ViewGroupMember,
     ViewNeighbor,
@@ -257,6 +258,44 @@ _SCATTERED = text(
     LIMIT :limit
     """
 )
+# Groups that may show the same scene (D-201): linked to it by neighbors at least this similar
+# (the weak links seen between groups alike by eye were 0.14-0.33, question 40), then told by
+# the similarity of their mean vectors.
+CLOSE_LINK = 0.2
+CLOSE_MOST = 12
+_CLOSE_GROUPS = text(
+    f"""
+    WITH mine AS (
+        SELECT asset_id FROM view_group_member WHERE group_id = :group_id AND role <> 'excluded'
+    ), linked AS (
+        SELECT other.group_id, count(*) AS links
+        FROM view_neighbor AS n
+        JOIN mine ON mine.asset_id = n.asset_id
+        CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
+        JOIN view_group_member AS other
+            ON other.asset_id = p.b AND other.role <> 'excluded' AND other.group_id <> :group_id
+        JOIN view_group ON view_group.id = other.group_id AND NOT view_group.dissolved
+        WHERE p.s >= :link
+        GROUP BY other.group_id
+        ORDER BY links DESC
+        LIMIT :most
+    ), centroid AS (
+        SELECT member.group_id, avg(embedding.vector::vector({EMBEDDING_DIM})) AS c
+        FROM view_group_member AS member
+        JOIN embedding ON embedding.asset_id = member.asset_id
+            AND embedding.module_id = :module_id AND NOT embedding.region
+        WHERE member.role <> 'excluded'
+            AND (member.group_id = :group_id OR member.group_id IN (SELECT group_id FROM linked))
+        GROUP BY member.group_id
+    )
+    SELECT other.group_id, 1 - (other.c <=> mine.c) AS similarity
+    FROM centroid AS other
+    JOIN centroid AS mine ON mine.group_id = :group_id
+    WHERE other.group_id <> :group_id
+    ORDER BY similarity DESC
+    """
+)
+
 # "Alike": each of the five at least this similar (the badge "similar" is confident from ~0.45).
 SCATTERED_SIMILARITY = 0.5
 CANDIDATES_MOST = 200
@@ -1479,6 +1518,76 @@ async def unmarked(db: AsyncSession, account_id: UUID, immich_ids: list[UUID]) -
 async def _in_order(db: AsyncSession, asset_ids: list[UUID]) -> list[Asset]:
     assets = {a.id: a for a in await db.scalars(select(Asset).where(Asset.id.in_(asset_ids)))}
     return [assets[i] for i in asset_ids if i in assets]
+
+
+async def close_groups(db: AsyncSession, group_id: UUID) -> list[tuple[UUID, float]]:
+    """Groups that may show the same scene as this one, the most alike first: linked to it by
+    neighbors, told by the similarity of their mean vectors (`_CLOSE_GROUPS`)."""
+    rows = await db.execute(
+        _CLOSE_GROUPS,
+        {
+            "group_id": group_id,
+            "link": CLOSE_LINK,
+            "most": CLOSE_MOST,
+            "module_id": similar.MODULE_ID,
+        },
+    )
+    return [(row.group_id, float(row.similarity)) for row in rows]
+
+
+# --- Folders (D-201) -----------------------------------------------------------------------------
+
+
+async def folders(db: AsyncSession, account_id: UUID) -> list[ViewFolder]:
+    """The folders of the account, by name."""
+    found = await db.scalars(
+        select(ViewFolder)
+        .where(ViewFolder.account_id == account_id)
+        .order_by(func.lower(ViewFolder.name), ViewFolder.id)
+    )
+    return list(found)
+
+
+async def folder_of_groups(db: AsyncSession, account_id: UUID) -> dict[UUID, UUID]:
+    """Group -> its folder, for the groups in one."""
+    rows = await db.execute(
+        select(ViewGroup.id, ViewGroup.folder_id).where(
+            ViewGroup.account_id == account_id, ViewGroup.folder_id.is_not(None)
+        )
+    )
+    return {group_id: folder_id for group_id, folder_id in rows if folder_id is not None}
+
+
+async def folder_photos(db: AsyncSession, folder_id: UUID) -> list[tuple[Asset, UUID]]:
+    """All the photos of the groups of the folder with their group, oldest first."""
+    rows = await db.execute(
+        select(Asset, ViewGroupMember.group_id)
+        .join(ViewGroupMember, ViewGroupMember.asset_id == Asset.id)
+        .join(ViewGroup, ViewGroup.id == ViewGroupMember.group_id)
+        .where(
+            ViewGroup.folder_id == folder_id,
+            ViewGroup.dissolved.is_(False),
+            ViewGroupMember.role != EXCLUDED,
+            Asset.is_trashed.is_(False),
+        )
+        .order_by(Asset.local_taken_at, Asset.id)
+    )
+    return [(asset, group_id) for asset, group_id in rows]
+
+
+def main_spot_of(places: dict[UUID, tuple[float, float]]) -> tuple[Spot | None, bool]:
+    """Where most of the photos lie (their largest spot), and whether it holds `SPOT_SHARE` of
+    them, as for a group: then the photos without a location can get its place."""
+    if len(places) < SPOT_MIN_PHOTOS:
+        return None, False
+    numbers = spots_of(places)
+    first = [places[a] for a, number in numbers.items() if number == 0]
+    spot = Spot(
+        latitude=sum(p[0] for p in first) / len(first),
+        longitude=sum(p[1] for p in first) / len(first),
+        photos=len(first),
+    )
+    return spot, len(first) / len(places) >= SPOT_SHARE
 
 
 async def progress_counts(db: AsyncSession, account_id: UUID) -> dict[str, int]:

@@ -1370,3 +1370,132 @@ def test_a_group_marked_whole_teaches_the_marks_of_the_app(
     signed_in.patch(f"/api/groups/{yard}", json={"trash": False})
     run_jobs(signed_in)
     assert marks(signed_in)["auto"] == 0
+
+
+# --- Folders (D-201) ------------------------------------------------------------------------------
+
+
+def test_a_folder_keeps_groups_together_and_shows_them_as_one(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    kitchen = group_of(signed_in, library, "kitchen0.jpg")
+
+    answer = signed_in.put(f"/api/groups/{yard}/folder", json={"name": " Home "})
+    assert answer.status_code == 200
+    folder = answer.json()["group"]["folder"]
+    assert folder["name"] == "Home"
+    assert signed_in.put(
+        f"/api/groups/{kitchen}/folder", json={"folder_id": folder["id"]}
+    ).is_success
+
+    listed = signed_in.get("/api/groups").json()
+    assert listed["groups"] == []
+    assert listed["total"] == 0
+    assert [(f["name"], f["groups"], f["photos"]) for f in listed["folders"]] == [("Home", 2, 10)]
+    assert len(listed["folders"][0]["covers"]) == 2
+    # The counts of the views count the groups in folders too.
+    assert listed["counts"]["all"] == 2
+    flat = signed_in.get("/api/groups", params={"flat": True}).json()
+    assert {g["folder"]["name"] for g in flat["groups"]} == {"Home"}
+    assert flat["folders"] == []
+    # A view where no group of the folder belongs shows no folder.
+    assert signed_in.get("/api/groups", params={"view": "trash"}).json()["folders"] == []
+
+    detail = signed_in.get(f"/api/groups/folders/{folder['id']}").json()
+    assert len(detail["photos"]) == 10
+    assert {UUID(g) for g in detail["group_of"].values()} == {yard, kitchen}
+    assert (detail["spot"], detail["main_spot"], detail["ready"]) == (None, False, False)
+    assert signed_in.get("/api/groups/folders").json() == [folder]
+
+    # The folder survives a rebuild: it stands on the ids of the groups, as their names.
+    signed_in.post("/api/groups/refresh")
+    run_jobs(signed_in)
+    assert signed_in.get("/api/groups").json()["folders"][0]["groups"] == 2
+
+    renamed = signed_in.patch(f"/api/groups/folders/{folder['id']}", json={"name": "House"})
+    assert renamed.json()["folder"]["name"] == "House"
+    assert signed_in.delete(f"/api/groups/folders/{folder['id']}").status_code == 204
+    after = signed_in.get("/api/groups").json()
+    assert (after["folders"], after["total"]) == ([], 2)
+    assert signed_in.get(f"/api/groups/{yard}").json()["group"]["folder"] is None
+    assert signed_in.get(f"/api/groups/folders/{folder['id']}").status_code == 404
+
+
+def test_a_folder_has_the_place_most_of_its_photos_share(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    kitchen = group_of(signed_in, library, "kitchen0.jpg")
+    folder = signed_in.put(f"/api/groups/{yard}/folder", json={"name": "Home"}).json()["group"][
+        "folder"
+    ]
+    signed_in.put(f"/api/groups/{kitchen}/folder", json={"folder_id": folder["id"]})
+    home = {"latitude": 42.4, "longitude": 19.26}
+    for name in ("yard0.jpg", "yard1.jpg", "kitchen0.jpg"):
+        assert signed_in.put(f"/api/assets/{library[name]}/location", json=home).is_success
+
+    detail = signed_in.get(f"/api/groups/folders/{folder['id']}").json()
+    assert detail["spot"]["photos"] == 3
+    assert (detail["main_spot"], detail["ready"]) == (True, True)
+    assert {p["spot"] for p in detail["points"]} == {0}
+    assert {p["group_id"] for p in detail["points"]} == {str(yard), str(kitchen)}
+
+    # The location dialog suggests the place of the whole folder.
+    ids = [library["yard4.jpg"]]
+    found = signed_in.post(
+        "/api/selection/suggestions", json={"ids": ids, "folder_id": folder["id"]}
+    )
+    assert found.status_code == 200
+    group_block = next(b for b in found.json() if b["module"] == "group")
+    assert group_block["candidates"][0]["evidence"]["photos"] == 3
+
+
+def test_all_the_groups_of_a_folder_marked_at_once(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    yard = group_of(signed_in, library, "yard0.jpg")
+    kitchen = group_of(signed_in, library, "kitchen0.jpg")
+    folder = signed_in.put(f"/api/groups/{yard}/folder", json={"name": "Docs"}).json()["group"][
+        "folder"
+    ]
+    signed_in.put(f"/api/groups/{kitchen}/folder", json={"folder_id": folder["id"]})
+
+    detail = signed_in.patch(f"/api/groups/folders/{folder['id']}", json={"trash": True}).json()
+    assert {g["trash"] for g in detail["groups"]} == {True}
+    trash_view = signed_in.get("/api/groups", params={"view": "trash"}).json()
+    assert [(f["name"], f["trash"]) for f in trash_view["folders"]] == [("Docs", 2)]
+    # Not in the view of all: none of its groups is there.
+    assert signed_in.get("/api/groups", params={"view": "all"}).json()["folders"] == []
+
+
+def test_groups_that_may_show_the_same_scene(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    """A porch seen with the yard (similarity ~0.39, under the threshold of the groups): another
+    group, but close to the yard; the kitchen (0) is not."""
+    for i in range(5):
+        fake_immich.add_asset(taken=f"2024-05-01T12:{i:02}:00", originalFileName=f"porch{i}.jpg")
+    sync(signed_in, full=True)
+    items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    by_name = {item["file_name"]: item["id"] for item in items}
+    worker = start_worker(signed_in)
+    for i in range(5):
+        values = [0.0] * EMBEDDING_DIM
+        values[0], values[7], values[170 + i] = 0.4, 0.85, 0.3
+        norm = math.sqrt(sum(v * v for v in values))
+        vector = [v / norm for v in values]
+        run_module(signed_in, worker, by_name[f"porch{i}.jpg"], {"embedding": encoded(vector)})
+    names = library | {f"porch{i}.jpg": by_name[f"porch{i}.jpg"] for i in range(5)}
+    schedule(signed_in)
+    yard = group_of(signed_in, names, "yard0.jpg")
+    porch = group_of(signed_in, names, "porch0.jpg")
+    assert yard != porch
+
+    close = signed_in.get(f"/api/groups/{yard}/close").json()
+    assert [UUID(c["group"]["id"]) for c in close] == [porch]
+    assert 0.3 < close[0]["similarity"] < 0.6
+    assert close[0]["distance_km"] is None

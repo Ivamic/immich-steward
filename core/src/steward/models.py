@@ -446,6 +446,21 @@ class ViewNeighbor(Base):
     computed_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
+class ViewFolder(Base):
+    """A folder of groups the user keeps together, shown together (D-201): one place seen from many
+    sides, the documents. The groups do not change; a group is in one folder at most."""
+
+    __tablename__ = "view_folder"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
+
+
 class ViewGroup(Base):
     """A group of photos of one view (`steward.view_groups`), on a tab of the page "Groups"."""
 
@@ -466,6 +481,10 @@ class ViewGroup(Base):
     # Taken apart by the user: its photos, all taken out, link nothing among them. The row stays,
     # or the next rebuild would build the group again, and it can be brought back.
     dissolved: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # The folder the user put it in; kept by the rebuilds, as the name.
+    folder_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("view_folder.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 

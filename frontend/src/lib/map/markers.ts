@@ -9,7 +9,13 @@ export interface MapDot {
 	lon: number;
 	chosen: boolean;
 	apart?: boolean;
+	/** Its own color (the group in a folder); not on the circles that join several dots. */
+	color?: string;
 }
+
+/** Colors of the groups of a folder on the map, apart from the chosen (orange) and far (violet)
+ * dots; they repeat after six. */
+export const GROUP_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#1b7c83', '#bf3989', '#57606a'];
 
 // Shapes on a 28 × 28 grid. Shape tells modules apart without relying on color (FR-31).
 const SHAPES: Record<string, string> = {

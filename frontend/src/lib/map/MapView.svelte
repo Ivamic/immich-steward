@@ -494,7 +494,14 @@
 			type: 'circle',
 			source: DOTS,
 			paint: {
-				'circle-color': ['case', chosen, DOT_CHOSEN_COLOR, apart, DOT_APART_COLOR, DOT_COLOR],
+				'circle-color': [
+					'case',
+					chosen,
+					DOT_CHOSEN_COLOR,
+					apart,
+					DOT_APART_COLOR,
+					['coalesce', ['get', 'color'], DOT_COLOR]
+				],
 				'circle-radius': ['step', ['coalesce', ['get', 'point_count'], 1], 6, 2, 13, 50, 17],
 				'circle-stroke-color': '#ffffff',
 				'circle-stroke-width': 2
@@ -528,7 +535,12 @@
 		const features: Feature[] = dots.map((dot) => ({
 			type: 'Feature',
 			geometry: { type: 'Point', coordinates: [dot.lon, dot.lat] },
-			properties: { id: dot.id, chosen: dot.chosen ? 1 : 0, apart: dot.apart ? 1 : 0 }
+			properties: {
+				id: dot.id,
+				chosen: dot.chosen ? 1 : 0,
+				apart: dot.apart ? 1 : 0,
+				color: dot.color ?? null
+			}
 		}));
 		if (!map || !ready) return;
 		(map.getSource(DOTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });

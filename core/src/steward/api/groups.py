@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import view_groups
@@ -19,7 +19,8 @@ from steward.embeddings import is_located
 from steward.errors import ApiError
 from steward.immich import ImmichError
 from steward.jobs import ACTIVE_STATUSES, enqueue
-from steward.models import Account, Job, ViewGroup
+from steward.models import Account, Job, ViewFolder, ViewGroup
+from steward.modules.time_neighbors import distance_m
 from steward.view_groups import Summary
 
 router = APIRouter(prefix="/groups")
@@ -35,6 +36,8 @@ SMART_SEARCH_MOST = 1000
 MarkSource = Literal["user", "auto"]
 # Groups shown as lying in the same spot as a group.
 SAME_SPOT_SHOWN = 12
+# Covers on the tile of a folder.
+FOLDER_COVERS = 4
 
 GroupView = Literal["all", "ready", "no_location", "with_location", "spread", "trash", "dissolved"]
 VIEWS: tuple[GroupView, ...] = ("all", "ready", "no_location", "with_location", "spread", "trash")
@@ -49,6 +52,11 @@ class GroupSpot(BaseModel):
     latitude: float
     longitude: float
     photos: int
+
+
+class FolderRef(BaseModel):
+    id: UUID
+    name: str
 
 
 class GroupOut(BaseModel):
@@ -70,6 +78,8 @@ class GroupOut(BaseModel):
     # The photos without a location can get the place of the spot.
     ready: bool = False
     cover: Cover | None = None
+    # The folder it is in (D-201).
+    folder: FolderRef | None = None
 
     @classmethod
     def of(cls, summary: Summary, cover: tuple[UUID, str | None] | None) -> "GroupOut":
@@ -97,11 +107,29 @@ class GroupsStatus(BaseModel):
     job: JobOut | None
 
 
+class FolderOut(BaseModel):
+    """A folder in the list: of the groups of the view in it."""
+
+    id: UUID
+    name: str
+    groups: int
+    photos: int
+    without_location: int
+    with_location: int
+    # Its groups marked as showing no sign of a place.
+    trash: int
+    covers: list[Cover]
+
+
 class GroupList(BaseModel):
     status: GroupsStatus
     # Groups in each view, for the filters.
     counts: dict[GroupView, int]
     groups: list[GroupOut]
+    # The groups of this list (out of the folders unless flat), for the pages.
+    total: int = 0
+    # The folders with groups of the view (on the first page only; none when flat).
+    folders: list[FolderOut] = []
 
 
 class GroupPoint(BaseModel):
@@ -127,6 +155,51 @@ class GroupDetail(BaseModel):
     closeness: dict[UUID, float]
     # The photos closest to the rest of the group: what it holds on to.
     center: list[UUID]
+
+
+class FolderPoint(GroupPoint):
+    group_id: UUID
+
+
+class FolderDetail(BaseModel):
+    folder: FolderRef
+    groups: list[GroupOut]
+    photos: list[AssetItem]
+    # Photo -> its group.
+    group_of: dict[UUID, UUID]
+    # The photos with a location, for the map; `spot` numbers the spots of the whole folder.
+    points: list[FolderPoint]
+    # Where most of the photos with a location lie; `main_spot` when they share it as a group's.
+    spot: GroupSpot | None
+    main_spot: bool
+    ready: bool
+
+
+class FolderIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class FolderUpdate(BaseModel):
+    """Only what is given changes."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    # All the groups of the folder marked as showing no sign of a place, or none.
+    trash: bool | None = None
+
+
+class GroupFolder(BaseModel):
+    """Into a folder (`folder_id`), into a new one (`name`), or out of any (neither)."""
+
+    folder_id: UUID | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class CloseGroup(BaseModel):
+    group: GroupOut
+    # How alike the mean vectors of the two groups are.
+    similarity: float
+    # Between their main spots, when both have one.
+    distance_km: float | None
 
 
 class PhotoGroup(BaseModel):
@@ -214,8 +287,12 @@ async def _detail(db: AsyncSession, account: Account, group: ViewGroup) -> Group
     spots = view_groups.spots_of({a.id: (a.latitude or 0.0, a.longitude or 0.0) for a in points})
     in_app = await view_groups.set_in_app(db, [a.id for a in points])
     excluded, marked = await view_groups.excluded_of(db, group.id)
+    folder = await db.get(ViewFolder, group.folder_id) if group.folder_id else None
+    out = GroupOut.of(summary, covers.get(group.id))
+    if folder is not None:
+        out.folder = FolderRef(id=folder.id, name=folder.name)
     return GroupDetail(
-        group=GroupOut.of(summary, covers.get(group.id)),
+        group=out,
         photos=[AssetItem.of(asset) for asset in photos],
         points=[
             GroupPoint(
@@ -241,16 +318,27 @@ async def list_groups(
     view: GroupView = "all",
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=60, ge=1, le=200),
+    flat: bool = False,
 ) -> GroupList:
+    """The groups of the view. Those in a folder are in its tile, unless `flat` (D-201)."""
     summaries = await view_groups.summaries(db, account.id)
     dissolved = await view_groups.dissolved_summaries(db, account.id)
+    folder_of = await view_groups.folder_of_groups(db, account.id)
+    all_folders = await view_groups.folders(db, account.id)
+    names = {f.id: f.name for f in all_folders}
+    folders: list[FolderOut] = []
     if view == "dissolved":
+        listed = dissolved
         page = dissolved[offset : offset + limit]
         covers = await view_groups.excluded_cover(db, [s.id for s in page])
     else:
         listed = [s for s in summaries if _in_view(s, view)]
         if view == "ready":  # the most to gain first
             listed.sort(key=lambda s: -s.without_location)
+        if not flat:
+            if offset == 0:
+                folders = await _folders_out(db, all_folders, listed, folder_of, view)
+            listed = [s for s in listed if s.id not in folder_of]
         page = listed[offset : offset + limit]
         covers = await view_groups.covers(db, [s.id for s in page if s.photos])
         empty = [s.id for s in page if not s.photos]
@@ -269,8 +357,145 @@ async def list_groups(
         ),
         counts={v: sum(_in_view(s, v) for s in summaries) for v in VIEWS}
         | {"dissolved": len(dissolved)},
-        groups=[GroupOut.of(s, covers.get(s.id)) for s in page],
+        groups=[_with_folder(GroupOut.of(s, covers.get(s.id)), folder_of, names) for s in page],
+        total=len(listed),
+        folders=folders,
     )
+
+
+def _with_folder(out: GroupOut, folder_of: dict[UUID, UUID], names: dict[UUID, str]) -> GroupOut:
+    folder_id = folder_of.get(out.id)
+    if folder_id is not None and folder_id in names:
+        out.folder = FolderRef(id=folder_id, name=names[folder_id])
+    return out
+
+
+async def _folders_out(
+    db: AsyncSession,
+    all_folders: list[ViewFolder],
+    listed: list[Summary],
+    folder_of: dict[UUID, UUID],
+    view: GroupView,
+) -> list[FolderOut]:
+    """The folders with groups of the view, by name; those with no group at all too, in the view
+    of all, where they are made and can be dropped."""
+    found = []
+    for folder in all_folders:
+        members = [s for s in listed if folder_of.get(s.id) == folder.id]
+        empty = folder.id not in folder_of.values()
+        if not members and not (empty and view == "all"):
+            continue
+        covers = await view_groups.covers(db, [s.id for s in members[:FOLDER_COVERS]])
+        found.append(
+            FolderOut(
+                id=folder.id,
+                name=folder.name,
+                groups=len(members),
+                photos=sum(s.photos for s in members),
+                without_location=sum(s.without_location for s in members),
+                with_location=sum(s.with_location for s in members),
+                trash=sum(s.trash for s in members),
+                covers=[
+                    Cover(id=covers[s.id][0], version=covers[s.id][1])
+                    for s in members[:FOLDER_COVERS]
+                    if s.id in covers
+                ],
+            )
+        )
+    return found
+
+
+async def _own_folder(db: AsyncSession, account: Account, folder_id: UUID) -> ViewFolder:
+    folder = await db.get(ViewFolder, folder_id)
+    if folder is None or folder.account_id != account.id:
+        raise ApiError(404, "folder_not_found")
+    return folder
+
+
+async def _folder_detail(db: AsyncSession, account: Account, folder: ViewFolder) -> FolderDetail:
+    in_folder = [
+        s
+        for s in await view_groups.summaries(db, account.id)
+        if s.id in set(await _groups_of_folder(db, folder.id))
+    ]
+    covers = await view_groups.covers(db, [s.id for s in in_folder])
+    found = await view_groups.folder_photos(db, folder.id)
+    located = [(a, g) for a, g in found if is_located(a)]
+    places = {a.id: (a.latitude or 0.0, a.longitude or 0.0) for a, _ in located}
+    spots = view_groups.spots_of(places)
+    spot, main = view_groups.main_spot_of(places)
+    in_app = await view_groups.set_in_app(db, list(places))
+    ref = FolderRef(id=folder.id, name=folder.name)
+    return FolderDetail(
+        folder=ref,
+        groups=[
+            GroupOut.of(s, covers.get(s.id)).model_copy(update={"folder": ref}) for s in in_folder
+        ],
+        photos=[AssetItem.of(a) for a, _ in found],
+        group_of={a.id: g for a, g in found},
+        points=[
+            FolderPoint(
+                id=a.id,
+                latitude=a.latitude,
+                longitude=a.longitude,
+                spot=spots[a.id],
+                set_in_app=a.id in in_app,
+                group_id=g,
+            )
+            for a, g in located
+        ],
+        spot=GroupSpot(**asdict(spot)) if spot else None,
+        main_spot=main,
+        ready=main and len(located) < len(found),
+    )
+
+
+async def _groups_of_folder(db: AsyncSession, folder_id: UUID) -> list[UUID]:
+    return list(await db.scalars(select(ViewGroup.id).where(ViewGroup.folder_id == folder_id)))
+
+
+@router.get("/folders")
+async def list_folders(account: CurrentAccount, db: DbDep) -> list[FolderRef]:
+    """The folders, by name: where a group can go."""
+    return [FolderRef(id=f.id, name=f.name) for f in await view_groups.folders(db, account.id)]
+
+
+@router.post("/folders", status_code=201)
+async def create_folder(body: FolderIn, account: CurrentAccount, db: DbDep) -> FolderRef:
+    folder = ViewFolder(account_id=account.id, name=body.name.strip())
+    db.add(folder)
+    await db.commit()
+    return FolderRef(id=folder.id, name=folder.name)
+
+
+@router.get("/folders/{folder_id}")
+async def get_folder(folder_id: UUID, account: CurrentAccount, db: DbDep) -> FolderDetail:
+    return await _folder_detail(db, account, await _own_folder(db, account, folder_id))
+
+
+@router.patch("/folders/{folder_id}")
+async def update_folder(
+    folder_id: UUID, body: FolderUpdate, account: CurrentAccount, db: DbDep
+) -> FolderDetail:
+    folder = await _own_folder(db, account, folder_id)
+    if body.name is not None:
+        folder.name = body.name.strip()
+    if body.trash is not None:
+        await db.execute(
+            update(ViewGroup).where(ViewGroup.folder_id == folder.id).values(trash=body.trash)
+        )
+    await db.commit()
+    if body.trash is not None:
+        await _rebuild_soon(db, account)
+    return await _folder_detail(db, account, folder)
+
+
+@router.delete("/folders/{folder_id}", status_code=204)
+async def delete_folder(folder_id: UUID, account: CurrentAccount, db: DbDep) -> None:
+    """The folder goes; its groups stay, out of any folder."""
+    folder = await _own_folder(db, account, folder_id)
+    await db.execute(delete(ViewFolder).where(ViewFolder.id == folder.id))
+    await db.commit()
 
 
 @router.post("/refresh", status_code=202)
@@ -438,6 +663,58 @@ async def update_group(
     return await _detail(db, account, group)
 
 
+@router.put("/{group_id}/folder")
+async def set_group_folder(
+    group_id: UUID, body: GroupFolder, account: CurrentAccount, db: DbDep
+) -> GroupDetail:
+    """Puts the group into a folder, a new one, or out of any."""
+    group = await _own_group(db, account, group_id)
+    if body.name is not None:
+        folder = ViewFolder(account_id=account.id, name=body.name.strip())
+        db.add(folder)
+        await db.flush()
+        group.folder_id = folder.id
+    elif body.folder_id is not None:
+        group.folder_id = (await _own_folder(db, account, body.folder_id)).id
+    else:
+        group.folder_id = None
+    await db.commit()
+    return await _detail(db, account, group)
+
+
+@router.get("/{group_id}/close")
+async def close_groups(group_id: UUID, account: CurrentAccount, db: DbDep) -> list[CloseGroup]:
+    """Groups that may show the same scene: alike by their mean vectors, linked by neighbors."""
+    group = await _own_group(db, account, group_id)
+    found = await view_groups.close_groups(db, group.id)
+    if not found:
+        return []
+    by_id = {s.id: s for s in await view_groups.summaries(db, account.id)}
+    mine = by_id.get(group.id)
+    covers = await view_groups.covers(db, [g for g, _ in found])
+    folder_of = await view_groups.folder_of_groups(db, account.id)
+    names = {f.id: f.name for f in await view_groups.folders(db, account.id)}
+    result = []
+    for other_id, similarity in found:
+        other = by_id.get(other_id)
+        if other is None or other.trash != (mine.trash if mine else False):
+            continue
+        apart = None
+        if mine and mine.main_spot and other.main_spot and mine.spot and other.spot:
+            apart = (
+                distance_m(
+                    mine.spot.latitude,
+                    mine.spot.longitude,
+                    other.spot.latitude,
+                    other.spot.longitude,
+                )
+                / 1000
+            )
+        out = _with_folder(GroupOut.of(other, covers.get(other_id)), folder_of, names)
+        result.append(CloseGroup(group=out, similarity=round(similarity, 3), distance_km=apart))
+    return result
+
+
 @router.get("/{group_id}/same-spot")
 async def same_spot_groups(group_id: UUID, account: CurrentAccount, db: DbDep) -> list[GroupOut]:
     """Other groups in the main spot of this one: other sides of one place."""
@@ -445,7 +722,9 @@ async def same_spot_groups(group_id: UUID, account: CurrentAccount, db: DbDep) -
     found = view_groups.same_spot(await view_groups.summaries(db, account.id), group.id)
     found = found[:SAME_SPOT_SHOWN]
     covers = await view_groups.covers(db, [s.id for s in found])
-    return [GroupOut.of(s, covers.get(s.id)) for s in found]
+    folder_of = await view_groups.folder_of_groups(db, account.id)
+    names = {f.id: f.name for f in await view_groups.folders(db, account.id)}
+    return [_with_folder(GroupOut.of(s, covers.get(s.id)), folder_of, names) for s in found]
 
 
 @router.get("/{group_id}/parts")

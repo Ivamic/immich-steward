@@ -88,7 +88,10 @@
 	const query = $derived<'' | `?${string}`>(view === 'all' ? '' : `?view=${view}`);
 	const status = $derived(list?.status ?? null);
 	const working = $derived(isActive(status?.job ?? null));
-	const total = $derived(list?.counts[view] ?? 0);
+	// All the groups in one list, those in folders too (D-201).
+	const flat = $derived(page.url.searchParams.get('flat') === '1');
+	const total = $derived(list?.total ?? 0);
+	const folders = $derived(flat || view === 'dissolved' ? [] : (list?.folders ?? []));
 	/** The marked photos of the source shown. */
 	const trashedTotal = $derived(trashed ? (markSource ? trashed[markSource] : trashed.total) : 0);
 	const autoMarked = $derived(new Set(trashed?.auto_ids ?? []));
@@ -105,11 +108,11 @@
 		const asked = ++latest;
 		loading = true;
 		try {
-			const answer = await getGroups(wanted, 0, Math.min(limit, MOST));
+			const answer = await getGroups(wanted, 0, Math.min(limit, MOST), flat);
 			let groups = answer.groups;
-			while (groups.length < Math.min(limit, answer.counts[wanted])) {
+			while (groups.length < Math.min(limit, answer.total)) {
 				const left = Math.min(limit - groups.length, MOST);
-				const next = joined(groups, (await getGroups(wanted, groups.length, left)).groups);
+				const next = joined(groups, (await getGroups(wanted, groups.length, left, flat)).groups);
 				if (next.length === groups.length) break;
 				groups = next;
 			}
@@ -129,7 +132,7 @@
 		const wanted = view;
 		loadingMore = true;
 		try {
-			const answer = await getGroups(wanted, shown.length, PAGE);
+			const answer = await getGroups(wanted, shown.length, PAGE, flat);
 			if (wanted === view) shown = joined(shown, answer.groups);
 		} catch (e) {
 			error = errorMessage(e);
@@ -138,9 +141,12 @@
 		}
 	}
 
-	function choose(next: GroupView) {
+	function choose(next: GroupView, flatNext = flat) {
 		chosenTrashed.clear();
-		goto(resolve(next === 'all' ? '/groups' : `/groups?view=${next}`), {
+		const search = [next !== 'all' ? `view=${next}` : '', flatNext ? 'flat=1' : '']
+			.filter(Boolean)
+			.join('&');
+		goto(resolve(search ? `/groups?${search}` : '/groups'), {
 			replace: true,
 			reset: false
 		});
@@ -363,6 +369,20 @@
 				<span class="count">{count(list.counts[item.id])}</span>
 			</button>
 		{/each}
+		{#if view !== 'dissolved'}
+			<button
+				type="button"
+				class="st-btn st-btn--sm"
+				class:st-btn--secondary={flat}
+				class:st-btn--ghost={!flat}
+				aria-pressed={flat}
+				title={m.groups_flat_hint()}
+				onclick={() => choose(view, !flat)}
+			>
+				<Icon name="folder" size={14} />
+				{m.groups_flat()}
+			</button>
+		{/if}
 	</div>
 
 	{#if view === 'trash'}
@@ -504,8 +524,45 @@
 		{/if}
 	{/if}
 
-	{#if shown.length > 0}
+	{#if shown.length > 0 || folders.length > 0}
 		<div class="grid" id={view === 'trash' ? 'marked-groups' : undefined}>
+			{#each folders as folder (folder.id)}
+				<a
+					class="group"
+					href={resolve('/groups/folders/[id]', { id: folder.id })}
+					onclick={rememberPlace}
+				>
+					<span class="cover mosaic covers-{Math.min(folder.covers.length, 4)}">
+						{#each folder.covers as cover (cover.id)}
+							<img
+								src={thumbnailUrl(cover.id, 'thumbnail', 0, cover.version)}
+								alt=""
+								loading="lazy"
+								decoding="async"
+							/>
+						{/each}
+					</span>
+					<span class="name"><Icon name="folder" size={14} />{folder.name}</span>
+					<span class="numbers">
+						{m.folder_groups({ count: count(folder.groups) })} ·
+						{m.groups_photos({ count: count(folder.photos) })}
+					</span>
+					<span class="badges">
+						{#if folder.with_location > 0}
+							<span class="st-badge st-badge--success">
+								<Icon name="map-pin" size={11} />
+								<span>{m.groups_with_location({ count: count(folder.with_location) })}</span>
+							</span>
+						{/if}
+						{#if folder.without_location > 0}
+							<span class="st-badge st-badge--info">
+								<Icon name="map-pin-off" size={11} />
+								<span>{m.groups_without_location({ count: count(folder.without_location) })}</span>
+							</span>
+						{/if}
+					</span>
+				</a>
+			{/each}
 			{#each shown as group (group.id)}
 				{#if view === 'dissolved'}
 					<div class="group">
@@ -572,6 +629,12 @@
 							{#if group.similarity !== null}
 								<span class="st-badge" title={m.groups_similarity_hint()}>
 									<span>{m.groups_similarity({ value: similarity(group.similarity) })}</span>
+								</span>
+							{/if}
+							{#if flat && group.folder}
+								<span class="st-badge">
+									<Icon name="folder" size={11} />
+									<span>{group.folder.name}</span>
 								</span>
 							{/if}
 						</span>
@@ -678,6 +741,29 @@
 		overflow: hidden;
 		border-radius: var(--radius-md);
 		background: var(--color-surface-sunken);
+	}
+	/* A folder: the covers of up to four of its groups. */
+	.mosaic {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		grid-template-rows: 1fr 1fr;
+		gap: 2px;
+	}
+	.mosaic.covers-0,
+	.mosaic.covers-1 {
+		grid-template-columns: 1fr;
+		grid-template-rows: 1fr;
+	}
+	.mosaic.covers-2 {
+		grid-template-rows: 1fr;
+	}
+	.mosaic.covers-3 img:first-child {
+		grid-row: span 2;
+	}
+	.name :global(svg) {
+		display: inline-block;
+		margin-right: var(--space-1);
+		vertical-align: -2px;
 	}
 	.cover img {
 		width: 100%;

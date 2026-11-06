@@ -6,17 +6,20 @@
 	import {
 		dissolveGroup,
 		excludeFromGroup,
+		getCloseGroups,
 		getGroup,
 		getGroupNear,
 		getGroupParts,
 		getGroupSameSpot,
 		getMapConfig,
 		includeInGroup,
+		setGroupFolder,
 		restorePhotos,
 		thumbnailUrl,
 		trashPhotos,
 		updateGroup,
 		type AssetItem,
+		type CloseGroup,
 		type GroupDetail,
 		type GroupOut,
 		type MapConfig
@@ -40,7 +43,9 @@
 	} from '#lib/gallery/sections.js';
 	import { galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
 	import TileTooltip from '#lib/gallery/TileTooltip.svelte';
+	import FolderDialog from '#lib/groups/FolderDialog.svelte';
 	import MapView from '#lib/map/MapView.svelte';
+	import { formatDistance } from '#lib/suggestions/format.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import Dialog from '#lib/ui/Dialog.svelte';
@@ -83,6 +88,9 @@
 	let detail = $state.raw<GroupDetail | null>(null);
 	let near = $state.raw<AssetItem[]>([]);
 	let sameSpot = $state.raw<GroupOut[]>([]);
+	// Groups that may show the same scene (D-201), and the groups to put into one folder.
+	let close = $state.raw<CloseGroup[]>([]);
+	let folderFor = $state<string[] | null>(null);
 	let mapConfig = $state<MapConfig | null>(null);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let error = $state<string | null>(null);
@@ -232,6 +240,7 @@
 		detail = null;
 		near = [];
 		sameSpot = [];
+		close = [];
 		parts = null;
 		filter = 'all';
 		grouping = 'none';
@@ -248,12 +257,36 @@
 			const answer = await getGroup(group);
 			if (group !== id) return;
 			show(answer);
-			const [nearby, others] = await Promise.all([getGroupNear(group), getGroupSameSpot(group)]);
+			const [nearby, others, alike] = await Promise.all([
+				getGroupNear(group),
+				getGroupSameSpot(group),
+				getCloseGroups(group)
+			]);
 			if (group !== id) return;
 			near = nearby;
 			sameSpot = others;
+			close = alike;
 		} catch (e) {
 			error = errorMessage(e);
+		}
+	}
+
+	/** Another group into the folder of this one; with none yet, both into one (the dialog). */
+	async function putTogether(other: string) {
+		const folder = detail?.group.folder;
+		if (!folder) {
+			folderFor = [id, other];
+			return;
+		}
+		busy = true;
+		try {
+			await setGroupFolder(other, { folder_id: folder.id });
+			close = await getCloseGroups(id);
+			sameSpot = await getGroupSameSpot(id);
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
 		}
 	}
 
@@ -544,7 +577,27 @@
 			<Icon name="layers" size={14} />
 			{m.groups_dissolve()}
 		</button>
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			disabled={busy}
+			onclick={() => (folderFor = [id])}
+		>
+			<Icon name="folder" size={14} />
+			{m.folder_to()}
+		</button>
 	</div>
+	{#if detail.group.folder}
+		<p class="numbers">
+			<a
+				class="st-badge folder"
+				href={resolve('/groups/folders/[id]', { id: detail.group.folder.id })}
+			>
+				<Icon name="folder" size={11} />
+				<span>{m.folder_in({ name: detail.group.folder.name })}</span>
+			</a>
+		</p>
+	{/if}
 	<p class="numbers">
 		<span>{m.groups_photos({ count: count(detail.group.photos) })}</span>
 		{#if detail.group.with_location > 0}
@@ -626,6 +679,59 @@
 			{m.groups_map_hint()}
 			{#if apartPhotos.length > 0}{m.groups_apart_map_hint()}{/if}
 		</p>
+	{/if}
+
+	{#if close.length > 0}
+		<details>
+			<summary>{m.close_heading({ count: count(close.length) })}</summary>
+			<p class="hint">{m.close_hint()}</p>
+			<div class="grid">
+				{#each close as item (item.group.id)}
+					<div class="alike">
+						<a class="cell other" href={resolve(`/groups/[id]${query}`, { id: item.group.id })}>
+							{#if item.group.cover}
+								<img
+									src={thumbnailUrl(item.group.cover.id, 'thumbnail', 0, item.group.cover.version)}
+									alt=""
+									loading="lazy"
+									decoding="async"
+								/>
+							{/if}
+							<span class="caption"
+								>{item.group.name ?? m.groups_photos({ count: count(item.group.photos) })}</span
+							>
+						</a>
+						<span class="alike-meta">
+							{m.neighbor_similarity({ percent: String(Math.round(item.similarity * 100)) })}
+							{#if item.distance_km !== null && item.distance_km > 1}
+								<span class="st-badge st-badge--warning">
+									<Icon name="route" size={11} />
+									<span>{m.close_apart({ distance: formatDistance(item.distance_km * 1000) })}</span
+									>
+								</span>
+							{/if}
+						</span>
+						{#if item.group.folder && item.group.folder.id === detail.group.folder?.id}
+							<span class="st-badge"
+								><Icon name="folder" size={11} /><span>{item.group.folder.name}</span></span
+							>
+						{:else}
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								disabled={busy}
+								onclick={() => putTogether(item.group.id)}
+							>
+								<Icon name="folder" size={14} />
+								{detail.group.folder
+									? m.folder_put_into({ name: detail.group.folder.name })
+									: m.folder_put_together()}
+							</button>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		</details>
 	{/if}
 
 	{#if sameSpot.length > 0}
@@ -996,6 +1102,17 @@
 {:else if tip}
 	<TileTooltip item={tip.item} anchor={tip.anchor} onclose={() => (tip = null)} />
 {/if}
+{#if folderFor}
+	<FolderDialog
+		groupIds={folderFor}
+		current={folderFor.length === 1 ? (detail?.group.folder ?? null) : null}
+		ondone={() => {
+			folderFor = null;
+			load(id);
+		}}
+		onclose={() => (folderFor = null)}
+	/>
+{/if}
 {#if locationOpen}
 	<SelectionLocation
 		items={[...selection.items.values()]}
@@ -1178,6 +1295,27 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+	.alike {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--space-1);
+		min-width: 0;
+	}
+	.alike .cell {
+		width: 100%;
+	}
+	.alike-meta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+		color: var(--color-text-muted);
+		font-size: var(--text-xs);
+	}
+	.folder {
+		color: inherit;
+		text-decoration: none;
 	}
 	.caption {
 		position: absolute;

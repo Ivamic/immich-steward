@@ -710,8 +710,16 @@ export interface SelectionUndone {
 
 /** Suggestions from what is already known for the photos; nothing is run. */
 /** `groupId`: the group the photos were chosen in, whose places are suggested too. */
-export const getSelectionSuggestions = (ids: string[], groupId: string | null = null) =>
-	request<ModuleSuggestions[]>('POST', '/api/selection/suggestions', { ids, group_id: groupId });
+export const getSelectionSuggestions = (
+	ids: string[],
+	groupId: string | null = null,
+	folderId: string | null = null
+) =>
+	request<ModuleSuggestions[]>('POST', '/api/selection/suggestions', {
+		ids,
+		group_id: groupId,
+		folder_id: folderId
+	});
 export const setSelectionLocation = (
 	ids: string[],
 	point: { lat: number; lon: number },
@@ -775,6 +783,50 @@ export interface GroupOut {
 	/** The photos without a location can get the place of the spot. */
 	ready: boolean;
 	cover: { id: string; version: string | null } | null;
+	/** The folder it is in (D-201). */
+	folder: FolderRef | null;
+}
+
+export interface FolderRef {
+	id: string;
+	name: string;
+}
+
+/** A folder in the list: of the groups of the view in it. */
+export interface FolderOut {
+	id: string;
+	name: string;
+	groups: number;
+	photos: number;
+	without_location: number;
+	with_location: number;
+	/** Its groups marked as showing no sign of a place. */
+	trash: number;
+	covers: { id: string; version: string | null }[];
+}
+
+export interface FolderPoint extends GroupPoint {
+	group_id: string;
+}
+
+export interface FolderDetail {
+	folder: FolderRef;
+	groups: GroupOut[];
+	photos: AssetItem[];
+	/** Photo -> its group. */
+	group_of: Record<string, string>;
+	points: FolderPoint[];
+	spot: { latitude: number; longitude: number; photos: number } | null;
+	main_spot: boolean;
+	ready: boolean;
+}
+
+/** A group that may show the same scene. */
+export interface CloseGroup {
+	group: GroupOut;
+	similarity: number;
+	/** Between the main spots, when both have one. */
+	distance_km: number | null;
 }
 
 export interface GroupList {
@@ -787,6 +839,10 @@ export interface GroupList {
 	};
 	counts: Record<GroupView, number>;
 	groups: GroupOut[];
+	/** The groups of this list (out of the folders unless flat), for the pages. */
+	total: number;
+	/** The folders with groups of the view, on the first page (none when flat). */
+	folders: FolderOut[];
 }
 
 export interface GroupPoint {
@@ -814,8 +870,24 @@ export interface GroupDetail {
 	center: string[];
 }
 
-export const getGroups = (view: GroupView, offset: number, limit: number) =>
-	request<GroupList>('GET', `/api/groups?view=${view}&offset=${offset}&limit=${limit}`);
+export const getGroups = (view: GroupView, offset: number, limit: number, flat = false) =>
+	request<GroupList>(
+		'GET',
+		`/api/groups?view=${view}&offset=${offset}&limit=${limit}${flat ? '&flat=true' : ''}`
+	);
+export const getFolders = () => request<FolderRef[]>('GET', '/api/groups/folders');
+export const getFolder = (id: string) => request<FolderDetail>('GET', `/api/groups/folders/${id}`);
+/** Only what is given changes; `trash` marks all the groups of the folder, or none. */
+export const updateFolder = (id: string, change: { name?: string; trash?: boolean }) =>
+	request<FolderDetail>('PATCH', `/api/groups/folders/${id}`, change);
+/** The folder goes; its groups stay. */
+export const deleteFolder = (id: string) => request<void>('DELETE', `/api/groups/folders/${id}`);
+/** Into a folder (`folder_id`), a new one (`name`), or out of any (neither). */
+export const setGroupFolder = (id: string, to: { folder_id?: string; name?: string }) =>
+	request<GroupDetail>('PUT', `/api/groups/${id}/folder`, to);
+/** Groups that may show the same scene, the most alike first. */
+export const getCloseGroups = (id: string) =>
+	request<CloseGroup[]>('GET', `/api/groups/${id}/close`);
 export const getGroup = (id: string) => request<GroupDetail>('GET', `/api/groups/${id}`);
 /** Only what is given changes; an empty name takes the name away. */
 export const updateGroup = (id: string, change: { name?: string; trash?: boolean }) =>

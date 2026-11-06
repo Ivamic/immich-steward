@@ -42,6 +42,7 @@
 	let {
 		items,
 		groupId = null,
+		folderId = null,
 		point = null,
 		onsaved,
 		onclose
@@ -50,6 +51,8 @@
 		items: AssetItem[];
 		/** The group they were chosen in: its places are suggested too. */
 		groupId?: string | null;
+		/** Or the folder: the places of all its groups. */
+		folderId?: string | null;
 		/** The place the window opens with, to confirm on the map. */
 		point?: LatLon | null;
 		/** The save is queued (it can still be cancelled from its notice). */
@@ -98,7 +101,8 @@
 			.catch((e) => (error = errorMessage(e)));
 		getSelectionSuggestions(
 			items.map((item) => item.id),
-			groupId
+			groupId,
+			folderId
 		)
 			.then((result) => (suggestions = result))
 			.catch((e) => (error = errorMessage(e)))

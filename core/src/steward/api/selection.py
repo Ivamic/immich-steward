@@ -28,7 +28,7 @@ from steward.deps import (
     get_secret_box,
 )
 from steward.errors import ApiError
-from steward.models import Asset, Job, ViewGroup
+from steward.models import Asset, Job, ViewFolder, ViewGroup
 from steward.worker_queue import PRIORITY_USER
 
 router = APIRouter(prefix="/selection")
@@ -43,6 +43,8 @@ class SelectionIn(BaseModel):
     ids: AssetIds
     # The group the photos were chosen in: its places are suggested too.
     group_id: UUID | None = None
+    # Or the folder: the places of all its groups (D-201).
+    folder_id: UUID | None = None
 
 
 class SelectionLocation(BaseModel):
@@ -115,6 +117,11 @@ async def suggestions(
         if group is None or group.account_id != account.id:
             raise ApiError(404, "group_not_found")
         group_photos = await view_groups.photos_of(db, group.id)
+    elif body.folder_id is not None:
+        folder = await db.get(ViewFolder, body.folder_id)
+        if folder is None or folder.account_id != account.id:
+            raise ApiError(404, "folder_not_found")
+        group_photos = [asset for asset, _ in await view_groups.folder_photos(db, folder.id)]
     blocks = await selection.suggest(db, account.id, assets, settings, confident, group_photos)
     displays = await module_display.get(db, account.id)
     order = {d.module: i for i, d in enumerate(displays)}

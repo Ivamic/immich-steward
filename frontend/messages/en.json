@@ -675,7 +675,6 @@
 	"folder_put_together": "Into one folder",
 	"nav_map": "Map",
 	"map_place_photos": "Photos here: {count}",
-	"map_close_place": "Close",
 	"map_hint": "A circle is the photos of a place: a click zooms in. Closer, the photos in view are listed beside the map, and closer still the places show a photo.",
 	"map_empty": "No photos with a location under these filters.",
 	"groups_choose_group": "Choose the group",
@@ -684,5 +683,9 @@
 	"folder_legend_hint": "Show only the photos of the groups chosen here",
 	"folder_legend_all": "All groups",
 	"map_view_photos": "Photos in view: {count}",
-	"map_all_in_view": "All in view"
+	"map_all_in_view": "All in view",
+	"map_list_mode": "What the list shows",
+	"map_chosen_place": "Selected place",
+	"map_chosen_place_hint": "Click a place on the map to select it and see only its photos",
+	"map_all_in_view_hint": "Zoom in to list all the photos in view"
 }

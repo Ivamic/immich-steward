@@ -38,7 +38,7 @@
 	// From this zoom the photos in view are listed beside the map.
 	const LIST_ZOOM = 11;
 	// From this zoom, with no more places than this in view, the places are pictures of a photo.
-	const PICTURE_ZOOM = 14;
+	const PICTURE_ZOOM = 12;
 	const PICTURES_MOST = 200;
 	// How far a click zooms in.
 	const ZOOM_STEP = 3;
@@ -326,11 +326,29 @@
 				: m.map_view_photos({ count: count(placeTotal) })}
 		>
 			<header>
-				<h2>
-					{place
-						? m.map_place_photos({ count: count(placeTotal) })
-						: m.map_view_photos({ count: count(placeTotal) })}
-				</h2>
+				<!-- What the list shows: all that is in view, or the place chosen on the map. -->
+				<div class="st-seg" role="radiogroup" aria-label={m.map_list_mode()}>
+					<button
+						type="button"
+						role="radio"
+						aria-checked={place === null}
+						disabled={!inView}
+						title={inView ? undefined : m.map_all_in_view_hint()}
+						onclick={closePlace}
+					>
+						{m.map_all_in_view()}
+					</button>
+					<button
+						type="button"
+						role="radio"
+						aria-checked={place !== null}
+						disabled={place === null}
+						title={place ? undefined : m.map_chosen_place_hint()}
+					>
+						{m.map_chosen_place()}
+					</button>
+				</div>
+				<span class="total">{m.groups_photos({ count: count(placeTotal) })}</span>
 				{#if placePhotos.length > 1}
 					<button
 						type="button"
@@ -338,17 +356,6 @@
 						onclick={() => selection.setAll(placePhotos, true)}
 					>
 						{m.candidates_choose_all()}
-					</button>
-				{/if}
-				{#if place}
-					<button
-						type="button"
-						class="st-btn st-btn--ghost st-btn--sm"
-						title={m.map_close_place()}
-						onclick={closePlace}
-					>
-						<Icon name="x" size={14} />
-						{inView ? m.map_all_in_view() : m.map_close_place()}
 					</button>
 				{/if}
 			</header>
@@ -470,10 +477,13 @@
 		padding: var(--space-1) 0 var(--space-2);
 		background: var(--color-bg);
 	}
-	.place h2 {
+	.place header {
+		flex-wrap: wrap;
+	}
+	.total {
 		flex: 1;
-		margin: 0;
-		font-size: var(--text-base);
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
 	}
 	.place .st-tile-grid {
 		grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));

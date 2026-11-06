@@ -675,7 +675,6 @@
 	"folder_put_together": "In una stessa cartella",
 	"nav_map": "Mappa",
 	"map_place_photos": "Foto qui: {count}",
-	"map_close_place": "Chiudi",
 	"map_hint": "Un cerchio sono le foto di un luogo: un clic ingrandisce. Più vicino, le foto inquadrate sono elencate accanto alla mappa, e ancora più vicino i luoghi mostrano una foto.",
 	"map_empty": "Nessuna foto con un luogo per questi filtri.",
 	"groups_choose_group": "Scegli il gruppo",
@@ -684,5 +683,9 @@
 	"folder_legend_hint": "Mostra solo le foto dei gruppi scelti qui",
 	"folder_legend_all": "Tutti i gruppi",
 	"map_view_photos": "Foto inquadrate: {count}",
-	"map_all_in_view": "Tutto l’inquadrato"
+	"map_all_in_view": "Tutto l’inquadrato",
+	"map_list_mode": "Cosa mostra l’elenco",
+	"map_chosen_place": "Luogo selezionato",
+	"map_chosen_place_hint": "Fai clic su un luogo della mappa per selezionarlo e vederne solo le foto",
+	"map_all_in_view_hint": "Ingrandisci per elencare tutte le foto inquadrate"
 }

@@ -13,6 +13,30 @@ export interface MapDot {
 	color?: string;
 }
 
+/** Photos gathered on the server into a cell of the map (the page "Map", D-207). */
+export interface MapCell {
+	lat: number;
+	lon: number;
+	photos: number;
+	bounds: MapBounds;
+	/** The photo, when it is alone. */
+	asset_id: string | null;
+}
+
+export interface MapBounds {
+	south: number;
+	west: number;
+	north: number;
+	east: number;
+}
+
+/** What the map shows: its bounds (longitudes within -180…180), zoom and center. */
+export interface MapViewState extends MapBounds {
+	zoom: number;
+	lat: number;
+	lon: number;
+}
+
 /** Colors of the groups of a folder on the map, apart from the chosen (orange) and far (violet)
  * dots; they repeat after six. */
 export const GROUP_COLORS = ['#0969da', '#1a7f37', '#9a6700', '#1b7c83', '#bf3989', '#57606a'];

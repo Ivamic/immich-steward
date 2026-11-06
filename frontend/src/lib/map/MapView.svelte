@@ -35,7 +35,7 @@
 		type TrackPoint
 	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
-	import type { MapDot } from './markers.js';
+	import type { MapCell, MapDot, MapViewState } from './markers.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import {
 		formatDelta,
@@ -88,7 +88,11 @@
 		onhighlight = () => {},
 		scrollingPage = false,
 		dots = [],
-		ondots = () => {}
+		ondots = () => {},
+		cells = [],
+		oncell = () => {},
+		onview = () => {},
+		startView = null
 	}: {
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
@@ -111,6 +115,14 @@
 		dots?: MapDot[];
 		/** A click on a point or a numbered circle: the photos it stands for. */
 		ondots?: (ids: string[]) => void;
+		/** Photos gathered on the server, a circle with their number each (the page "Map"). */
+		cells?: MapCell[];
+		/** A click on a cell. */
+		oncell?: (cell: MapCell) => void;
+		/** The map moved or zoomed (and once it is shown): what it shows now. */
+		onview?: (view: MapViewState) => void;
+		/** Where the map opens, when neither `picked` nor `current` is set. */
+		startView?: { lat: number; lon: number; zoom: number } | null;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -131,6 +143,9 @@
 	const DOTS = 'steward-dots';
 	const DOT_CIRCLES = 'steward-dot-circles';
 	const DOT_COUNTS = 'steward-dot-counts';
+	const CELLS = 'steward-cells';
+	const CELL_CIRCLES = 'steward-cell-circles';
+	const CELL_COUNTS = 'steward-cell-counts';
 	const DOT_COLOR = '#0969da';
 	const DOT_CHOSEN_COLOR = '#bc4c00';
 	const DOT_APART_COLOR = '#8250df';
@@ -219,6 +234,29 @@
 	}
 
 	/** Shows all the points, e.g. the suggestions of a photo without a location. */
+	/** Moves smoothly to the point at the zoom. */
+	export function easeTo(point: LatLon, zoom: number) {
+		map?.easeTo({ center: [point.lon, point.lat], zoom, duration: 500 });
+	}
+
+	/** Longitude within -180…180. */
+	const wrapped = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
+
+	function emitView(instance: MapLibreMap) {
+		const bounds = instance.getBounds();
+		const center = instance.getCenter();
+		const whole = bounds.getEast() - bounds.getWest() >= 360;
+		onview({
+			south: Math.max(bounds.getSouth(), -90),
+			north: Math.min(bounds.getNorth(), 90),
+			west: whole ? -180 : wrapped(bounds.getWest()),
+			east: whole ? 180 : wrapped(bounds.getEast()),
+			zoom: instance.getZoom(),
+			lat: center.lat,
+			lon: wrapped(center.lng)
+		});
+	}
+
 	export function fitTo(points: (LatLon & { radius_m?: number | null })[]) {
 		if (!map || !points.length) return;
 		const bounds = new LngLatBounds();
@@ -239,8 +277,8 @@
 		const instance = new MapLibreMap({
 			container,
 			style: appliedStyle,
-			center: start ? [start.lon, start.lat] : WORLD,
-			zoom: start ? CLOSE_ZOOM : 3,
+			center: start ? [start.lon, start.lat] : startView ? [startView.lon, startView.lat] : WORLD,
+			zoom: start ? CLOSE_ZOOM : (startView?.zoom ?? 3),
 			attributionControl: { compact: true },
 			cooperativeGestures:
 				scrollingPage && matchMedia('(pointer: coarse) and (max-width: 50rem)').matches,
@@ -254,6 +292,14 @@
 		);
 		instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
 		instance.on('click', (event: MapMouseEvent) => onclick(instance, event));
+		instance.on('moveend', () => emitView(instance));
+		instance.once('load', () => emitView(instance));
+		instance.on('mouseenter', CELL_CIRCLES, () => {
+			instance.getCanvas().style.cursor = 'pointer';
+		});
+		instance.on('mouseleave', CELL_CIRCLES, () => {
+			instance.getCanvas().style.cursor = '';
+		});
 		instance.on('mouseenter', DOT_CIRCLES, () => {
 			instance.getCanvas().style.cursor = 'pointer';
 		});
@@ -515,7 +561,33 @@
 					? [layer.layout['text-font'] as string[]]
 					: []
 			)[0];
+		// Cells of the server: no gathering here, each is drawn with its number.
+		instance.addSource(CELLS, { type: 'geojson', data: EMPTY });
+		instance.addLayer({
+			id: CELL_CIRCLES,
+			type: 'circle',
+			source: CELLS,
+			paint: {
+				'circle-color': DOT_COLOR,
+				'circle-radius': ['step', ['get', 'photos'], 6, 2, 13, 50, 17, 1000, 21],
+				'circle-stroke-color': '#ffffff',
+				'circle-stroke-width': 2
+			}
+		});
 		if (!font) return;
+		instance.addLayer({
+			id: CELL_COUNTS,
+			type: 'symbol',
+			source: CELLS,
+			filter: ['>', ['get', 'photos'], 1],
+			layout: {
+				'text-field': ['get', 'label'],
+				'text-font': font,
+				'text-size': 12,
+				'text-allow-overlap': true
+			},
+			paint: { 'text-color': '#ffffff' }
+		});
 		instance.addLayer({
 			id: DOT_COUNTS,
 			type: 'symbol',
@@ -544,6 +616,20 @@
 		}));
 		if (!map || !ready) return;
 		(map.getSource(DOTS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
+	});
+
+	$effect(() => {
+		const features: Feature[] = cells.map((cell, index) => ({
+			type: 'Feature',
+			geometry: { type: 'Point', coordinates: [cell.lon, cell.lat] },
+			properties: {
+				index,
+				photos: cell.photos,
+				label: cell.photos >= 1000 ? `${Math.round(cell.photos / 100) / 10}k` : String(cell.photos)
+			}
+		}));
+		if (!map || !ready) return;
+		(map.getSource(CELLS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
 	});
 
 	/** The photos behind what the click hit, if it hit a point or a numbered circle. */
@@ -817,6 +903,12 @@
 	}
 
 	function onclick(instance: MapLibreMap, event: MapMouseEvent) {
+		if (cells.length) {
+			const [feature] = instance.queryRenderedFeatures(event.point, { layers: [CELL_CIRCLES] });
+			const cell = feature ? cells[feature.properties.index as number] : undefined;
+			if (cell) oncell(cell);
+			return;
+		}
 		if (dots.length) {
 			clickedDots(instance, event);
 			return;

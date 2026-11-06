@@ -672,5 +672,10 @@
 	"close_hint": "Gruppen, die dieser im Aussehen ähneln. Legen Sie sie in einen Ordner, um sie zusammen zu sehen; die Gruppen selbst ändern sich nicht.",
 	"close_apart": "verschiedene Orte: {distance}",
 	"folder_put_into": "In „{name}“",
-	"folder_put_together": "In einen Ordner"
+	"folder_put_together": "In einen Ordner",
+	"nav_map": "Karte",
+	"map_place_photos": "Fotos hier: {count}",
+	"map_close_place": "Schließen",
+	"map_hint": "Ein Kreis sind die Fotos eines Ortes: Ein Klick zoomt hinein, aus der Nähe werden sie gezeigt.",
+	"map_empty": "Keine Fotos mit Ort unter diesen Filtern."
 }

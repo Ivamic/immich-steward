@@ -32,6 +32,7 @@
 		height = $bindable(0),
 		// eslint-disable-next-line no-useless-assignment -- bound: the gallery reads it
 		nearbyMinutes = $bindable(15),
+		placesOnly = false,
 		onchange
 	}: {
 		filter: GalleryFilter;
@@ -41,6 +42,9 @@
 		height?: number;
 		/** How close in time a located photo makes another one "nearby" (a setting of the core). */
 		nearbyMinutes?: number;
+		/** Photos with a location only (the map): what to show, the badges and the failed runs are
+		 * about photos without one, so they are left out. */
+		placesOnly?: boolean;
 		onchange: (f: GalleryFilter) => void;
 	} = $props();
 
@@ -111,56 +115,58 @@
 
 <!-- On a phone the chips take the whole screen: one button opens them in a window instead. -->
 {#snippet controls()}
-	<div class="group" role="group" aria-label={m.filter_view()}>
-		{#each SHOW_CATEGORIES as category (category)}
-			{@const checked = filter.show.includes(category)}
+	{#if !placesOnly}
+		<div class="group" role="group" aria-label={m.filter_view()}>
+			{#each SHOW_CATEGORIES as category (category)}
+				{@const checked = filter.show.includes(category)}
+				<button
+					type="button"
+					class="st-chip"
+					aria-pressed={checked}
+					onclick={() => toggleShow(category)}
+				>
+					{showLabels[category]()}
+				</button>
+			{/each}
+		</div>
+		<span class="sep" aria-hidden="true"></span>
+
+		<Tooltip text={m.filter_geoclip_confident_hint()} below>
 			<button
 				type="button"
 				class="st-chip"
-				aria-pressed={checked}
-				onclick={() => toggleShow(category)}
+				aria-pressed={filter.geoclip_confident}
+				onclick={() => set({ geoclip_confident: !filter.geoclip_confident })}
 			>
-				{showLabels[category]()}
+				<span class="st-chip__dot" style:background="var(--module-2)"></span>
+				{m.filter_geoclip_confident()}
 			</button>
-		{/each}
-	</div>
-	<span class="sep" aria-hidden="true"></span>
+		</Tooltip>
 
-	<Tooltip text={m.filter_geoclip_confident_hint()} below>
-		<button
-			type="button"
-			class="st-chip"
-			aria-pressed={filter.geoclip_confident}
-			onclick={() => set({ geoclip_confident: !filter.geoclip_confident })}
-		>
-			<span class="st-chip__dot" style:background="var(--module-2)"></span>
-			{m.filter_geoclip_confident()}
-		</button>
-	</Tooltip>
+		<Tooltip text={m.filter_similar_confident_hint()} below>
+			<button
+				type="button"
+				class="st-chip"
+				aria-pressed={filter.similar_confident}
+				onclick={() => set({ similar_confident: !filter.similar_confident })}
+			>
+				<span class="st-chip__dot" style:background="var(--module-3)"></span>
+				{m.filter_similar_confident()}
+			</button>
+		</Tooltip>
 
-	<Tooltip text={m.filter_similar_confident_hint()} below>
-		<button
-			type="button"
-			class="st-chip"
-			aria-pressed={filter.similar_confident}
-			onclick={() => set({ similar_confident: !filter.similar_confident })}
-		>
-			<span class="st-chip__dot" style:background="var(--module-3)"></span>
-			{m.filter_similar_confident()}
-		</button>
-	</Tooltip>
-
-	<Tooltip text={m.filter_nearby_hint({ minutes: options.nearby_minutes })} below>
-		<button
-			type="button"
-			class="st-chip"
-			aria-pressed={filter.nearby}
-			onclick={() => set({ nearby: !filter.nearby })}
-		>
-			<span class="st-chip__dot" style:background="var(--module-1)"></span>
-			{m.filter_nearby()}
-		</button>
-	</Tooltip>
+		<Tooltip text={m.filter_nearby_hint({ minutes: options.nearby_minutes })} below>
+			<button
+				type="button"
+				class="st-chip"
+				aria-pressed={filter.nearby}
+				onclick={() => set({ nearby: !filter.nearby })}
+			>
+				<span class="st-chip__dot" style:background="var(--module-1)"></span>
+				{m.filter_nearby()}
+			</button>
+		</Tooltip>
+	{/if}
 
 	<div class="st-seg" role="radiogroup" aria-label={m.filter_type()}>
 		{#each types as [value, label] (value)}
@@ -228,45 +234,47 @@
 		</label>
 	</ChipPopover>
 
-	<ChipPopover
-		label={failedLabel}
-		icon="triangle-alert"
-		active={Boolean(filter.failed_module)}
-		clearLabel={m.filter_clear()}
-		onclear={() => set({ failed_module: null, failure: null })}
-	>
-		<label class="st-field">
-			<span class="st-field__label">{m.filter_failed()}</span>
-			<select
-				value={filter.failed_module ?? ''}
-				onchange={(e) => set({ failed_module: e.currentTarget.value || null, failure: null })}
-			>
-				<option value="">{m.filter_failed_none()}</option>
-				<option value={ANY_MODULE}>{m.filter_failed_module_any()}</option>
-				{#each options.failed_modules as module (module)}
-					<option value={module}>{moduleName(module)}</option>
-				{/each}
-			</select>
-		</label>
-		{#if filter.failed_module}
+	{#if !placesOnly}
+		<ChipPopover
+			label={failedLabel}
+			icon="triangle-alert"
+			active={Boolean(filter.failed_module)}
+			clearLabel={m.filter_clear()}
+			onclear={() => set({ failed_module: null, failure: null })}
+		>
 			<label class="st-field">
-				<span class="st-field__label">{m.filter_failed_reason()}</span>
+				<span class="st-field__label">{m.filter_failed()}</span>
 				<select
-					value={filter.failure ?? ''}
-					onchange={(e) => set({ failure: e.currentTarget.value || null })}
+					value={filter.failed_module ?? ''}
+					onchange={(e) => set({ failed_module: e.currentTarget.value || null, failure: null })}
 				>
-					<option value="">{m.filter_failed_any()}</option>
-					{#each FAILURE_GROUPS as { group, codes } (group)}
-						<optgroup label={failureGroupName(group)}>
-							{#each codes as code (code)}
-								<option value={code}>{failureReason(code)}</option>
-							{/each}
-						</optgroup>
+					<option value="">{m.filter_failed_none()}</option>
+					<option value={ANY_MODULE}>{m.filter_failed_module_any()}</option>
+					{#each options.failed_modules as module (module)}
+						<option value={module}>{moduleName(module)}</option>
 					{/each}
 				</select>
 			</label>
-		{/if}
-	</ChipPopover>
+			{#if filter.failed_module}
+				<label class="st-field">
+					<span class="st-field__label">{m.filter_failed_reason()}</span>
+					<select
+						value={filter.failure ?? ''}
+						onchange={(e) => set({ failure: e.currentTarget.value || null })}
+					>
+						<option value="">{m.filter_failed_any()}</option>
+						{#each FAILURE_GROUPS as { group, codes } (group)}
+							<optgroup label={failureGroupName(group)}>
+								{#each codes as code (code)}
+									<option value={code}>{failureReason(code)}</option>
+								{/each}
+							</optgroup>
+						{/each}
+					</select>
+				</label>
+			{/if}
+		</ChipPopover>
+	{/if}
 
 	<button
 		type="button"

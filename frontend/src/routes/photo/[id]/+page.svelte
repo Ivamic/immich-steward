@@ -71,16 +71,21 @@
 		const view = page.url.searchParams.get('view');
 		return view ? `?view=${encodeURIComponent(view)}` : '';
 	});
+	// Opened from the map: back to the same place of it (its position, as the map keeps it).
+	const fromMap = $derived(page.url.searchParams.get('map'));
 	const stepQuery = $derived.by((): `?${string}` => {
+		if (fromMap) return `${query}&map=${encodeURIComponent(fromMap)}`;
 		if (!fromGroup) return query;
 		const view = groupView ? `&${groupView.slice(1)}` : '';
 		return `${query}&group=${encodeURIComponent(fromGroup)}${view}`;
 	});
 	// Else back to the gallery at the photo shown now (after stepping through others, too).
 	const backUrl = $derived(
-		fromGroup
-			? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
-			: resolve(`/${atPhoto(query, id)}`)
+		fromMap
+			? resolve(`/map${query}&map=${encodeURIComponent(fromMap)}`)
+			: fromGroup
+				? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
+				: resolve(`/${atPhoto(query, id)}`)
 	);
 
 	let asset = $state<AssetDetail | null>(null);

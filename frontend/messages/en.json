@@ -672,5 +672,10 @@
 	"close_hint": "Groups alike this one by their view. Put them in one folder to see them together; the groups themselves do not change.",
 	"close_apart": "different places: {distance}",
 	"folder_put_into": "Into “{name}”",
-	"folder_put_together": "Into one folder"
+	"folder_put_together": "Into one folder",
+	"nav_map": "Map",
+	"map_place_photos": "Photos here: {count}",
+	"map_close_place": "Close",
+	"map_hint": "A circle is the photos of a place: a click zooms in, and close up shows them.",
+	"map_empty": "No photos with a location under these filters."
 }

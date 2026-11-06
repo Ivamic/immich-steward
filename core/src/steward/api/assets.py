@@ -6,6 +6,7 @@ import gzip
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import asdict
 from datetime import date, datetime, timedelta
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -27,6 +28,7 @@ from steward.deps import (
 )
 from steward.errors import ApiError
 from steward.gallery import (
+    Bounds,
     GalleryFilter,
     NearbyLevel,
     ShowCategory,
@@ -36,6 +38,8 @@ from steward.gallery import (
     geoclip_confident_ids,
     heatmap_cells,
     heatmap_version,
+    map_cells,
+    map_photos,
     month_assets_query,
     month_buckets,
     nearby_levels,
@@ -98,6 +102,41 @@ def gallery_filter(
 
 
 FilterDep = Annotated[GalleryFilter, Depends(gallery_filter)]
+
+
+def map_filter(
+    type: TypeFilter = "all",
+    camera: str | None = None,
+    album: UUID | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    archived: bool = False,
+) -> GalleryFilter:
+    """The filters of the gallery that mean something for photos with a location (D-207): what
+    to show and the badges are about photos without one."""
+    return GalleryFilter(
+        type=type,
+        camera=camera,
+        album_id=album,
+        date_from=date_from,
+        date_to=date_to,
+        include_archived=archived,
+    )
+
+
+MapFilterDep = Annotated[GalleryFilter, Depends(map_filter)]
+
+
+def map_bounds(
+    south: float = Query(ge=-90, le=90),
+    west: float = Query(ge=-180, le=180),
+    north: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180),
+) -> Bounds:
+    return Bounds(south=south, west=west, north=north, east=east)
+
+
+BoundsDep = Annotated[Bounds, Depends(map_bounds)]
 
 
 class MonthBucket(BaseModel):
@@ -384,6 +423,72 @@ async def list_month(
         AssetItem.of(asset, asset.id in confident, nearby.get(asset.id), asset.id in similar)
         for asset in assets
     ]
+
+
+class MapBounds(BaseModel):
+    south: float
+    west: float
+    north: float
+    east: float
+
+
+class MapCellOut(BaseModel):
+    latitude: float
+    longitude: float
+    photos: int
+    bounds: MapBounds
+    # The photo, when it is alone in its cell.
+    asset_id: UUID | None
+
+
+class MapCells(BaseModel):
+    cells: list[MapCellOut]
+    # Photos in them.
+    photos: int
+
+
+class MapPhotos(BaseModel):
+    total: int
+    photos: list[AssetItem]
+
+
+@router.get("/map/cells")
+async def map_cells_of(
+    account: CurrentAccount,
+    db: DbDep,
+    filter: MapFilterDep,
+    bounds: BoundsDep,
+    zoom: float = Query(ge=0, le=24),
+) -> MapCells:
+    """The photos with a location inside the bounds, gathered by the zoom (D-207)."""
+    cells = await map_cells(db, account, filter, bounds, zoom)
+    return MapCells(
+        cells=[
+            MapCellOut(
+                latitude=c.latitude,
+                longitude=c.longitude,
+                photos=c.photos,
+                bounds=MapBounds(**asdict(c.bounds)),
+                asset_id=c.asset_id,
+            )
+            for c in cells
+        ],
+        photos=sum(c.photos for c in cells),
+    )
+
+
+@router.get("/map/photos")
+async def map_photos_of(
+    account: CurrentAccount,
+    db: DbDep,
+    filter: MapFilterDep,
+    bounds: BoundsDep,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=120, ge=1, le=500),
+) -> MapPhotos:
+    """The photos of a place of the map (a cell), newest first."""
+    total, found = await map_photos(db, account, filter, bounds, offset, limit)
+    return MapPhotos(total=total, photos=[AssetItem.of(asset) for asset in found])
 
 
 @router.get("/heatmap")

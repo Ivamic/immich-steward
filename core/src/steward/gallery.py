@@ -11,7 +11,9 @@ from sqlalchemy import (
     ColumnElement,
     Numeric,
     Select,
+    String,
     and_,
+    cast,
     exists,
     func,
     literal,
@@ -368,3 +370,99 @@ async def album_options(db: AsyncSession, account: Account) -> list[dict[str, An
         .order_by(Album.name)
     )
     return [{"id": row[0], "name": row[1], "count": row[2]} for row in rows]
+
+
+# --- The page "Map" (D-207) ----------------------------------------------------------------------
+
+# A cell of the map is about this many pixels of the screen at the zoom asked: photos closer than
+# that are one circle with their number.
+MAP_CELL_PX = 60
+# The most cells sent at a time (a whole world of photos at a far zoom is a few hundred).
+MAP_CELLS_MOST = 5000
+
+
+@dataclass(frozen=True)
+class Bounds:
+    south: float
+    west: float
+    north: float
+    east: float
+
+    def condition(self) -> ColumnElement[bool]:
+        """The photos inside; across the 180th meridian when west is east of east."""
+        lat = Asset.latitude.between(self.south, self.north)
+        if self.west <= self.east:
+            return and_(lat, Asset.longitude.between(self.west, self.east))
+        return and_(lat, or_(Asset.longitude >= self.west, Asset.longitude <= self.east))
+
+
+@dataclass(frozen=True)
+class MapCell:
+    latitude: float
+    longitude: float
+    photos: int
+    # The cell of the grid it stands for: the photos of the cell are those inside.
+    bounds: Bounds
+    # The photo, when it is alone.
+    asset_id: UUID | None
+
+
+def map_cell_degrees(zoom: float) -> float:
+    """The side of a cell at the zoom, in degrees: `MAP_CELL_PX` pixels of a web map (256 px
+    tiles), the same along both axes (a little narrower than square away from the equator)."""
+    return MAP_CELL_PX * 360 / (256 * 2 ** max(0.0, min(zoom, 22.0)))
+
+
+async def map_cells(
+    db: AsyncSession, account: Account, filter: GalleryFilter, bounds: Bounds, zoom: float
+) -> list[MapCell]:
+    """The located photos of the filter inside the bounds, gathered into the cells of the zoom:
+    where they are on average, how many, and the cell itself."""
+    size = map_cell_degrees(zoom)
+    row = func.floor(Asset.latitude / size)
+    column = func.floor(Asset.longitude / size)
+    rows = await db.execute(
+        select(
+            row.label("row"),
+            column.label("column"),
+            func.avg(Asset.latitude),
+            func.avg(Asset.longitude),
+            func.count(),
+            func.min(cast(Asset.id, String)),
+        )
+        .where(*filter.conditions(account), located(), bounds.condition())
+        .group_by(row, column)
+        .limit(MAP_CELLS_MOST)
+    )
+    return [
+        MapCell(
+            latitude=float(latitude),
+            longitude=float(longitude),
+            photos=count,
+            bounds=Bounds(r * size, c * size, (r + 1) * size, (c + 1) * size),
+            asset_id=UUID(first) if count == 1 else None,
+        )
+        for r, c, latitude, longitude, count, first in rows
+    ]
+
+
+async def map_photos(
+    db: AsyncSession,
+    account: Account,
+    filter: GalleryFilter,
+    bounds: Bounds,
+    offset: int,
+    limit: int,
+) -> tuple[int, list[Asset]]:
+    """The located photos of the filter inside the bounds (a cell), newest first, a page of them,
+    and how many there are."""
+    where = [*filter.conditions(account), located(), bounds.condition()]
+    total = await db.scalar(select(func.count()).select_from(Asset).where(*where))
+    found = await db.scalars(
+        select(Asset)
+        .where(*where)
+        .order_by(Asset.local_taken_at.desc(), Asset.id)
+        .offset(offset)
+        .limit(limit)
+    )
+    return total or 0, list(found)

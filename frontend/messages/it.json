@@ -672,5 +672,10 @@
 	"close_hint": "Gruppi simili a questo per la vista. Mettili in una stessa cartella per vederli insieme; i gruppi stessi non cambiano.",
 	"close_apart": "luoghi diversi: {distance}",
 	"folder_put_into": "In «{name}»",
-	"folder_put_together": "In una stessa cartella"
+	"folder_put_together": "In una stessa cartella",
+	"nav_map": "Mappa",
+	"map_place_photos": "Foto qui: {count}",
+	"map_close_place": "Chiudi",
+	"map_hint": "Un cerchio sono le foto di un luogo: un clic ingrandisce, e da vicino le mostra.",
+	"map_empty": "Nessuna foto con un luogo per questi filtri."
 }

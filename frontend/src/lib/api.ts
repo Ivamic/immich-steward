@@ -567,6 +567,44 @@ export const checkUpdates = () => request<Updates>('POST', '/api/updates/check')
  * Where the photos with a location are: latitude, longitude and number of photos per cell, of
  * about 100 m (`coarse`) or 11 m (`fine`, for a close look).
  */
+/** The page "Map" (D-207): photos with a location gathered into cells of the zoom. */
+export interface MapCellsAnswer {
+	cells: {
+		latitude: number;
+		longitude: number;
+		photos: number;
+		bounds: { south: number; west: number; north: number; east: number };
+		asset_id: string | null;
+	}[];
+	photos: number;
+}
+type Bounds = { south: number; west: number; north: number; east: number };
+const boundsQuery = (b: Bounds) => ({
+	south: String(b.south),
+	west: String(b.west),
+	north: String(b.north),
+	east: String(b.east)
+});
+export const getMapCells = (bounds: Bounds, zoom: number, filter: GalleryFilter) =>
+	request<MapCellsAnswer>(
+		'GET',
+		`/api/assets/map/cells${filterQuery(filter, { ...boundsQuery(bounds), zoom: String(zoom) })}`
+	);
+/** The photos of a place of the map (a cell), newest first. */
+export const getMapPhotos = (
+	bounds: Bounds,
+	offset: number,
+	limit: number,
+	filter: GalleryFilter
+) =>
+	request<{ total: number; photos: AssetItem[] }>(
+		'GET',
+		`/api/assets/map/photos${filterQuery(filter, {
+			...boundsQuery(bounds),
+			offset: String(offset),
+			limit: String(limit)
+		})}`
+	);
 export const getHeatmap = (level: 'coarse' | 'fine') =>
 	request<number[]>('GET', `/api/assets/heatmap?level=${level}`);
 

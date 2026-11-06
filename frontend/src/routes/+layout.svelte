@@ -45,6 +45,7 @@
 
 	const pages = $derived([
 		{ href: resolve('/'), label: m.nav_gallery(), current: page.route.id === '/' },
+		{ href: resolve('/map'), label: m.nav_map(), current: page.route.id === '/map' },
 		{
 			href: resolve('/groups'),
 			label: m.nav_groups(),
@@ -108,6 +109,7 @@
 
 <main
 	class:wide={page.route.id === '/' ||
+		page.route.id === '/map' ||
 		page.route.id === '/photo/[id]' ||
 		page.route.id?.startsWith('/groups')}
 >

@@ -672,5 +672,10 @@
 	"close_hint": "Des groupes qui ressemblent à celui-ci par leur vue. Mettez-les dans un même dossier pour les voir ensemble ; les groupes eux-mêmes ne changent pas.",
 	"close_apart": "lieux différents : {distance}",
 	"folder_put_into": "Dans « {name} »",
-	"folder_put_together": "Dans un même dossier"
+	"folder_put_together": "Dans un même dossier",
+	"nav_map": "Carte",
+	"map_place_photos": "Photos ici : {count}",
+	"map_close_place": "Fermer",
+	"map_hint": "Un cercle, ce sont les photos d’un lieu : un clic zoome, et de près les montre.",
+	"map_empty": "Aucune photo avec un lieu pour ces filtres."
 }

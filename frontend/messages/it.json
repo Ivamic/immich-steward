@@ -677,5 +677,10 @@
 	"map_place_photos": "Foto qui: {count}",
 	"map_close_place": "Chiudi",
 	"map_hint": "Un cerchio sono le foto di un luogo: un clic ingrandisce, e da vicino le mostra.",
-	"map_empty": "Nessuna foto con un luogo per questi filtri."
+	"map_empty": "Nessuna foto con un luogo per questi filtri.",
+	"groups_choose_group": "Scegli il gruppo",
+	"groups_chosen_to_folder": "In una cartella ({count})",
+	"folder_legend": "Gruppi della cartella",
+	"folder_legend_hint": "Mostra solo le foto dei gruppi scelti qui",
+	"folder_legend_all": "Tutti i gruppi"
 }

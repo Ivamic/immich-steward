@@ -73,8 +73,11 @@
 	});
 	// Opened from the map: back to the same place of it (its position, as the map keeps it).
 	const fromMap = $derived(page.url.searchParams.get('map'));
+	// Opened from a folder: back there.
+	const fromFolder = $derived(page.url.searchParams.get('folder'));
 	const stepQuery = $derived.by((): `?${string}` => {
 		if (fromMap) return `${query}&map=${encodeURIComponent(fromMap)}`;
+		if (fromFolder) return `${query}&folder=${encodeURIComponent(fromFolder)}`;
 		if (!fromGroup) return query;
 		const view = groupView ? `&${groupView.slice(1)}` : '';
 		return `${query}&group=${encodeURIComponent(fromGroup)}${view}`;
@@ -83,9 +86,11 @@
 	const backUrl = $derived(
 		fromMap
 			? resolve(`/map${query}&map=${encodeURIComponent(fromMap)}`)
-			: fromGroup
-				? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
-				: resolve(`/${atPhoto(query, id)}`)
+			: fromFolder
+				? resolve('/groups/folders/[id]', { id: fromFolder })
+				: fromGroup
+					? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
+					: resolve(`/${atPhoto(query, id)}`)
 	);
 
 	let asset = $state<AssetDetail | null>(null);

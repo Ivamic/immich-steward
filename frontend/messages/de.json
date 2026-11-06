@@ -677,5 +677,10 @@
 	"map_place_photos": "Fotos hier: {count}",
 	"map_close_place": "Schließen",
 	"map_hint": "Ein Kreis sind die Fotos eines Ortes: Ein Klick zoomt hinein, aus der Nähe werden sie gezeigt.",
-	"map_empty": "Keine Fotos mit Ort unter diesen Filtern."
+	"map_empty": "Keine Fotos mit Ort unter diesen Filtern.",
+	"groups_choose_group": "Gruppe auswählen",
+	"groups_chosen_to_folder": "In einen Ordner ({count})",
+	"folder_legend": "Gruppen des Ordners",
+	"folder_legend_hint": "Nur die Fotos der hier gewählten Gruppen zeigen",
+	"folder_legend_all": "Alle Gruppen"
 }

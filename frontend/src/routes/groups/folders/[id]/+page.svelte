@@ -34,6 +34,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	type Shown = 'together' | 'groups';
 	type PhotoFilter = 'all' | 'with' | 'without' | 'chosen';
@@ -67,8 +68,12 @@
 			(detail?.groups ?? []).map((group, i) => [group.id, GROUP_COLORS[i % GROUP_COLORS.length]])
 		)
 	);
+	// The groups chosen in the legend: only their photos are shown; none chosen, all of them.
+	const shownGroups = new SvelteSet<string>();
+	const inShownGroup = (photoId: string) =>
+		shownGroups.size === 0 || shownGroups.has(detail?.group_of[photoId] ?? '');
 	const listed = $derived.by((): AssetItem[] => {
-		const photos = detail?.photos ?? [];
+		const photos = (detail?.photos ?? []).filter((photo) => inShownGroup(photo.id));
 		if (filter === 'with') return photos.filter((photo) => located.has(photo.id));
 		if (filter === 'without') return photos.filter((photo) => !located.has(photo.id));
 		if (filter === 'chosen') return photos.filter((photo) => chosenIds.has(photo.id));
@@ -79,13 +84,15 @@
 	);
 	const allTrash = $derived(!!detail?.groups.length && detail.groups.every((group) => group.trash));
 	const dots = $derived(
-		(detail?.points ?? []).map((point) => ({
-			id: point.id,
-			lat: point.latitude,
-			lon: point.longitude,
-			chosen: chosenIds.has(point.id),
-			color: colorOf.get(point.group_id)
-		}))
+		(detail?.points ?? [])
+			.filter((point) => shownGroups.size === 0 || shownGroups.has(point.group_id))
+			.map((point) => ({
+				id: point.id,
+				lat: point.latitude,
+				lon: point.longitude,
+				chosen: chosenIds.has(point.id),
+				color: colorOf.get(point.group_id)
+			}))
 	);
 	const FILTERS: { id: PhotoFilter; label: () => string }[] = [
 		{ id: 'all', label: m.groups_view_all },
@@ -302,7 +309,10 @@
 			<div class="grid">
 				{#each detail.groups as group, i (group.id)}
 					<div class="group">
-						<a class="cover" href={resolve('/groups/[id]', { id: group.id })}>
+						<a
+							class="cover"
+							href={resolve(`/groups/[id]?folder=${encodeURIComponent(id)}`, { id: group.id })}
+						>
 							{#if group.cover}
 								<img
 									src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
@@ -313,7 +323,10 @@
 							{/if}
 							<span class="swatch" style:background={GROUP_COLORS[i % GROUP_COLORS.length]}></span>
 						</a>
-						<a class="name" href={resolve('/groups/[id]', { id: group.id })}>
+						<a
+							class="name"
+							href={resolve(`/groups/[id]?folder=${encodeURIComponent(id)}`, { id: group.id })}
+						>
 							{group.name ?? m.groups_unnamed()}
 						</a>
 						<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
@@ -348,7 +361,35 @@
 					</button>
 				</div>
 			{/if}
-			{#if mapConfig && dots.length > 0}
+			{#if detail.groups.length > 1}
+				<div class="legend" role="group" aria-label={m.folder_legend()}>
+					{#each detail.groups as group (group.id)}
+						<button
+							type="button"
+							class="st-chip"
+							aria-pressed={shownGroups.has(group.id)}
+							title={m.folder_legend_hint()}
+							onclick={() => {
+								if (!shownGroups.delete(group.id)) shownGroups.add(group.id);
+								shownCount = PART;
+							}}
+						>
+							<span class="st-chip__dot" style:background={colorOf.get(group.id)}></span>
+							{group.name ?? m.groups_unnamed()}
+						</button>
+					{/each}
+					{#if shownGroups.size > 0}
+						<button
+							type="button"
+							class="st-btn st-btn--ghost st-btn--sm"
+							onclick={() => shownGroups.clear()}
+						>
+							{m.folder_legend_all()}
+						</button>
+					{/if}
+				</div>
+			{/if}
+			{#if mapConfig && detail.points.length > 0}
 				<div class="map">
 					<MapView
 						bind:this={mapView}
@@ -398,7 +439,7 @@
 					<div class="st-tile-cell" class:chosen class:choosing={selection.size > 0}>
 						<a
 							class="st-tile"
-							href={resolve('/photo/[id]', { id: photo.id })}
+							href={resolve(`/photo/[id]?folder=${encodeURIComponent(id)}`, { id: photo.id })}
 							title={photo.file_name}
 							onclick={(event) => clickTile(event, photo)}
 						>
@@ -509,6 +550,12 @@
 		margin: 0 0 var(--space-3);
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
+	}
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		margin-bottom: var(--space-3);
 	}
 	.views {
 		display: flex;

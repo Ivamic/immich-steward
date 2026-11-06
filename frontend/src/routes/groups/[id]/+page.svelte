@@ -136,8 +136,11 @@
 	const similarity = (value: number) => similarities.format(value);
 
 	const id = $derived(page.params.id ?? '');
+	// Opened from a folder: back there.
+	const fromFolder = $derived(page.url.searchParams.get('folder'));
 	// The view of the list this group was opened from.
 	const list = $derived.by(() => {
+		if (fromFolder) return resolve('/groups/folders/[id]', { id: fromFolder });
 		const view = page.url.searchParams.get('view');
 		return resolve(view ? `/groups?view=${encodeURIComponent(view)}` : '/groups');
 	});
@@ -540,7 +543,9 @@
 
 <a class="back" href={list}>
 	<Icon name="arrow-left" size={14} />
-	{m.groups_back()}
+	{fromFolder && detail?.group.folder
+		? m.folder_in({ name: detail.group.folder.name })
+		: m.groups_back()}
 </a>
 
 {#if error}

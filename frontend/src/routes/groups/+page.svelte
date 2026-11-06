@@ -22,6 +22,7 @@
 	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import FolderDialog from '#lib/groups/FolderDialog.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -67,6 +68,9 @@
 	let loadingTrashed = false;
 	let restoring = $state(false);
 	let confirmRestore = $state(false);
+	// Groups chosen to go into a folder together, and the window for it.
+	const chosenGroups = new SvelteSet<string>();
+	let folderOpen = $state(false);
 	const chosenTrashed = new SvelteSet<string>();
 	// Only the answer to the last request counts.
 	let latest = 0;
@@ -143,6 +147,7 @@
 
 	function choose(next: GroupView, flatNext = flat) {
 		chosenTrashed.clear();
+		chosenGroups.clear();
 		const search = [next !== 'all' ? `view=${next}` : '', flatNext ? 'flat=1' : '']
 			.filter(Boolean)
 			.join('&');
@@ -280,6 +285,20 @@
 	}
 
 	/** Storage may be unavailable: the list then just opens from the top. */
+	function toggleGroup(id: string) {
+		if (!chosenGroups.delete(id)) chosenGroups.add(id);
+	}
+
+	/** While some groups are chosen a click on a group chooses it, as among photos. */
+	function clickGroup(event: MouseEvent, id: string) {
+		if (chosenGroups.size === 0 && !event.ctrlKey && !event.metaKey) {
+			rememberPlace();
+			return;
+		}
+		event.preventDefault();
+		toggleGroup(id);
+	}
+
 	function rememberPlace() {
 		try {
 			const trashedShown = trashed?.photos.length ?? 0;
@@ -370,6 +389,8 @@
 			</button>
 		{/each}
 		{#if view !== 'dissolved'}
+			<!-- Another kind of filter: how the list is laid out, not which groups. -->
+			<span class="sep" aria-hidden="true"></span>
 			<button
 				type="button"
 				class="st-btn st-btn--sm"
@@ -524,6 +545,25 @@
 		{/if}
 	{/if}
 
+	{#if chosenGroups.size > 0}
+		<div class="trashed-tools">
+			<button
+				type="button"
+				class="st-btn st-btn--primary st-btn--sm"
+				onclick={() => (folderOpen = true)}
+			>
+				<Icon name="folder" size={14} />
+				{m.groups_chosen_to_folder({ count: count(chosenGroups.size) })}
+			</button>
+			<button
+				type="button"
+				class="st-btn st-btn--ghost st-btn--sm"
+				onclick={() => chosenGroups.clear()}
+			>
+				{m.selection_clear()}
+			</button>
+		</div>
+	{/if}
 	{#if shown.length > 0 || folders.length > 0}
 		<div class="grid" id={view === 'trash' ? 'marked-groups' : undefined}>
 			{#each folders as folder (folder.id)}
@@ -588,57 +628,74 @@
 						</button>
 					</div>
 				{:else}
-					<a
-						class="group"
-						href={resolve(`/groups/[id]${query}`, { id: group.id })}
-						onclick={rememberPlace}
-					>
-						<span class="cover">
-							{#if group.cover}
-								<img
-									src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
-									alt=""
-									loading="lazy"
-									decoding="async"
-								/>
-							{/if}
-						</span>
-						<span class="name" class:unnamed={!group.name}>{group.name ?? m.groups_unnamed()}</span>
-						<span class="numbers">
-							{m.groups_photos({ count: count(group.photos || group.marked) })}
-						</span>
-						<span class="badges">
-							{#if group.with_location > 0}
-								<span class="st-badge st-badge--success">
-									<Icon name="map-pin" size={11} />
-									<span>{m.groups_with_location({ count: count(group.with_location) })}</span>
-								</span>
-							{/if}
-							{#if group.without_location > 0}
-								<span class="st-badge st-badge--info">
-									<Icon name="map-pin-off" size={11} />
-									<span>{m.groups_without_location({ count: count(group.without_location) })}</span>
-								</span>
-							{/if}
-							{#if group.spread}
-								<span class="st-badge st-badge--warning" title={m.groups_spread_hint()}>
-									<Icon name="route" size={11} />
-									<span>{m.groups_spread()}</span>
-								</span>
-							{/if}
-							{#if group.similarity !== null}
-								<span class="st-badge" title={m.groups_similarity_hint()}>
-									<span>{m.groups_similarity({ value: similarity(group.similarity) })}</span>
-								</span>
-							{/if}
-							{#if flat && group.folder}
-								<span class="st-badge">
-									<Icon name="folder" size={11} />
-									<span>{group.folder.name}</span>
-								</span>
-							{/if}
-						</span>
-					</a>
+					{@const chosen = chosenGroups.has(group.id)}
+					<div class="group-cell st-tile-cell" class:chosen class:choosing={chosenGroups.size > 0}>
+						<button
+							type="button"
+							class="st-tile-check"
+							aria-pressed={chosen}
+							aria-label={m.groups_choose_group()}
+							title={m.groups_choose_group()}
+							onclick={() => toggleGroup(group.id)}
+						>
+							<Icon name="check" size={12} strokeWidth={3} />
+						</button>
+						<a
+							class="group"
+							href={resolve(`/groups/[id]${query}`, { id: group.id })}
+							onclick={(event) => clickGroup(event, group.id)}
+						>
+							<span class="cover">
+								{#if group.cover}
+									<img
+										src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
+										alt=""
+										loading="lazy"
+										decoding="async"
+									/>
+								{/if}
+							</span>
+							<span class="name" class:unnamed={!group.name}
+								>{group.name ?? m.groups_unnamed()}</span
+							>
+							<span class="numbers">
+								{m.groups_photos({ count: count(group.photos || group.marked) })}
+							</span>
+							<span class="badges">
+								{#if group.with_location > 0}
+									<span class="st-badge st-badge--success">
+										<Icon name="map-pin" size={11} />
+										<span>{m.groups_with_location({ count: count(group.with_location) })}</span>
+									</span>
+								{/if}
+								{#if group.without_location > 0}
+									<span class="st-badge st-badge--info">
+										<Icon name="map-pin-off" size={11} />
+										<span
+											>{m.groups_without_location({ count: count(group.without_location) })}</span
+										>
+									</span>
+								{/if}
+								{#if group.spread}
+									<span class="st-badge st-badge--warning" title={m.groups_spread_hint()}>
+										<Icon name="route" size={11} />
+										<span>{m.groups_spread()}</span>
+									</span>
+								{/if}
+								{#if group.similarity !== null}
+									<span class="st-badge" title={m.groups_similarity_hint()}>
+										<span>{m.groups_similarity({ value: similarity(group.similarity) })}</span>
+									</span>
+								{/if}
+								{#if flat && group.folder}
+									<span class="st-badge">
+										<Icon name="folder" size={11} />
+										<span>{group.folder.name}</span>
+									</span>
+								{/if}
+							</span>
+						</a>
+					</div>
 				{/if}
 			{/each}
 		</div>
@@ -654,6 +711,17 @@
 	<Skeleton />
 {/if}
 
+{#if folderOpen}
+	<FolderDialog
+		groupIds={[...chosenGroups]}
+		ondone={() => {
+			folderOpen = false;
+			chosenGroups.clear();
+			load(view, Math.max(shown.length, PAGE));
+		}}
+		onclose={() => (folderOpen = false)}
+	/>
+{/if}
 {#if confirmRestore && trashed}
 	<Dialog
 		title={m.groups_restore_all({ count: count(trashed.total) })}
@@ -770,6 +838,20 @@
 		height: 100%;
 		object-fit: cover;
 		display: block;
+	}
+	/* A group can be chosen as a photo is: the check on its cover (tile.css). */
+	.group-cell {
+		min-width: 0;
+	}
+	.group-cell.chosen .cover {
+		outline: 3px solid var(--color-accent);
+	}
+	.sep {
+		align-self: center;
+		width: 1px;
+		height: 1.25rem;
+		margin-inline: var(--space-1);
+		background: var(--color-border-strong);
 	}
 	.group:hover .cover {
 		outline: 2px solid var(--color-accent);

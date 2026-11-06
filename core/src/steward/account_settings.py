@@ -23,9 +23,21 @@ DEFAULTS: dict[str, Any] = {
     "groups_similarity": 0.47,
     "groups_core_neighbors": 3,
     "groups_mutual": True,
+    # The app marks a photo as showing no sign of a place when at least this many photos the user
+    # marked are among its neighbors, at least this alike (`steward.view_groups.auto_mark`, D-200).
+    "trash_auto": True,
+    "trash_auto_marks": 3,
+    "trash_auto_similarity": 0.5,
 }
 # Settings whose change rebuilds the groups.
-GROUP_RULE = ("groups_similarity", "groups_core_neighbors", "groups_mutual")
+GROUP_RULE = (
+    "groups_similarity",
+    "groups_core_neighbors",
+    "groups_mutual",
+    "trash_auto",
+    "trash_auto_marks",
+    "trash_auto_similarity",
+)
 
 
 async def get_all(db: AsyncSession, account_id: UUID) -> dict[str, Any]:

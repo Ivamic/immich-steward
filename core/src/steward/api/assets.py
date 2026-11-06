@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 from starlette.background import BackgroundTask
 
-from steward import locations, module_display, rotation, worker_queue
+from steward import locations, module_display, rotation, view_groups, worker_queue
 from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
@@ -630,8 +630,15 @@ async def _remote(
     region = RegionIn(**run.region) if run and run.region else None
     minimum, weak_below, confident_from = _thresholds(remote.id, settings)
     found: list[dict[str, Any]] = []
+    note = None
     if run and run.status == "done":
         if remote.id == similar.MODULE_ID:
+            # A photo of a pet or a document: its view tells no place, whatever looks like it
+            # (D-200). The suggestions stay, folded. Not for a part, chosen to look past that.
+            if region is None and (await view_groups.of_photo(db, asset.account_id, asset.id))[1]:
+                note = "no_sign_of_place"
+                # All of them weak.
+                weak_below = confident_from = float("inf")
             # Searched now, so that it sees the library as it is (D-105).
             found = [
                 vars(candidate)
@@ -654,7 +661,7 @@ async def _remote(
         ],
         track=[],
         cameras=[],
-        note=None,
+        note=note,
         status=run.status if run else "not_run",
         runnable=True,
         worker_available=remote.id in available,

@@ -459,6 +459,7 @@
 	"selection_suggestions_note": "Only what is already known: places of the chosen photos, the photos just before and after them in time, and confident results of the modules. Nothing is run.",
 	"module_selection": "Already on the chosen photos",
 	"module_note_none_located": "None of the chosen photos has a location.",
+	"module_note_no_sign_of_place": "This photo is marked with “no sign of a place”: its view does not tell where it was taken, so the suggestions are folded.",
 	"candidate_selected": "{count} of the chosen photos are here",
 	"candidate_selected_one": "Where {file} was taken",
 	"candidate_photos": "{label} · for {count} photos",
@@ -605,5 +606,19 @@
 	"groups_ready_with_marked": "Also those with no sign of a place: {count}",
 	"groups_restore_all": "Bring all back ({count})",
 	"groups_restore_chosen": "Bring back the chosen ({count})",
-	"groups_restore_all_warning": "The mark comes off all single photos, also those not shown yet. They suggest places again and join groups at the next rebuild. This cannot be undone: the photos would have to be marked again one by one."
+	"groups_restore_all_warning": "The mark comes off all single photos, also those not shown yet. They suggest places again and join groups at the next rebuild. This cannot be undone: the photos would have to be marked again one by one. The app will not mark them automatically again.",
+	"groups_marks_all": "All",
+	"groups_marks_by_user": "Marked by you",
+	"groups_marks_by_app": "Marked by the app",
+	"groups_mark_auto": "Marked by the app: alike several photos you marked",
+	"groups_confirm_chosen": "Confirm the chosen ({count})",
+	"groups_confirm_hint": "Keep the marks as your own: they stay, and mark similar photos in turn",
+	"groups_trashed_auto_hint": "The app marks a photo when at least {marks} of its most similar photos are marked by you. Bring back what does show the place: the app will not mark it again.",
+	"photo_no_sign_auto": "Marked by the app.",
+	"groups_settings_auto": "Mark similar photos automatically",
+	"groups_settings_auto_hint": "A photo alike several photos you marked with “no sign of a place” gets the mark too. Check them and bring them back in Groups → No sign of a place → Marked by the app.",
+	"groups_settings_auto_marks": "Marked among the most similar",
+	"groups_settings_auto_marks_hint": "How many of the 30 most similar photos must be marked by you.",
+	"groups_settings_auto_similarity": "Similarity to them",
+	"groups_settings_auto_similarity_hint": "Less similar photos do not count. Higher: fewer automatic marks."
 }

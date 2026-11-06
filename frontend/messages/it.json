@@ -459,6 +459,7 @@
 	"selection_suggestions_note": "Solo ciò che è già noto: i luoghi delle foto selezionate, le foto scattate subito prima e dopo, e i risultati affidabili dei moduli. Non viene eseguito niente.",
 	"module_selection": "Già sulle foto selezionate",
 	"module_note_none_located": "Nessuna delle foto selezionate ha una posizione.",
+	"module_note_no_sign_of_place": "Questa foto è segnata come «senza indizi di luogo»: la vista non dice dove è stata scattata, quindi i suggerimenti sono compressi.",
 	"candidate_selected": "{count} delle foto selezionate sono qui",
 	"candidate_selected_one": "Dove è stata scattata {file}",
 	"candidate_photos": "{label} · per {count} foto",
@@ -605,5 +606,19 @@
 	"groups_ready_with_marked": "Anche quelle senza indizi di luogo: {count}",
 	"groups_restore_all": "Recupera tutte ({count})",
 	"groups_restore_chosen": "Recupera le scelte ({count})",
-	"groups_restore_all_warning": "Il segno viene tolto da tutte le singole foto, anche da quelle non ancora mostrate. Torneranno a suggerire luoghi ed entreranno nei gruppi alla prossima ricostruzione. Non si può annullare: le foto andrebbero segnate di nuovo."
+	"groups_restore_all_warning": "Il segno viene tolto da tutte le singole foto, anche da quelle non ancora mostrate. Torneranno a suggerire luoghi ed entreranno nei gruppi alla prossima ricostruzione. Non si può annullare: le foto andrebbero segnate di nuovo. L’app non le segnerà più automaticamente.",
+	"groups_marks_all": "Tutte",
+	"groups_marks_by_user": "Da te",
+	"groups_marks_by_app": "Automatiche",
+	"groups_mark_auto": "Segnata automaticamente: somiglia a diverse foto che hai segnato",
+	"groups_confirm_chosen": "Conferma le scelte ({count})",
+	"groups_confirm_hint": "Tieni i segni come tuoi: restano e a loro volta segnano le foto simili",
+	"groups_trashed_auto_hint": "Una foto viene segnata automaticamente quando almeno {marks} delle sue foto più simili sono segnate da te. Recupera quelle che mostrano il luogo: non verranno più segnate automaticamente.",
+	"photo_no_sign_auto": "Segnata automaticamente.",
+	"groups_settings_auto": "Segna automaticamente le foto simili",
+	"groups_settings_auto_hint": "Una foto che somiglia a diverse foto da te segnate «senza indizi di luogo» viene segnata anch’essa. Controllale e recuperale in Gruppi → Senza indizi di luogo → Automatiche.",
+	"groups_settings_auto_marks": "Segnate tra le più simili",
+	"groups_settings_auto_marks_hint": "Quante delle 30 foto più simili devono essere segnate da te.",
+	"groups_settings_auto_similarity": "Somiglianza con esse",
+	"groups_settings_auto_similarity_hint": "Le foto meno simili non contano. Più alto: meno segni automatici."
 }

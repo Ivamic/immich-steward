@@ -127,6 +127,8 @@ export function moduleNote(note: string): string {
 			return m.module_note_scanner();
 		case 'none_located':
 			return m.module_note_none_located();
+		case 'no_sign_of_place':
+			return m.module_note_no_sign_of_place();
 		default:
 			return note;
 	}

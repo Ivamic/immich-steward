@@ -219,6 +219,9 @@ def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
     return by_name
 
 
+NONE_MARKED = {"total": 0, "user": 0, "auto": 0, "photos": [], "auto_ids": []}
+
+
 def schedule(client: TestClient) -> None:
     runner = client.app.state.job_runner  # type: ignore[attr-defined]
     client.portal.call(runner.schedule_view_groups)  # type: ignore[union-attr]
@@ -744,7 +747,7 @@ def test_a_photo_in_the_trash_suggests_no_place_and_stays_out(
     restored = signed_in.post(
         "/api/groups/trash-photos/restore", json={"ids": [library["yard0.jpg"]]}
     )
-    assert restored.json() == {"total": 0, "photos": []}
+    assert restored.json() == NONE_MARKED
     run_jobs(signed_in)
     assert groups(signed_in, library)[yard]["yard0.jpg"] != "excluded"
     assert signed_in.get(f"/api/groups/{yard}").json()["marked"] == []
@@ -1009,7 +1012,11 @@ def test_the_card_of_a_photo_tells_its_group(
     signed_in.patch(f"/api/groups/{yard}", json={"name": "Yard"})
 
     answer = signed_in.get(f"/api/groups/of-photo/{photo}").json()
-    assert answer == {"group": {"id": str(yard), "name": "Yard"}, "no_sign": False}
+    assert answer == {
+        "group": {"id": str(yard), "name": "Yard"},
+        "no_sign": False,
+        "no_sign_auto": False,
+    }
 
     signed_in.patch(f"/api/groups/{yard}", json={"trash": True})
     assert signed_in.get(f"/api/groups/of-photo/{photo}").json()["no_sign"]
@@ -1019,6 +1026,7 @@ def test_the_card_of_a_photo_tells_its_group(
     assert signed_in.get(f"/api/groups/of-photo/{alone}").json() == {
         "group": None,
         "no_sign": False,
+        "no_sign_auto": False,
     }
 
     # Marked by itself, it stays with the group, out of its photos.
@@ -1026,6 +1034,7 @@ def test_the_card_of_a_photo_tells_its_group(
     assert signed_in.get(f"/api/groups/of-photo/{photo}").json() == {
         "group": {"id": str(yard), "name": "Yard"},
         "no_sign": True,
+        "no_sign_auto": False,
     }
 
     # Taken out by hand, it is in no group for the card.
@@ -1061,7 +1070,7 @@ def test_the_marked_photos_come_in_pages_and_back_all_at_once(
     assert {p["id"] for p in first["photos"] + second["photos"]} == set(ids)
 
     answer = signed_in.post("/api/groups/trash-photos/restore-all")
-    assert answer.json() == {"total": 0, "photos": []}
+    assert answer.json() == NONE_MARKED
     run_jobs(signed_in)
     assert groups(signed_in, library)[yard]["yard0.jpg"] != "excluded"
     assert signed_in.get(f"/api/groups/{yard}").json()["marked"] == []
@@ -1069,7 +1078,7 @@ def test_the_marked_photos_come_in_pages_and_back_all_at_once(
 
 def test_bringing_all_back_with_nothing_marked_is_harmless(signed_in: TestClient) -> None:
     answer = signed_in.post("/api/groups/trash-photos/restore-all")
-    assert answer.json() == {"total": 0, "photos": []}
+    assert answer.json() == NONE_MARKED
 
 
 def test_a_group_of_marked_photos_only_stays_and_takes_a_name(
@@ -1114,3 +1123,118 @@ def test_a_group_with_all_its_photos_taken_out_by_hand_goes(
     signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": ids})
     run_jobs(signed_in)
     assert signed_in.get(f"/api/groups/{yard}").status_code == 404
+
+
+# --- Marks set by the app (D-200) -----------------------------------------------------------------
+
+
+def marks(client: TestClient, source: str | None = None) -> dict[str, Any]:
+    params = {"source": source} if source else {}
+    found: dict[str, Any] = client.get("/api/groups/trash-photos", params=params).json()
+    return found
+
+
+def marked_names(client: TestClient, source: str | None = None) -> set[str]:
+    return {p["file_name"] for p in marks(client, source)["photos"]}
+
+
+def mark_yard(client: TestClient, library: dict[str, str], *numbers: int) -> None:
+    ids = [library[f"yard{i}.jpg"] for i in numbers]
+    assert client.post("/api/groups/trash-photos", json={"ids": ids}).status_code == 200
+    run_jobs(client)
+
+
+def test_a_photo_close_to_several_marked_ones_is_marked_by_the_app(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    mark_yard(signed_in, library, 0, 1)
+    # Two marks among the neighbors: fewer than three, nothing more.
+    assert marked_names(signed_in) == {"yard0.jpg", "yard1.jpg"}
+
+    mark_yard(signed_in, library, 2)
+    found = marks(signed_in)
+    assert (found["total"], found["user"], found["auto"]) == (5, 3, 2)
+    assert marked_names(signed_in, "auto") == {"yard3.jpg", "yard4.jpg"}
+    assert set(marks(signed_in, "auto")["auto_ids"]) == {
+        library["yard3.jpg"],
+        library["yard4.jpg"],
+    }
+    card = signed_in.get(f"/api/groups/of-photo/{library['yard3.jpg']}").json()
+    assert (card["no_sign"], card["no_sign_auto"]) == (True, True)
+    # Out of the suggestions as any mark: yard3 suggests no place to the kitchen's neighbors.
+    blocks = signed_in.get(f"/api/assets/{library['yard3.jpg']}/suggestions").json()
+    similar = next(b for b in blocks if b["key"] == "similar")
+    assert similar["note"] == "no_sign_of_place"
+
+    # The marks of the app mark nothing in turn, and the kitchen stays as it was.
+    assert not {"kitchen0.jpg", "alone.jpg"} & marked_names(signed_in)
+
+
+def test_a_mark_of_the_app_goes_with_the_marks_it_stood_on(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    mark_yard(signed_in, library, 0, 1, 2)
+    assert marked_names(signed_in, "auto") == {"yard3.jpg", "yard4.jpg"}
+
+    signed_in.post("/api/groups/trash-photos/restore", json={"ids": [library["yard2.jpg"]]})
+    run_jobs(signed_in)
+    assert marked_names(signed_in) == {"yard0.jpg", "yard1.jpg"}
+
+
+def test_a_mark_taken_back_is_not_set_again_until_marked_by_hand(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    mark_yard(signed_in, library, 0, 1, 2)
+    signed_in.post("/api/groups/trash-photos/restore", json={"ids": [library["yard3.jpg"]]})
+    run_jobs(signed_in)
+    assert marked_names(signed_in, "auto") == {"yard4.jpg"}
+
+    # One's own mark taken back is not set again by the app either.
+    signed_in.post("/api/groups/trash-photos/restore", json={"ids": [library["yard0.jpg"]]})
+    run_jobs(signed_in)
+    assert "yard0.jpg" not in marked_names(signed_in)
+
+    # Marked by hand, it is marked as any other.
+    mark_yard(signed_in, library, 3)
+    assert "yard3.jpg" in marked_names(signed_in, "user")
+
+
+def test_a_mark_of_the_app_confirmed_is_the_users_own(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    mark_yard(signed_in, library, 0, 1, 2)
+    answer = signed_in.post(
+        "/api/groups/trash-photos/confirm", json={"ids": [library["yard3.jpg"]]}
+    )
+    assert (answer.json()["user"], answer.json()["auto"]) == (4, 1)
+
+    # It stays when the marks around it go.
+    ids = [library[f"yard{i}.jpg"] for i in (0, 1, 2)]
+    signed_in.post("/api/groups/trash-photos/restore", json={"ids": ids})
+    run_jobs(signed_in)
+    assert marked_names(signed_in) == {"yard3.jpg"}
+
+
+def test_the_marks_of_the_app_follow_the_settings(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    schedule(signed_in)
+    mark_yard(signed_in, library, 0, 1, 2)
+    assert marks(signed_in)["auto"] == 2
+
+    assert signed_in.put("/api/settings", json={"trash_auto": False}).status_code == 200
+    run_jobs(signed_in)
+    assert marks(signed_in)["auto"] == 0
+
+    # Two marks are enough now, but only above the similarity asked for.
+    signed_in.put("/api/settings", json={"trash_auto": True, "trash_auto_marks": 2})
+    run_jobs(signed_in)
+    assert marks(signed_in)["auto"] == 2
+    signed_in.put("/api/settings", json={"trash_auto_similarity": 0.95})
+    run_jobs(signed_in)
+    assert marks(signed_in)["auto"] == 0
+    assert signed_in.put("/api/settings", json={"trash_auto_marks": 0}).status_code == 422

@@ -28,6 +28,8 @@ MAX_ASSETS = 2000
 # Photos of the trash given at a time.
 TRASHED_PAGE = 120
 TRASHED_MOST = 500
+# Who set a mark "no sign of a place".
+MarkSource = Literal["user", "auto"]
 # Groups shown as lying in the same spot as a group.
 SAME_SPOT_SHOWN = 12
 
@@ -133,6 +135,8 @@ class PhotoGroups(BaseModel):
     group: PhotoGroup | None
     # Other photos do not get their place from this one.
     no_sign: bool
+    # Marked by the app, not by the user (D-200).
+    no_sign_auto: bool = False
 
 
 class GroupParts(BaseModel):
@@ -154,9 +158,14 @@ class GroupPhotos(BaseModel):
 
 
 class TrashedPhotos(BaseModel):
+    # Marked by themselves: all, by the user, by the app (D-200).
     total: int
-    # A page of them, those put there last first.
+    user: int = 0
+    auto: int = 0
+    # A page of them (of one source when asked), those marked last first.
     photos: list[AssetItem]
+    # Those of the page the app marked.
+    auto_ids: list[UUID] = []
 
 
 def _in_view(summary: Summary, view: GroupView) -> bool:
@@ -284,16 +293,24 @@ async def reset_groups(account: CurrentAccount, db: DbDep) -> JobOut:
 @router.get("/of-photo/{asset_id}")
 async def groups_of_photo(asset_id: UUID, account: CurrentAccount, db: DbDep) -> PhotoGroups:
     """What the groups say about a photo, for its card."""
-    group, no_sign = await view_groups.of_photo(db, account.id, asset_id)
+    group, no_sign, source = await view_groups.mark_of_photo(db, account.id, asset_id)
     found = PhotoGroup(id=group.id, name=group.name) if group else None
-    return PhotoGroups(group=found, no_sign=no_sign)
+    return PhotoGroups(group=found, no_sign=no_sign, no_sign_auto=source == view_groups.AUTO_MARK)
 
 
 async def _trashed(
-    db: AsyncSession, account: Account, offset: int = 0, limit: int = TRASHED_PAGE
+    db: AsyncSession,
+    account: Account,
+    offset: int = 0,
+    limit: int = TRASHED_PAGE,
+    source: MarkSource | None = None,
 ) -> TrashedPhotos:
-    total, photos = await view_groups.trashed_photos(db, account.id, offset, limit)
-    return TrashedPhotos(total=total, photos=[AssetItem.of(asset) for asset in photos])
+    totals, found = await view_groups.trashed_photos(db, account.id, offset, limit, source)
+    return TrashedPhotos(
+        **totals,
+        photos=[AssetItem.of(asset) for asset, _ in found],
+        auto_ids=[asset.id for asset, mark in found if mark == view_groups.AUTO_MARK],
+    )
 
 
 @router.get("/trash-photos")
@@ -302,8 +319,28 @@ async def trash_photos(
     db: DbDep,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=TRASHED_PAGE, ge=1, le=TRASHED_MOST),
+    source: MarkSource | None = None,
 ) -> TrashedPhotos:
-    return await _trashed(db, account, offset, limit)
+    return await _trashed(db, account, offset, limit, source)
+
+
+@router.post("/trash-photos/confirm")
+async def confirm_trash_photos(
+    body: GroupPhotos, account: CurrentAccount, db: DbDep
+) -> TrashedPhotos:
+    """Marks the app set become the user's own (and mark others in turn)."""
+    await view_groups.confirm_photos(db, account.id, body.ids)
+    await _rebuild_soon(db, account)
+    return await _trashed(db, account)
+
+
+@router.post("/trash-photos")
+async def mark_trash_photos(body: GroupPhotos, account: CurrentAccount, db: DbDep) -> TrashedPhotos:
+    """Marks photos from anywhere, not only from their group: out of the suggestions and of the
+    groups."""
+    await view_groups.trash_photos(db, account.id, body.ids)
+    await _rebuild_soon(db, account)
+    return await _trashed(db, account)
 
 
 @router.post("/trash-photos/restore")

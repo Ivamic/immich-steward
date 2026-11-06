@@ -582,6 +582,11 @@ export interface AccountSettings {
 	groups_core_neighbors: number;
 	/** Groups of photos: close only when each photo keeps the other among its neighbors. */
 	groups_mutual: boolean;
+	/** The app marks a photo with "no sign of a place" when so many photos the user marked are
+	 * among its neighbors, at least so alike (D-200). */
+	trash_auto: boolean;
+	trash_auto_marks: number;
+	trash_auto_similarity: number;
 }
 
 export const getAccountSettings = () => request<AccountSettings>('GET', '/api/settings');
@@ -818,10 +823,12 @@ export const updateGroup = (id: string, change: { name?: string; trash?: boolean
 export const getGroupNear = (id: string) => request<AssetItem[]>('GET', `/api/groups/${id}/near`);
 /** What the groups say about a photo: its group, and whether it shows nothing of the place. */
 export const getPhotoGroup = (id: string) =>
-	request<{ group: { id: string; name: string | null } | null; no_sign: boolean }>(
-		'GET',
-		`/api/groups/of-photo/${id}`
-	);
+	request<{
+		group: { id: string; name: string | null } | null;
+		no_sign: boolean;
+		/** Marked by the app, not by the user. */
+		no_sign_auto: boolean;
+	}>('GET', `/api/groups/of-photo/${id}`);
 /** Other groups in the main spot of a group: other sides of one place. */
 export const getGroupSameSpot = (id: string) =>
 	request<GroupOut[]>('GET', `/api/groups/${id}/same-spot`);
@@ -834,13 +841,29 @@ export const getGroupParts = (id: string, level: number) =>
 /** Photos that show nothing of the place: out of the suggestions and of the groups. */
 export const trashPhotos = (id: string, ids: string[]) =>
 	request<GroupDetail>('POST', `/api/groups/${id}/trash`, { ids });
+/** Who set a mark "no sign of a place": the user or the app. */
+export type MarkSource = 'user' | 'auto';
 export interface TrashedPhotos {
+	/** Marked by themselves: all, by the user, by the app. */
 	total: number;
-	/** A page of them, those put there last first. */
+	user: number;
+	auto: number;
+	/** A page of them (of one source when asked), those marked last first. */
 	photos: AssetItem[];
+	/** Those of the page the app marked. */
+	auto_ids: string[];
 }
-export const getTrashedPhotos = (offset: number, limit: number) =>
-	request<TrashedPhotos>('GET', `/api/groups/trash-photos?offset=${offset}&limit=${limit}`);
+export const getTrashedPhotos = (offset: number, limit: number, source?: MarkSource) =>
+	request<TrashedPhotos>(
+		'GET',
+		`/api/groups/trash-photos?offset=${offset}&limit=${limit}${source ? `&source=${source}` : ''}`
+	);
+/** Marks photos from anywhere: out of the suggestions and of the groups. */
+export const markPhotos = (ids: string[]) =>
+	request<TrashedPhotos>('POST', '/api/groups/trash-photos', { ids });
+/** Marks the app set become the user's own. */
+export const confirmPhotos = (ids: string[]) =>
+	request<TrashedPhotos>('POST', '/api/groups/trash-photos/confirm', { ids });
 export const restorePhotos = (ids: string[]) =>
 	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore', { ids });
 /** All of them, also those no page has shown. */

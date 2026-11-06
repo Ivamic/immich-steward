@@ -119,3 +119,19 @@ def test_a_located_photo_loses_the_badge(signed_in: TestClient, library: dict[st
     assert response.status_code == 200
 
     assert badges(signed_in)["alike.jpg"] is False
+
+
+def test_a_photo_with_no_sign_of_a_place_has_no_badge(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    """A pet or a document: what looks like it tells no place (D-200). At once, not after the
+    next pass."""
+    schedule(signed_in)
+    assert badges(signed_in)["alike.jpg"] is True
+
+    marked = signed_in.post("/api/groups/trash-photos", json={"ids": [library["alike.jpg"]]})
+    assert marked.status_code == 200
+    assert [p["file_name"] for p in marked.json()["photos"]] == ["alike.jpg"]
+
+    assert badges(signed_in)["alike.jpg"] is False
+    assert list(items_by_name(signed_in, similar_confident=True)) == []

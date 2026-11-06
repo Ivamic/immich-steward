@@ -59,3 +59,24 @@
 	transform: scale(0.88);
 	border-radius: 4px;
 }
+
+/* Markers in the corner of a photo: white discs with a shadow, visible on snow and sky as well as
+   on dark photos; the color of each says what it is (the gallery, the marked photos).
+   14 px icons in 22 px circles: 4 px on each side, whole pixels, so the icon stays sharp and
+   centered (13 px would sit on half pixels). */
+.st-tile-markers {
+	position: absolute;
+	bottom: 6px;
+	right: 6px;
+	display: flex;
+	gap: 3px;
+}
+.st-tile-marker {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: var(--gray-0);
+	box-shadow: var(--shadow-badge);
+}

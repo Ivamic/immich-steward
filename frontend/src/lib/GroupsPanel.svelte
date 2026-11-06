@@ -79,6 +79,16 @@
 		const value = number(event);
 		if (value !== null) save({ groups_core_neighbors: value });
 	}
+
+	function saveAutoMarks(event: Event) {
+		const value = number(event);
+		if (value !== null) save({ trash_auto_marks: value });
+	}
+
+	function saveAutoSimilarity(event: Event) {
+		const value = number(event);
+		if (value !== null) save({ trash_auto_similarity: value });
+	}
 </script>
 
 <section>
@@ -129,6 +139,54 @@
 			<span class="hint">{m.groups_settings_mutual_hint()}</span>
 		</span>
 	</label>
+	<label class="st-check">
+		<input
+			type="checkbox"
+			checked={accountSettings.values.trash_auto}
+			disabled={saving}
+			onchange={(e) => save({ trash_auto: (e.currentTarget as HTMLInputElement).checked })}
+		/>
+		<span>
+			{m.groups_settings_auto()}
+			<span class="hint">{m.groups_settings_auto_hint()}</span>
+		</span>
+	</label>
+	{#if accountSettings.values.trash_auto}
+		<label class="field">
+			<span>
+				{m.groups_settings_auto_marks()}
+				<span class="hint">{m.groups_settings_auto_marks_hint()}</span>
+			</span>
+			<span class="st-input st-input--sm">
+				<input
+					type="number"
+					min="1"
+					max="30"
+					step="1"
+					value={accountSettings.values.trash_auto_marks}
+					disabled={saving}
+					onchange={saveAutoMarks}
+				/>
+			</span>
+		</label>
+		<label class="field">
+			<span>
+				{m.groups_settings_auto_similarity()}
+				<span class="hint">{m.groups_settings_auto_similarity_hint()}</span>
+			</span>
+			<span class="st-input st-input--sm">
+				<input
+					type="number"
+					min="0.1"
+					max="0.95"
+					step="0.01"
+					value={accountSettings.values.trash_auto_similarity}
+					disabled={saving}
+					onchange={saveAutoSimilarity}
+				/>
+			</span>
+		</label>
+	{/if}
 	<p class="hint">{m.groups_settings_split_hint()}</p>
 	<p class="hint">{m.groups_settings_rebuild_hint()}</p>
 	<div>

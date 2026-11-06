@@ -853,6 +853,7 @@
 							<dt>{m.photo_no_sign_label()}</dt>
 							<dd>
 								{m.photo_no_sign()}
+								{#if groups.no_sign_auto}{m.photo_no_sign_auto()}{/if}
 								<a
 									href={groups.group
 										? resolve('/groups/[id]', { id: groups.group.id })

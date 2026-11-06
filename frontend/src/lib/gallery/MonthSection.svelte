@@ -170,9 +170,9 @@
 										</span>
 									{/if}
 									{#if item.has_location}
-										<span class="markers">
+										<span class="st-tile-markers">
 											<span
-												class="marker location"
+												class="st-tile-marker location"
 												role="img"
 												aria-label={m.asset_has_location()}
 												title={m.asset_has_location()}
@@ -181,7 +181,7 @@
 											</span>
 										</span>
 									{:else if item.nearby || item.geoclip_confident || item.similar_confident}
-										<span class="markers">
+										<span class="st-tile-markers">
 											{#if item.nearby}
 												<!-- Clock in the color of time neighbors: filled for the same camera
 									     (the stronger hint), outlined for another one. -->
@@ -190,7 +190,7 @@
 														? m.asset_nearby_same({ minutes: nearbyMinutes })
 														: m.asset_nearby_other({ minutes: nearbyMinutes })}
 												<span
-													class="marker nearby"
+													class="st-tile-marker nearby"
 													class:other={item.nearby === 'other_camera'}
 													role="img"
 													aria-label={text}
@@ -202,7 +202,7 @@
 											{#if item.geoclip_confident}
 												<!-- Crosshair: a guess to check, in GeoCLIP's color as on the map. -->
 												<span
-													class="marker geoclip"
+													class="st-tile-marker geoclip"
 													role="img"
 													aria-label={m.asset_geoclip_confident()}
 													title={m.asset_geoclip_confident()}
@@ -213,7 +213,7 @@
 											{#if item.similar_confident}
 												<!-- Photos: a similar photo with a location, in the color of similar photos. -->
 												<span
-													class="marker similar"
+													class="st-tile-marker similar"
 													role="img"
 													aria-label={m.asset_similar_confident()}
 													title={m.asset_similar_confident()}
@@ -399,25 +399,7 @@
 		background: oklch(0 0 0 / 0.55);
 		color: var(--gray-0);
 	}
-	/* White disc with a shadow: visible on snow and sky as well as on dark photos. */
-	.markers {
-		position: absolute;
-		bottom: 6px;
-		right: 6px;
-		display: flex;
-		gap: 3px;
-	}
-	/* 14 px icons in 22 px circles: 4 px on each side, whole pixels, so the icon stays sharp and
-	   centered (13 px would sit on half pixels). */
-	.marker {
-		display: grid;
-		place-items: center;
-		width: 22px;
-		height: 22px;
-		border-radius: 50%;
-		background: var(--gray-0);
-		box-shadow: var(--shadow-badge);
-	}
+	/* The colors of the markers (`st-tile-marker`, tile.css). */
 	.location {
 		color: var(--moss-600);
 	}

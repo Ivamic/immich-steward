@@ -16,6 +16,9 @@ class AccountSettings(BaseModel):
     groups_similarity: float
     groups_core_neighbors: int
     groups_mutual: bool
+    trash_auto: bool
+    trash_auto_marks: int
+    trash_auto_similarity: float
 
 
 class AccountSettingsIn(BaseModel):
@@ -26,6 +29,9 @@ class AccountSettingsIn(BaseModel):
     groups_similarity: float | None = Field(default=None, ge=0.1, le=0.95)
     groups_core_neighbors: int | None = Field(default=None, ge=1, le=view_groups.NEIGHBORS)
     groups_mutual: bool | None = None
+    trash_auto: bool | None = None
+    trash_auto_marks: int | None = Field(default=None, ge=1, le=view_groups.NEIGHBORS)
+    trash_auto_similarity: float | None = Field(default=None, ge=0.1, le=0.95)
 
 
 @router.get("")

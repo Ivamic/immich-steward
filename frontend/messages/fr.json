@@ -459,6 +459,7 @@
 	"selection_suggestions_note": "Seulement ce qui est déjà connu : les lieux des photos sélectionnées, les photos prises juste avant et après, et les résultats sûrs des modules. Rien n'est lancé.",
 	"module_selection": "Déjà sur les photos sélectionnées",
 	"module_note_none_located": "Aucune des photos sélectionnées n'a de lieu.",
+	"module_note_no_sign_of_place": "Cette photo est marquée « sans indice de lieu » : sa vue n’indique pas où elle a été prise, les suggestions sont donc repliées.",
 	"candidate_selected": "{count} des photos sélectionnées sont ici",
 	"candidate_selected_one": "Là où {file} a été prise",
 	"candidate_photos": "{label} · pour {count} photos",
@@ -605,5 +606,19 @@
 	"groups_ready_with_marked": "Aussi celles sans indice de lieu : {count}",
 	"groups_restore_all": "Tout récupérer ({count})",
 	"groups_restore_chosen": "Récupérer la sélection ({count})",
-	"groups_restore_all_warning": "La marque est retirée de toutes les photos seules, même celles pas encore affichées. Elles suggèrent à nouveau des lieux et rejoignent des groupes à la prochaine reconstruction. C’est définitif : il faudrait marquer de nouveau les photos."
+	"groups_restore_all_warning": "La marque est retirée de toutes les photos seules, même celles pas encore affichées. Elles suggèrent à nouveau des lieux et rejoignent des groupes à la prochaine reconstruction. C’est définitif : il faudrait marquer de nouveau les photos. L’application ne les marquera plus automatiquement.",
+	"groups_marks_all": "Toutes",
+	"groups_marks_by_user": "Par vous",
+	"groups_marks_by_app": "Automatiques",
+	"groups_mark_auto": "Marquée automatiquement : ressemble à plusieurs photos que vous avez marquées",
+	"groups_confirm_chosen": "Confirmer la sélection ({count})",
+	"groups_confirm_hint": "Garder les marques comme les vôtres : elles restent et marquent à leur tour les photos similaires",
+	"groups_trashed_auto_hint": "Une photo est marquée automatiquement quand au moins {marks} de ses photos les plus similaires sont marquées par vous. Récupérez celles qui montrent bien le lieu : elles ne seront plus marquées automatiquement.",
+	"photo_no_sign_auto": "Marquée automatiquement.",
+	"groups_settings_auto": "Marquer automatiquement les photos similaires",
+	"groups_settings_auto_hint": "Une photo qui ressemble à plusieurs photos marquées « sans indice de lieu » par vous est marquée aussi. Vérifiez-les et récupérez-les dans Groupes → Sans indice de lieu → Automatiques.",
+	"groups_settings_auto_marks": "Marquées parmi les plus similaires",
+	"groups_settings_auto_marks_hint": "Combien des 30 photos les plus similaires doivent être marquées par vous.",
+	"groups_settings_auto_similarity": "Similarité avec elles",
+	"groups_settings_auto_similarity_hint": "Les photos moins similaires ne comptent pas. Plus haut : moins de marques automatiques."
 }

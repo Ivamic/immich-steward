@@ -274,3 +274,25 @@ def test_photos_alike_in_one_spot_are_trusted_more(
     assert candidate["evidence"]["spread"] == "point"
     assert candidate["score"] == pytest.approx(calibrated(0.25, 0.1), abs=0.01)
     assert candidate["tier"] == "confident"
+
+
+def test_a_photo_with_no_sign_of_a_place_gets_its_suggestions_folded(
+    signed_in: TestClient, library: dict[str, str]
+) -> None:
+    query = library["query.jpg"]
+    assert similar(signed_in, query)["note"] is None
+
+    assert signed_in.post("/api/groups/trash-photos", json={"ids": [query]}).is_success
+
+    module = similar(signed_in, query)
+    assert module["note"] == "no_sign_of_place"
+    assert module["candidates"]
+    assert {c["tier"] for c in module["candidates"]} == {"weak"}
+
+    # A part of the photo, chosen to look past the pet, is searched as usual.
+    run_module(
+        signed_in, start_worker(signed_in), query, {"embedding": encoded(QUERY)}, region=LEFT_HALF
+    )
+    part = similar(signed_in, query, key="similar:region")
+    assert part["note"] is None
+    assert "confident" in {c["tier"] for c in part["candidates"]}

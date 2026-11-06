@@ -482,6 +482,23 @@ class ViewPhotoTrash(Base):
     account_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("account.id", ondelete="CASCADE"), index=True
     )
+    # "user", or "auto": close to several photos the user marked (`view_groups.auto_mark`).
+    source: Mapped[str] = mapped_column(String(8), default="user", server_default="user")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
+class ViewPhotoKeep(Base):
+    """A photo the user said does show the place, taking its mark back: never marked
+    automatically again (until the user marks it by hand)."""
+
+    __tablename__ = "view_photo_keep"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 

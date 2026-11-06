@@ -4,6 +4,7 @@
 <script lang="ts">
 	import {
 		bringBackGroup,
+		confirmPhotos,
 		getGroups,
 		getTrashedPhotos,
 		isActive,
@@ -13,8 +14,10 @@
 		type GroupList,
 		type GroupOut,
 		type GroupView,
+		type MarkSource,
 		type TrashedPhotos
 	} from '#lib/api.js';
+	import { accountSettings } from '#lib/accountSettings.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -26,7 +29,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	const PAGE = 60;
@@ -54,6 +57,13 @@
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
 	let trashed = $state.raw<TrashedPhotos | null>(null);
+	// Whose marks are shown: all, the user's, the app's (D-200).
+	let markSource = $state<MarkSource | null>(null);
+	const MARK_SOURCES: { id: MarkSource | null; label: () => string }[] = [
+		{ id: null, label: m.groups_marks_all },
+		{ id: 'user', label: m.groups_marks_by_user },
+		{ id: 'auto', label: m.groups_marks_by_app }
+	];
 	let loadingTrashed = false;
 	let restoring = $state(false);
 	let confirmRestore = $state(false);
@@ -79,6 +89,10 @@
 	const status = $derived(list?.status ?? null);
 	const working = $derived(isActive(status?.job ?? null));
 	const total = $derived(list?.counts[view] ?? 0);
+	/** The marked photos of the source shown. */
+	const trashedTotal = $derived(trashed ? (markSource ? trashed[markSource] : trashed.total) : 0);
+	const autoMarked = $derived(new Set(trashed?.auto_ids ?? []));
+	const chosenAuto = $derived([...chosenTrashed].filter((id) => autoMarked.has(id)));
 
 	/** The groups with the new ones at the end: a rebuild may move a group from page to page. */
 	function joined(groups: GroupOut[], next: GroupOut[]) {
@@ -142,17 +156,29 @@
 	}
 
 	/** The first page, or as many as were shown. */
+	/** The pages joined: the photos and which of them the app marked. */
+	function withPage(shownSoFar: TrashedPhotos, next: TrashedPhotos): TrashedPhotos {
+		const known = new Set(shownSoFar.photos.map((photo) => photo.id));
+		return {
+			...next,
+			photos: [...shownSoFar.photos, ...next.photos.filter((photo) => !known.has(photo.id))],
+			auto_ids: [...shownSoFar.auto_ids, ...next.auto_ids]
+		};
+	}
+
+	/** The first page, or as many as were shown. */
 	async function loadTrashed(upTo = TRASHED_PAGE) {
+		const source = markSource ?? undefined;
 		try {
-			const answer = await getTrashedPhotos(0, Math.min(upTo, TRASHED_MOST));
-			let photos = answer.photos;
-			while (photos.length < Math.min(upTo, answer.total)) {
-				const left = Math.min(upTo - photos.length, TRASHED_MOST);
-				const next = await getTrashedPhotos(photos.length, left);
+			let answer = await getTrashedPhotos(0, Math.min(upTo, TRASHED_MOST), source);
+			const of = (found: TrashedPhotos) => (source ? found[source] : found.total);
+			while (answer.photos.length < Math.min(upTo, of(answer))) {
+				const left = Math.min(upTo - answer.photos.length, TRASHED_MOST);
+				const next = await getTrashedPhotos(answer.photos.length, left, source);
 				if (next.photos.length === 0) break;
-				photos = [...photos, ...next.photos];
+				answer = withPage(answer, next);
 			}
-			trashed = { total: answer.total, photos };
+			if (source === (markSource ?? undefined)) trashed = answer;
 		} catch (e) {
 			error = errorMessage(e);
 		}
@@ -161,15 +187,36 @@
 	async function moreTrashed() {
 		if (loadingTrashed || !trashed) return;
 		loadingTrashed = true;
+		const source = markSource ?? undefined;
 		try {
-			const answer = await getTrashedPhotos(trashed.photos.length, TRASHED_PAGE);
-			const known = new Set(trashed.photos.map((photo) => photo.id));
-			const fresh = answer.photos.filter((photo) => !known.has(photo.id));
-			trashed = { total: answer.total, photos: [...trashed.photos, ...fresh] };
+			const answer = await getTrashedPhotos(trashed.photos.length, TRASHED_PAGE, source);
+			if (trashed && source === (markSource ?? undefined)) trashed = withPage(trashed, answer);
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {
 			loadingTrashed = false;
+		}
+	}
+
+	function chooseSource(next: MarkSource | null) {
+		chosenTrashed.clear();
+		markSource = next;
+		loadTrashed();
+	}
+
+	/** The marks of the app chosen become the user's own. */
+	async function confirm(ids: string[]) {
+		restoring = true;
+		try {
+			for (let start = 0; start < ids.length; start += SENT_MOST) {
+				await confirmPhotos(ids.slice(start, start + SENT_MOST));
+			}
+			ids.forEach((id) => chosenTrashed.delete(id));
+			await loadTrashed(Math.max(trashed?.photos.length ?? 0, TRASHED_PAGE));
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			restoring = false;
 		}
 	}
 
@@ -188,13 +235,21 @@
 	async function restore(ids: string[]) {
 		restoring = true;
 		try {
-			let total = trashed?.total ?? 0;
+			let counts: TrashedPhotos | null = null;
 			for (let start = 0; start < ids.length; start += SENT_MOST) {
-				total = (await restorePhotos(ids.slice(start, start + SENT_MOST))).total;
+				counts = await restorePhotos(ids.slice(start, start + SENT_MOST));
 			}
 			const gone = new Set(ids);
-			const left = (trashed?.photos ?? []).filter((photo) => !gone.has(photo.id));
-			trashed = { total, photos: left };
+			if (trashed && counts) {
+				trashed = {
+					...trashed,
+					total: counts.total,
+					user: counts.user,
+					auto: counts.auto,
+					photos: trashed.photos.filter((photo) => !gone.has(photo.id)),
+					auto_ids: trashed.auto_ids.filter((id) => !gone.has(id))
+				};
+			}
 			ids.forEach((id) => chosenTrashed.delete(id));
 			await load(view, Math.max(shown.length, PAGE));
 		} catch (e) {
@@ -256,7 +311,10 @@
 	});
 
 	$effect(() => {
-		if (view === 'trash') loadTrashed();
+		if (view === 'trash') {
+			accountSettings.load();
+			untrack(() => loadTrashed());
+		}
 	});
 
 	// While the groups are being worked on, the numbers and the list change.
@@ -310,7 +368,42 @@
 	{#if view === 'trash' && trashed && trashed.total > 0}
 		<h2>{m.groups_trashed_heading({ count: count(trashed.total) })}</h2>
 		<p class="muted">{m.groups_trashed_hint()}</p>
+		{#if trashed.auto > 0 || markSource}
+			<div class="views">
+				{#each MARK_SOURCES as item (item.id ?? 'all')}
+					<button
+						type="button"
+						class="st-btn st-btn--sm"
+						class:st-btn--secondary={item.id === markSource}
+						class:st-btn--ghost={item.id !== markSource}
+						aria-pressed={item.id === markSource}
+						onclick={() => chooseSource(item.id)}
+					>
+						{#if item.id === 'auto'}<Icon name="sparkles" size={14} />{/if}
+						{item.label()}
+						<span class="count">{count(item.id ? trashed[item.id] : trashed.total)}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+		{#if markSource === 'auto'}
+			<p class="muted">
+				{m.groups_trashed_auto_hint({ marks: count(accountSettings.values.trash_auto_marks) })}
+			</p>
+		{/if}
 		<div class="trashed-tools">
+			{#if chosenAuto.length > 0}
+				<button
+					type="button"
+					class="st-btn st-btn--secondary st-btn--sm"
+					title={m.groups_confirm_hint()}
+					disabled={restoring}
+					onclick={() => confirm(chosenAuto)}
+				>
+					<Icon name="check" size={14} />
+					{m.groups_confirm_chosen({ count: count(chosenAuto.length) })}
+				</button>
+			{/if}
 			{#if chosenTrashed.size > 0}
 				<button
 					type="button"
@@ -358,6 +451,18 @@
 							loading="lazy"
 							decoding="async"
 						/>
+						{#if autoMarked.has(photo.id)}
+							<span class="st-tile-markers">
+								<span
+									class="st-tile-marker auto"
+									role="img"
+									aria-label={m.groups_mark_auto()}
+									title={m.groups_mark_auto()}
+								>
+									<Icon name="sparkles" size={14} strokeWidth={2.25} />
+								</span>
+							</span>
+						{/if}
 					</a>
 					<button
 						type="button"
@@ -382,7 +487,7 @@
 				</div>
 			{/each}
 		</div>
-		{#if trashed.photos.length < trashed.total}
+		{#if trashed.photos.length < trashedTotal}
 			<div class="more" use:nearScreen={{ at: trashed.photos.length, onnear: moreTrashed }}></div>
 		{/if}
 	{/if}
@@ -612,6 +717,10 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+	/* Marked by the app: in the accent color, as the choice it waits for. */
+	.auto {
+		color: var(--color-accent);
 	}
 	.back {
 		position: absolute;

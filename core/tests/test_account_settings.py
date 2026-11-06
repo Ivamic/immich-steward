@@ -7,6 +7,9 @@ DEFAULTS = {
     "groups_similarity": 0.47,
     "groups_core_neighbors": 3,
     "groups_mutual": True,
+    "trash_auto": True,
+    "trash_auto_marks": 3,
+    "trash_auto_similarity": 0.5,
 }
 
 

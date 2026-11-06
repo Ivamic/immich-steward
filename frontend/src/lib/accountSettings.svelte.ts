@@ -7,7 +7,10 @@ const DEFAULTS: AccountSettings = {
 	video_sound: false,
 	groups_similarity: 0.47,
 	groups_core_neighbors: 3,
-	groups_mutual: true
+	groups_mutual: true,
+	trash_auto: true,
+	trash_auto_marks: 3,
+	trash_auto_similarity: 0.5
 };
 
 class AccountSettingsState {

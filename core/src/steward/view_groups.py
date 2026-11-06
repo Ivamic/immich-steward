@@ -60,6 +60,7 @@ from steward.models import (
     ViewGroup,
     ViewGroupMember,
     ViewNeighbor,
+    ViewPhotoKeep,
     ViewPhotoTrash,
     utcnow,
 )
@@ -107,6 +108,10 @@ CENTER_SHARE = 0.15
 CENTER_MIN_PHOTOS = 3
 
 JOB_KIND = "view_groups"
+
+# Who set a mark "no sign of a place" (`ViewPhotoTrash.source`).
+USER_MARK = "user"
+AUTO_MARK = "auto"
 
 _QUERY = f"CAST(:query AS halfvec({EMBEDDING_DIM}))"
 # As the search of similar photos (`modules.similar`), but among all the photos.
@@ -188,6 +193,22 @@ _NEAR = text(
 )
 
 
+# Photos with at least :marks photos marked by the user among their own neighbors, at least
+# :similarity alike (`auto_mark`).
+_AUTO = text(
+    """
+    SELECT n.asset_id
+    FROM view_neighbor AS n
+    CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
+    JOIN view_photo_trash AS mark ON mark.asset_id = p.b AND mark.source = 'user'
+    JOIN asset ON asset.id = n.asset_id AND NOT asset.is_trashed
+    WHERE n.account_id = :account_id AND p.s >= :similarity
+    GROUP BY n.asset_id
+    HAVING count(*) >= :marks
+    """
+)
+
+
 @dataclass(frozen=True)
 class Rule:
     similarity: float
@@ -201,6 +222,24 @@ async def rule_of(db: AsyncSession, account_id: UUID) -> Rule:
         similarity=float(values["groups_similarity"]),
         core_neighbors=int(values["groups_core_neighbors"]),
         mutual=bool(values["groups_mutual"]),
+    )
+
+
+@dataclass(frozen=True)
+class AutoRule:
+    """When the app marks a photo as showing no sign of a place by itself (D-200)."""
+
+    enabled: bool
+    marks: int
+    similarity: float
+
+
+async def auto_rule_of(db: AsyncSession, account_id: UUID) -> AutoRule:
+    values = await account_settings.get_all(db, account_id)
+    return AutoRule(
+        enabled=bool(values["trash_auto"]),
+        marks=int(values["trash_auto_marks"]),
+        similarity=float(values["trash_auto_similarity"]),
     )
 
 
@@ -717,6 +756,8 @@ async def run(
                 delete(ViewGroup).where(ViewGroup.account_id == account_id, ViewGroup.kind == KIND)
             )
             await db.commit()
+        # Before the rebuild: marked photos link nothing in it.
+        result |= await auto_mark(db, account_id, await auto_rule_of(db, account_id))
         result |= await rebuild(db, account_id, await rule_of(db, account_id))
         result["rebuilt"] = True
     return result
@@ -1095,32 +1136,35 @@ async def include(
     await db.commit()
 
 
-async def trash_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
-    """Puts photos of the account into the trash. They leave the photos of their group at once
-    but stay with it, shown apart: a photo that tells nothing of the place was still taken there,
-    so it may get the place of the group; it just gives none to others and links nothing."""
-    own = list(
-        await db.scalars(
-            select(Asset.id).where(Asset.id.in_(asset_ids), Asset.account_id == account_id)
-        )
-    )
-    if not own:
+async def _mark(db: AsyncSession, account_id: UUID, asset_ids: list[UUID], source: str) -> None:
+    """Marks photos, not committed. A photo stays with its group, shown apart (D-195). The
+    user's mark replaces one set by the app and lifts a refusal; the app's never replaces one."""
+    if not asset_ids:
         return
-    await db.execute(
-        postgresql_insert(ViewPhotoTrash)
-        .values([{"asset_id": a, "account_id": account_id, "created_at": utcnow()} for a in own])
-        .on_conflict_do_nothing()
-    )
+    rows = [
+        {"asset_id": a, "account_id": account_id, "source": source, "created_at": utcnow()}
+        for a in asset_ids
+    ]
+    statement = postgresql_insert(ViewPhotoTrash).values(rows)
+    if source == USER_MARK:
+        statement = statement.on_conflict_do_update(
+            index_elements=[ViewPhotoTrash.asset_id], set_={"source": USER_MARK}
+        )
+        await db.execute(delete(ViewPhotoKeep).where(ViewPhotoKeep.asset_id.in_(asset_ids)))
+    else:
+        statement = statement.on_conflict_do_nothing()
+    await db.execute(statement)
     await db.execute(
         update(ViewGroupMember)
-        .where(ViewGroupMember.asset_id.in_(own), ViewGroupMember.role != EXCLUDED)
+        .where(ViewGroupMember.asset_id.in_(asset_ids), ViewGroupMember.role != EXCLUDED)
         .values(role=EXCLUDED)
     )
-    await db.commit()
 
 
-async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
-    """Takes photos out of the trash, for the next rebuild to find them their group."""
+async def _unmark(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    """Takes the marks off, not committed: the next rebuild finds the photos their groups."""
+    if not asset_ids:
+        return
     await db.execute(
         delete(ViewGroupMember).where(
             ViewGroupMember.account_id == account_id,
@@ -1136,7 +1180,107 @@ async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUI
             ViewPhotoTrash.account_id == account_id, ViewPhotoTrash.asset_id.in_(asset_ids)
         )
     )
+
+
+async def trash_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    """Marks photos of the account as showing nothing of the place. They leave the photos of
+    their group at once but stay with it, shown apart: a photo that tells nothing of the place
+    was still taken there, so it may get the place of the group; it just gives none to others and
+    links nothing."""
+    own = list(
+        await db.scalars(
+            select(Asset.id).where(Asset.id.in_(asset_ids), Asset.account_id == account_id)
+        )
+    )
+    await _mark(db, account_id, own, USER_MARK)
     await db.commit()
+
+
+async def confirm_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    """Makes marks set by the app the user's own: they stay, and mark others in turn."""
+    await db.execute(
+        update(ViewPhotoTrash)
+        .where(
+            ViewPhotoTrash.account_id == account_id,
+            ViewPhotoTrash.asset_id.in_(asset_ids),
+            ViewPhotoTrash.source == AUTO_MARK,
+        )
+        .values(source=USER_MARK)
+    )
+    await db.commit()
+
+
+async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUID]) -> None:
+    """Takes the marks off. The user said the photos do show the place: the app does not mark
+    them again (or a photo next to other marks would be marked back at once); marking one by
+    hand lifts that."""
+    own = list(
+        await db.scalars(
+            select(ViewPhotoTrash.asset_id).where(
+                ViewPhotoTrash.account_id == account_id, ViewPhotoTrash.asset_id.in_(asset_ids)
+            )
+        )
+    )
+    if own:
+        await db.execute(
+            postgresql_insert(ViewPhotoKeep)
+            .values(
+                [{"asset_id": a, "account_id": account_id, "created_at": utcnow()} for a in own]
+            )
+            .on_conflict_do_nothing()
+        )
+    await _unmark(db, account_id, own)
+    await db.commit()
+
+
+async def auto_mark(db: AsyncSession, account_id: UUID, rule: AutoRule) -> dict[str, int]:
+    """Sets the marks of the app anew from the user's marks: a photo with at least `rule.marks`
+    of them among its neighbors, at least `rule.similarity` alike, is marked; a mark whose photos
+    the user took back goes. Only the user's marks count, or the marks would spread on their own.
+    Photos the user kept, marked whole with their group or in the trash of Immich are left."""
+    have = set(
+        await db.scalars(
+            select(ViewPhotoTrash.asset_id).where(
+                ViewPhotoTrash.account_id == account_id, ViewPhotoTrash.source == AUTO_MARK
+            )
+        )
+    )
+    want: set[UUID] = set()
+    if rule.enabled:
+        found = await db.scalars(
+            _AUTO,
+            {"account_id": account_id, "similarity": rule.similarity, "marks": rule.marks},
+        )
+        left_alone = set(
+            await db.scalars(
+                select(ViewPhotoTrash.asset_id).where(
+                    ViewPhotoTrash.account_id == account_id,
+                    ViewPhotoTrash.source == USER_MARK,
+                )
+            )
+        )
+        left_alone |= set(
+            await db.scalars(
+                select(ViewPhotoKeep.asset_id).where(ViewPhotoKeep.account_id == account_id)
+            )
+        )
+        left_alone |= set(
+            await db.scalars(
+                select(ViewGroupMember.asset_id)
+                .join(ViewGroup, ViewGroup.id == ViewGroupMember.group_id)
+                .where(
+                    ViewGroupMember.account_id == account_id,
+                    ViewGroupMember.role != EXCLUDED,
+                    ViewGroup.trash.is_(True),
+                )
+            )
+        )
+        want = set(found) - left_alone
+    added, gone = sorted(want - have), sorted(have - want)
+    await _mark(db, account_id, added, AUTO_MARK)
+    await _unmark(db, account_id, gone)
+    await db.commit()
+    return {"auto_marked": len(added), "auto_unmarked": len(gone), "auto_marks": len(want)}
 
 
 async def of_photo(
@@ -1144,13 +1288,20 @@ async def of_photo(
 ) -> tuple[ViewGroup | None, bool]:
     """The group of the photo, and whether it is marked as showing nothing of the place: by
     itself or with its group."""
-    marked = await db.scalar(
-        select(
-            exists().where(
-                ViewPhotoTrash.asset_id == asset_id, ViewPhotoTrash.account_id == account_id
-            )
+    group, marked, _ = await mark_of_photo(db, account_id, asset_id)
+    return group, marked
+
+
+async def mark_of_photo(
+    db: AsyncSession, account_id: UUID, asset_id: UUID
+) -> tuple[ViewGroup | None, bool, str | None]:
+    """`of_photo`, and who marked the photo by itself ("user", "auto"; None: not by itself)."""
+    source = await db.scalar(
+        select(ViewPhotoTrash.source).where(
+            ViewPhotoTrash.asset_id == asset_id, ViewPhotoTrash.account_id == account_id
         )
     )
+    marked = source is not None
     # A marked photo stays with its group, out of its photos.
     query = (
         select(ViewGroup)
@@ -1165,7 +1316,7 @@ async def of_photo(
     if not marked:
         query = query.where(ViewGroupMember.role != EXCLUDED)
     group = await db.scalar(query)
-    return group, bool(marked) or (group is not None and group.trash)
+    return group, marked or (group is not None and group.trash), source
 
 
 async def set_in_app(db: AsyncSession, asset_ids: list[UUID]) -> set[UUID]:
@@ -1192,23 +1343,32 @@ async def restore_all_photos(db: AsyncSession, account_id: UUID) -> None:
 
 
 async def trashed_photos(
-    db: AsyncSession, account_id: UUID, offset: int, limit: int
-) -> tuple[int, list[Asset]]:
-    """How many photos are in the trash, and a page of them, those put there last first."""
-    total = await db.scalar(
-        select(func.count())
-        .select_from(ViewPhotoTrash)
+    db: AsyncSession, account_id: UUID, offset: int, limit: int, source: str | None = None
+) -> tuple[dict[str, int], list[tuple[Asset, str]]]:
+    """How many photos are marked by themselves (in all, by the user, by the app), and a page of
+    those of the `source` (any when None) with who marked each, those marked last first."""
+    rows = await db.execute(
+        select(ViewPhotoTrash.source, func.count())
         .where(ViewPhotoTrash.account_id == account_id)
+        .group_by(ViewPhotoTrash.source)
     )
-    found = await db.scalars(
-        select(Asset)
+    counts: dict[str, int] = {mark: count for mark, count in rows}
+    query = (
+        select(Asset, ViewPhotoTrash.source)
         .join(ViewPhotoTrash, ViewPhotoTrash.asset_id == Asset.id)
         .where(ViewPhotoTrash.account_id == account_id)
-        .order_by(ViewPhotoTrash.created_at.desc(), Asset.id)
-        .offset(offset)
-        .limit(limit)
     )
-    return total or 0, list(found)
+    if source is not None:
+        query = query.where(ViewPhotoTrash.source == source)
+    found = await db.execute(
+        query.order_by(ViewPhotoTrash.created_at.desc(), Asset.id).offset(offset).limit(limit)
+    )
+    totals = {
+        "total": sum(counts.values()),
+        "user": counts.get(USER_MARK, 0),
+        "auto": counts.get(AUTO_MARK, 0),
+    }
+    return totals, [(asset, mark) for asset, mark in found]
 
 
 async def progress_counts(db: AsyncSession, account_id: UUID) -> dict[str, int]:

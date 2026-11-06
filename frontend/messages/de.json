@@ -459,6 +459,7 @@
 	"selection_suggestions_note": "Nur was schon bekannt ist: Orte der ausgewählten Fotos, die zeitlich direkt davor und danach liegenden Fotos und sichere Ergebnisse der Module. Es wird nichts ausgeführt.",
 	"module_selection": "Schon bei den ausgewählten Fotos",
 	"module_note_none_located": "Keines der ausgewählten Fotos hat einen Standort.",
+	"module_note_no_sign_of_place": "Dieses Foto ist als „Ohne Ortsmerkmale“ markiert: Seine Ansicht verrät nicht, wo es aufgenommen wurde, daher sind die Vorschläge eingeklappt.",
 	"candidate_selected": "{count} der ausgewählten Fotos sind hier",
 	"candidate_selected_one": "Wo {file} aufgenommen wurde",
 	"candidate_photos": "{label} · für {count} Fotos",
@@ -605,5 +606,19 @@
 	"groups_ready_with_marked": "Auch die ohne Ortsmerkmale: {count}",
 	"groups_restore_all": "Alle zurückholen ({count})",
 	"groups_restore_chosen": "Ausgewählte zurückholen ({count})",
-	"groups_restore_all_warning": "Die Markierung wird von allen einzelnen Fotos entfernt, auch von noch nicht angezeigten. Sie schlagen wieder Orte vor und kommen bei der nächsten Neubildung in Gruppen. Das lässt sich nicht rückgängig machen: Die Fotos müssten neu markiert werden."
+	"groups_restore_all_warning": "Die Markierung wird von allen einzelnen Fotos entfernt, auch von noch nicht angezeigten. Sie schlagen wieder Orte vor und kommen bei der nächsten Neubildung in Gruppen. Das lässt sich nicht rückgängig machen: Die Fotos müssten neu markiert werden. Die App markiert sie nicht wieder automatisch.",
+	"groups_marks_all": "Alle",
+	"groups_marks_by_user": "Von Ihnen",
+	"groups_marks_by_app": "Automatisch",
+	"groups_mark_auto": "Automatisch markiert: ähnelt mehreren Fotos, die Sie markiert haben",
+	"groups_confirm_chosen": "Ausgewählte bestätigen ({count})",
+	"groups_confirm_hint": "Die Markierungen als Ihre eigenen behalten: Sie bleiben und markieren ihrerseits ähnliche Fotos",
+	"groups_trashed_auto_hint": "Ein Foto wird automatisch markiert, wenn unter seinen ähnlichsten Fotos mindestens {marks} von Ihnen markierte sind. Holen Sie zurück, was den Ort doch zeigt: Es wird nicht wieder automatisch markiert.",
+	"photo_no_sign_auto": "Automatisch markiert.",
+	"groups_settings_auto": "Ähnliche Fotos automatisch markieren",
+	"groups_settings_auto_hint": "Ein Foto, das mehreren von Ihnen mit „Ohne Ortsmerkmale“ markierten Fotos ähnelt, wird ebenfalls markiert. Prüfen und zurückholen unter Gruppen → Ohne Ortsmerkmale → Automatisch.",
+	"groups_settings_auto_marks": "Markierte unter den ähnlichsten",
+	"groups_settings_auto_marks_hint": "Wie viele der 30 ähnlichsten Fotos von Ihnen markiert sein müssen.",
+	"groups_settings_auto_similarity": "Ähnlichkeit zu ihnen",
+	"groups_settings_auto_similarity_hint": "Weniger ähnliche Fotos zählen nicht. Höher: weniger automatische Markierungen."
 }

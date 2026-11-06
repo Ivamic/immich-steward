@@ -292,7 +292,8 @@
 					{/each}
 				</fieldset>
 			{/if}
-			{#if module.note && !module.candidates.length}
+			<!-- A note with candidates says why they are folded (no_sign_of_place). -->
+			{#if module.note}
 				<p class="st-sgroup__note"><Icon name="info" size={14} />{moduleNote(module.note)}</p>
 			{/if}
 			{#if spreadNote(module)}

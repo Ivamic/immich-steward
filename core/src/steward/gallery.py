@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from steward.embeddings import located
+from steward.marks import is_marked
 from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun, SimilarHint
 from steward.worker_queue import latest_run_failed, whole_photo
 
@@ -132,8 +133,13 @@ def geoclip_confident(min_score: float) -> ColumnElement[bool]:
 
 
 def similar_confident(min_score: float) -> ColumnElement[bool]:
-    """A photo with a location is at least this confidently similar (`steward.similar_hints`)."""
-    return exists().where(SimilarHint.asset_id == Asset.id, SimilarHint.score >= min_score)
+    """A photo with a location is at least this confidently similar (`steward.similar_hints`),
+    and the photo is not marked as showing nothing of the place: its view tells no place. Here,
+    not in the hints, which are computed once a day; a mark is set any time."""
+    return and_(
+        exists().where(SimilarHint.asset_id == Asset.id, SimilarHint.score >= min_score),
+        ~is_marked(),
+    )
 
 
 def is_scan(asset: Any = Asset) -> ColumnElement[bool]:

@@ -112,8 +112,10 @@ class Settings(BaseSettings):
     geoclip_weak_below: float = Field(default=0.5, ge=0, le=1)
     geoclip_confident_from: float = Field(default=0.75, ge=0, le=1)
     # How similar-photos (M3) suggestions are shown, on the calibrated scale of
-    # `steward.modules.similar.CALIBRATION`: hidden below 20 % (similarity ~0.15), weak below
-    # 50 % (~0.2), confident from 80 % (~0.35, right within 1 km about 85 % of the time).
+    # `steward.modules.similar.calibrated`: hidden below 20 %, weak below 50 %, confident from
+    # 80 % (right within 1 km about 85 % of the time). The similarity this takes depends on how
+    # far apart the most similar photos lie: in one spot confident from ~0.25, spread out weak
+    # up to ~0.45 (D-200).
     similar_min_confidence: float = Field(default=0.2, ge=0, le=1)
     similar_weak_below: float = Field(default=0.5, ge=0, le=1)
     similar_confident_from: float = Field(default=0.8, ge=0, le=1)

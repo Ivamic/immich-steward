@@ -8,6 +8,7 @@ group is a candidate at the spot of its most similar photo.
 """
 
 import bisect
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -32,10 +33,13 @@ MAX_CANDIDATES = 5
 # Thumbnails shown per candidate.
 MAX_EVIDENCE = 6
 
+Curve = tuple[tuple[float, float], ...]
+
 # Similarity of the best photo of a candidate -> how often such a candidate is right within 1 km.
 # Measured on 15 516 photos with camera GPS of a family library (2026-10-21, photos taken within
 # 2-24 h of the query excluded): below ~0.15 nearly never, from ~0.45 nine times out of ten.
-CALIBRATION = (
+# Used when there are too few neighbors to tell their spread.
+CALIBRATION: Curve = (
     (0.10, 0.10),
     (0.15, 0.20),
     (0.18, 0.40),
@@ -44,6 +48,36 @@ CALIBRATION = (
     (0.35, 0.80),
     (0.45, 0.88),
     (0.55, 0.97),
+)
+
+# The spread of the most similar photos tells as much as their similarity (D-200, after SUE,
+# Zaffar 2024): the root mean square distance of the `SPREAD_OF` most similar to their centroid.
+# Measured on the same library (2026-11-06, the same photos left out): when they lie within
+# `POINT_KM`, a suggestion of similarity 0.22-0.35 is right 81-89 % of the time; when they are
+# farther apart, 44-52 %, whether by 2 km or by 50.
+SPREAD_OF = 5
+POINT_KM = 0.5
+# From this spread the suggestions say that the view alone does not tell the place.
+WIDE_KM = 10.0
+CALIBRATION_POINT: Curve = (
+    (0.10, 0.30),
+    (0.15, 0.42),
+    (0.18, 0.60),
+    (0.22, 0.78),
+    (0.27, 0.86),
+    (0.35, 0.90),
+    (0.45, 0.92),
+    (0.55, 0.98),
+)
+CALIBRATION_SPREAD: Curve = (
+    (0.10, 0.10),
+    (0.15, 0.20),
+    (0.18, 0.30),
+    (0.22, 0.42),
+    (0.27, 0.45),
+    (0.35, 0.45),
+    (0.45, 0.50),
+    (0.55, 0.85),
 )
 
 # The vector is sent as text; Postgres needs its type to pick the operators and the index.
@@ -95,16 +129,43 @@ class Neighbor:
     version: str | None = None
 
 
-def calibrated(similarity: float) -> float:
-    """Chance that a candidate whose best photo is this similar is right (`CALIBRATION`)."""
-    points = [s for s, _ in CALIBRATION]
+def curve_of(spread: float | None) -> Curve:
+    if spread is None:
+        return CALIBRATION
+    return CALIBRATION_POINT if spread < POINT_KM else CALIBRATION_SPREAD
+
+
+def calibrated(similarity: float, spread: float | None = None) -> float:
+    """Chance that a candidate whose best photo is this similar is right, given how far apart
+    the most similar photos lie (km, `spread_km`; None when unknown)."""
+    curve = curve_of(spread)
+    points = [s for s, _ in curve]
     if similarity <= points[0]:
-        return CALIBRATION[0][1]
+        return curve[0][1]
     if similarity >= points[-1]:
-        return CALIBRATION[-1][1]
+        return curve[-1][1]
     i = bisect.bisect_right(points, similarity)
-    (s0, p0), (s1, p1) = CALIBRATION[i - 1], CALIBRATION[i]
+    (s0, p0), (s1, p1) = curve[i - 1], curve[i]
     return p0 + (p1 - p0) * (similarity - s0) / (s1 - s0)
+
+
+def spread_km(found: list[Neighbor]) -> float | None:
+    """How far apart the `SPREAD_OF` most similar photos lie: the root mean square distance to
+    their centroid, in km; None with fewer of them."""
+    nearest = found[:SPREAD_OF]
+    if len(nearest) < SPREAD_OF:
+        return None
+    latitude = sum(n.latitude for n in nearest) / len(nearest)
+    longitude = sum(n.longitude for n in nearest) / len(nearest)
+    squares = [distance_m(latitude, longitude, n.latitude, n.longitude) ** 2 for n in nearest]
+    return math.sqrt(sum(squares) / len(squares)) / 1000
+
+
+def spread_class(spread: float | None) -> str | None:
+    """ "point", "apart" or "wide" for the card; None when the spread is not known."""
+    if spread is None:
+        return None
+    return "point" if spread < POINT_KM else "apart" if spread < WIDE_KM else "wide"
 
 
 async def neighbors(
@@ -159,9 +220,10 @@ def candidates(found: list[Neighbor], taken_at: datetime, settings: Settings) ->
         else:
             groups.append([neighbor])
 
+    apart = spread_km(found)
     result = []
     for group in groups:
-        score = calibrated(group[0].similarity)
+        score = calibrated(group[0].similarity, apart)
         if score < settings.similar_min_confidence:
             continue
         seed = group[0]
@@ -175,7 +237,12 @@ def candidates(found: list[Neighbor], taken_at: datetime, settings: Settings) ->
                 score=round(score, 4),
                 radius_m=round(max(spread, MIN_RADIUS_M)),
                 kind="similar",
-                evidence={"neighbors": [_evidence(n, taken_at) for n in group[:MAX_EVIDENCE]]},
+                evidence={
+                    "neighbors": [_evidence(n, taken_at) for n in group[:MAX_EVIDENCE]],
+                    # Of the photo, not of the candidate: the same for all of them.
+                    "spread_km": None if apart is None else round(apart, 1),
+                    "spread": spread_class(apart),
+                },
             )
         )
     return result[:MAX_CANDIDATES]

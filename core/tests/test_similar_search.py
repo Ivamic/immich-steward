@@ -13,7 +13,16 @@ from sqlalchemy import bindparam, text
 from test_embeddings import encoded, run_module, start_worker
 
 from steward.models import EMBEDDING_DIM, Account, Asset, Embedding, ModuleRun
-from steward.modules.similar import CALIBRATION, calibrated
+from steward.modules.similar import (
+    CALIBRATION,
+    CALIBRATION_POINT,
+    CALIBRATION_SPREAD,
+    WIDE_KM,
+    Neighbor,
+    calibrated,
+    spread_class,
+    spread_km,
+)
 
 KOTOR = {"latitude": 42.4247, "longitude": 18.7712}
 # About 300 m from Kotor.
@@ -82,10 +91,16 @@ def test_similar_photos_grouped_by_place(signed_in: TestClient, library: dict[st
         (1, ["set-by-app.jpg"], "confident", ROME["latitude"]),
         # Two photos 300 m apart are one place, at the spot of the more similar one.
         (2, ["kotor.jpg", "kotor-near.jpg"], "confident", KOTOR["latitude"]),
-        (3, ["budva.jpg"], "normal", BUDVA["latitude"]),
+        # The five most similar lie from Rome to Paris: a view seen in many places, so a less
+        # similar one is only weak (D-200).
+        (3, ["budva.jpg"], "weak", BUDVA["latitude"]),
     ]
     rome, kotor, _ = module["candidates"]
-    assert kotor["score"] == pytest.approx(calibrated(0.6), abs=0.01)
+    spread = kotor["evidence"]["spread_km"]
+    assert spread > WIDE_KM
+    assert kotor["evidence"]["spread"] == "wide"
+    assert all(c["evidence"]["spread_km"] == spread for c in module["candidates"])
+    assert kotor["score"] == pytest.approx(calibrated(0.6, spread), abs=0.01)
     assert 250 <= kotor["radius_m"] <= 350
     first = kotor["evidence"]["neighbors"][0]
     assert first["similarity"] == pytest.approx(0.6, abs=0.002)
@@ -191,9 +206,71 @@ def test_search_uses_the_index(signed_in: TestClient, library: dict[str, str]) -
     assert "ix_embedding_search" in signed_in.portal.call(plan)  # type: ignore[union-attr]
 
 
-def test_calibration_is_monotonic_and_bounded() -> None:
-    scores = [calibrated(s / 100) for s in range(0, 101)]
+@pytest.mark.parametrize(
+    ("spread", "curve"),
+    [(None, CALIBRATION), (0.1, CALIBRATION_POINT), (3.0, CALIBRATION_SPREAD)],
+)
+def test_calibration_is_monotonic_and_bounded(
+    spread: float | None, curve: tuple[tuple[float, float], ...]
+) -> None:
+    scores = [calibrated(s / 100, spread) for s in range(0, 101)]
     assert scores == sorted(scores)
-    assert scores[0] == CALIBRATION[0][1]
-    assert scores[-1] == CALIBRATION[-1][1]
+    assert scores[0] == curve[0][1]
+    assert scores[-1] == curve[-1][1]
     assert calibrated(0.22) == pytest.approx(0.55)
+
+
+def test_one_spot_is_trusted_more_than_many() -> None:
+    assert calibrated(0.25, 0.2) > calibrated(0.25) > calibrated(0.25, 2.0)
+    assert calibrated(0.25, 2.0) == calibrated(0.25, 200.0)
+
+
+def neighbor(latitude: float, longitude: float) -> Neighbor:
+    return Neighbor(uuid.uuid4(), 0.5, latitude, longitude, datetime(2024, 5, 1), "a.jpg", False)
+
+
+def test_spread_of_the_five_most_similar() -> None:
+    near = [neighbor(KOTOR["latitude"], KOTOR["longitude"]) for _ in range(5)]
+    assert spread_km(near) == pytest.approx(0.0)
+    # Fewer than five: the spread is not told, the general calibration is used.
+    assert spread_km(near[:4]) is None
+    # Only the five most similar count: a sixth far away changes nothing.
+    assert spread_km([*near, neighbor(**PARIS)]) == pytest.approx(0.0)
+    # Four in Kotor and one in Budva, 17 km away: about 7 km from their centroid on average.
+    far = [*near[:4], neighbor(**BUDVA)]
+    assert 6 < (spread_km(far) or 0) < 8
+    classes = [spread_class(km) for km in (None, 0.3, 7.0, WIDE_KM)]
+    assert classes == [None, "point", "apart", "wide"]
+
+
+def test_photos_alike_in_one_spot_are_trusted_more(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    """Five photos of similarity 0.25 within 300 m: with the general calibration ~0.64 (normal),
+    in one spot ~0.84 (confident)."""
+    names = ["query.jpg", *(f"kotor-{n}.jpg" for n in range(5))]
+    for hour, name in enumerate(names):
+        exif = (
+            {}
+            if name == "query.jpg"
+            else {
+                "latitude": KOTOR["latitude"] + hour * 0.0005,
+                "longitude": KOTOR["longitude"],
+            }
+        )
+        fake_immich.add_asset(
+            taken=f"2024-05-01T{10 + hour}:00:00", originalFileName=name, exif=exif
+        )
+    sync(signed_in)
+    items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    ids = {item["file_name"]: item["id"] for item in items}
+    worker = start_worker(signed_in)
+    for index, name in enumerate(names, start=1):
+        vector = QUERY if name == "query.jpg" else similar_to_query(0.25, index)
+        assert run_module(signed_in, worker, ids[name], {"embedding": encoded(vector)}).is_success
+
+    [candidate] = similar(signed_in, ids["query.jpg"])["candidates"]
+    assert candidate["evidence"]["spread_km"] < 0.5
+    assert candidate["evidence"]["spread"] == "point"
+    assert candidate["score"] == pytest.approx(calibrated(0.25, 0.1), abs=0.01)
+    assert candidate["tier"] == "confident"

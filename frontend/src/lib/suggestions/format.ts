@@ -197,6 +197,17 @@ export function candidateRemarks(candidate: Candidate): string[] {
 	return remarks;
 }
 
+/** Similar photos seen in many places: the view alone tells the place less surely (D-200). The
+ * spread is that of the photo, the same in each candidate, so it is said once per module. */
+export function spreadNote(module: ModuleSuggestions): string | null {
+	const { spread, spread_km: km } = module.candidates[0]?.evidence ?? {};
+	if ((spread !== 'apart' && spread !== 'wide') || typeof km !== 'number') return null;
+	const distance = formatDistance(km * 1000);
+	return spread === 'wide'
+		? m.module_note_spread_wide({ distance })
+		: m.module_note_spread({ distance });
+}
+
 /** The modules shown in the card: hidden ones only once revealed there. */
 export function displayedModules(
 	modules: ModuleSuggestions[],

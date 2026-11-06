@@ -181,6 +181,8 @@
 	"module_time_neighbors": "Voisines dans le temps",
 	"module_note_no_neighbors": "Aucune photo avec un lieu proche dans le temps.",
 	"module_note_scanner": "Cela ressemble à un scan : sa date est celle de la numérisation, donc aucune voisine dans le temps n'est proposée.",
+	"module_note_spread": "Les photos les plus similaires ont été prises à différents endroits, à environ {distance} les unes des autres : la vue indique le lieu moins sûrement.",
+	"module_note_spread_wide": "La même vue a été prise à des endroits distants d’environ {distance} : à elle seule, elle n’indique pas le lieu.",
 	"neighbor_ref": "{file} ({delta})",
 	"candidate_between": "Sur le trajet entre {before} et {after}",
 	"candidate_same_place": "Là où {photo} a été prise",

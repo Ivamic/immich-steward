@@ -34,6 +34,7 @@
 		formatDistance,
 		moduleName,
 		moduleNote,
+		spreadNote,
 		neighborMeta,
 		noCandidates,
 		numberCandidates,
@@ -293,6 +294,9 @@
 			{/if}
 			{#if module.note && !module.candidates.length}
 				<p class="st-sgroup__note"><Icon name="info" size={14} />{moduleNote(module.note)}</p>
+			{/if}
+			{#if spreadNote(module)}
+				<p class="st-sgroup__note"><Icon name="info" size={14} />{spreadNote(module)}</p>
 			{/if}
 			<ol class="st-sgroup__list">
 				{#each module.candidates as candidate (candidate.rank)}

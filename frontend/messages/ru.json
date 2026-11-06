@@ -181,6 +181,8 @@
 	"module_time_neighbors": "Соседи по времени",
 	"module_note_no_neighbors": "Рядом по времени нет фото с местом.",
 	"module_note_scanner": "Похоже на скан: его дата — дата сканирования, поэтому соседи по времени не предлагаются.",
+	"module_note_spread": "Самые похожие фото сняты в разных местах, примерно в {distance} друг от друга: по виду место определяется менее надёжно.",
+	"module_note_spread_wide": "Такой же вид снят в местах примерно в {distance} друг от друга: сам по себе он место не определяет.",
 	"neighbor_ref": "{file} ({delta})",
 	"candidate_between": "По пути между {before} и {after}",
 	"candidate_same_place": "Там же, где {photo}",

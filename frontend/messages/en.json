@@ -181,6 +181,8 @@
 	"module_time_neighbors": "Time neighbors",
 	"module_note_no_neighbors": "No photos with a location close in time.",
 	"module_note_scanner": "Looks like a scan: its date is the scan date, so time neighbors are not suggested.",
+	"module_note_spread": "The most similar photos were taken in different places, about {distance} apart: the view tells the place less surely.",
+	"module_note_spread_wide": "The same view was taken in places about {distance} apart: on its own it does not tell the place.",
 	"neighbor_ref": "{file} ({delta})",
 	"candidate_between": "On the way between {before} and {after}",
 	"candidate_same_place": "Where {photo} was taken",

@@ -93,13 +93,19 @@ async def refresh(
             )
         )
         for asset_id, vector in rows:
+            # As many as the card searches: the spread of the most similar, and with it the
+            # score, is then the same as there (the search ranks 400 either way).
             found = await similar.search(
-                db, vector, account_id, asset_id, settings.similar_include_estimated, limit=1
+                db, vector, account_id, asset_id, settings.similar_include_estimated
             )
             # Without a neighbor (all of them trash) the hint says so: a photo with no hint
             # would wait for one at every look.
             best = found[0] if found else None
-            score = round(similar.calibrated(best.similarity), 4) if best else 0.0
+            score = (
+                round(similar.calibrated(best.similarity, similar.spread_km(found)), 4)
+                if best
+                else 0.0
+            )
             confident_count += score >= settings.similar_confident_from
             values = {
                 "similarity": best.similarity if best else 0.0,

@@ -12,6 +12,7 @@ import {
 	hiddenModules,
 	neighborMeta,
 	numberCandidates,
+	spreadNote,
 	visibleSuggestions
 } from './format.js';
 
@@ -49,6 +50,8 @@ const module = (id: string, count: number): ModuleSuggestions => ({
 	note: null,
 	hidden: false
 });
+
+const similarModule = module('similar', 0);
 
 describe('suggestion formatting', () => {
 	it('leaves hidden modules out until revealed', () => {
@@ -115,6 +118,21 @@ describe('suggestion formatting', () => {
 		expect(candidateRemarks(similar([photo('a.jpg')]))).toEqual([]);
 		expect(neighborMeta(photo('a.jpg'), '')).toBe('42% alike · 2019-07-14');
 		expect(neighborMeta(photo('a.jpg', true), '')).toContain('set by hand');
+	});
+
+	it('says once when the most similar photos lie far apart', () => {
+		const spread = (kind: 'point' | 'apart' | 'wide' | null, km: number | null) =>
+			spreadNote({
+				...similarModule,
+				candidates: [
+					{ ...candidate(1), kind: 'similar', evidence: { spread: kind, spread_km: km } }
+				]
+			});
+		expect(spread('point', 0.2)).toBeNull();
+		expect(spread(null, null)).toBeNull();
+		expect(spread('apart', 3.4)).toContain('about 3.4 km apart');
+		expect(spread('wide', 120)).toContain('does not tell the place');
+		expect(spreadNote({ ...similarModule, candidates: [] })).toBeNull();
 	});
 
 	it('describes a time neighbor by its time and camera', () => {

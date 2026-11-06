@@ -397,7 +397,13 @@ export interface Candidate {
 	score: number;
 	radius_m: number | null;
 	kind: string;
-	evidence: { neighbors?: NeighborEvidence[]; share?: number } & Record<string, unknown>;
+	evidence: {
+		neighbors?: NeighborEvidence[];
+		share?: number;
+		/** Similar photos (M3): how far apart the most similar photos lie, km (D-200). */
+		spread_km?: number | null;
+		spread?: 'point' | 'apart' | 'wide' | null;
+	} & Record<string, unknown>;
 	/** weak: shown folded ("probably only the region is right"); confident: marked as such. */
 	tier: 'weak' | 'normal' | 'confident';
 }

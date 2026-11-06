@@ -181,6 +181,8 @@
 	"module_time_neighbors": "Zeitliche Nachbarn",
 	"module_note_no_neighbors": "Keine zeitlich nahen Fotos mit Standort.",
 	"module_note_scanner": "Sieht aus wie ein Scan: Sein Datum ist das Scandatum, daher werden keine zeitlichen Nachbarn vorgeschlagen.",
+	"module_note_spread": "Die ähnlichsten Fotos wurden an verschiedenen Orten aufgenommen, etwa {distance} voneinander entfernt: Die Ansicht verrät den Ort weniger sicher.",
+	"module_note_spread_wide": "Dieselbe Ansicht wurde an Orten etwa {distance} voneinander entfernt aufgenommen: Allein verrät sie den Ort nicht.",
 	"neighbor_ref": "{file} ({delta})",
 	"candidate_between": "Auf dem Weg zwischen {before} und {after}",
 	"candidate_same_place": "Wo {photo} aufgenommen wurde",

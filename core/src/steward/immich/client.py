@@ -117,6 +117,17 @@ class ImmichClient:
             next_page=int(next_page) if next_page else None,
         )
 
+    async def smart_search(
+        self, query: str, *, size: int = 200, language: str | None = None
+    ) -> list[UUID]:
+        """The assets that best match a description (CLIP of Immich), best first. Immich gives
+        no score, only the order. Needs smart search on in Immich (400 otherwise)."""
+        body: dict[str, Any] = {"query": query, "size": size, "page": 1}
+        if language:
+            body["language"] = language
+        data = (await self._request("POST", "/search/smart", json=body))["assets"]
+        return [UUID(item["id"]) for item in data["items"]]
+
     async def albums(self) -> list[ImmichAlbum]:
         """Albums owned by the user and albums shared with them."""
         owned = await self._request("GET", "/albums")

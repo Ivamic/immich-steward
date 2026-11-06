@@ -12,11 +12,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import view_groups
-from steward.api.assets import AssetItem
+from steward.api.assets import AssetItem, _immich
 from steward.api.library import JobOut
-from steward.deps import CurrentAccount, DbDep
+from steward.deps import CurrentAccount, DbDep, ImmichFactoryDep, SecretBoxDep, SettingsDep
 from steward.embeddings import is_located
 from steward.errors import ApiError
+from steward.immich import ImmichError
 from steward.jobs import ACTIVE_STATUSES, enqueue
 from steward.models import Account, Job, ViewGroup
 from steward.view_groups import Summary
@@ -28,6 +29,8 @@ MAX_ASSETS = 2000
 # Photos of the trash given at a time.
 TRASHED_PAGE = 120
 TRASHED_MOST = 500
+# The most Immich gives for a smart search at a time.
+SMART_SEARCH_MOST = 1000
 # Who set a mark "no sign of a place".
 MarkSource = Literal["user", "auto"]
 # Groups shown as lying in the same spot as a group.
@@ -137,6 +140,8 @@ class PhotoGroups(BaseModel):
     no_sign: bool
     # Marked by the app, not by the user (D-200).
     no_sign_auto: bool = False
+    # Marked by itself, not only with its whole group: the mark can be taken off here.
+    no_sign_self: bool = False
 
 
 class GroupParts(BaseModel):
@@ -166,6 +171,8 @@ class TrashedPhotos(BaseModel):
     photos: list[AssetItem]
     # Those of the page the app marked.
     auto_ids: list[UUID] = []
+    # Photos marked with their whole group, not counted above.
+    in_groups: int = 0
 
 
 def _in_view(summary: Summary, view: GroupView) -> bool:
@@ -295,7 +302,12 @@ async def groups_of_photo(asset_id: UUID, account: CurrentAccount, db: DbDep) ->
     """What the groups say about a photo, for its card."""
     group, no_sign, source = await view_groups.mark_of_photo(db, account.id, asset_id)
     found = PhotoGroup(id=group.id, name=group.name) if group else None
-    return PhotoGroups(group=found, no_sign=no_sign, no_sign_auto=source == view_groups.AUTO_MARK)
+    return PhotoGroups(
+        group=found,
+        no_sign=no_sign,
+        no_sign_auto=source == view_groups.AUTO_MARK,
+        no_sign_self=source is not None,
+    )
 
 
 async def _trashed(
@@ -308,6 +320,7 @@ async def _trashed(
     totals, found = await view_groups.trashed_photos(db, account.id, offset, limit, source)
     return TrashedPhotos(
         **totals,
+        in_groups=await view_groups.in_marked_groups(db, account.id),
         photos=[AssetItem.of(asset) for asset, _ in found],
         auto_ids=[asset.id for asset, mark in found if mark == view_groups.AUTO_MARK],
     )
@@ -332,6 +345,49 @@ async def confirm_trash_photos(
     await view_groups.confirm_photos(db, account.id, body.ids)
     await _rebuild_soon(db, account)
     return await _trashed(db, account)
+
+
+class Candidates(BaseModel):
+    """Photos that may show no sign of a place, for the user to mark (A1.3)."""
+
+    photos: list[AssetItem]
+
+
+@router.get("/candidates/scattered")
+async def scattered_candidates(
+    account: CurrentAccount,
+    db: DbDep,
+    limit: int = Query(default=view_groups.CANDIDATES_MOST, ge=1, le=view_groups.CANDIDATES_MOST),
+) -> Candidates:
+    """Photos alike several photos with a location that lie far apart: a view seen in many
+    places."""
+    found = await view_groups.scattered(db, account.id, limit)
+    return Candidates(photos=[AssetItem.of(asset) for asset in found])
+
+
+@router.get("/candidates/described")
+async def described_candidates(
+    account: CurrentAccount,
+    db: DbDep,
+    settings: SettingsDep,
+    factory: ImmichFactoryDep,
+    box: SecretBoxDep,
+    query: str = Query(min_length=1, max_length=200),
+    language: str | None = Query(default=None, max_length=10),
+    limit: int = Query(default=view_groups.CANDIDATES_MOST, ge=1, le=SMART_SEARCH_MOST),
+) -> Candidates:
+    """Photos that match a description by the smart search of Immich (CLIP): what Immich finds
+    first, not those marked already. Only the text goes to Immich, nothing else leaves."""
+    async with _immich(settings, factory, box, account) as client:
+        try:
+            immich_ids = await client.smart_search(query, size=limit, language=language)
+        except ImmichError as exc:
+            # Immich answers 400 when its smart search (machine learning) is off.
+            if exc.status == 400:
+                raise ApiError(409, "immich_smart_search_off") from exc
+            raise
+    found = await view_groups.unmarked(db, account.id, immich_ids)
+    return Candidates(photos=[AssetItem.of(asset) for asset in found])
 
 
 @router.post("/trash-photos")
@@ -372,9 +428,13 @@ async def update_group(
     group = await _own_group(db, account, group_id)
     if body.name is not None:
         group.name = body.name.strip() or None
+    trash_changed = body.trash is not None and body.trash != group.trash
     if body.trash is not None:
         group.trash = body.trash
     await db.commit()
+    # Its photos teach the marks of the app, or no more.
+    if trash_changed:
+        await _rebuild_soon(db, account)
     return await _detail(db, account, group)
 
 

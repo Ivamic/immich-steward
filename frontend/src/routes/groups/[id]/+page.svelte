@@ -532,7 +532,7 @@
 			disabled={busy}
 			onclick={() => act(() => updateGroup(id, { trash: !detail?.group.trash }))}
 		>
-			<Icon name="ban" size={14} />
+			<Icon name="eye-off" size={14} />
 			{detail.group.trash ? m.groups_untrash() : m.groups_trash()}
 		</button>
 		<button
@@ -672,7 +672,7 @@
 					disabled={busy || nearChosen.size === 0}
 					onclick={trashNear}
 				>
-					<Icon name="ban" size={14} />
+					<Icon name="eye-off" size={14} />
 					{m.groups_photos_trash()}
 				</button>
 				<button
@@ -965,7 +965,7 @@
 			{m.groups_exclude()}
 		</button>
 		<button type="button" class="st-btn st-btn--ghost st-btn--sm" disabled={busy} onclick={toTrash}>
-			<Icon name="ban" size={14} />
+			<Icon name="eye-off" size={14} />
 			{m.groups_photos_trash()}
 		</button>
 	</SelectionBar>

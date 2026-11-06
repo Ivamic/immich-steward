@@ -219,7 +219,7 @@ def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
     return by_name
 
 
-NONE_MARKED = {"total": 0, "user": 0, "auto": 0, "photos": [], "auto_ids": []}
+NONE_MARKED = {"total": 0, "user": 0, "auto": 0, "photos": [], "auto_ids": [], "in_groups": 0}
 
 
 def schedule(client: TestClient) -> None:
@@ -1016,6 +1016,7 @@ def test_the_card_of_a_photo_tells_its_group(
         "group": {"id": str(yard), "name": "Yard"},
         "no_sign": False,
         "no_sign_auto": False,
+        "no_sign_self": False,
     }
 
     signed_in.patch(f"/api/groups/{yard}", json={"trash": True})
@@ -1027,6 +1028,7 @@ def test_the_card_of_a_photo_tells_its_group(
         "group": None,
         "no_sign": False,
         "no_sign_auto": False,
+        "no_sign_self": False,
     }
 
     # Marked by itself, it stays with the group, out of its photos.
@@ -1035,6 +1037,7 @@ def test_the_card_of_a_photo_tells_its_group(
         "group": {"id": str(yard), "name": "Yard"},
         "no_sign": True,
         "no_sign_auto": False,
+        "no_sign_self": True,
     }
 
     # Taken out by hand, it is in no group for the card.
@@ -1238,3 +1241,132 @@ def test_the_marks_of_the_app_follow_the_settings(
     run_jobs(signed_in)
     assert marks(signed_in)["auto"] == 0
     assert signed_in.put("/api/settings", json={"trash_auto_marks": 0}).status_code == 422
+
+
+# --- Photos that may show no sign of a place (A1.3) ----------------------------------------------
+
+CITIES = [
+    (42.42, 18.77),  # Kotor
+    (41.90, 12.50),  # Rome
+    (48.86, 2.35),  # Paris
+    (52.52, 13.40),  # Berlin
+    (40.42, -3.70),  # Madrid
+    (59.91, 10.75),  # Oslo
+    (48.21, 16.37),  # Vienna
+]
+
+
+def immich_ids(client: TestClient, names: dict[str, str]) -> dict[str, UUID]:
+    """Name -> id of the photo in Immich."""
+
+    async def read() -> dict[str, UUID]:
+        async with client.app.state.sessionmaker() as db:  # type: ignore[attr-defined]
+            rows = await db.execute(select(Asset.original_file_name, Asset.immich_id))
+            return {name: immich_id for name, immich_id in rows if name in names}
+
+    return client.portal.call(read)  # type: ignore[union-attr]
+
+
+def test_photos_described_are_found_by_immich_but_not_the_marked_ones(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    ids = immich_ids(signed_in, library)
+    fake_immich.smart_results["a dog"] = [
+        str(ids["yard0.jpg"]),
+        str(ids["yard1.jpg"]),
+        str(ids["kitchen0.jpg"]),
+    ]
+    signed_in.post("/api/groups/trash-photos", json={"ids": [library["yard1.jpg"]]})
+
+    answer = signed_in.get(
+        "/api/groups/candidates/described", params={"query": "a dog", "language": "ru"}
+    )
+    assert answer.status_code == 200
+    assert [p["file_name"] for p in answer.json()["photos"]] == ["yard0.jpg", "kitchen0.jpg"]
+    # Only the text goes to Immich.
+    assert fake_immich.smart_requests[-1] == {
+        "query": "a dog",
+        "size": 200,
+        "page": 1,
+        "language": "ru",
+    }
+
+    fake_immich.smart_search_on = False
+    off = signed_in.get("/api/groups/candidates/described", params={"query": "a dog"})
+    assert (off.status_code, off.json()["code"]) == (409, "immich_smart_search_off")
+
+
+def test_photos_alike_others_far_apart_are_candidates(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    """A dog photographed in seven cities, a house in one spot: only the dog is a candidate."""
+    vectors: dict[str, list[float]] = {}
+    for i, (latitude, longitude) in enumerate(CITIES):
+        fake_immich.add_asset(
+            taken=f"2024-05-01T10:{i:02}:00",
+            originalFileName=f"dog{i}.jpg",
+            exif={"latitude": latitude, "longitude": longitude},
+        )
+        vectors[f"dog{i}.jpg"] = scene(3, i)
+        fake_immich.add_asset(
+            taken=f"2024-05-01T11:{i:02}:00",
+            originalFileName=f"house{i}.jpg",
+            exif={"latitude": 42.42 + i * 0.001, "longitude": 18.77},
+        )
+        vectors[f"house{i}.jpg"] = scene(4, i)
+    sync(signed_in)
+    items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    by_name = {item["file_name"]: item["id"] for item in items}
+    worker = start_worker(signed_in)
+    for name, vector in vectors.items():
+        run_module(signed_in, worker, by_name[name], {"embedding": encoded(vector)})
+    schedule(signed_in)
+
+    def found() -> set[str]:
+        answer = signed_in.get("/api/groups/candidates/scattered")
+        assert answer.status_code == 200
+        return {p["file_name"] for p in answer.json()["photos"]}
+
+    assert found() == {f"dog{i}.jpg" for i in range(7)}
+
+    # Marked or brought back by the user: not a candidate any more.
+    signed_in.post("/api/groups/trash-photos", json={"ids": [by_name["dog0.jpg"]]})
+    signed_in.post("/api/groups/trash-photos", json={"ids": [by_name["dog1.jpg"]]})
+    signed_in.post("/api/groups/trash-photos/restore", json={"ids": [by_name["dog1.jpg"]]})
+    assert found() == {f"dog{i}.jpg" for i in range(2, 7)}
+
+
+def test_a_group_marked_whole_teaches_the_marks_of_the_app(
+    signed_in: TestClient, fake_immich: FakeImmich, library: dict[str, str]
+) -> None:
+    """A photo alike the yard but not in its group (0.46: under the 0.47 of the groups) is marked
+    when the yard is marked whole, and not when it is taken out of the marked group."""
+    fake_immich.add_asset(taken="2024-05-01T12:00:00", originalFileName="yard-far.jpg")
+    sync(signed_in, full=True)
+    items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
+    far = next(item["id"] for item in items if item["file_name"] == "yard-far.jpg")
+    vector = [0.0] * EMBEDDING_DIM
+    vector[0], vector[500] = 0.48, math.sqrt(1 - 0.48**2)
+    run_module(signed_in, start_worker(signed_in), far, {"embedding": encoded(vector)})
+    names = library | {"yard-far.jpg": far}
+    signed_in.put("/api/settings", json={"trash_auto_similarity": 0.4})
+    schedule(signed_in)
+    yard = group_of(signed_in, names, "yard0.jpg")
+    assert "yard-far.jpg" not in groups(signed_in, names)[yard]
+
+    signed_in.patch(f"/api/groups/{yard}", json={"trash": True})
+    run_jobs(signed_in)  # the change asked for a rebuild
+    found = marks(signed_in)
+    assert marked_names(signed_in, "auto") == {"yard-far.jpg"}
+    assert found["in_groups"] == 5
+    # Marked with the group already: not marked again by themselves.
+    assert not {f"yard{i}.jpg" for i in range(5)} & marked_names(signed_in)
+
+    # A photo taken out of the marked group is not like it: the app leaves it alone.
+    signed_in.post(f"/api/groups/{yard}/exclude", json={"ids": [library["yard4.jpg"]]})
+    run_jobs(signed_in)
+    assert "yard4.jpg" not in marked_names(signed_in)
+
+    signed_in.patch(f"/api/groups/{yard}", json={"trash": False})
+    run_jobs(signed_in)
+    assert marks(signed_in)["auto"] == 0

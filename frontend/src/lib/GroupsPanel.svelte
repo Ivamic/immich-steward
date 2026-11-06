@@ -139,6 +139,32 @@
 			<span class="hint">{m.groups_settings_mutual_hint()}</span>
 		</span>
 	</label>
+	<p class="hint">{m.groups_settings_split_hint()}</p>
+	<p class="hint">{m.groups_settings_rebuild_hint()}</p>
+	<div>
+		<button
+			type="button"
+			class="st-btn st-btn--secondary st-btn--sm"
+			disabled={isActive(job)}
+			onclick={searchAgain}
+		>
+			{m.groups_settings_search_again()}
+		</button>
+		<p class="hint">{m.groups_settings_search_again_hint()}</p>
+	</div>
+	<div>
+		<button
+			type="button"
+			class="st-btn st-btn--secondary st-btn--sm"
+			disabled={isActive(job)}
+			onclick={() => (confirmReset = true)}
+		>
+			{m.groups_settings_reset()}
+		</button>
+		<p class="hint">{m.groups_settings_reset_hint()}</p>
+	</div>
+	<!-- Apart from the thresholds of the groups: the marks have their own rule (D-200). -->
+	<h3>{m.groups_view_trash()}</h3>
 	<label class="st-check">
 		<input
 			type="checkbox"
@@ -187,30 +213,6 @@
 			</span>
 		</label>
 	{/if}
-	<p class="hint">{m.groups_settings_split_hint()}</p>
-	<p class="hint">{m.groups_settings_rebuild_hint()}</p>
-	<div>
-		<button
-			type="button"
-			class="st-btn st-btn--secondary st-btn--sm"
-			disabled={isActive(job)}
-			onclick={searchAgain}
-		>
-			{m.groups_settings_search_again()}
-		</button>
-		<p class="hint">{m.groups_settings_search_again_hint()}</p>
-	</div>
-	<div>
-		<button
-			type="button"
-			class="st-btn st-btn--secondary st-btn--sm"
-			disabled={isActive(job)}
-			onclick={() => (confirmReset = true)}
-		>
-			{m.groups_settings_reset()}
-		</button>
-		<p class="hint">{m.groups_settings_reset_hint()}</p>
-	</div>
 	{#if error}
 		<p class="error" role="alert">{error}</p>
 	{/if}
@@ -242,8 +244,13 @@
 		margin-bottom: var(--space-10);
 	}
 	h2,
+	h3,
 	p {
 		margin: 0;
+	}
+	h3 {
+		margin-top: var(--space-3);
+		font-size: var(--text-base);
 	}
 	.field {
 		display: grid;

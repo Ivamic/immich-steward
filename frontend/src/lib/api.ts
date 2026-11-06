@@ -828,6 +828,8 @@ export const getPhotoGroup = (id: string) =>
 		no_sign: boolean;
 		/** Marked by the app, not by the user. */
 		no_sign_auto: boolean;
+		/** Marked by itself, not only with its whole group: the mark can be taken off here. */
+		no_sign_self: boolean;
 	}>('GET', `/api/groups/of-photo/${id}`);
 /** Other groups in the main spot of a group: other sides of one place. */
 export const getGroupSameSpot = (id: string) =>
@@ -852,6 +854,8 @@ export interface TrashedPhotos {
 	photos: AssetItem[];
 	/** Those of the page the app marked. */
 	auto_ids: string[];
+	/** Photos marked with their whole group, not counted above. */
+	in_groups: number;
 }
 export const getTrashedPhotos = (offset: number, limit: number, source?: MarkSource) =>
 	request<TrashedPhotos>(
@@ -861,6 +865,21 @@ export const getTrashedPhotos = (offset: number, limit: number, source?: MarkSou
 /** Marks photos from anywhere: out of the suggestions and of the groups. */
 export const markPhotos = (ids: string[]) =>
 	request<TrashedPhotos>('POST', '/api/groups/trash-photos', { ids });
+/** Photos that may show no sign of a place (A1.3). */
+export interface Candidates {
+	photos: AssetItem[];
+}
+/** Found by a description through the smart search of Immich (only the text goes there). */
+export const getDescribedCandidates = (query: string, language?: string) =>
+	request<Candidates>(
+		'GET',
+		`/api/groups/candidates/described?query=${encodeURIComponent(query)}${
+			language ? `&language=${encodeURIComponent(language)}` : ''
+		}`
+	);
+/** Alike photos with a location that lie far apart: a view seen in many places. */
+export const getScatteredCandidates = () =>
+	request<Candidates>('GET', '/api/groups/candidates/scattered');
 /** Marks the app set become the user's own. */
 export const confirmPhotos = (ids: string[]) =>
 	request<TrashedPhotos>('POST', '/api/groups/trash-photos/confirm', { ids });

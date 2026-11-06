@@ -95,6 +95,10 @@ class FakeImmich:
     edit_thumbnails_late: bool = False
     # Immich's metadata job turns exactly (0, 0) into "no location".
     clears_null_island: bool = True
+    # Smart search (CLIP): query -> asset ids, best first; off as with machine learning off.
+    smart_results: dict[str, list[str]] = field(default_factory=dict)
+    smart_search_on: bool = True
+    smart_requests: list[dict[str, Any]] = field(default_factory=list)
 
     def add_asset(self, **fields: Any) -> str:
         """Adds an asset in the Immich API shape; returns its id."""
@@ -306,6 +310,14 @@ class FakeImmich:
             return httpx2.Response(200, content=content, headers={"content-type": "image/jpeg"})
         if path == "/api/search/metadata":
             return self._search(json.loads(request.content))
+        if path == "/api/search/smart":
+            body = json.loads(request.content)
+            self.smart_requests.append(body)
+            if not self.smart_search_on:
+                return _json({"message": "Smart search is not enabled"}, 400)
+            found = self.smart_results.get(body["query"], [])[: body.get("size", 100)]
+            items = [self.assets[i] for i in found if i in self.assets]
+            return _json({"assets": {"items": items, "nextPage": None}})
         if path == "/api/albums":
             shared = request.url.params.get("shared") == "true"
             return _json([a for a in self.albums.values() if a["shared"] == shared])

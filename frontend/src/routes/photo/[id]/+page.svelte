@@ -12,6 +12,8 @@
 		getMapConfig,
 		getSuggestions,
 		isPending,
+		markPhotos,
+		restorePhotos,
 		rotateInImmich,
 		runModule,
 		setReview,
@@ -381,6 +383,24 @@
 		if (targetId) goto(resolve(`/photo/[id]${stepQuery}`, { id: targetId }));
 	}
 
+	/** Marks the photo as showing no sign of a place, or takes its own mark off: other photos
+	 * get their place from it no more (or again); its suggestions follow at once. */
+	async function setNoSign(on: boolean) {
+		if (!asset || busy) return;
+		const assetId = asset.id;
+		busy = true;
+		try {
+			await (on ? markPhotos([assetId]) : restorePhotos([assetId]));
+			const answer = await getPhotoGroup(assetId);
+			if (assetId === id) groups = answer;
+			fetchSuggestions(assetId);
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
+
 	async function review(status: ReviewStatus) {
 		if (!asset || busy || asset.review_status === status) return;
 		busy = true;
@@ -668,6 +688,18 @@
 								<Kbd>U</Kbd>
 							</button>
 						{/if}
+						{#if groups && !groups.no_sign}
+							<button
+								type="button"
+								class="st-btn st-btn--block"
+								title={m.photo_no_sign_mark_hint()}
+								disabled={busy}
+								onclick={() => setNoSign(true)}
+							>
+								<Icon name="eye-off" />
+								{m.groups_photos_trash()}
+							</button>
+						{/if}
 					</div>
 					{#if pending}
 						<div class="st-banner st-banner--warning" role="status">
@@ -854,13 +886,22 @@
 							<dd>
 								{m.photo_no_sign()}
 								{#if groups.no_sign_auto}{m.photo_no_sign_auto()}{/if}
-								<a
-									href={groups.group
-										? resolve('/groups/[id]', { id: groups.group.id })
-										: resolve('/groups?view=trash')}
-								>
-									{m.photo_no_sign_change()}
-								</a>
+								{#if groups.no_sign_self}
+									<!-- Its own mark: taken off here. -->
+									<button
+										type="button"
+										class="st-btn st-btn--ghost st-btn--sm unmark"
+										disabled={busy}
+										onclick={() => setNoSign(false)}
+									>
+										{m.photo_no_sign_unmark()}
+									</button>
+								{:else if groups.group}
+									<!-- Marked with its whole group: changed there. -->
+									<a href={resolve('/groups/[id]', { id: groups.group.id })}>
+										{m.photo_no_sign_change()}
+									</a>
+								{/if}
 							</dd>
 						{/if}
 						<dt>{m.photo_location()}</dt>

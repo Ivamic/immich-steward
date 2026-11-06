@@ -33,6 +33,8 @@ export function errorMessage(error: unknown): string {
 			return m.error_map_source_needs_key();
 		case 'map_source_not_enabled':
 			return m.error_map_source_not_enabled();
+		case 'immich_smart_search_off':
+			return m.error_immich_smart_search_off();
 		case 'immich_error':
 			return m.error_immich_error();
 		case 'group_not_found':

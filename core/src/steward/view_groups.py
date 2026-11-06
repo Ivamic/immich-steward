@@ -51,6 +51,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import account_settings
 from steward.embeddings import located
+from steward.marks import is_marked
 from steward.models import (
     EMBEDDING_DIM,
     Asset,
@@ -194,19 +195,71 @@ _NEAR = text(
 
 
 # Photos with at least :marks photos marked by the user among their own neighbors, at least
-# :similarity alike (`auto_mark`).
+# :similarity alike (`auto_mark`). Marked by the user: by themselves, or with a whole group the user
+# marked (a group of documents teaches as much as its photos one by one).
 _AUTO = text(
     """
+    WITH mark AS (
+        SELECT asset_id FROM view_photo_trash
+        WHERE account_id = :account_id AND source = 'user'
+        UNION
+        SELECT member.asset_id FROM view_group_member AS member
+        JOIN view_group ON view_group.id = member.group_id
+        WHERE member.account_id = :account_id AND view_group.trash AND NOT view_group.dissolved
+            AND member.role <> 'excluded'
+    )
     SELECT n.asset_id
     FROM view_neighbor AS n
     CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
-    JOIN view_photo_trash AS mark ON mark.asset_id = p.b AND mark.source = 'user'
+    JOIN mark ON mark.asset_id = p.b
     JOIN asset ON asset.id = n.asset_id AND NOT asset.is_trashed
     WHERE n.account_id = :account_id AND p.s >= :similarity
     GROUP BY n.asset_id
     HAVING count(*) >= :marks
     """
 )
+
+
+# Photos whose most similar photos with a location look alike and lie far apart: a view seen in
+# many places (a pet, a document), maybe with no sign of a place (A1.3, D-200). The spread is
+# that of the suggestions (`modules.similar.spread_km`): the root mean square distance of the
+# `similar.SPREAD_OF` most similar to their centroid, here on a flat approximation (km per degree).
+_SCATTERED = text(
+    """
+    WITH near AS (
+        SELECT n.asset_id AS a, p.s, asset.latitude AS lat, asset.longitude AS lon,
+            row_number() OVER (PARTITION BY n.asset_id ORDER BY p.s DESC) AS k
+        FROM view_neighbor AS n
+        CROSS JOIN LATERAL unnest(n.neighbor_ids, n.similarities) AS p(b, s)
+        JOIN asset ON asset.id = p.b AND asset.latitude IS NOT NULL
+            AND asset.longitude IS NOT NULL AND NOT asset.is_trashed
+            AND NOT (asset.latitude = 0 AND asset.longitude = 0)
+        WHERE n.account_id = :account_id
+            AND NOT EXISTS (SELECT 1 FROM view_photo_trash AS mark WHERE mark.asset_id = p.b)
+    ), five AS (
+        SELECT a, avg(s) AS similarity, min(s) AS least,
+            sqrt(var_pop(lat) * 111.2 ^ 2 + var_pop(lon) * (111.2 * cos(radians(avg(lat)))) ^ 2)
+                AS spread_km
+        FROM near WHERE k <= :spread_of
+        GROUP BY a HAVING count(*) = :spread_of
+    )
+    SELECT five.a FROM five
+    JOIN asset ON asset.id = five.a AND NOT asset.is_trashed
+    WHERE five.least >= :similarity AND five.spread_km >= :spread_km
+        AND NOT EXISTS (SELECT 1 FROM view_photo_trash AS mark WHERE mark.asset_id = five.a)
+        AND NOT EXISTS (SELECT 1 FROM view_photo_keep AS kept WHERE kept.asset_id = five.a)
+        AND NOT EXISTS (
+            SELECT 1 FROM view_group_member AS member
+            JOIN view_group ON view_group.id = member.group_id
+            WHERE member.asset_id = five.a AND view_group.trash AND member.role <> 'excluded'
+        )
+    ORDER BY five.similarity DESC, five.a
+    LIMIT :limit
+    """
+)
+# "Alike": each of the five at least this similar (the badge "similar" is confident from ~0.45).
+SCATTERED_SIMILARITY = 0.5
+CANDIDATES_MOST = 200
 
 
 @dataclass(frozen=True)
@@ -1236,8 +1289,10 @@ async def restore_photos(db: AsyncSession, account_id: UUID, asset_ids: list[UUI
 async def auto_mark(db: AsyncSession, account_id: UUID, rule: AutoRule) -> dict[str, int]:
     """Sets the marks of the app anew from the user's marks: a photo with at least `rule.marks`
     of them among its neighbors, at least `rule.similarity` alike, is marked; a mark whose photos
-    the user took back goes. Only the user's marks count, or the marks would spread on their own.
-    Photos the user kept, marked whole with their group or in the trash of Immich are left."""
+    the user took back goes. Only the user's marks count (by themselves or with a whole group),
+    or the marks would spread on their own. Left are photos the user kept, those of a group
+    marked whole (marked with it already) and those the user took out of such a group (the user
+    said they are not like it), and those in the trash of Immich."""
     have = set(
         await db.scalars(
             select(ViewPhotoTrash.asset_id).where(
@@ -1270,8 +1325,8 @@ async def auto_mark(db: AsyncSession, account_id: UUID, rule: AutoRule) -> dict[
                 .join(ViewGroup, ViewGroup.id == ViewGroupMember.group_id)
                 .where(
                     ViewGroupMember.account_id == account_id,
-                    ViewGroupMember.role != EXCLUDED,
                     ViewGroup.trash.is_(True),
+                    ViewGroup.dissolved.is_(False),
                 )
             )
         )
@@ -1342,6 +1397,22 @@ async def restore_all_photos(db: AsyncSession, account_id: UUID) -> None:
     )
 
 
+async def in_marked_groups(db: AsyncSession, account_id: UUID) -> int:
+    """How many photos are marked with their whole group (not by themselves)."""
+    count = await db.scalar(
+        select(func.count())
+        .select_from(ViewGroupMember)
+        .join(ViewGroup, ViewGroup.id == ViewGroupMember.group_id)
+        .where(
+            ViewGroupMember.account_id == account_id,
+            ViewGroupMember.role != EXCLUDED,
+            ViewGroup.trash.is_(True),
+            ViewGroup.dissolved.is_(False),
+        )
+    )
+    return count or 0
+
+
 async def trashed_photos(
     db: AsyncSession, account_id: UUID, offset: int, limit: int, source: str | None = None
 ) -> tuple[dict[str, int], list[tuple[Asset, str]]]:
@@ -1369,6 +1440,45 @@ async def trashed_photos(
         "auto": counts.get(AUTO_MARK, 0),
     }
     return totals, [(asset, mark) for asset, mark in found]
+
+
+async def scattered(db: AsyncSession, account_id: UUID, limit: int) -> list[Asset]:
+    """Photos alike several photos with a location that lie far apart (`_SCATTERED`), the most
+    alike first; not those marked, kept by the user, or in a group marked whole."""
+    found = list(
+        await db.scalars(
+            _SCATTERED,
+            {
+                "account_id": account_id,
+                "spread_of": similar.SPREAD_OF,
+                "similarity": SCATTERED_SIMILARITY,
+                "spread_km": similar.WIDE_KM,
+                "limit": limit,
+            },
+        )
+    )
+    return await _in_order(db, found)
+
+
+async def unmarked(db: AsyncSession, account_id: UUID, immich_ids: list[UUID]) -> list[Asset]:
+    """The photos of the account with these ids in Immich, in their order: not those marked, kept
+    by the user, or in the trash of Immich."""
+    rows = await db.execute(
+        select(Asset.id, Asset.immich_id).where(
+            Asset.account_id == account_id,
+            Asset.immich_id.in_(immich_ids),
+            Asset.is_trashed.is_(False),
+            ~is_marked(),
+            ~exists().where(ViewPhotoKeep.asset_id == Asset.id),
+        )
+    )
+    by_immich = {immich_id: asset_id for asset_id, immich_id in rows}
+    return await _in_order(db, [by_immich[i] for i in immich_ids if i in by_immich])
+
+
+async def _in_order(db: AsyncSession, asset_ids: list[UUID]) -> list[Asset]:
+    assets = {a.id: a for a in await db.scalars(select(Asset).where(Asset.id.in_(asset_ids)))}
+    return [assets[i] for i in asset_ids if i in assets]
 
 
 async def progress_counts(db: AsyncSession, account_id: UUID) -> dict[str, int]:

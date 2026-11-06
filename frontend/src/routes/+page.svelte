@@ -3,6 +3,7 @@
 	import {
 		getAsset,
 		getMonths,
+		markPhotos,
 		type AssetItem,
 		type GalleryFilter,
 		type MonthBucket
@@ -16,7 +17,9 @@
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
 	import { defaultFilter, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
-	import { galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
+	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
+	import { galleryChanged, galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Skeleton from '#lib/ui/Skeleton.svelte';
@@ -33,6 +36,9 @@
 	const AT_SCREEN_SHARE = 1 / 3;
 
 	let months = $state<MonthBucket[] | null>(null);
+	let marking = $state(false);
+	// The most photos sent at a time: a request is bounded.
+	const SENT_MOST = 2000;
 	let error = $state<string | null>(null);
 	let width = $state(0);
 	let timeline = $state<HTMLElement>();
@@ -58,6 +64,25 @@
 	const allDone = $derived(query === filterToUrl(defaultFilter));
 
 	// Only a change of the filter reloads the months, not `at` added to the URL.
+	/** Marks the chosen photos as showing no sign of a place: other photos get their place from
+	 * them no more; the photos themselves can still get one. */
+	async function markChosen() {
+		marking = true;
+		try {
+			const ids = selection.ids;
+			for (let start = 0; start < ids.length; start += SENT_MOST) {
+				await markPhotos(ids.slice(start, start + SENT_MOST));
+			}
+			selection.clear();
+			galleryChanged();
+			bulkNotices.done(m.candidates_marked({ count: ids.length }));
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			marking = false;
+		}
+	}
+
 	$effect(() => {
 		void query;
 		const current = untrack(() => filter);
@@ -211,7 +236,18 @@
 {/if}
 
 {#if selection.size}
-	<SelectionBar {selection} onlocation={() => (locationOpen = true)} />
+	<SelectionBar {selection} onlocation={() => (locationOpen = true)}>
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			title={m.photo_no_sign_mark_hint()}
+			disabled={marking}
+			onclick={markChosen}
+		>
+			<Icon name="eye-off" size={14} />
+			{m.groups_photos_trash()}
+		</button>
+	</SelectionBar>
 {/if}
 {#if locationOpen}
 	<SelectionLocation

@@ -365,6 +365,18 @@
 		{/each}
 	</div>
 
+	{#if view === 'trash'}
+		<a class="st-btn st-btn--secondary st-btn--sm find" href={resolve('/groups/candidates')}>
+			<Icon name="scan-search" size={14} />
+			{m.candidates_title()}
+		</a>
+	{/if}
+	{#if view === 'trash' && trashed && trashed.in_groups > 0}
+		<p class="muted">
+			{m.groups_trashed_in_groups({ count: count(trashed.in_groups) })}
+			<a href="#marked-groups">{m.groups_trashed_in_groups_link()}</a>
+		</p>
+	{/if}
 	{#if view === 'trash' && trashed && trashed.total > 0}
 		<h2>{m.groups_trashed_heading({ count: count(trashed.total) })}</h2>
 		<p class="muted">{m.groups_trashed_hint()}</p>
@@ -493,7 +505,7 @@
 	{/if}
 
 	{#if shown.length > 0}
-		<div class="grid">
+		<div class="grid" id={view === 'trash' ? 'marked-groups' : undefined}>
 			{#each shown as group (group.id)}
 				{#if view === 'dissolved'}
 					<div class="group">
@@ -717,6 +729,9 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+	.find {
+		margin-bottom: var(--space-4);
 	}
 	/* Marked by the app: in the accent color, as the choice it waits for. */
 	.auto {

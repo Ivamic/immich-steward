@@ -575,6 +575,8 @@ export interface MapCellsAnswer {
 		photos: number;
 		bounds: { south: number; west: number; north: number; east: number };
 		asset_id: string | null;
+		cover_id: string;
+		cover_version: string | null;
 	}[];
 	photos: number;
 }

@@ -21,6 +21,9 @@ export interface MapCell {
 	bounds: MapBounds;
 	/** The photo, when it is alone. */
 	asset_id: string | null;
+	/** The newest photo of the cell, for its picture close up. */
+	cover_id: string;
+	cover_version: string | null;
 }
 
 export interface MapBounds {

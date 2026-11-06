@@ -92,7 +92,8 @@
 		cells = [],
 		oncell = () => {},
 		onview = () => {},
-		startView = null
+		startView = null,
+		pictures = false
 	}: {
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
@@ -123,6 +124,8 @@
 		onview?: (view: MapViewState) => void;
 		/** Where the map opens, when neither `picked` nor `current` is set. */
 		startView?: { lat: number; lon: number; zoom: number } | null;
+		/** The cells as pictures of their newest photo (with their number) instead of circles. */
+		pictures?: boolean;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -630,6 +633,42 @@
 		}));
 		if (!map || !ready) return;
 		(map.getSource(CELLS) as GeoJSONSource).setData({ type: 'FeatureCollection', features });
+	});
+
+	// Close up, the cells are pictures: markers of the page, a few hundred at most (the page asks
+	// for them only then), over the circles, which are hidden meanwhile.
+	let pictureMarkers: Marker[] = [];
+	$effect(() => {
+		const shown = pictures;
+		const list = cells;
+		if (!map || !ready) return;
+		for (const marker of pictureMarkers) marker.remove();
+		pictureMarkers = [];
+		for (const layer of [CELL_CIRCLES, CELL_COUNTS]) {
+			if (map.getLayer(layer))
+				map.setLayoutProperty(layer, 'visibility', shown ? 'none' : 'visible');
+		}
+		if (!shown) return;
+		for (const cell of list) {
+			const element = document.createElement('button');
+			element.type = 'button';
+			element.className = 'steward-picture';
+			const image = document.createElement('img');
+			image.src = thumbnailUrl(cell.cover_id, 'thumbnail', 0, cell.cover_version);
+			image.alt = '';
+			image.loading = 'lazy';
+			element.append(image);
+			if (cell.photos > 1) {
+				const number = document.createElement('span');
+				number.textContent = String(cell.photos);
+				element.append(number);
+			}
+			element.addEventListener('click', (event) => {
+				event.stopPropagation();
+				oncell(cell);
+			});
+			pictureMarkers.push(new Marker({ element }).setLngLat([cell.lon, cell.lat]).addTo(map));
+		}
 	});
 
 	/** The photos behind what the click hit, if it hit a point or a numbered circle. */
@@ -1254,6 +1293,42 @@
 	}
 	.map :global(.steward-preview a) {
 		color: var(--color-accent-text);
+	}
+	/* A place close up: the picture of its newest photo, its number in a corner. */
+	.map :global(.steward-picture) {
+		position: relative;
+		width: 48px;
+		height: 48px;
+		padding: 0;
+		border: 2px solid var(--gray-0);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-sunken);
+		box-shadow: var(--shadow-md);
+		cursor: pointer;
+	}
+	.map :global(.steward-picture:hover) {
+		z-index: 1;
+		border-color: var(--color-accent);
+	}
+	.map :global(.steward-picture img) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border-radius: calc(var(--radius-sm) - 2px);
+		object-fit: cover;
+	}
+	.map :global(.steward-picture span) {
+		position: absolute;
+		top: -8px;
+		right: -8px;
+		min-width: 20px;
+		padding: 0 5px;
+		border: 2px solid var(--gray-0);
+		border-radius: var(--radius-full);
+		background: #0969da;
+		color: var(--gray-0);
+		font: var(--weight-semibold) 11px / 16px var(--font-sans);
+		text-align: center;
 	}
 	/* "Before" / "after" labels of the route. */
 	.map :global(.steward-tag) {

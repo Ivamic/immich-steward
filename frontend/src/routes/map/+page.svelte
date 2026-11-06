@@ -35,6 +35,11 @@
 
 	// From this zoom a click on a circle shows its photos instead of zooming in.
 	const PLACE_ZOOM = 15;
+	// From this zoom the photos in view are listed beside the map.
+	const LIST_ZOOM = 11;
+	// From this zoom, with no more places than this in view, the places are pictures of a photo.
+	const PICTURE_ZOOM = 14;
+	const PICTURES_MOST = 200;
 	// How far a click zooms in.
 	const ZOOM_STEP = 3;
 	const PART = 120;
@@ -73,6 +78,16 @@
 	let mapView = $state<MapView>();
 	const selection = new Selection();
 	const chosenIds = $derived(new Set(selection.ids));
+	const pictures = $derived(
+		view !== null && view.zoom >= PICTURE_ZOOM && cells.length > 0 && cells.length <= PICTURES_MOST
+	);
+	// What the list beside the map shows: the place chosen, or all that is in view close enough.
+	const inView = $derived(view !== null && view.zoom >= LIST_ZOOM);
+	const listed = $derived<MapBounds | null>(place ?? (inView && view ? boundsOf(view) : null));
+
+	function boundsOf(at: MapViewState): MapBounds {
+		return { south: at.south, west: at.west, north: at.north, east: at.east };
+	}
 	let latest = 0;
 	let fittedOnce = opened.at !== null;
 
@@ -119,7 +134,9 @@
 				lon: cell.longitude,
 				photos: cell.photos,
 				bounds: cell.bounds,
-				asset_id: cell.asset_id
+				asset_id: cell.asset_id,
+				cover_id: cell.cover_id,
+				cover_version: cell.cover_version
 			}));
 			photosInView = answer.photos;
 			loaded = true;
@@ -149,7 +166,7 @@
 		loadingPlace = true;
 		try {
 			const answer = await getMapPhotos(bounds, 0, upTo, filter);
-			if (place !== bounds) return;
+			if (listed !== bounds) return;
 			placePhotos = answer.photos;
 			placeTotal = answer.total;
 		} catch (e) {
@@ -160,12 +177,12 @@
 	}
 
 	async function morePlace() {
-		const bounds = place;
+		const bounds = listed;
 		if (!bounds || loadingPlace) return;
 		loadingPlace = true;
 		try {
 			const answer = await getMapPhotos(bounds, placePhotos.length, PART, filter);
-			if (place !== bounds) return;
+			if (listed !== bounds) return;
 			const known = new Set(placePhotos.map((photo) => photo.id));
 			placePhotos = [...placePhotos, ...answer.photos.filter((photo) => !known.has(photo.id))];
 			placeTotal = answer.total;
@@ -176,16 +193,30 @@
 		}
 	}
 
-	// The place open in the address (back from a photo), or chosen, with the filter of now.
+	// The place open in the address (back from a photo) or chosen, else what is in view, with the
+	// filter of now; in view, once the map stops.
 	$effect(() => {
-		const bounds = place;
+		const bounds = listed;
 		void filter;
 		void galleryChanges.count;
-		if (bounds) untrack(() => loadPlace(bounds, Math.max(placePhotos.length, PART)));
+		if (!bounds) {
+			placePhotos = [];
+			return;
+		}
+		const timer = setTimeout(
+			() => untrack(() => loadPlace(bounds, Math.max(placePhotos.length, PART))),
+			place ? 0 : VIEW_DELAY_MS
+		);
+		return () => clearTimeout(timer);
 	});
 
 	function openCell(cell: MapCell) {
-		if (cell.photos > 1 && view && view.zoom < PLACE_ZOOM) {
+		// A picture of one photo: the photo itself.
+		if (pictures && cell.asset_id) {
+			goto(resolve(`/photo/[id]${photoQuery}`, { id: cell.asset_id }));
+			return;
+		}
+		if (!pictures && cell.photos > 1 && view && view.zoom < PLACE_ZOOM) {
 			mapView?.easeTo(cell, Math.min(view.zoom + ZOOM_STEP, 19));
 			return;
 		}
@@ -262,7 +293,7 @@
 	<p class="bad" role="alert">{error}</p>
 {/if}
 
-<div class="layout" class:with-place={place !== null} style:--_filter="{filterHeight}px">
+<div class="layout" class:with-place={listed !== null} style:--_filter="{filterHeight}px">
 	<div class="map">
 		{#if mapConfig}
 			<MapView
@@ -278,6 +309,7 @@
 				oncell={openCell}
 				onview={(next) => (view = next)}
 				startView={opened.at}
+				{pictures}
 				scrollingPage
 			/>
 		{/if}
@@ -286,10 +318,19 @@
 		{/if}
 	</div>
 
-	{#if place}
-		<section class="place" aria-label={m.map_place_photos({ count: count(placeTotal) })}>
+	{#if listed}
+		<section
+			class="place"
+			aria-label={place
+				? m.map_place_photos({ count: count(placeTotal) })
+				: m.map_view_photos({ count: count(placeTotal) })}
+		>
 			<header>
-				<h2>{m.map_place_photos({ count: count(placeTotal) })}</h2>
+				<h2>
+					{place
+						? m.map_place_photos({ count: count(placeTotal) })
+						: m.map_view_photos({ count: count(placeTotal) })}
+				</h2>
 				{#if placePhotos.length > 1}
 					<button
 						type="button"
@@ -299,15 +340,17 @@
 						{m.candidates_choose_all()}
 					</button>
 				{/if}
-				<button
-					type="button"
-					class="st-iconbtn st-iconbtn--sm"
-					aria-label={m.map_close_place()}
-					title={m.map_close_place()}
-					onclick={closePlace}
-				>
-					<Icon name="x" />
-				</button>
+				{#if place}
+					<button
+						type="button"
+						class="st-btn st-btn--ghost st-btn--sm"
+						title={m.map_close_place()}
+						onclick={closePlace}
+					>
+						<Icon name="x" size={14} />
+						{inView ? m.map_all_in_view() : m.map_close_place()}
+					</button>
+				{/if}
 			</header>
 			<div class="st-tile-grid">
 				{#each placePhotos as photo (photo.id)}

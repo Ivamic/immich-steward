@@ -676,11 +676,13 @@
 	"nav_map": "Map",
 	"map_place_photos": "Photos here: {count}",
 	"map_close_place": "Close",
-	"map_hint": "A circle is the photos of a place: a click zooms in, and close up shows them.",
+	"map_hint": "A circle is the photos of a place: a click zooms in. Closer, the photos in view are listed beside the map, and closer still the places show a photo.",
 	"map_empty": "No photos with a location under these filters.",
 	"groups_choose_group": "Choose the group",
 	"groups_chosen_to_folder": "Into a folder ({count})",
 	"folder_legend": "Groups of the folder",
 	"folder_legend_hint": "Show only the photos of the groups chosen here",
-	"folder_legend_all": "All groups"
+	"folder_legend_all": "All groups",
+	"map_view_photos": "Photos in view: {count}",
+	"map_all_in_view": "All in view"
 }

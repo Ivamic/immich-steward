@@ -54,6 +54,9 @@ def test_photos_gather_by_the_zoom(signed_in: TestClient, library: dict[str, str
     assert [c["photos"] for c in far] == [4, 1, 1]
     assert far[0]["asset_id"] is None
     assert {c["asset_id"] for c in far[1:]} == {library["rome.jpg"], library["fiji.jpg"]}
+    # The picture of a cell is its newest photo (the video of Kotor), alone or not.
+    assert far[0]["cover_id"] == library["kotor.mp4"]
+    assert all(c["cover_id"] == c["asset_id"] for c in far[1:])
     # Close: the photos of Kotor ~100 m apart are apart.
     assert sorted(c["photos"] for c in cells(signed_in, 18)) == [1, 1, 1, 1, 2]
     # The cell of a far zoom holds its photos.

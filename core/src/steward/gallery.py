@@ -11,9 +11,7 @@ from sqlalchemy import (
     ColumnElement,
     Numeric,
     Select,
-    String,
     and_,
-    cast,
     exists,
     func,
     literal,
@@ -21,7 +19,7 @@ from sqlalchemy import (
     select,
     tuple_,
 )
-from sqlalchemy.dialects.postgresql import JSONPATH
+from sqlalchemy.dialects.postgresql import JSONPATH, aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -405,6 +403,9 @@ class MapCell:
     bounds: Bounds
     # The photo, when it is alone.
     asset_id: UUID | None
+    # The newest photo of the cell and the version of its thumbnails: its picture on the map.
+    cover_id: UUID
+    cover_version: str | None
 
 
 def map_cell_degrees(zoom: float) -> float:
@@ -428,7 +429,10 @@ async def map_cells(
             func.avg(Asset.latitude),
             func.avg(Asset.longitude),
             func.count(),
-            func.min(cast(Asset.id, String)),
+            func.array_agg(aggregate_order_by(Asset.id, Asset.local_taken_at.desc(), Asset.id))[1],
+            func.array_agg(
+                aggregate_order_by(Asset.thumbhash, Asset.local_taken_at.desc(), Asset.id)
+            )[1],
         )
         .where(*filter.conditions(account), located(), bounds.condition())
         .group_by(row, column)
@@ -440,9 +444,11 @@ async def map_cells(
             longitude=float(longitude),
             photos=count,
             bounds=Bounds(r * size, c * size, (r + 1) * size, (c + 1) * size),
-            asset_id=UUID(first) if count == 1 else None,
+            asset_id=cover if count == 1 else None,
+            cover_id=cover,
+            cover_version=version,
         )
-        for r, c, latitude, longitude, count, first in rows
+        for r, c, latitude, longitude, count, cover, version in rows
     ]
 
 

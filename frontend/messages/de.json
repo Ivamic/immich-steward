@@ -676,11 +676,13 @@
 	"nav_map": "Karte",
 	"map_place_photos": "Fotos hier: {count}",
 	"map_close_place": "Schließen",
-	"map_hint": "Ein Kreis sind die Fotos eines Ortes: Ein Klick zoomt hinein, aus der Nähe werden sie gezeigt.",
+	"map_hint": "Ein Kreis sind die Fotos eines Ortes: Ein Klick zoomt hinein. Näher werden die Fotos im Ausschnitt neben der Karte gezeigt, noch näher zeigen die Orte ein Foto.",
 	"map_empty": "Keine Fotos mit Ort unter diesen Filtern.",
 	"groups_choose_group": "Gruppe auswählen",
 	"groups_chosen_to_folder": "In einen Ordner ({count})",
 	"folder_legend": "Gruppen des Ordners",
 	"folder_legend_hint": "Nur die Fotos der hier gewählten Gruppen zeigen",
-	"folder_legend_all": "Alle Gruppen"
+	"folder_legend_all": "Alle Gruppen",
+	"map_view_photos": "Fotos im Ausschnitt: {count}",
+	"map_all_in_view": "Alles im Ausschnitt"
 }

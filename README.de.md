@@ -92,8 +92,9 @@ Verfügbare Module:
   mit Standort: dieselbe Straße, dasselbe Haus, derselbe Blick oder Raum, aus einem anderen
   Winkel oder zu einer anderen Jahreszeit. Nutzt [MegaLoc](https://github.com/gmberton/MegaLoc),
   ein Modell zum Wiedererkennen von Orten; in einer echten Familienmediathek liegt etwa die
-  Hälfte seiner Vorschläge auf 1 km genau richtig, bei den sicheren mehr als acht von zehn. Die
-  Suche berücksichtigt immer auch die Standorte, die du inzwischen gesetzt hast.
+  Hälfte seiner Vorschläge auf 1 km genau richtig, bei den sicheren mehr als acht von zehn. Wie
+  sicher ein Vorschlag ist, hängt auch davon ab, wie weit die ähnlichsten Fotos auseinanderliegen.
+  Die Suche berücksichtigt immer auch die Standorte, die du inzwischen gesetzt hast.
 
 Ein Foto lässt sich in der App drehen, um es besser zu sehen; die Module arbeiten mit dem
 gedrehten Foto, und die Drehung kann in Immich gespeichert werden.
@@ -110,15 +111,19 @@ auf dem Handy.
 **Gruppen** fassen Fotos derselben Ansicht von selbst zusammen, mit und ohne Standort: Liegen die
 Fotos mit Standort an einer Stelle, lässt sich dieser Ort in einem Schritt auf die übrigen
 übertragen, nachdem du ihn auf der Karte geprüft hast. Was im Lauf der Jahre umgezogen ist, zeigt
-sich Monat für Monat, eine unpassende Stelle fällt auf, und Fotos ohne Ortsmerkmale (ein Haustier,
-ein Dokument) lassen sich markieren, damit sie nichts vorschlagen.
+sich Monat für Monat, eine unpassende Stelle fällt auf, und Gruppen eines Ortes lassen sich in einem
+Ordner zusammenhalten. Fotos ohne Ortsmerkmale (ein Haustier, ein Dokument) lassen sich markieren,
+damit sie nichts vorschlagen; die App markiert auch solche, die deinen Markierungen ähneln, und
+findet weitere zum Ansehen, nach einer Beschreibung über die intelligente Suche von Immich.
+
+Die Seite **Karte** zeigt deine Fotos mit Standort, auf dem Server nach Orten gezählt; aus der Nähe
+zeigen die Orte ein Foto, und die Fotos im Ausschnitt stehen neben der Karte.
 
 Geplant:
 
 - **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.
 - **Geometrische Prüfung** ähnlicher Fotos (übereinstimmende Details, nicht nur der
-  Gesamteindruck) und das automatische Erkennen von Fotos, die gar keinen Ort zeigen:
-  Nahaufnahmen von Personen, Haustiere, Pflanzen, Gegenstände.
+  Gesamteindruck).
 - **Schlussfolgern mit einem LLM** (im Stil von Img2Loc) — ein Bild-Sprach-Modell denkt über das
   Foto und die von den anderen Modulen gesammelten Hinweise nach.
 - **Externe Dienste** — optionale Cloud-Erkennung, ein Modul pro Dienst.

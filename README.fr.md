@@ -93,7 +93,8 @@ Modules disponibles :
   autre angle ou à une autre saison. Utilise [MegaLoc](https://github.com/gmberton/MegaLoc), un
   modèle conçu pour reconnaître les lieux ; sur une vraie photothèque familiale, environ la
   moitié de ses suggestions sont justes à 1 km près, et plus de huit sur dix de ses suggestions
-  sûres. La recherche tient toujours compte des lieux que vous avez définis entre-temps.
+  sûres. La confiance d'une suggestion dépend aussi de la distance entre les photos les plus
+  similaires. La recherche tient toujours compte des lieux que vous avez définis entre-temps.
 
 Une photo peut être pivotée dans l'application pour mieux la voir ; les modules travaillent sur
 la photo pivotée, et la rotation peut être enregistrée dans Immich.
@@ -110,15 +111,19 @@ fonctionne aussi sur un téléphone.
 **Les groupes** rassemblent d'eux-mêmes les photos d'une même vue, avec ou sans lieu : quand les
 photos avec un lieu se trouvent au même endroit, ce lieu s'applique aux autres en une fois, après
 un coup d'œil sur la carte. Un sujet qui a changé d'endroit au fil des ans se voit mois par mois,
-un endroit qui ne colle pas saute aux yeux, et les photos sans indice de lieu (un animal, un
-document) peuvent être marquées pour ne plus rien suggérer.
+un endroit qui ne colle pas saute aux yeux, et les groupes d'un même lieu se rangent ensemble dans
+un dossier. Les photos sans indice de lieu (un animal, un document) peuvent être marquées pour ne
+plus rien suggérer ; l'application marque aussi celles qui ressemblent à vos marques et en trouve
+d'autres à examiner, d'après une description, grâce à la recherche intelligente d'Immich.
+
+La page **Carte** montre vos photos avec un lieu, comptées par endroit sur le serveur ; de près, les
+endroits montrent une photo, et les photos à l'écran sont listées à côté de la carte.
 
 Prévu :
 
 - **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.
 - **Vérification géométrique** des photos similaires (concordance des détails, pas seulement de
-  l'aspect général), et reconnaissance automatique des photos qui ne montrent aucun lieu :
-  portraits en gros plan, animaux, plantes, objets.
+  l'aspect général).
 - **Raisonnement par LLM** (dans l'esprit d'Img2Loc) — un modèle vision-langage raisonne sur la
   photo et sur les indices rassemblés par les autres modules.
 - **Services externes** — des services de reconnaissance en ligne facultatifs, un module par

@@ -89,7 +89,8 @@ Moduli disponibili:
   posizione: la stessa strada, casa, veduta o stanza, da un'altra angolazione o in un'altra
   stagione. Usa [MegaLoc](https://github.com/gmberton/MegaLoc), un modello fatto per riconoscere
   i luoghi; su una vera libreria di famiglia circa metà dei suoi suggerimenti sono giusti entro
-  1 km, e più di otto su dieci di quelli affidabili. La ricerca tiene sempre conto delle
+  1 km, e più di otto su dieci di quelli affidabili. Quanto un suggerimento è affidabile dipende
+  anche da quanto sono lontane tra loro le foto più simili. La ricerca tiene sempre conto delle
   posizioni che hai impostato nel frattempo.
 
 Una foto può essere ruotata nell'app per vederla meglio; i moduli lavorano sulla foto ruotata, e
@@ -107,15 +108,19 @@ anche sul telefono.
 **I gruppi** riuniscono da soli le foto di una stessa vista, con o senza posizione: quando le foto
 con posizione stanno nello stesso punto, quel luogo si applica alle altre in un solo passo, dopo
 averlo controllato sulla mappa. Un soggetto che ha cambiato posto negli anni si vede mese per mese,
-un punto fuori posto salta all'occhio e le foto senza indizi di luogo (un animale, un documento) si
-possono segnare perché non suggeriscano nulla.
+un punto fuori posto salta all'occhio e i gruppi di uno stesso luogo si tengono insieme in una
+cartella. Le foto senza indizi di luogo (un animale, un documento) si possono segnare perché non
+suggeriscano nulla; l'app segna anche quelle simili ai tuoi segni e ne trova altre da guardare, in
+base a una descrizione, con la ricerca intelligente di Immich.
+
+La pagina **Mappa** mostra le tue foto con posizione, contate per luogo sul server; da vicino i
+luoghi mostrano una foto, e le foto inquadrate sono elencate accanto alla mappa.
 
 In programma:
 
 - **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.
 - **Verifica geometrica** delle foto simili (corrispondenza dei dettagli, non solo dell'aspetto
-  generale), e riconoscimento automatico delle foto che non mostrano alcun luogo: primi piani,
-  animali, piante, oggetti.
+  generale).
 - **Ragionamento con un LLM** (sul modello di Img2Loc) — un modello visione-linguaggio ragiona
   sulla foto e sugli indizi raccolti dagli altri moduli.
 - **Servizi esterni** — riconoscimento facoltativo nel cloud, un modulo per servizio.

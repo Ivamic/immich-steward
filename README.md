@@ -85,7 +85,8 @@ Available modules:
   location: the same street, house, view or room, from another angle or in another season. Uses
   [MegaLoc](https://github.com/gmberton/MegaLoc), a model made for recognizing places; on a real
   family library, about half of its suggestions are right within 1 km, and more than eight
-  out of ten of its confident ones. The search always includes the locations you have set since.
+  out of ten of its confident ones. How sure a suggestion is also depends on how far apart the
+  most similar photos lie. The search always includes the locations you have set since.
 
 A photo can be rotated in the app for a better look, the modules run on it rotated, and the
 rotation can be saved to Immich.
@@ -101,15 +102,17 @@ location. Videos play in the gallery and in the photo card. Everything works on 
 **Groups** gather the photos of one view by themselves, with a location or without: when the photos
 with a location agree on a spot, the place can be set on the others in one step, after a look at
 the map. A subject that moved over the years shows month by month, a spot that does not fit stands
-out, and photos that tell nothing of the place (a pet, a document) can be marked, so that they
-suggest nothing.
+out, and groups of one place can be kept together in a folder. Photos that tell nothing of the place
+(a pet, a document) can be marked, so that they suggest nothing; the app marks those alike your
+marks too, and finds more to look at, by a description through the smart search of Immich.
+
+The **Map** page shows your photos with a location, counted by place on the server; close up the
+places show a photo, and the photos in view are listed beside the map.
 
 Planned:
 
 - **Street-level panoramas** on the map, to check a place by eye.
-- **Geometric verification** of similar photos (matching details, not only the overall look),
-  and finding by itself the photos that show no place at all: close-up portraits, pets, plants,
-  objects.
+- **Geometric verification** of similar photos (matching details, not only the overall look).
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
   plus the evidence collected by the other modules.
 - **External services** — optional cloud recognizers, one module per service.

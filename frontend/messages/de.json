@@ -563,7 +563,7 @@
 	"error_groups_busy": "Die Gruppen werden gerade bearbeitet. Versuchen Sie es danach erneut.",
 	"groups_settings_reset": "Gruppen von Grund auf neu bilden",
 	"groups_settings_reset_hint": "Dauert etwa eine Minute. Gruppennamen und Ihre Änderungen an Gruppen werden entfernt.",
-	"groups_reset_warning": "Alle Gruppen werden neu gebildet. Ihre Namen, von Ihnen hinzugefügte oder herausgenommene Fotos und die Markierungen „Ohne Ortsmerkmale“ von Gruppen werden entfernt und lassen sich nicht wiederherstellen. Einzelne Fotos mit dieser Markierung behalten sie.",
+	"groups_reset_warning": "Alle Gruppen werden neu gebildet. Ihre Namen, von Ihnen hinzugefügte oder herausgenommene Fotos und die Markierungen „Ohne Ortsmerkmale“ von Gruppen werden entfernt und lassen sich nicht wiederherstellen. Einzelne Fotos mit dieser Markierung behalten sie. Ordner bleiben, leer.",
 	"groups_reset_cancel": "Abbrechen",
 	"groups_reset_confirm": "Entfernen und neu bilden",
 	"groups_add_chosen": "Ausgewählte hinzufügen ({count})",

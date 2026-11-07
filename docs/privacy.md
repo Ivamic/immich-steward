@@ -23,6 +23,8 @@
   of the latest release, to show "Version X is out" in the header. GitHub sees the IP address of
   the server and the app's version; no photos or data are sent. It is on by default; turn it off
   in **Settings → Updates** (for the whole installation).
+- **Search by description** (*Maybe no sign of a place*) sends the text you search for to your
+  own Immich, whose smart search finds the photos; nothing goes elsewhere.
 - The **fonts and icons** of the web page come with the app; nothing else is loaded from other
   sites, except from the satellite source you chose (its tiles, the MapTiler logo, the Esri
   copyright text).
@@ -35,8 +37,8 @@ where.
 
 Only what you save: the location of a photo (and the tag `steward/estimated`), and the rotation
 of a photo when you press **Save rotation in Immich**. Every location write is kept in the
-history of the photo and can be undone. Groups, their names and the mark "no sign of a place" stay
-in the database of the app: Immich does not see them.
+history of the photo and can be undone. Groups, their names, folders and the mark "no sign of a
+place" (yours and the app's) stay in the database of the app: Immich does not see them.
 
 ## Your Immich password and API key
 

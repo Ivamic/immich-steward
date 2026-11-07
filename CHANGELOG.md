@@ -7,6 +7,62 @@ between releases.
 
 ## [Unreleased]
 
+A map of your photos, folders of groups, photos with no sign of a place found and marked by the app
+as well, and suggestions of similar photos that know how far apart those photos lie.
+
+### Added
+
+- **Map**: a new page with your photos with a location. Far out, the photos of a place are a
+  circle with their number, counted on the server for the part of the world in view only, so a
+  large library stays quick; a click zooms in. From zoom 5 the photos in view are listed beside
+  the map (under it on a phone). From zoom 12, with no more than 200 places in view, each place
+  shows its newest photo: one photo opens with a click, several narrow the list to that place
+  (**All in view** / **Selected place**). The filters of the gallery that mean something for photos
+  with a location apply; the map sources, satellite imagery and the heat map are those of the photo
+  card. Where the map is lives in the address, so **Back** from a photo leads to the same place.
+- **Folders of groups**: groups of one place (yard, kitchen, street) or all the documents kept
+  together; the groups themselves do not change, and rebuilds keep the folders. In the list a
+  folder is one tile; **Without folders** lists all the groups. The page of a folder shows its
+  groups all together (all their photos, the map with a color per group, a legend to show some of
+  them, the place most of them share and the location window with the spots of the whole folder)
+  or one by one, where they are renamed, moved to another folder or taken out, one or several at
+  once. A folder can be renamed, deleted (its groups stay) and have all its groups marked.
+- **Maybe the same scene**, on the page of a group: other groups that look like it, with how alike
+  they are and a warning when their main spots lie more than 1 km apart, to put into one folder.
+- **The app marks photos with no sign of a place too**: a photo with at least 3 of its 30 most
+  similar photos marked by you, at least 0.5 alike, gets the mark. Only your marks count (of single
+  photos and of whole groups), so the marks do not spread by themselves; when yours go, the app's
+  that rested on them go too. **Marked by you** and **Marked by the app** tell them apart; a mark of
+  the app can be confirmed, and one you take back is not set again. **Settings → Groups** turns
+  this off or sets how many marks and how alike.
+- **Maybe no sign of a place**: a page of photos to look at, found by a description through the
+  smart search of Immich (ready descriptions and your own; only the text goes to Immich), or alike
+  photos with a location that lie more than 10 km apart. Nothing is marked until you choose.
+- **The mark "no sign of a place" from anywhere**: the photo card and the bar of chosen photos of
+  the gallery, the map, a group or a folder.
+- **Groups renamed in place** with a pencil, and **chosen** with a circle, as photos are, to put
+  several into a folder at once.
+
+### Changed
+
+- **Similar photos: how sure a suggestion is depends on how far apart the five most similar photos
+  lie.** In one spot it can be trusted more; spread out, less, and the card says so above the
+  suggestions. Measured on a family library, at a middling similarity (0.22 to 0.35): a suggestion
+  whose similar photos share a spot is right within 1 km 81 to 89 % of the time, one whose similar
+  photos lie apart 44 to 52 %. The badge of similar photos in the gallery follows the same rule.
+- **A photo marked as showing no sign of a place** gets its suggestions of similar photos folded,
+  with a note, and no badge of similar photos in the gallery. A part of the photo is searched as
+  usual.
+- **The bar of chosen photos**: what decides their own location first (set a location, skip,
+  location not applicable), then turning them, then the actions of the page apart.
+- "No sign of a place" has its own icon, apart from "location not applicable".
+
+### Security
+
+- Dependencies were checked before the release: nothing known in what the app ships. Two
+  advisories concern only the tools that build the web interface (minimatch, moderate, in the
+  linter; deepmerge, low, no fix yet); they are not in the images.
+
 ## [0.8.0] - 2026-10-31
 
 Groups: photos of one view gathered by themselves, so that a place known for some of them can be

@@ -4,7 +4,7 @@ This page shows how to go through your photos without a location: find them in t
 look at the suggestions in the photo card, and save the right place. The app is made to be used
 mostly with the keyboard, but everything works with the mouse too.
 
-The pages are at the top: **Gallery**, **Groups**, **Processing** and **Settings**. On the right are the
+The pages are at the top: **Gallery**, **Map**, **Groups**, **Processing** and **Settings**. On the right are the
 language and the theme (light, dark, or as in your system).
 
 ## The gallery
@@ -52,7 +52,9 @@ the date of a day chooses all its photos at once. **Esc** or the
 cross in the bar clears the choice.
 
 A bar at the bottom shows how many photos are chosen (how many of them already have a location,
-how many are videos) and what can be done with all of them:
+how many are videos) and what can be done with all of them. First what decides their own location
+(**Set location**, **Skip for now**, **Location not applicable**), then turning them, then, apart,
+what they are to other photos (**No sign of a place**):
 
 - **Set location** opens a map like the one in the photo card: click the map, type coordinates,
   search an address, or pick a suggestion (keys **1–9**, **Enter** saves). The suggestions come
@@ -76,6 +78,9 @@ how many are videos) and what can be done with all of them:
   clock while the save can still be cancelled). Videos are not turned:
   the notice says how many were left out. The API key needs the `asset.edit` permissions.
 - **Skip for now** and **Location not applicable** mark all the chosen photos.
+- **No sign of a place** marks them as telling nothing of where they were taken (a pet, a
+  document): other photos no longer get their place from them. See
+  [Photos with no sign of a place](#photos-with-no-sign-of-a-place).
 
 ## The photo card
 
@@ -172,7 +177,12 @@ number on the map, in the list and the key are the same.
   moment ago counts at once, while its save can still be cancelled.
 - **Similar photos** (purple diamonds): photos of your own library that look like this one and
   have a location: the same street, house or view. The thumbnails show which ones; hover a
-  thumbnail to enlarge it.
+  thumbnail to enlarge it. How sure a suggestion is depends on how alike the photos are and on
+  how far apart the five most similar ones lie: in one spot, it can be trusted more; when they
+  were taken in different places, the card says so above the suggestions (the same view is seen
+  in many places, as a pet or a beach) and the suggestions are weaker. A photo marked as showing
+  [no sign of a place](#photos-with-no-sign-of-a-place) gets its suggestions folded, with a note:
+  its view tells nothing of the place. A part of the photo drawn with **R** is searched as usual.
 - **GeoCLIP** (orange squares): recognizes the place by its look, anywhere in the world. Its
   answer is an area, so the circle around it is wide.
 
@@ -206,8 +216,9 @@ Saving the rotation needs the API key permissions `asset.edit.get`, `asset.edit.
 `asset.edit.delete`; keys created by Steward 0.3.0 and later have them.
 
 The details below the photo show when it was taken, the camera, the albums, its
-[group](#groups) with a link, whether it is marked as showing no sign of a place, and its current
-location. **Open in Immich** (the arrow in the top right corner) opens the photo in Immich in a
+[group](#groups) with a link, whether it is marked as showing no sign of a place (by you or by the
+app, with **Take the mark off**), and its current location. **No sign of a place** under the
+actions marks the photo. **Open in Immich** (the arrow in the top right corner) opens the photo in Immich in a
 new tab.
 
 ### Keyboard keys
@@ -231,6 +242,25 @@ Press **?** in the card to see them all.
 
 The keys work with any keyboard layout. A typical round: look at the map, press the number of
 the right suggestion, then Enter; the next photo opens.
+
+## The map
+
+The **Map** page shows your photos with a location. Far out, the photos of a place are a circle with
+their number; a click zooms in. The circles are counted on the server for the part of the world in
+view only, so the page stays quick on a large library.
+
+- **From zoom 5**, the photos in view are listed beside the map (under it on a phone), newest first,
+  and follow the map once it stops.
+- **From zoom 12**, with no more than 200 places in view, each place shows its newest photo with
+  its number. A click on a picture of one photo opens it; on a picture of several, or a circle close
+  up, the list shows only that place. **All in view** and **Selected place** above the list switch
+  between the two.
+- The filters are those of the gallery that mean something here: photos or videos, the camera, the
+  album, the period, archived photos. The map sources, satellite imagery and the heat map are those
+  of the photo card.
+- Photos in the list are chosen as in the [gallery](#several-photos-at-once), with the same bar.
+- Where the map is lives in the address: **Back** from a photo leads to the same place, and a view
+  can be bookmarked.
 
 ## Groups
 
@@ -260,7 +290,10 @@ Groups you named come first, then the largest. The views narrow the list:
   look for mistakes.
 - **No sign of a place** and **Dissolved**: see below.
 
-The list loads as you scroll, and coming back from a group opens it where you left it.
+Groups in a [folder](#folders) are shown as the tile of the folder; **Without folders**, after the
+line, lists all the groups. The list loads as you scroll, and coming back from a group opens it
+where you left it. The pencil next to the name of a group renames it in place. Groups are chosen
+with the circle on their cover, as photos are; **Into a folder** puts the chosen ones into a folder.
 
 ### The page of a group
 
@@ -309,6 +342,9 @@ Above the photos, **In a row** can be changed to:
   similarity. A kitchen and a bedroom do not look alike, but they are in one house.
 - **Just short of this group**: similar photos that are in no group. Choose those that belong here
   and add them, or mark them.
+- **Maybe the same scene**: other groups that look like this one, with how alike they are, and
+  **different places** when their main spots lie more than 1 km apart. Put them into one
+  [folder](#folders) to see them together.
 
 ### Photos with no sign of a place
 
@@ -324,23 +360,63 @@ a pet photographed in two places links them. Mark such photos, one by one or a w
 A marked photo stays with its group, shown apart under **No sign of a place**: it was still taken
 there, so **Set it on … photos** can include it. **Bring back** returns it. The view **No sign of a
 place** in the list shows the marked groups and all the single photos, which can come back as
-chosen, or all at once with **Bring all back**. That cannot be undone.
+chosen, or all at once with **Bring all back**. That cannot be undone. Photos are marked from the
+bar of chosen photos anywhere (gallery, map, a group, a folder) and from the photo card.
+
+**The app marks photos too.** A photo with at least 3 of its 30 most similar photos marked by you, at
+least 0.5 alike, gets the mark. Your marks count, of single photos and of whole groups; those of the
+app do not, so the marks do not spread by themselves. When your marks go, so do the app's that rested
+on them. In the list, **Marked by you** and **Marked by the app** (✨) tell them apart: **Confirm the
+chosen** makes a mark of the app yours, **Bring back** takes it off, and the app does not mark that
+photo again (nor one you took out of a marked group) until you mark it yourself. **Settings → Groups**
+turns this off or sets how many marks and how alike.
+
+**Maybe no sign of a place**, from the view **No sign of a place**, finds photos to look at; nothing
+is marked until you choose:
+
+- **By description**: the smart search of Immich finds photos that match "documents", "a dog up
+  close", "food" and other ready descriptions, or your own. Only the text goes to Immich, which
+  needs its smart search (machine learning) on. The ready descriptions are in English, which every
+  model of Immich understands; write your own in the language of the model your Immich uses.
+- **Alike but far apart**: photos whose most similar photos with a location look alike and lie more
+  than 10 km apart, the same view in many places.
+- **Groups scattered on the map** leads to that view of the list.
 
 Mark what tells nothing, not everything with a pet in it: a pet that lives at one place may be just
 what tells the place. If the photos with a location of a group agree on a spot, the group is useful,
 whatever holds it together.
 
+### Folders
+
+A folder keeps groups together: one place seen from many sides (yard, kitchen, street of a house), or
+all the documents. The groups themselves do not change, and a group is in one folder at most.
+**To a folder…** on the page of a group, or **Into a folder** for the groups chosen in the list,
+puts them into a folder or a new one.
+
+The page of a folder shows its groups:
+
+- **All together**: all their photos, the map with a color per group, and the legend of the groups:
+  choose some to see only their photos and points. When most photos with a location share one spot,
+  **Set it on … photos** works as in a group, with the spots of the whole folder in the location
+  window.
+- **By group**: their tiles, renamed with the pencil, **Change the folder** and **Take out of the
+  folder**, for one group or for the chosen ones.
+
+A folder can be renamed, deleted (its groups stay) and have all its groups marked with **No sign of a
+place**. Photos and groups opened from a folder lead back to it. Rebuilds keep the folders, as they
+keep names.
+
 ### Changing groups
 
-- **The name** is yours to give, in the field on top.
+- **The name** is yours to give, in the field on top, or with the pencil on its tile.
 - **Take out of the group**: the photo leaves and stops linking to that group; **Taken out** shows
   it, and **Bring back** returns it.
 - **Dissolve**: the photos of the group stop linking to each other and may join other groups, or
   stay in none. The view **Dissolved** brings it back, with its name.
 
 The groups are built again by themselves after such changes, in about a minute, as new photos come,
-and once a day. What you did stays: names, photos added or taken out, marks. **Groups cannot be
-merged by hand** for now.
+and once a day. What you did stays: names, folders, photos added or taken out, marks. Groups are not
+merged: put groups of one place into a [folder](#folders) instead.
 
 **Settings → Groups** sets how strict groups are, each family member on their own; a change rebuilds
 them in the background:
@@ -351,10 +427,13 @@ them in the background:
 - **Only mutual neighbors**: leave it on; without it, groups can chain into thousands of photos from
   different places.
 
+Under **No sign of a place**, the marks of the app: on or off, how many photos marked by you among
+the most similar (3), and how alike (0.5); higher gives fewer marks.
+
 Large groups whose photos lie in different places, beaches for example, are split with a stricter
 similarity by themselves. **Compare all photos again** repeats the first pass and is rarely needed.
 **Build the groups from scratch** removes names, your changes to groups and marks on whole groups;
-marks on single photos stay.
+marks on single photos stay, and folders stay, empty.
 
 ## Processing
 
@@ -382,7 +461,7 @@ The **Processing** page shows how the work goes:
 ## Settings
 
 **Settings** holds the details shown over a photo of the gallery, how strict [groups](#changing-groups)
-are, the order of the modules in the photo card and which of them are shown, and
+are and the marks of the app, the order of the modules in the photo card and which of them are shown, and
 the **map sources**: satellite imagery, their keys, how many tiles the app loaded, and which
 sources Auto uses far out and close up. Each family member has their own. How to get the keys:
 [Configuration](configuration.md#satellite-imagery-in-settings).

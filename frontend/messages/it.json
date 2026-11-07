@@ -563,7 +563,7 @@
 	"error_groups_busy": "I gruppi sono in elaborazione. Riprova quando è finita.",
 	"groups_settings_reset": "Ricostruisci i gruppi da zero",
 	"groups_settings_reset_hint": "Richiede circa un minuto. I nomi dei gruppi e le tue modifiche vengono rimossi.",
-	"groups_reset_warning": "Tutti i gruppi vengono ricostruiti. I loro nomi, le foto aggiunte o tolte e i segni «senza indizi di luogo» dei gruppi vengono rimossi e non si possono recuperare. Le singole foto con questo segno lo mantengono.",
+	"groups_reset_warning": "Tutti i gruppi vengono ricostruiti. I loro nomi, le foto aggiunte o tolte e i segni «senza indizi di luogo» dei gruppi vengono rimossi e non si possono recuperare. Le singole foto con questo segno lo mantengono. Le cartelle restano, vuote.",
 	"groups_reset_cancel": "Annulla",
 	"groups_reset_confirm": "Rimuovi e ricostruisci",
 	"groups_add_chosen": "Aggiungi le scelte ({count})",

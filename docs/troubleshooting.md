@@ -72,6 +72,11 @@ The app's API key lacks the permissions `asset.edit.get`, `asset.edit.create` an
 Your browser needs access to `tiles.openfreemap.org` (or to the tile server set in
 `STEWARD_MAP_STYLE_URL`).
 
+### The Map page shows no photos
+
+It shows the photos with a location only, under its filters (type, camera, album, period): reset
+the filters, or zoom out. Photos get their location from Immich after a sync.
+
 ### The address search finds nothing
 
 The app server needs access to `photon.komoot.io` (or to the geocoder set in
@@ -128,6 +133,18 @@ Groups are built again in the background. A group goes when none of its photos a
 more, for example when you took all of them out. Go back to the list: its photos are in other groups,
 or in none. A group whose photos are all marked as showing no sign of a place stays, under the view
 **No sign of a place**.
+
+### Search by description says that smart search is off
+
+*Maybe no sign of a place → By description* uses the smart search of Immich. Turn on machine
+learning and smart search in Immich (Administration → Settings → Machine Learning) and let Immich
+process the library; the other tab, **Alike but far apart**, works without it.
+
+### The app marks too many photos with "no sign of a place"
+
+In **No sign of a place → Marked by the app**, bring back what does show the place: the app does not
+mark those photos again. **Settings → Groups** sets how alike a photo must be to your marks (higher
+gives fewer marks), or turns the marks of the app off; they then go at the next rebuild.
 
 ### A place set from a group is wrong
 

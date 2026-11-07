@@ -563,7 +563,7 @@
 	"error_groups_busy": "Les groupes sont en cours de traitement. Réessayez quand ce sera terminé.",
 	"groups_settings_reset": "Reconstruire les groupes de zéro",
 	"groups_settings_reset_hint": "Prend environ une minute. Les noms des groupes et vos changements sont supprimés.",
-	"groups_reset_warning": "Tous les groupes sont reconstruits. Leurs noms, les photos ajoutées ou retirées et les marques « sans indice de lieu » des groupes sont supprimés définitivement. Les photos seules portant cette marque la gardent.",
+	"groups_reset_warning": "Tous les groupes sont reconstruits. Leurs noms, les photos ajoutées ou retirées et les marques « sans indice de lieu » des groupes sont supprimés définitivement. Les photos seules portant cette marque la gardent. Les dossiers restent, vides.",
 	"groups_reset_cancel": "Annuler",
 	"groups_reset_confirm": "Supprimer et reconstruire",
 	"groups_add_chosen": "Ajouter les photos choisies ({count})",

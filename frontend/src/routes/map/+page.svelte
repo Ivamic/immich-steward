@@ -36,7 +36,7 @@
 	// From this zoom a click on a circle shows its photos instead of zooming in.
 	const PLACE_ZOOM = 15;
 	// From this zoom the photos in view are listed beside the map.
-	const LIST_ZOOM = 11;
+	const LIST_ZOOM = 5;
 	// From this zoom, with no more places than this in view, the places are pictures of a photo.
 	const PICTURE_ZOOM = 12;
 	const PICTURES_MOST = 200;

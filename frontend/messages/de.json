@@ -687,5 +687,9 @@
 	"map_list_mode": "Was die Liste zeigt",
 	"map_chosen_place": "Markierter Ort",
 	"map_chosen_place_hint": "Klicken Sie auf einen Ort der Karte, um ihn zu markieren und nur seine Fotos zu sehen",
-	"map_all_in_view_hint": "Hineinzoomen, um alle Fotos im Ausschnitt aufzulisten"
+	"map_all_in_view_hint": "Hineinzoomen, um alle Fotos im Ausschnitt aufzulisten",
+	"groups_rename": "Umbenennen",
+	"folder_move": "Ordner wechseln",
+	"folder_move_chosen": "Ordner wechseln ({count})",
+	"folder_take_out_chosen": "Aus dem Ordner nehmen ({count})"
 }

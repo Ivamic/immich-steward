@@ -687,5 +687,9 @@
 	"map_list_mode": "Ce que montre la liste",
 	"map_chosen_place": "Lieu sélectionné",
 	"map_chosen_place_hint": "Cliquez sur un lieu de la carte pour le sélectionner et ne voir que ses photos",
-	"map_all_in_view_hint": "Zoomez pour lister toutes les photos à l’écran"
+	"map_all_in_view_hint": "Zoomez pour lister toutes les photos à l’écran",
+	"groups_rename": "Renommer",
+	"folder_move": "Changer de dossier",
+	"folder_move_chosen": "Changer de dossier ({count})",
+	"folder_take_out_chosen": "Retirer du dossier ({count})"
 }

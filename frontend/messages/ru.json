@@ -687,5 +687,9 @@
 	"map_list_mode": "Что показывает список",
 	"map_chosen_place": "Выделенное место",
 	"map_chosen_place_hint": "Щёлкните место на карте, чтобы выделить его и видеть только его фото",
-	"map_all_in_view_hint": "Приблизьте карту, чтобы видеть все фото в кадре"
+	"map_all_in_view_hint": "Приблизьте карту, чтобы видеть все фото в кадре",
+	"groups_rename": "Переименовать",
+	"folder_move": "Сменить папку",
+	"folder_move_chosen": "Сменить папку ({count})",
+	"folder_take_out_chosen": "Убрать из папки ({count})"
 }

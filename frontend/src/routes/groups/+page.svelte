@@ -23,6 +23,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import FolderDialog from '#lib/groups/FolderDialog.svelte';
+	import GroupName from '#lib/groups/GroupName.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -640,12 +641,12 @@
 						>
 							<Icon name="check" size={12} strokeWidth={3} />
 						</button>
-						<a
-							class="group"
-							href={resolve(`/groups/[id]${query}`, { id: group.id })}
-							onclick={(event) => clickGroup(event, group.id)}
-						>
-							<span class="cover">
+						<div class="group">
+							<a
+								class="cover"
+								href={resolve(`/groups/[id]${query}`, { id: group.id })}
+								onclick={(event) => clickGroup(event, group.id)}
+							>
 								{#if group.cover}
 									<img
 										src={thumbnailUrl(group.cover.id, 'thumbnail', 0, group.cover.version)}
@@ -654,10 +655,15 @@
 										decoding="async"
 									/>
 								{/if}
-							</span>
-							<span class="name" class:unnamed={!group.name}
-								>{group.name ?? m.groups_unnamed()}</span
-							>
+							</a>
+							<GroupName
+								id={group.id}
+								name={group.name}
+								href={resolve(`/groups/[id]${query}`, { id: group.id })}
+								onclick={(event) => clickGroup(event, group.id)}
+								onrenamed={(renamed) =>
+									(shown = shown.map((g) => (g.id === group.id ? { ...g, name: renamed } : g)))}
+							/>
 							<span class="numbers">
 								{m.groups_photos({ count: count(group.photos || group.marked) })}
 							</span>
@@ -694,7 +700,7 @@
 									</span>
 								{/if}
 							</span>
-						</a>
+						</div>
 					</div>
 				{/if}
 			{/each}
@@ -813,17 +819,21 @@
 	/* A folder: the covers of up to four of its groups. */
 	.mosaic {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
-		grid-template-rows: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-rows: repeat(2, minmax(0, 1fr));
 		gap: 2px;
+	}
+	.mosaic img {
+		min-width: 0;
+		min-height: 0;
 	}
 	.mosaic.covers-0,
 	.mosaic.covers-1 {
-		grid-template-columns: 1fr;
-		grid-template-rows: 1fr;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: minmax(0, 1fr);
 	}
 	.mosaic.covers-2 {
-		grid-template-rows: 1fr;
+		grid-template-rows: minmax(0, 1fr);
 	}
 	.mosaic.covers-3 img:first-child {
 		grid-row: span 2;
@@ -853,6 +863,7 @@
 		margin-inline: var(--space-1);
 		background: var(--color-border-strong);
 	}
+	.group a.cover:hover,
 	.group:hover .cover {
 		outline: 2px solid var(--color-accent);
 	}

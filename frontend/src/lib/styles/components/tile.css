@@ -12,6 +12,8 @@
 	position: absolute;
 	top: 6px;
 	left: 6px;
+	/* Over the picture even when it is positioned itself (a marker on a cover). */
+	z-index: 1;
 	display: grid;
 	place-items: center;
 	width: 22px;

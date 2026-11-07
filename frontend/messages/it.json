@@ -687,5 +687,9 @@
 	"map_list_mode": "Cosa mostra l’elenco",
 	"map_chosen_place": "Luogo selezionato",
 	"map_chosen_place_hint": "Fai clic su un luogo della mappa per selezionarlo e vederne solo le foto",
-	"map_all_in_view_hint": "Ingrandisci per elencare tutte le foto inquadrate"
+	"map_all_in_view_hint": "Ingrandisci per elencare tutte le foto inquadrate",
+	"groups_rename": "Rinomina",
+	"folder_move": "Cambia cartella",
+	"folder_move_chosen": "Cambia cartella ({count})",
+	"folder_take_out_chosen": "Togli dalla cartella ({count})"
 }

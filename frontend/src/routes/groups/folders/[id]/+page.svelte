@@ -23,6 +23,8 @@
 	import { galleryChanged, galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
 	import type { LatLon } from '#lib/coords.js';
 	import MapView from '#lib/map/MapView.svelte';
+	import FolderDialog from '#lib/groups/FolderDialog.svelte';
+	import GroupName from '#lib/groups/GroupName.svelte';
 	import { GROUP_COLORS } from '#lib/map/markers.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
@@ -70,6 +72,9 @@
 	);
 	// The groups chosen in the legend: only their photos are shown; none chosen, all of them.
 	const shownGroups = new SvelteSet<string>();
+	// Groups chosen on the tab of the groups, and those to put into another folder.
+	const chosenGroups = new SvelteSet<string>();
+	let moving = $state<string[] | null>(null);
 	const inShownGroup = (photoId: string) =>
 		shownGroups.size === 0 || shownGroups.has(detail?.group_of[photoId] ?? '');
 	const listed = $derived.by((): AssetItem[] => {
@@ -164,10 +169,11 @@
 		}
 	}
 
-	async function takeOut(groupId: string) {
+	async function takeOut(groupIds: string[]) {
 		busy = true;
 		try {
-			await setGroupFolder(groupId, {});
+			for (const groupId of groupIds) await setGroupFolder(groupId, {});
+			groupIds.forEach((groupId) => chosenGroups.delete(groupId));
 			await load(id);
 		} catch (e) {
 			error = errorMessage(e);
@@ -306,9 +312,50 @@
 		</div>
 
 		{#if shownAs === 'groups'}
+			{#if chosenGroups.size > 0}
+				<div class="tools">
+					<button
+						type="button"
+						class="st-btn st-btn--primary st-btn--sm"
+						disabled={busy}
+						onclick={() => (moving = [...chosenGroups])}
+					>
+						<Icon name="folder" size={14} />
+						{m.folder_move_chosen({ count: count(chosenGroups.size) })}
+					</button>
+					<button
+						type="button"
+						class="st-btn st-btn--secondary st-btn--sm"
+						disabled={busy}
+						onclick={() => takeOut([...chosenGroups])}
+					>
+						{m.folder_take_out_chosen({ count: count(chosenGroups.size) })}
+					</button>
+					<button
+						type="button"
+						class="st-btn st-btn--ghost st-btn--sm"
+						onclick={() => chosenGroups.clear()}
+					>
+						{m.selection_clear()}
+					</button>
+				</div>
+			{/if}
 			<div class="grid">
 				{#each detail.groups as group, i (group.id)}
-					<div class="group">
+					{@const chosen = chosenGroups.has(group.id)}
+					<div class="group st-tile-cell" class:chosen class:choosing={chosenGroups.size > 0}>
+						<button
+							type="button"
+							class="st-tile-check"
+							aria-pressed={chosen}
+							aria-label={m.groups_choose_group()}
+							title={m.groups_choose_group()}
+							onclick={() => {
+								if (!chosenGroups.delete(group.id)) chosenGroups.add(group.id);
+							}}
+						>
+							<Icon name="check" size={12} strokeWidth={3} />
+						</button>
 						<a
 							class="cover"
 							href={resolve(`/groups/[id]?folder=${encodeURIComponent(id)}`, { id: group.id })}
@@ -323,26 +370,44 @@
 							{/if}
 							<span class="swatch" style:background={GROUP_COLORS[i % GROUP_COLORS.length]}></span>
 						</a>
-						<a
-							class="name"
+						<GroupName
+							id={group.id}
+							name={group.name}
 							href={resolve(`/groups/[id]?folder=${encodeURIComponent(id)}`, { id: group.id })}
-						>
-							{group.name ?? m.groups_unnamed()}
-						</a>
+							onrenamed={(renamed) => {
+								if (detail)
+									detail = {
+										...detail,
+										groups: detail.groups.map((g) =>
+											g.id === group.id ? { ...g, name: renamed } : g
+										)
+									};
+							}}
+						/>
 						<span class="numbers">{m.groups_photos({ count: count(group.photos) })}</span>
 						{#if group.trash}
 							<span class="st-badge"
 								><Icon name="eye-off" size={11} /><span>{m.groups_view_trash()}</span></span
 							>
 						{/if}
-						<button
-							type="button"
-							class="st-btn st-btn--ghost st-btn--sm"
-							disabled={busy}
-							onclick={() => takeOut(group.id)}
-						>
-							{m.folder_take_out()}
-						</button>
+						<span class="actions">
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								disabled={busy}
+								onclick={() => (moving = [group.id])}
+							>
+								{m.folder_move()}
+							</button>
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								disabled={busy}
+								onclick={() => takeOut([group.id])}
+							>
+								{m.folder_take_out()}
+							</button>
+						</span>
 					</div>
 				{/each}
 			</div>
@@ -501,6 +566,18 @@
 		}}
 	/>
 {/if}
+{#if moving && detail}
+	<FolderDialog
+		groupIds={moving}
+		current={detail.folder}
+		ondone={() => {
+			moving?.forEach((groupId) => chosenGroups.delete(groupId));
+			moving = null;
+			load(id);
+		}}
+		onclose={() => (moving = null)}
+	/>
+{/if}
 {#if confirmDelete}
 	<Dialog title={m.folder_delete()} icon="triangle-alert" onclose={() => (confirmDelete = false)}>
 		<p>{m.folder_delete_warning()}</p>
@@ -550,6 +627,29 @@
 		margin: 0 0 var(--space-3);
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
+	}
+	.tools {
+		position: sticky;
+		top: calc(var(--header-height) + var(--space-2));
+		z-index: var(--z-panel);
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
+		margin-bottom: var(--space-3);
+		padding: var(--space-1) var(--space-2);
+		border: var(--border-width) solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-sm);
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+	}
+	.group.chosen .cover {
+		outline: 3px solid var(--color-accent);
 	}
 	.legend {
 		display: flex;
@@ -611,15 +711,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-	}
-	.name {
-		max-width: 100%;
-		overflow: hidden;
-		color: inherit;
-		font-weight: var(--weight-medium);
-		text-decoration: none;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	/* The color of the group on the map. */
 	.swatch {

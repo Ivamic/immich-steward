@@ -687,5 +687,9 @@
 	"map_list_mode": "What the list shows",
 	"map_chosen_place": "Selected place",
 	"map_chosen_place_hint": "Click a place on the map to select it and see only its photos",
-	"map_all_in_view_hint": "Zoom in to list all the photos in view"
+	"map_all_in_view_hint": "Zoom in to list all the photos in view",
+	"groups_rename": "Rename",
+	"folder_move": "Change the folder",
+	"folder_move_chosen": "Change the folder ({count})",
+	"folder_take_out_chosen": "Take out of the folder ({count})"
 }

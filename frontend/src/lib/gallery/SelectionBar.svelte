@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Actions on the photos chosen in the gallery (D-149), in a bar at the bottom of the window:
-     a location for all of them (the map opens), turning them in Immich (videos are left as they
-     are), skip or "not applicable". -->
+     their own location first (a location for all of them, the map opens; skip; "not applicable"),
+     then turning them in Immich (videos are left as they are), then the actions of the page. -->
 <script lang="ts">
 	import { rotateSelection, setSelectionReview, type ReviewStatus } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -19,7 +19,7 @@
 	}: {
 		selection: Selection;
 		onlocation: () => void;
-		/** Further actions of the page, next to the location. */
+		/** Actions of the page, in a group of their own at the end. */
 		children?: Snippet;
 	} = $props();
 
@@ -96,7 +96,24 @@
 			<Icon name="map-pin" size={14} />
 			{m.selection_location()}
 		</button>
-		{@render children?.()}
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			disabled={busy}
+			onclick={() => review('skipped')}
+		>
+			<Icon name="skip-forward" size={14} />
+			{m.photo_skip()}
+		</button>
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			disabled={busy}
+			onclick={() => review('not_applicable')}
+		>
+			<Icon name="ban" size={14} />
+			{m.photo_not_applicable()}
+		</button>
 	</span>
 
 	<span class="group" title={photos ? undefined : m.selection_rotate_videos_only()}>
@@ -133,26 +150,10 @@
 		</Tooltip>
 	</span>
 
-	<span class="group">
-		<button
-			type="button"
-			class="st-btn st-btn--ghost st-btn--sm"
-			disabled={busy}
-			onclick={() => review('skipped')}
-		>
-			<Icon name="skip-forward" size={14} />
-			{m.photo_skip()}
-		</button>
-		<button
-			type="button"
-			class="st-btn st-btn--ghost st-btn--sm"
-			disabled={busy}
-			onclick={() => review('not_applicable')}
-		>
-			<Icon name="ban" size={14} />
-			{m.photo_not_applicable()}
-		</button>
-	</span>
+	<!-- Actions of the page: what the photos are to other photos, to their group. -->
+	{#if children}
+		<span class="group">{@render children()}</span>
+	{/if}
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
 </div>
 

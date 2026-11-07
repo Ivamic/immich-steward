@@ -7,6 +7,8 @@ between releases.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-07
+
 A map of your photos, folders of groups, photos with no sign of a place found and marked by the app
 as well, and suggestions of similar photos that know how far apart those photos lie.
 
@@ -653,7 +655,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Ivamic/immich-steward/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Ivamic/immich-steward/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Ivamic/immich-steward/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Ivamic/immich-steward/compare/v0.5.1...v0.6.0

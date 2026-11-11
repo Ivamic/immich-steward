@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from steward.immich.models import (
     ApiKey,
     ApiKeyInfo,
+    AuthStatus,
     ImmichAlbum,
     ImmichAsset,
     ImmichUser,
@@ -45,18 +46,34 @@ class ImmichPermissionError(ImmichError):
     """The API key lacks a permission required by the endpoint."""
 
 
+class ImmichPinError(ImmichError):
+    """Immich refused to open the locked folder: a wrong PIN code, or the user has none."""
+
+    def __init__(self, message: str, *, no_pin: bool) -> None:
+        super().__init__(message, 400)
+        self.no_pin = no_pin
+
+
 class ImmichClient:
-    """Thin wrapper over the Immich REST API. Use as an async context manager."""
+    """Thin wrapper over the Immich REST API. Use as an async context manager.
+
+    Signs in with the API key of the account, or with `session_token`: the Immich session the
+    user connected for the locked folder, which an API key never opens. Such a client is only
+    used for locked photos (a session with the folder open sees them in every search)."""
 
     def __init__(
         self,
         base_url: str,
         api_key: str | None = None,
         *,
+        session_token: str | None = None,
         timeout: float = DEFAULT_TIMEOUT_S,
         transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
-        headers = {"x-api-key": api_key} if api_key else {}
+        if session_token:
+            headers = _bearer(session_token)
+        else:
+            headers = {"x-api-key": api_key} if api_key else {}
         self._http = httpx2.AsyncClient(
             base_url=api_base_url(base_url),
             headers=headers,
@@ -144,6 +161,25 @@ class ImmichClient:
     async def logout(self, access_token: str) -> None:
         await self._request("POST", "/auth/logout", headers=_bearer(access_token))
 
+    # The locked folder, on a client made with `session_token`.
+
+    async def auth_status(self) -> AuthStatus:
+        return await self._get("/auth/status", AuthStatus)
+
+    async def unlock_session(self, pin_code: str) -> None:
+        """Opens the locked folder for this session: 15 minutes, which Immich extends by
+        5 minutes whenever the session is used in its last 5 minutes."""
+        try:
+            await self._request("POST", "/auth/session/unlock", json={"pinCode": pin_code})
+        except ImmichError as exc:
+            if exc.status != 400:
+                raise
+            message = str(exc)
+            raise ImmichPinError(message, no_pin="does not have a PIN" in message) from exc
+
+    async def lock_session(self) -> None:
+        await self._request("POST", "/auth/session/lock")
+
     async def api_keys(self, access_token: str) -> list[ApiKey]:
         keys = await self._request("GET", "/api-keys", headers=_bearer(access_token))
         return [ApiKey.model_validate(key) for key in keys]
@@ -229,7 +265,7 @@ def api_base_url(server_url: str) -> str:
 
 def raise_for_status(response: httpx2.Response, what: str) -> None:
     if response.status_code == 401:
-        raise ImmichAuthError(f"{what}: API key rejected", 401)
+        raise ImmichAuthError(f"{what}: {_message(response) or 'not signed in'}", 401)
     if response.status_code == 403:
         raise ImmichPermissionError(f"{what}: {_message(response)}", 403)
     if response.is_error:

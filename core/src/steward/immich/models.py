@@ -41,6 +41,16 @@ class LoginResult(ImmichModel):
     user_id: UUID
 
 
+class AuthStatus(ImmichModel):
+    """What Immich says about a session: whether the user has a PIN code and whether the
+    session has the locked folder open ("elevated") now, and until when."""
+
+    pin_code: bool
+    password: bool
+    is_elevated: bool
+    pin_expires_at: datetime | None = None
+
+
 class ApiKey(ImmichModel):
     id: UUID
     name: str

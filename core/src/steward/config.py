@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # Sessions are extended on use, so only this long without opening the app signs a user out.
     session_ttl_days: int = 90
 
+    # The Immich locked folder closes after this many minutes without a click or key press in
+    # the app (not while its photos are being processed, up to an hour).
+    locked_idle_minutes: int = Field(default=15, ge=1, le=60)
+
     # Background jobs run inside the core process; tests switch this off.
     run_jobs: bool = True
     # Automatic incremental sync with Immich; 0 disables it.

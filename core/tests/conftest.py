@@ -28,7 +28,8 @@ UNREACHABLE_DATABASE_URL = "postgresql+asyncpg://nobody:x@127.0.0.1:1/none"
 FAKE_IMMICH_URL = "http://immich.test"
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
 TABLES = (
-    "account, auth_session, asset, album, asset_album, job, location_change, worker, module_run, "
+    "account, auth_session, locked_folder, asset, album, asset_album, job, location_change, "
+    "worker, module_run, "
     "embedding, module_pause, module_display, "
     "map_source_setting, map_tile_usage, map_auto, app_setting, account_setting, "
     "view_neighbor, view_group, view_group_member, view_photo_trash"
@@ -85,6 +86,11 @@ class FakeImmich:
     password: str = "secret-password"
     password_login_enabled: bool = True
     sessions: set[str] = field(default_factory=set)
+    # The locked folder: the user's PIN code (None: not set) and the sessions that have it open.
+    pin_code: str | None = "123456"
+    elevated: set[str] = field(default_factory=set)
+    # Path of every request made with a session token, in order.
+    session_requests: list[str] = field(default_factory=list)
     created_keys: dict[str, dict[str, Any]] = field(default_factory=dict)
     fail_tagging: bool = False
     # Asset id -> its edits (crop, rotate, mirror) as Immich keeps them.
@@ -213,12 +219,35 @@ class FakeImmich:
         return _json({"accessToken": token, "userId": str(self.user_id), "name": self.user_name})
 
     def _session_request(self, request: httpx2.Request, token: str) -> httpx2.Response:
+        self.session_requests.append(request.url.path)
         if token not in self.sessions:
             return _json({"message": "Invalid user token"}, 401)
         path, method = request.url.path, request.method
         if path == "/api/auth/logout":
             self.sessions.discard(token)
+            self.elevated.discard(token)
             return _json({"successful": True})
+        if path == "/api/users/me":
+            return _json({"id": str(self.user_id), "name": self.user_name, "email": self.email})
+        if path == "/api/auth/status":
+            return _json(
+                {
+                    "pinCode": self.pin_code is not None,
+                    "password": True,
+                    "isElevated": token in self.elevated,
+                    "pinExpiresAt": "2026-01-01T00:15:00.000Z" if token in self.elevated else None,
+                }
+            )
+        if path == "/api/auth/session/unlock":
+            if self.pin_code is None:
+                return _json({"message": "User does not have a PIN code"}, 400)
+            if json.loads(request.content).get("pinCode") != self.pin_code:
+                return _json({"message": "Wrong PIN code"}, 400)
+            self.elevated.add(token)
+            return httpx2.Response(204)
+        if path == "/api/auth/session/lock":
+            self.elevated.discard(token)
+            return httpx2.Response(204)
         if path == "/api/api-keys" and method == "GET":
             return _json([{"id": k["id"], "name": k["name"]} for k in self.created_keys.values()])
         if path == "/api/api-keys" and method == "POST":
@@ -362,8 +391,12 @@ class FakeImmich:
     def transport(self) -> httpx2.MockTransport:
         return httpx2.MockTransport(self.handler)
 
-    def factory(self, base_url: str, api_key: str | None) -> ImmichClient:
-        return ImmichClient(base_url, api_key, transport=self.transport)
+    def factory(
+        self, base_url: str, api_key: str | None = None, *, session_token: str | None = None
+    ) -> ImmichClient:
+        return ImmichClient(
+            base_url, api_key, session_token=session_token, transport=self.transport
+        )
 
 
 def video_bytes(asset_id: str) -> bytes:

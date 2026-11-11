@@ -77,6 +77,27 @@ class Account(Base):
     full_synced_at: Mapped[datetime | None]
 
 
+class LockedFolder(Base):
+    """The Immich locked folder of an account, connected through an Immich session (an API key
+    never opens it, D-216): the session token, and whether the folder is open now."""
+
+    __tablename__ = "locked_folder"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Encrypted with steward.crypto.SecretBox, like the API key; never sent to the browser.
+    session_encrypted: Mapped[str] = mapped_column(Text)
+    connected_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # Opened with the PIN code at; None: closed.
+    opened_at: Mapped[datetime | None]
+    # The last click or key press of the user in the app while open: the idle timer.
+    active_at: Mapped[datetime | None]
+    # Wrong PIN codes in a row; Immich does not limit them, the app does.
+    failed_pins: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    blocked_until: Mapped[datetime | None]
+
+
 class AuthSession(Base):
     __tablename__ = "auth_session"
 

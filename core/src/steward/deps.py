@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """FastAPI dependencies shared by the API routers."""
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Protocol
 
 from fastapi import Cookie, Depends, Request, Response
 from sqlalchemy import select
@@ -17,7 +17,13 @@ from steward.models import Account, AuthSession
 
 SESSION_COOKIE = "steward_session"
 
-ImmichClientFactory = Callable[[str, str | None], ImmichClient]
+
+class ImmichClientFactory(Protocol):
+    """Makes an Immich client: `ImmichClient` itself, or a fake one in tests."""
+
+    def __call__(
+        self, base_url: str, api_key: str | None = None, *, session_token: str | None = None
+    ) -> ImmichClient: ...
 
 
 def get_settings(request: Request) -> Settings:

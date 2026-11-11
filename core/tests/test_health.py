@@ -74,7 +74,9 @@ def test_health_does_not_wait_for_a_hanging_immich(
         await asyncio.sleep(5)
         return httpx2.Response(200, json={})
 
-    def factory(base_url: str, api_key: str | None) -> ImmichClient:
+    def factory(
+        base_url: str, api_key: str | None = None, *, session_token: str | None = None
+    ) -> ImmichClient:
         return ImmichClient(base_url, api_key, transport=httpx2.MockTransport(hang))
 
     monkeypatch.setattr(health, "IMMICH_TIMEOUT_S", 0.2)

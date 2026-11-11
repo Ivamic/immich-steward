@@ -6,6 +6,7 @@ from steward.immich.client import (
     ImmichClient,
     ImmichError,
     ImmichPermissionError,
+    ImmichPinError,
     ImmichUnreachableError,
 )
 from steward.immich.models import ApiKeyInfo, ImmichUser, ServerVersion
@@ -16,6 +17,7 @@ __all__ = [
     "ImmichClient",
     "ImmichError",
     "ImmichPermissionError",
+    "ImmichPinError",
     "ImmichUnreachableError",
     "ImmichUser",
     "ServerVersion",

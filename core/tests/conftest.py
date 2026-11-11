@@ -248,6 +248,11 @@ class FakeImmich:
         if path == "/api/auth/session/lock":
             self.elevated.discard(token)
             return httpx2.Response(204)
+        if path == "/api/search/metadata":
+            body = json.loads(request.content)
+            if body.get("visibility") == "locked" and token not in self.elevated:
+                return _json({"message": "Elevated permission is required"}, 401)
+            return self._search(body)
         if path == "/api/api-keys" and method == "GET":
             return _json([{"id": k["id"], "name": k["name"]} for k in self.created_keys.values()])
         if path == "/api/api-keys" and method == "POST":
@@ -338,7 +343,10 @@ class FakeImmich:
             content = self.originals.get(path.split("/")[3], b"original")
             return httpx2.Response(200, content=content, headers={"content-type": "image/jpeg"})
         if path == "/api/search/metadata":
-            return self._search(json.loads(request.content))
+            body = json.loads(request.content)
+            if body.get("visibility") == "locked":  # an API key never opens the locked folder
+                return _json({"message": "Elevated permission is required"}, 401)
+            return self._search(body)
         if path == "/api/search/smart":
             body = json.loads(request.content)
             self.smart_requests.append(body)

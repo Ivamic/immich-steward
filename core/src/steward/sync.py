@@ -12,18 +12,24 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import embeddings, worker_queue
 from steward.immich import ImmichClient
 from steward.immich.models import ImmichAlbum, ImmichAsset
-from steward.models import Account, Album, Asset, AssetAlbum
+from steward.models import Account, Album, Asset, AssetAlbum, LockedFolder
 
 # "hidden" are the video parts of live photos, "locked" is the locked folder (not accessible
 # with API keys anyway).
 SYNCED_VISIBILITIES = ("timeline", "archive")
+# Photos of the locked folder (D-216): read with the Immich session, only while it is open.
+LOCKED = "locked"
+# A photo of an account with the locked folder connected that left the timeline and the archive
+# while the folder was closed: maybe moved into the folder, maybe deleted. Hidden everywhere,
+# like a locked photo, until the folder is opened again and the sync tells which.
+MISSING = "missing"
 
 # Overlap with the previous incremental sync, to tolerate clock skew between the servers.
 INCREMENTAL_OVERLAP = timedelta(minutes=5)
@@ -54,6 +60,8 @@ async def sync_account(
     *,
     full: bool,
     on_progress: ProgressCallback | None = None,
+    folder: LockedFolder | None = None,
+    locked_client: ImmichClient | None = None,
 ) -> SyncStats:
     started = datetime.now(UTC)
     updated_after: datetime | None = None
@@ -65,13 +73,25 @@ async def sync_account(
     # In the first sync every photo is new; after it, the ones that appear are.
     added_at = started if account.synced_at is not None else None
 
-    for visibility in SYNCED_VISIBILITIES:
+    # The locked photos, with the folder open: all of them on the first sync after opening and
+    # with every full sync, so that a full sync sees every photo.
+    passes: list[tuple[ImmichClient, str, datetime | None]] = [
+        (client, visibility, updated_after) for visibility in SYNCED_VISIBILITIES
+    ]
+    locked_full = False
+    if folder is not None and locked_client is not None:
+        last = folder.synced_at
+        locked_full = full or last is None
+        after = None if full or last is None else last - INCREMENTAL_OVERLAP
+        passes.append((locked_client, LOCKED, after))
+
+    for source, visibility, after in passes:
         page: int | None = 1
         while page is not None:
-            result = await client.search_assets(
+            result = await source.search_assets(
                 page=page,
                 visibility=visibility,
-                updated_after=updated_after,
+                updated_after=after,
                 with_deleted=True,
             )
             rows = [
@@ -89,11 +109,33 @@ async def sync_account(
                 await on_progress(stats.as_dict())
             page = result.next_page
 
-    if full:
+    if full and (folder is None or locked_full):
+        # Every photo was read: what was not is gone.
         removed = await db.execute(
             delete(Asset).where(Asset.account_id == account.id, Asset.synced_at < started)
         )
         stats.removed = removed.rowcount  # type: ignore[attr-defined]
+    elif full:
+        # The folder is connected but closed: its photos stay as they are, and a photo that
+        # left the timeline and the archive may be in it now.
+        unseen = (
+            Asset.account_id == account.id,
+            Asset.synced_at < started,
+            Asset.visibility.in_(SYNCED_VISIBILITIES),
+        )
+        await db.execute(update(Asset).where(*unseen).values(visibility=MISSING))
+    elif locked_full:
+        # All the locked photos were read: those not seen left the folder for good.
+        removed = await db.execute(
+            delete(Asset).where(
+                Asset.account_id == account.id,
+                Asset.synced_at < started,
+                Asset.visibility.in_((LOCKED, MISSING)),
+            )
+        )
+        stats.removed = removed.rowcount  # type: ignore[attr-defined]
+    if locked_full and folder is not None:
+        folder.synced_at = started
 
     stats.albums = await _sync_albums(db, client, account, refresh_all=full)
     # Photos that got (or lost) a location in Immich join (or leave) the similar-photos search.

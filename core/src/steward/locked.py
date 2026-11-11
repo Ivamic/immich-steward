@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.config import Settings
@@ -26,7 +26,7 @@ from steward.immich import (
     ImmichPinError,
     ImmichUnreachableError,
 )
-from steward.models import Account, AuthSession, LockedFolder
+from steward.models import Account, Asset, AuthSession, LockedFolder
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +36,11 @@ PIN_PAUSE = timedelta(minutes=5)
 # The folder never stays open longer than this without a user action, even while its photos
 # are being processed.
 MAX_IDLE = timedelta(hours=1)
+# Immich closes the folder 15 minutes after the PIN code unless the session is used in its last
+# 5 minutes; while open here, the app uses it this often.
+KEEP_OPEN_EVERY = timedelta(minutes=4)
+# Visibilities of the photos read through the folder (`steward.sync`).
+LOCKED_VISIBILITIES = ("locked", "missing")
 
 
 @dataclass
@@ -119,6 +124,12 @@ async def disconnect(
     token = box.decrypt(folder.session_encrypted)
     async with factory(settings.immich_url, session_token=token) as session:
         await _end(session)
+    # Without the folder its photos can be neither shown nor processed: they are forgotten.
+    await db.execute(
+        delete(Asset).where(
+            Asset.account_id == account.id, Asset.visibility.in_(LOCKED_VISIBILITIES)
+        )
+    )
     await db.delete(folder)
     if commit:
         await db.commit()
@@ -183,7 +194,12 @@ async def open_folder(
     folder.opened_at = folder.active_at = now
     folder.failed_pins = 0
     folder.blocked_until = None
+    # The next sync reads all the locked photos: some may have left the folder meanwhile.
+    folder.synced_at = None
     await db.commit()
+    from steward import jobs  # jobs imports this module
+
+    await jobs.enqueue(db, jobs.SYNC, account.id)
 
 
 async def close_folder(
@@ -258,6 +274,51 @@ async def close_idle(
         await close_folder(db, box, factory, settings, folder)
         closed.append(folder.account_id)
     return closed
+
+
+async def open_session(
+    db: AsyncSession,
+    box: SecretBox,
+    factory: ImmichClientFactory,
+    settings: Settings,
+    account_id: UUID,
+) -> tuple[LockedFolder, ImmichClient] | None:
+    """The folder and a client of its session, if the folder is open here and in Immich; a
+    folder Immich closed (or a session it ended) is closed here too. The caller closes the
+    client."""
+    folder = await db.get(LockedFolder, account_id)
+    if folder is None or folder.opened_at is None:
+        return None
+    session = _session(box, factory, settings, folder)
+    try:
+        if (await session.auth_status()).is_elevated:
+            return folder, session
+    except ImmichUnreachableError:
+        await session.aclose()
+        raise
+    except ImmichError as exc:
+        log.info("The session of the locked folder no longer works: %s", exc)
+    await session.aclose()
+    folder.opened_at = folder.active_at = None
+    await db.commit()
+    return None
+
+
+async def keep_open(
+    db: AsyncSession, box: SecretBox, factory: ImmichClientFactory, settings: Settings
+) -> None:
+    """Uses the session of every open folder, so that Immich keeps it open as long as the app
+    does (`KEEP_OPEN_EVERY`, called by the job runner)."""
+    ids = await db.scalars(
+        select(LockedFolder.account_id).where(LockedFolder.opened_at.is_not(None))
+    )
+    for account_id in ids.all():
+        try:
+            opened = await open_session(db, box, factory, settings, account_id)
+        except ImmichUnreachableError:
+            continue
+        if opened is not None:
+            await opened[1].aclose()
 
 
 async def _end(session: ImmichClient) -> None:

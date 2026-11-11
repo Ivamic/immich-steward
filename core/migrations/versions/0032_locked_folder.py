@@ -30,6 +30,7 @@ def upgrade() -> None:
         sa.Column("connected_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("opened_at", sa.DateTime(timezone=True)),
         sa.Column("active_at", sa.DateTime(timezone=True)),
+        sa.Column("synced_at", sa.DateTime(timezone=True)),
         sa.Column("failed_pins", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("blocked_until", sa.DateTime(timezone=True)),
     )

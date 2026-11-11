@@ -93,6 +93,9 @@ class LockedFolder(Base):
     opened_at: Mapped[datetime | None]
     # The last click or key press of the user in the app while open: the idle timer.
     active_at: Mapped[datetime | None]
+    # Start of the last full sync of the locked photos; None: the next sync with the folder
+    # open reads them all (after every opening: photos may have left the folder meanwhile).
+    synced_at: Mapped[datetime | None]
     # Wrong PIN codes in a row; Immich does not limit them, the app does.
     failed_pins: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     blocked_until: Mapped[datetime | None]

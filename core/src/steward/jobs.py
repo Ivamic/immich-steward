@@ -28,7 +28,7 @@ from steward.immich import (
     ImmichPermissionError,
     ImmichUnreachableError,
 )
-from steward.models import Account, Asset, Job
+from steward.models import Account, Asset, Job, LockedFolder
 from steward.sync import sync_account
 
 log = logging.getLogger(__name__)
@@ -97,12 +97,25 @@ async def run_sync(ctx: JobContext) -> dict[str, Any]:
     if full is None:  # automatic: a full sync once per `full_sync_interval_hours`
         due = datetime.now(UTC) - timedelta(hours=settings.full_sync_interval_hours)
         full = account.full_synced_at is None or account.full_synced_at < due
-    api_key = SecretBox(settings.secret_key.get_secret_value()).decrypt(account.api_key_encrypted)
+    box = SecretBox(settings.secret_key.get_secret_value())
+    api_key = box.decrypt(account.api_key_encrypted)
+    folder = await ctx.db.get(LockedFolder, account.id)
     try:
+        opened = await locked.open_session(ctx.db, box, ctx.immich_factory, settings, account.id)
         async with ctx.immich_factory(settings.immich_url, api_key) as client:
-            stats = await sync_account(
-                ctx.db, client, account, full=bool(full), on_progress=ctx.report
-            )
+            try:
+                stats = await sync_account(
+                    ctx.db,
+                    client,
+                    account,
+                    full=bool(full),
+                    on_progress=ctx.report,
+                    folder=folder,
+                    locked_client=opened[1] if opened else None,
+                )
+            finally:
+                if opened:
+                    await opened[1].aclose()
     except ImmichAuthError as exc:
         raise JobError("immich_invalid_api_key") from exc
     except ImmichPermissionError as exc:
@@ -264,15 +277,22 @@ class JobRunner:
         self._immich_factory = immich_factory
         self._handlers = handlers or HANDLERS
         self._update_transport = update_transport
+        # When the open locked folders are used next, to keep them open in Immich.
+        self._keep_open_at = 0.0
 
     async def close_idle_locked(self) -> None:
-        """Closes the locked folders left without a click or key press (D-216)."""
+        """Closes the locked folders left without a click or key press, and keeps the others
+        open in Immich too (D-216)."""
         settings = self._settings
         if settings.secret_key is None or settings.immich_url is None:
             return
         box = SecretBox(settings.secret_key.get_secret_value())
         async with self._sessionmaker() as db:
             await locked.close_idle(db, box, self._immich_factory, settings)
+            now = asyncio.get_running_loop().time()
+            if now >= self._keep_open_at:
+                await locked.keep_open(db, box, self._immich_factory, settings)
+                self._keep_open_at = now + locked.KEEP_OPEN_EVERY.total_seconds()
 
     async def recover(self) -> None:
         """Jobs left running by a crashed or restarted process are queued again."""

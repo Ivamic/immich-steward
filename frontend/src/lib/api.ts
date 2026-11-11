@@ -1016,3 +1016,18 @@ export const loginWithPassword = (email: string, password: string) =>
 	request<Me>('POST', '/api/auth/login/password', { email, password });
 export const logout = () => request<void>('POST', '/api/auth/logout');
 export const getMe = () => request<Me>('GET', '/api/auth/me');
+
+/** The Immich locked folder of the account (D-216): connected once with the password. */
+export interface LockedState {
+	connected: boolean;
+	connected_at: string | null;
+	open: boolean;
+	/** Minutes without a click or key press that close the folder. */
+	idle_minutes: number;
+	/** Too many wrong PIN codes: no new try before this. */
+	blocked_until: string | null;
+}
+export const getLocked = () => request<LockedState>('GET', '/api/locked');
+export const connectLocked = (password: string) =>
+	request<LockedState & { has_pin: boolean }>('POST', '/api/locked/connect', { password });
+export const disconnectLocked = () => request<LockedState>('DELETE', '/api/locked');

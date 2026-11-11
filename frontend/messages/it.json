@@ -718,5 +718,17 @@
 	"about_support_heading": "Sostieni il progetto",
 	"about_support_text": "Steward è gratuito e sviluppato nel tempo libero. Una donazione, una stella su GitHub, la segnalazione di un errore o una parola sul progetto: tutto aiuta.",
 	"about_donate": "Come donare",
-	"about_report": "Segnala un problema"
+	"about_report": "Segnala un problema",
+	"locked_heading": "Cartella bloccata",
+	"locked_hint": "Le foto che hai spostato nella cartella bloccata di Immich possono essere elaborate e aiutare a trovare i luoghi, finché apri qui la cartella con il tuo PIN. Immich la apre solo a una sessione con accesso, non alla chiave API dell’app: per questo l’app ha bisogno una volta della tua password di Immich.",
+	"locked_password_note": "La password non viene salvata: l’app conserva la sessione di Immich che apre, visibile e revocabile in Immich (Impostazioni account → Dispositivi autorizzati). Senza una password in Immich (accesso solo tramite OAuth) la cartella non si può collegare.",
+	"locked_password": "Password di Immich",
+	"locked_connect": "Collega",
+	"locked_connected": "Collegata il {date}",
+	"locked_idle": "La cartella si chiude dopo {minutes} min senza clic o tasti nell’app.",
+	"locked_no_pin": "Non hai ancora un PIN in Immich: impostalo lì (Impostazioni account → Codice PIN), poi la cartella si potrà aprire qui.",
+	"locked_disconnect": "Scollega",
+	"error_locked_password_login_failed": "Immich ha rifiutato l’accesso con password (forse è consentito solo OAuth). La cartella bloccata si può collegare solo con una password di Immich.",
+	"error_locked_other_user": "Questa password appartiene a un altro utente di Immich, non a quello che ha effettuato l’accesso qui.",
+	"error_locked_wrong_password": "Immich non ha accettato questa password."
 }

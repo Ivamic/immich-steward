@@ -4,6 +4,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import GalleryPanel from '#lib/GalleryPanel.svelte';
 	import GroupsPanel from '#lib/GroupsPanel.svelte';
+	import LockedFolderPanel from '#lib/LockedFolderPanel.svelte';
 	import MapSourcesPanel from '#lib/MapSourcesPanel.svelte';
 	import ModuleDisplayPanel from '#lib/ModuleDisplayPanel.svelte';
 	import UpdatesPanel from '#lib/UpdatesPanel.svelte';
@@ -15,4 +16,5 @@
 <GroupsPanel />
 <ModuleDisplayPanel />
 <MapSourcesPanel />
+<LockedFolderPanel />
 <UpdatesPanel />

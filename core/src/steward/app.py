@@ -30,6 +30,7 @@ from steward.api import (
     updates,
     worker,
 )
+from steward.api import locked as locked_api
 from steward.api import settings as settings_api
 from steward.config import Settings, environment_warnings, get_settings
 from steward.db import create_engine
@@ -128,6 +129,7 @@ def create_app(
     app.include_router(worker.router, prefix="/api")
     app.include_router(updates.router, prefix="/api")
     app.include_router(settings_api.router, prefix="/api")
+    app.include_router(locked_api.router, prefix="/api")
 
     static_dir = settings.static_dir
     if static_dir is not None and Path(static_dir, "index.html").is_file():

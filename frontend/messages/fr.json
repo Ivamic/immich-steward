@@ -718,5 +718,17 @@
 	"about_support_heading": "Soutenir le projet",
 	"about_support_text": "Steward est gratuit et développé sur du temps libre. Un don, une étoile sur GitHub, un rapport de bug ou un mot sur le projet, tout aide.",
 	"about_donate": "Comment faire un don",
-	"about_report": "Signaler un problème"
+	"about_report": "Signaler un problème",
+	"locked_heading": "Dossier verrouillé",
+	"locked_hint": "Les photos que vous avez placées dans le dossier verrouillé d’Immich peuvent aussi être traitées et aider à trouver des lieux, tant que vous ouvrez le dossier ici avec votre code PIN. Immich ne l’ouvre qu’à une session connectée, pas à la clé API de l’application : l’application a donc besoin une fois de votre mot de passe Immich.",
+	"locked_password_note": "Le mot de passe n’est pas conservé : l’application garde la session Immich qu’il ouvre, visible et révocable dans Immich (Paramètres du compte → Appareils autorisés). Sans mot de passe dans Immich (connexion uniquement par OAuth), le dossier ne peut pas être connecté.",
+	"locked_password": "Mot de passe Immich",
+	"locked_connect": "Connecter",
+	"locked_connected": "Connecté le {date}",
+	"locked_idle": "Le dossier se ferme après {minutes} min sans clic ni touche dans l’application.",
+	"locked_no_pin": "Vous n’avez pas encore de code PIN dans Immich : définissez-en un (Paramètres du compte → Code PIN), puis le dossier pourra être ouvert ici.",
+	"locked_disconnect": "Déconnecter",
+	"error_locked_password_login_failed": "Immich a refusé la connexion par mot de passe (peut-être seul OAuth est-il permis). Le dossier verrouillé ne peut être connecté qu’avec un mot de passe Immich.",
+	"error_locked_other_user": "Ce mot de passe appartient à un autre utilisateur d’Immich que celui connecté ici.",
+	"error_locked_wrong_password": "Immich n’a pas accepté ce mot de passe."
 }

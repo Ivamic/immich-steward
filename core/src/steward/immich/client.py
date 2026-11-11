@@ -180,6 +180,10 @@ class ImmichClient:
     async def lock_session(self) -> None:
         await self._request("POST", "/auth/session/lock")
 
+    async def logout_session(self) -> None:
+        """Ends this client's session in Immich."""
+        await self._request("POST", "/auth/logout")
+
     async def api_keys(self, access_token: str) -> list[ApiKey]:
         keys = await self._request("GET", "/api-keys", headers=_bearer(access_token))
         return [ApiKey.model_validate(key) for key in keys]

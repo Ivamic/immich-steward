@@ -718,5 +718,17 @@
 	"about_support_heading": "Support the project",
 	"about_support_text": "Steward is free and developed in spare time. A donation, a star on GitHub, a bug report or a word about the project all help.",
 	"about_donate": "How to donate",
-	"about_report": "Report a problem"
+	"about_report": "Report a problem",
+	"locked_heading": "Locked folder",
+	"locked_hint": "Photos you moved to the locked folder in Immich can be processed and help find places too, while you open the folder here with your PIN code. Immich opens it only for a signed-in session, not for the API key of the app, so the app needs your Immich password once.",
+	"locked_password_note": "The password is not stored: the app keeps the Immich session it opens, which you see and can end in Immich (Account settings → Authorized devices). Without a password in Immich (sign-in through OAuth only) the folder cannot be connected.",
+	"locked_password": "Immich password",
+	"locked_connect": "Connect",
+	"locked_connected": "Connected on {date}",
+	"locked_idle": "The folder closes after {minutes} min without a click or key press in the app.",
+	"locked_no_pin": "You have no PIN code in Immich yet: set one there (Account settings → PIN code), then the folder can be opened here.",
+	"locked_disconnect": "Disconnect",
+	"error_locked_password_login_failed": "Immich refused password sign-in (it may allow OAuth only). The locked folder can only be connected with an Immich password.",
+	"error_locked_other_user": "This password belongs to another Immich user than the one signed in here.",
+	"error_locked_wrong_password": "Immich did not accept this password."
 }

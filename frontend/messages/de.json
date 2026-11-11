@@ -718,5 +718,17 @@
 	"about_support_heading": "Das Projekt unterstützen",
 	"about_support_text": "Steward ist kostenlos und wird in der Freizeit entwickelt. Eine Spende, ein Stern auf GitHub, ein Fehlerbericht oder ein Wort über das Projekt helfen.",
 	"about_donate": "Wie spenden",
-	"about_report": "Ein Problem melden"
+	"about_report": "Ein Problem melden",
+	"locked_heading": "Gesperrter Ordner",
+	"locked_hint": "Fotos, die Sie in Immich in den gesperrten Ordner verschoben haben, können ebenfalls verarbeitet werden und beim Finden von Orten helfen, solange Sie den Ordner hier mit Ihrer PIN öffnen. Immich öffnet ihn nur für eine angemeldete Sitzung, nicht für den API-Schlüssel der App; daher braucht die App einmal Ihr Immich-Passwort.",
+	"locked_password_note": "Das Passwort wird nicht gespeichert: Die App behält die damit geöffnete Immich-Sitzung, die Sie in Immich sehen und beenden können (Kontoeinstellungen → Autorisierte Geräte). Ohne Passwort in Immich (Anmeldung nur über OAuth) lässt sich der Ordner nicht verbinden.",
+	"locked_password": "Immich-Passwort",
+	"locked_connect": "Verbinden",
+	"locked_connected": "Verbunden am {date}",
+	"locked_idle": "Der Ordner schließt sich nach {minutes} Min. ohne Klick oder Tastendruck in der App.",
+	"locked_no_pin": "In Immich ist noch keine PIN festgelegt: Legen Sie dort eine fest (Kontoeinstellungen → PIN-Code), danach lässt sich der Ordner hier öffnen.",
+	"locked_disconnect": "Trennen",
+	"error_locked_password_login_failed": "Immich hat die Anmeldung mit Passwort abgelehnt (vielleicht ist nur OAuth erlaubt). Der gesperrte Ordner lässt sich nur mit einem Immich-Passwort verbinden.",
+	"error_locked_other_user": "Dieses Passwort gehört zu einem anderen Immich-Benutzer als dem hier angemeldeten.",
+	"error_locked_wrong_password": "Immich hat dieses Passwort nicht akzeptiert."
 }

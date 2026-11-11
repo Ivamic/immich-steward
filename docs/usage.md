@@ -108,6 +108,10 @@ paste it into the field of another photo or into a map site. It also works when 
 opened over plain `http://`; if the browser still refuses, the coordinates are selected and Ctrl+C
 copies them.
 
+**Google Maps.** The button next to it opens the same point in Google Maps in a new tab:
+**Google satellite** (the satellite view, close up) or **Street View nearby** (the nearest street
+panorama, if Google has one there). Only the coordinates go to Google, and only when you click.
+
 ### Satellite imagery
 
 Three satellite sources can be connected, each off until you switch it on:

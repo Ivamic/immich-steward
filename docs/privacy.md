@@ -13,6 +13,10 @@
   own key. No photos are sent, the app server neither relays nor stores the tiles, and the tiles
   are not used by any module. The app server contacts the provider itself only to check a key when
   you save it and, if you gave a MapTiler service token, to read the usage.
+- **Google Maps** opens only when you click **Google satellite** or **Street View nearby** next to
+  the coordinates of a photo: your browser opens google.com in a new tab with the coordinates of
+  that point, without telling Google the address of the app or which photo it is. Nothing is sent
+  to Google otherwise.
 - **Address search** sends the typed text and the approximate map position from the app server to
   the public Photon geocoder (`photon.komoot.io`). Set `STEWARD_GEOCODER_URL=` (empty) to turn the
   search off, or point it to your own Photon.

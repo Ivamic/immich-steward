@@ -33,6 +33,7 @@
 	import SuggestionList from '#lib/suggestions/SuggestionList.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Kbd from '#lib/ui/Kbd.svelte';
+	import GoogleMapsMenu from '#lib/GoogleMapsMenu.svelte';
 	import CopyButton from '#lib/ui/CopyButton.svelte';
 	import HoverPreview from './HoverPreview.svelte';
 	import { longpress } from './longpress.js';
@@ -282,6 +283,7 @@
 						label={m.copy_coordinates()}
 						onfailed={() => coordinatesInput?.select()}
 					/>
+					<GoogleMapsMenu at={picked} />
 					<button
 						type="button"
 						class="st-iconbtn st-iconbtn--sm"

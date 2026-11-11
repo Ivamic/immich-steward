@@ -56,6 +56,7 @@
 	import Kbd from '#lib/ui/Kbd.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import type { Highlight } from '#lib/suggestions/highlight.js';
+	import GoogleMapsMenu from '#lib/GoogleMapsMenu.svelte';
 	import CopyButton from '#lib/ui/CopyButton.svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -636,6 +637,7 @@
 								label={m.copy_coordinates()}
 								onfailed={() => coordinatesInput?.select()}
 							/>
+							<GoogleMapsMenu at={picked} />
 							<button
 								type="button"
 								class="st-iconbtn st-iconbtn--sm"
@@ -928,6 +930,7 @@
 										onfailed={() =>
 											currentCoords && getSelection()?.selectAllChildren(currentCoords)}
 									/>
+									<GoogleMapsMenu at={current} />
 								</span>
 							{:else}
 								<span class="muted">{m.photo_no_location()}</span>

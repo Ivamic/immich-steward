@@ -7,6 +7,13 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Google Maps** next to the coordinates of a photo (the picked point and the current location,
+  in the photo card and in the location window of selected photos): **Google satellite** and
+  **Street View nearby** open the point in a new tab. Only the coordinates go to Google, on a
+  click.
+
 ### Changed
 
 - The images take the latest Debian fixes when they are built, even before the Python base image

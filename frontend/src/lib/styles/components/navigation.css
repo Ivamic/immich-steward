@@ -158,6 +158,8 @@
 	font: inherit;
 	font-size: var(--text-base);
 	text-align: start;
+	/* Also a link (a page, an outside map). */
+	text-decoration: none;
 	cursor: pointer;
 }
 .st-menu__item:hover,

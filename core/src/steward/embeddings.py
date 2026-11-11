@@ -90,7 +90,7 @@ async def index_counts(db: AsyncSession, account: Account, module_id: str) -> di
     photos = (
         Asset.account_id == account.id,
         Asset.type == "IMAGE",
-        Asset.visibility.in_(("timeline", "archive")),
+        Asset.visibility.in_(("timeline", "archive", "locked")),
         Asset.is_trashed.is_(False),
         located(),
     )

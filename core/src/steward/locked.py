@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.config import Settings
@@ -27,7 +27,7 @@ from steward.immich import (
     ImmichPinError,
     ImmichUnreachableError,
 )
-from steward.models import Account, Asset, AuthSession, LockedFolder
+from steward.models import Account, Asset, AuthSession, Job, LockedFolder, ModuleRun
 
 log = logging.getLogger(__name__)
 
@@ -263,10 +263,24 @@ async def close_idle(
     accounts whose folder closed."""
     now = datetime.now(UTC)
     due = now - timedelta(minutes=settings.locked_idle_minutes)
+    # Not while workers have its photos (up to an hour without a user action).
+    processing = exists(
+        select(literal(1))
+        .select_from(Job)
+        .join(ModuleRun, ModuleRun.job_id == Job.id)
+        .join(Asset, Asset.id == ModuleRun.asset_id)
+        .where(
+            Asset.account_id == LockedFolder.account_id,
+            Asset.visibility.in_(LOCKED_VISIBILITIES),
+            Job.status.in_(("queued", "running")),
+        )
+    )
     folders = (
         await db.scalars(
             select(LockedFolder).where(
-                LockedFolder.opened_at.is_not(None), LockedFolder.active_at < due
+                LockedFolder.opened_at.is_not(None),
+                LockedFolder.active_at < due,
+                or_(LockedFolder.active_at < now - MAX_IDLE, ~processing),
             )
         )
     ).all()

@@ -19,7 +19,7 @@ from sqlalchemy.sql import ColumnElement
 
 from steward import embeddings
 from steward.errors import ApiError
-from steward.models import Account, Asset, Job, ModulePause, ModuleRun, Worker
+from steward.models import Account, Asset, Job, LockedFolder, ModulePause, ModuleRun, Worker
 
 MODULE_JOB = "module"
 ACTIVE = ("queued", "running")
@@ -244,15 +244,50 @@ async def give_back(db: AsyncSession, leased: Lease, error: str) -> None:
 INDEXING_MODULES = ("similar",)
 
 
+# Photos of the locked folder are processed too, but handed to workers only while it is open.
+LOCKED = ("locked", "missing")
+
+
+def waiting_for_pin() -> ColumnElement[bool]:
+    """Module jobs of locked photos whose folder is closed: they wait in the queue."""
+    return exists(
+        select(literal(1))
+        .select_from(ModuleRun)
+        .join(Asset, Asset.id == ModuleRun.asset_id)
+        .outerjoin(LockedFolder, LockedFolder.account_id == Asset.account_id)
+        .where(
+            ModuleRun.job_id == Job.id,
+            Asset.visibility.in_(LOCKED),
+            LockedFolder.opened_at.is_(None),
+        )
+    )
+
+
+async def waiting_for_pin_count(db: AsyncSession, account: Account) -> int:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(Job)
+        .where(
+            Job.kind == MODULE_JOB,
+            Job.account_id == account.id,
+            Job.status == "queued",
+            waiting_for_pin(),
+        )
+    )
+    return count or 0
+
+
 def _auto_eligible(module_id: str) -> tuple[ColumnElement[bool], ColumnElement[int]]:
     """Photos the module runs on automatically, and which of them go first (lower first)."""
     needs_location = and_(
-        Asset.latitude.is_(None), Asset.review_status == "new", Asset.visibility == "timeline"
+        Asset.latitude.is_(None),
+        Asset.review_status == "new",
+        Asset.visibility.in_(("timeline", "locked")),
     )
     if module_id not in INDEXING_MODULES:
         return needs_location, literal(0)
     # The search index first, so that suggestions have something to be found among.
-    located = and_(embeddings.located(), Asset.visibility.in_(("timeline", "archive")))
+    located = and_(embeddings.located(), Asset.visibility.in_(("timeline", "archive", "locked")))
     return or_(located, needs_location), case((located, 0), else_=1)
 
 
@@ -553,6 +588,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
                     Job.status == "queued",
                     and_(Job.status == "running", Job.lease_until < now),
                 ),
+                ~waiting_for_pin(),
             )
             .order_by(Job.priority.desc(), module_order, Job.created_at)
             .limit(1)

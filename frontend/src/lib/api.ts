@@ -521,6 +521,8 @@ export interface WorkersOverview {
 	core_version: string;
 	/** A worker older than this is offered an update (not every release changes the worker). */
 	worker_recommended: string;
+	/** Queued jobs of locked photos: they wait until the folder is opened (absent: older core). */
+	locked_waiting?: number;
 	/** Every module workers can run, in the order to show them. */
 	modules: { id: string; color: string; shape: string }[];
 	/** Module -> status of the latest run -> number of photos. */

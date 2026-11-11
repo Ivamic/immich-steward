@@ -143,6 +143,8 @@ class Workers(BaseModel):
     worker_recommended: str = ""
     # Version of this core: an active worker with an older one can be updated.
     core_version: str
+    # Queued jobs of this account's locked photos: they wait until the folder is opened.
+    locked_waiting: int = 0
 
 
 class RerunRequest(BaseModel):
@@ -257,6 +259,7 @@ async def get_workers(
         ],
         core_version=__version__,
         worker_recommended=RECOMMENDED_WORKER_VERSION,
+        locked_waiting=await worker_queue.waiting_for_pin_count(db, account),
     )
 
 

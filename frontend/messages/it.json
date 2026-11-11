@@ -740,5 +740,6 @@
 	"error_locked_pin_paused": "Troppi PIN errati. Riprova dopo le {time}.",
 	"error_locked_session_lost": "Immich ha chiuso la sessione dell’app (password cambiata o dispositivo rimosso). Collega di nuovo la cartella bloccata nelle Impostazioni.",
 	"error_locked_not_connected": "La cartella bloccata non è collegata: collegala nelle Impostazioni.",
-	"error_locked_closed": "Questa foto è nella cartella bloccata: apri la cartella (il lucchetto in alto) per vederla o modificarla."
+	"error_locked_closed": "Questa foto è nella cartella bloccata: apri la cartella (il lucchetto in alto) per vederla o modificarla.",
+	"workers_locked_waiting": "Foto della cartella bloccata in attesa che venga aperta: {count}. I worker le ricevono solo mentre è aperta."
 }

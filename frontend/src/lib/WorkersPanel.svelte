@@ -191,6 +191,13 @@
 		<p class="error" role="alert">{error}</p>
 	{/if}
 	{#if overview}
+		{#if overview.locked_waiting}
+			<p class="muted waiting">
+				<Icon name="lock" size={14} />{m.workers_locked_waiting({
+					count: String(overview.locked_waiting)
+				})}
+			</p>
+		{/if}
 		{#if overview.workers.length || overview.refused.length}
 			<div class="workers">
 				{#each overview.refused as refused (refused.name)}
@@ -615,5 +622,10 @@
 	}
 	p {
 		margin: 0;
+	}
+	.waiting {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
 	}
 </style>

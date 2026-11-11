@@ -142,7 +142,9 @@ _CLOSE = """
     )
     SELECT pair.a, pair.b, pair.s FROM pair
     JOIN asset AS asset_a ON asset_a.id = pair.a AND NOT asset_a.is_trashed
+        AND asset_a.visibility NOT IN ('locked', 'missing')
     JOIN asset AS asset_b ON asset_b.id = pair.b AND NOT asset_b.is_trashed
+        AND asset_b.visibility NOT IN ('locked', 'missing')
     {mutual}
     WHERE pair.s >= :similarity
 """

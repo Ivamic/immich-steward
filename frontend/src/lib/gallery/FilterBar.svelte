@@ -10,6 +10,7 @@
 		type GalleryFilter,
 		type ShowCategory
 	} from '#lib/api.js';
+	import { locked } from '#lib/locked.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import {
@@ -284,6 +285,18 @@
 	>
 		{m.filter_archived()}
 	</button>
+
+	{#if locked.open || filter.locked_folder}
+		<button
+			type="button"
+			class="st-chip"
+			aria-pressed={filter.locked_folder}
+			onclick={() => set({ locked_folder: !filter.locked_folder })}
+		>
+			<Icon name="lock" size={12} />
+			{m.filter_locked_folder()}
+		</button>
+	{/if}
 
 	{#if !isDefault}
 		<button

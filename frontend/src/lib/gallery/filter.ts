@@ -11,6 +11,7 @@ export const defaultFilter: GalleryFilter = {
 	date_from: null,
 	date_to: null,
 	archived: false,
+	locked_folder: false,
 	geoclip_confident: false,
 	similar_confident: false,
 	nearby: false,
@@ -32,6 +33,7 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		date_from: params.get('date_from'),
 		date_to: params.get('date_to'),
 		archived: params.get('archived') === 'true',
+		locked_folder: params.get('locked_folder') === 'true',
 		geoclip_confident: params.get('geoclip_confident') === 'true',
 		similar_confident: params.get('similar_confident') === 'true',
 		nearby: params.get('nearby') === 'true',
@@ -65,6 +67,7 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	if (filter.date_from) params.set('date_from', filter.date_from);
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
+	if (filter.locked_folder) params.set('locked_folder', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
@@ -82,6 +85,7 @@ export function activeFilters(filter: GalleryFilter): number {
 		'camera',
 		'album',
 		'archived',
+		'locked_folder',
 		'geoclip_confident',
 		'similar_confident',
 		'nearby',

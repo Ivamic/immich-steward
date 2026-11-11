@@ -23,6 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONPATH, aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from steward import locked
 from steward.embeddings import located
 from steward.marks import is_marked
 from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun, SimilarHint
@@ -56,6 +57,8 @@ class GalleryFilter:
     date_from: date | None = None
     date_to: date | None = None
     include_archived: bool = False
+    # The photos of the locked folder, while it is open (D-216).
+    include_locked: bool = False
     # Only photos without a location that GeoCLIP places with at least this confidence.
     geoclip_confidence: float | None = None
     # Only photos without a location with a located photo this confidently similar (the badge
@@ -73,8 +76,16 @@ class GalleryFilter:
             Asset.account_id == account.id,
             Asset.is_trashed.is_(False),
         ]
-        if not self.include_archived:
-            result.append(Asset.visibility == "timeline")
+        visible = ("timeline", "archive") if self.include_archived else ("timeline",)
+        if self.include_locked:
+            result.append(
+                or_(
+                    Asset.visibility.in_(visible),
+                    and_(Asset.visibility == "locked", locked.folder_open()),
+                )
+            )
+        else:
+            result.append(Asset.visibility.in_(visible))
         if self.show:
             result.append(or_(*(_show_condition(category) for category in sorted(self.show))))
         if self.type != "all":
@@ -201,6 +212,7 @@ def _located(account: Account) -> list[ColumnElement[bool]]:
     return [
         Asset.account_id == account.id,
         Asset.is_trashed.is_(False),
+        locked.shown(),
         Asset.latitude.is_not(None),
         Asset.longitude.is_not(None),
     ]
@@ -344,7 +356,7 @@ async def camera_options(db: AsyncSession, account: Account) -> list[dict[str, A
     model = func.coalesce(Asset.camera_model, "")
     rows = await db.execute(
         select(make, model, func.count())
-        .where(Asset.account_id == account.id, Asset.is_trashed.is_(False))
+        .where(Asset.account_id == account.id, Asset.is_trashed.is_(False), locked.shown())
         .group_by(make, model)
         .order_by(func.count().desc())
     )

@@ -82,6 +82,7 @@ def gallery_filter(
     date_from: date | None = None,
     date_to: date | None = None,
     archived: bool = False,
+    locked_folder: bool = False,
     geoclip_confident: bool = False,
     similar_confident: bool = False,
     nearby: bool = False,
@@ -96,6 +97,7 @@ def gallery_filter(
         date_from=date_from,
         date_to=date_to,
         include_archived=archived,
+        include_locked=locked_folder,
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
         similar_confidence=settings.similar_confident_from if similar_confident else None,
         nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
@@ -114,6 +116,7 @@ def map_filter(
     date_from: date | None = None,
     date_to: date | None = None,
     archived: bool = False,
+    locked_folder: bool = False,
 ) -> GalleryFilter:
     """The filters of the gallery that mean something for photos with a location (D-207): what
     to show and the badges are about photos without one."""
@@ -124,6 +127,7 @@ def map_filter(
         date_from=date_from,
         date_to=date_to,
         include_archived=archived,
+        include_locked=locked_folder,
     )
 
 
@@ -168,6 +172,8 @@ class AssetItem(BaseModel):
     camera_model: str | None = None
     # Changes with the thumbnails (photo rotated or edited in Immich): for their addresses.
     version: str | None = None
+    # In the Immich locked folder (shown only while it is open).
+    locked: bool = False
 
     @classmethod
     def of(
@@ -191,6 +197,7 @@ class AssetItem(BaseModel):
             camera_make=asset.camera_make,
             camera_model=asset.camera_model,
             version=asset.thumbhash,
+            locked=asset.visibility == "locked",
         )
 
 
@@ -248,6 +255,8 @@ class AssetDetail(BaseModel):
     immich_url: str | None = None
     # Changes with the thumbnails (photo rotated or edited in Immich): for their addresses.
     version: str | None = None
+    # In the Immich locked folder (reached only while it is open).
+    locked: bool = False
 
 
 class ReviewUpdate(BaseModel):
@@ -323,6 +332,8 @@ class TrackPointItem(BaseModel):
     estimated: bool
     role: Literal["before", "after"] | None
     version: str | None = None
+    # A photo of the locked folder, while it is closed: no name, a lock instead of the preview.
+    locked: bool = False
 
 
 class CameraCountItem(BaseModel):
@@ -538,6 +549,7 @@ async def _own_asset(db: DbDep, account: CurrentAccount, asset_id: UUID) -> Asse
     asset = await db.get(Asset, asset_id)
     if asset is None or asset.account_id != account.id:
         raise ApiError(404, "asset_not_found")
+    await locked.check_shown(db, asset)
     return asset
 
 
@@ -582,6 +594,7 @@ async def _detail(
             else None
         ),
         version=asset.thumbhash,
+        locked=asset.visibility == "locked",
     )
 
 
@@ -729,6 +742,7 @@ async def _suggestions(
     hidden = {d.module for d in displays if d.hidden}
     for block in result:
         block.hidden = block.module in hidden
+    await locked.mask_sources(db, account, result)
     return sorted(result, key=lambda block: order.get(block.module, len(order)))
 
 

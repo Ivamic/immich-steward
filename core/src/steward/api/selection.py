@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import jobs, locations, module_display, selection, view_groups
+from steward import jobs, locations, locked, module_display, selection, view_groups
 from steward.api.assets import (
     CandidateItem,
     ModuleSuggestions,
@@ -98,6 +98,8 @@ async def _own_assets(db: DbDep, account: CurrentAccount, ids: list[UUID]) -> li
     )
     if not assets:
         raise ApiError(404, "asset_not_found")
+    for asset in assets:
+        await locked.check_shown(db, asset)
     return assets
 
 
@@ -156,6 +158,7 @@ async def suggestions(
     # The places of the group and the chosen photos' own locations first, then the modules in
     # the order of the account.
     first = {selection.GROUP_ID: -2, selection.SELECTION_ID: -1}
+    await locked.mask_sources(db, account, result)
     return sorted(result, key=lambda b: first.get(b.module, order.get(b.module, len(order))))
 
 

@@ -777,6 +777,7 @@
 							estimated: p.estimated,
 							same_camera: p.same_camera,
 							version: p.version ?? null,
+							locked: p.locked ?? false,
 							color: trackColor(p.delta_s),
 							alpha: closeness(p.delta_s)
 						})
@@ -800,7 +801,7 @@
 				const tag = document.createElement('div');
 				tag.className = 'steward-tag';
 				tag.textContent = `${p.role === 'before' ? m.map_before() : m.map_after()} · ${formatDelta(p.delta_s)}`;
-				tag.title = `${p.file_name} — ${m.photo_open_new_tab()}`;
+				tag.title = p.locked ? m.locked_photo() : `${p.file_name} — ${m.photo_open_new_tab()}`;
 				tag.addEventListener('click', () =>
 					showPreview(instance, { lat: p.latitude, lon: p.longitude }, [p], true)
 				);
@@ -985,6 +986,7 @@
 		similarity?: number;
 		local_taken_at?: string;
 		version?: string | null;
+		locked?: boolean;
 	}
 
 	function showFeaturePreview(instance: MapLibreMap, feature: MapGeoJSONFeature, pinned: boolean) {
@@ -1030,15 +1032,23 @@
 		for (const photo of photos) {
 			const item = document.createElement('div');
 			item.className = 'item';
-			const image = document.createElement('img');
-			image.src = thumbnailUrl(photo.asset_id, 'thumbnail', 0, photo.version ?? null);
-			image.alt = photo.file_name;
 			const name = document.createElement('div');
 			name.className = 'name';
-			name.textContent = photo.file_name;
 			const meta = document.createElement('div');
 			// Map features carry their properties as strings.
 			meta.textContent = neighborMeta({ ...photo, delta_s: Number(photo.delta_s) }, photo.camera);
+			// A photo of the closed locked folder: neither its preview nor its name.
+			const hidden = photo.locked === true || String(photo.locked) === 'true';
+			if (hidden) {
+				name.textContent = m.locked_photo();
+				item.append(name, meta);
+				box.append(item);
+				continue;
+			}
+			const image = document.createElement('img');
+			image.src = thumbnailUrl(photo.asset_id, 'thumbnail', 0, photo.version ?? null);
+			image.alt = photo.file_name;
+			name.textContent = photo.file_name;
 			item.append(image, name, meta);
 			if (pinned) {
 				const link = document.createElement('a');

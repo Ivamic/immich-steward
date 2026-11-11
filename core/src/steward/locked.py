@@ -11,9 +11,10 @@ import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, exists, literal, or_, select
+from sqlalchemy import ColumnElement, and_, delete, exists, literal, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.config import Settings
@@ -338,6 +339,77 @@ async def keep_open(
 
 def is_locked(asset: Asset) -> bool:
     return asset.visibility in LOCKED_VISIBILITIES
+
+
+def folder_open() -> ColumnElement[bool]:
+    """The photo's account has its locked folder open (correlated with `Asset`)."""
+    return exists(
+        select(literal(1)).where(
+            LockedFolder.account_id == Asset.account_id, LockedFolder.opened_at.is_not(None)
+        )
+    )
+
+
+def shown(*, archive: bool = True) -> ColumnElement[bool]:
+    """Photos that may be shown now: the timeline (and the archive), and the locked photos
+    while the folder is open. Never the "missing" ones (`steward.sync.MISSING`)."""
+    visible = ("timeline", "archive") if archive else ("timeline",)
+    return or_(Asset.visibility.in_(visible), and_(Asset.visibility == "locked", folder_open()))
+
+
+async def check_shown(db: AsyncSession, asset: Asset) -> None:
+    """A locked photo is reached only while the folder is open; a "missing" one never."""
+    if asset.visibility == "missing":
+        raise ApiError(404, "asset_not_found")
+    if asset.visibility == "locked":
+        folder = await db.get(LockedFolder, asset.account_id)
+        if folder is None or folder.opened_at is None:
+            raise ApiError(423, "locked_closed")
+
+
+async def mask_sources(db: AsyncSession, account: Account, blocks: list[Any]) -> None:
+    """Locked photos help with suggestions whether the folder is open or not (D-216), but while
+    it is closed (and "missing" photos always) a hint names no such photo: in the evidence and
+    the route of the suggestions, each item about one gets `locked` and no file name, and the
+    page shows a lock instead of its preview."""
+    items: list[dict[str, Any]] = []
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            if "asset_id" in value:
+                items.append(value)
+            for inner in value.values():
+                walk(inner)
+        elif isinstance(value, list):
+            for inner in value:
+                walk(inner)
+
+    for block in blocks:
+        for candidate in block.candidates:
+            walk(candidate.evidence)
+        for point in block.track:
+            items.append(vars(point))
+    ids = {UUID(str(item["asset_id"])) for item in items if item.get("asset_id")}
+    if not ids:
+        return
+    folder = await db.get(LockedFolder, account.id)
+    hidden_visibilities = ("missing",) if folder and folder.opened_at else LOCKED_VISIBILITIES
+    hidden = {
+        str(asset_id)
+        for asset_id in await db.scalars(
+            select(Asset.id).where(Asset.id.in_(ids), Asset.visibility.in_(hidden_visibilities))
+        )
+    }
+    for item in items:
+        if str(item.get("asset_id")) in hidden:
+            item["locked"] = True
+            if "file_name" in item:
+                item["file_name"] = ""
+    for block in blocks:
+        for point in block.track:
+            if str(point.asset_id) in hidden:
+                point.locked = True
+                point.file_name = ""
 
 
 async def image_session(db: AsyncSession, box: SecretBox, asset: Asset) -> str | None:

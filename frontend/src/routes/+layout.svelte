@@ -146,7 +146,10 @@
 		page.route.id?.startsWith('/groups')}
 >
 	{#if session.checked}
-		{@render children()}
+		<!-- Opening or closing the locked folder shows or hides its photos everywhere. -->
+		{#key locked.version}
+			{@render children()}
+		{/key}
 	{/if}
 </main>
 

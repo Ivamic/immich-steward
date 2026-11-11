@@ -117,6 +117,8 @@ export interface GalleryFilter {
 	date_from: string | null;
 	date_to: string | null;
 	archived: boolean;
+	/** The photos of the Immich locked folder too, while it is open. */
+	locked_folder: boolean;
 	/** Only photos without a location that GeoCLIP places confidently. */
 	geoclip_confident: boolean;
 	/** Only photos without a location with a confidently similar located one. */
@@ -154,6 +156,8 @@ export interface AssetItem {
 	camera_model: string | null;
 	/** Changes with the thumbnails (photo rotated or edited in Immich). */
 	version: string | null;
+	/** In the Immich locked folder (shown only while it is open; absent: older core). */
+	locked?: boolean;
 }
 
 export type NearbyLevel = 'same_camera' | 'other_camera';
@@ -180,6 +184,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.date_from) params.set('date_from', filter.date_from);
 	if (filter.date_to) params.set('date_to', filter.date_to);
 	if (filter.archived) params.set('archived', 'true');
+	if (filter.locked_folder) params.set('locked_folder', 'true');
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
@@ -254,6 +259,8 @@ export interface AssetDetail {
 	immich_url: string | null;
 	/** Changes with the thumbnails (photo rotated or edited in Immich). */
 	version: string | null;
+	/** In the Immich locked folder (absent: older core). */
+	locked?: boolean;
 }
 
 export interface MapConfig {
@@ -383,6 +390,8 @@ export interface NeighborEvidence {
 	estimated: boolean;
 	/** Changes with the neighbor's thumbnails (absent in results stored by older versions). */
 	version?: string | null;
+	/** A photo of the locked folder while it is closed: no name, a lock instead of its preview. */
+	locked?: boolean;
 	/** Similar photos only: 0..1, and when the photo was taken (local time). */
 	similarity?: number;
 	local_taken_at?: string;

@@ -16,7 +16,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward import embeddings, worker_queue
+from steward import embeddings, locked, worker_queue
 from steward.immich import ImmichClient
 from steward.immich.models import ImmichAlbum, ImmichAsset
 from steward.models import Account, Album, Asset, AssetAlbum, LockedFolder
@@ -272,7 +272,7 @@ def _chunks[T](items: list[T], size: int) -> Iterable[list[T]]:
 
 async def library_counts(db: AsyncSession, account: Account) -> dict[str, int]:
     """Asset counts shown on the home page (trashed assets excluded)."""
-    live = (Asset.account_id == account.id, Asset.is_trashed.is_(False))
+    live = (Asset.account_id == account.id, Asset.is_trashed.is_(False), locked.shown())
     row = (
         await db.execute(
             select(

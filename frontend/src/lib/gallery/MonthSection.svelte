@@ -169,6 +169,18 @@
 											<Icon name="play" size={11} strokeWidth={2.25} />
 										</span>
 									{/if}
+									{#if item.locked}
+										<span class="st-tile-markers locked-marker">
+											<span
+												class="st-tile-marker locked"
+												role="img"
+												aria-label={m.locked_photo()}
+												title={m.locked_photo()}
+											>
+												<Icon name="lock" size={14} strokeWidth={2.25} />
+											</span>
+										</span>
+									{/if}
 									{#if item.has_location}
 										<span class="st-tile-markers">
 											<span
@@ -426,5 +438,13 @@
 		border-radius: 2px;
 		background: var(--color-skeleton);
 		opacity: 0.5;
+	}
+	/* In the other corner: the location markers keep theirs. */
+	.locked-marker {
+		right: auto;
+		left: 6px;
+	}
+	.locked {
+		color: var(--color-warning-text);
 	}
 </style>

@@ -347,20 +347,31 @@
 								{#if candidate.evidence.neighbors?.length}
 									<span class="st-cand__thumbs">
 										{#each candidate.evidence.neighbors as neighbor (neighbor.asset_id)}
-											<a
-												href={resolve('/photo/[id]', { id: neighbor.asset_id })}
-												target="_blank"
-												rel="noopener"
-												aria-label="{neighbor.file_name} — {m.photo_open_new_tab()}"
-												onmouseenter={(e) => showPeek(e, module, neighbor)}
-												onmouseleave={() => (peek = null)}
-											>
-												<img
-													src={thumbnailUrl(neighbor.asset_id, 'thumbnail', 0, neighbor.version)}
-													alt={neighbor.file_name}
-													loading="lazy"
-												/>
-											</a>
+											{#if neighbor.locked}
+												<span
+													class="locked"
+													role="img"
+													aria-label={m.locked_photo()}
+													title={m.locked_photo()}
+												>
+													<Icon name="lock" size={12} />
+												</span>
+											{:else}
+												<a
+													href={resolve('/photo/[id]', { id: neighbor.asset_id })}
+													target="_blank"
+													rel="noopener"
+													aria-label="{neighbor.file_name} — {m.photo_open_new_tab()}"
+													onmouseenter={(e) => showPeek(e, module, neighbor)}
+													onmouseleave={() => (peek = null)}
+												>
+													<img
+														src={thumbnailUrl(neighbor.asset_id, 'thumbnail', 0, neighbor.version)}
+														alt={neighbor.file_name}
+														loading="lazy"
+													/>
+												</a>
+											{/if}
 										{/each}
 									</span>
 								{/if}
@@ -565,5 +576,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+	}
+	/* A photo of the closed locked folder in place of a neighbor's preview. */
+	.st-cand__thumbs .locked {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-sunken);
+		color: var(--color-text-muted);
 	}
 </style>

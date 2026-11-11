@@ -25,6 +25,8 @@ RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra s
     --no-editable
 
 FROM python:${PYTHON_VERSION}-slim
+# Debian fixes reach the image with every build, even before the base image is rebuilt.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 1000 --home-dir /app steward \
     && mkdir /models && chown steward /models
 COPY --from=build /app/venv /app/venv

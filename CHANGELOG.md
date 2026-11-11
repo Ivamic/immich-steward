@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+### Changed
+
+- The images take the latest Debian fixes when they are built, even before the Python base image
+  is rebuilt.
+
 ## [0.9.0] - 2026-11-07
 
 A map of your photos, folders of groups, photos with no sign of a place found and marked by the app

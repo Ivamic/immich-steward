@@ -37,6 +37,8 @@ RUN uv sync --frozen --no-dev --package steward --no-editable
 
 # --- Runtime ------------------------------------------------------------------
 FROM python:${PYTHON_VERSION}-slim
+# Debian fixes reach the image with every build, even before the base image is rebuilt.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 1000 --home-dir /app steward
 COPY --from=backend /app/venv /app/venv
 COPY core/alembic.ini /app/alembic.ini

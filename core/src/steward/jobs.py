@@ -18,7 +18,7 @@ import httpx2
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import rotation, similar_hints, updates, view_groups, worker_queue
+from steward import locked, rotation, similar_hints, updates, view_groups, worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -265,6 +265,15 @@ class JobRunner:
         self._handlers = handlers or HANDLERS
         self._update_transport = update_transport
 
+    async def close_idle_locked(self) -> None:
+        """Closes the locked folders left without a click or key press (D-216)."""
+        settings = self._settings
+        if settings.secret_key is None or settings.immich_url is None:
+            return
+        box = SecretBox(settings.secret_key.get_secret_value())
+        async with self._sessionmaker() as db:
+            await locked.close_idle(db, box, self._immich_factory, settings)
+
     async def recover(self) -> None:
         """Jobs left running by a crashed or restarted process are queued again."""
         async with self._sessionmaker() as db:
@@ -403,6 +412,7 @@ class JobRunner:
                     await self.schedule_view_groups()
                     await self.forget_old_workers()
                     await self.check_updates()
+                    await self.close_idle_locked()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S
                 if await self.run_once():
                     continue

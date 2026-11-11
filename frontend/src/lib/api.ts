@@ -1031,3 +1031,9 @@ export const getLocked = () => request<LockedState>('GET', '/api/locked');
 export const connectLocked = (password: string) =>
 	request<LockedState & { has_pin: boolean }>('POST', '/api/locked/connect', { password });
 export const disconnectLocked = () => request<LockedState>('DELETE', '/api/locked');
+/** The PIN code goes to Immich through the app, which neither stores nor logs it. */
+export const openLocked = (pinCode: string) =>
+	request<LockedState>('POST', '/api/locked/open', { pin_code: pinCode });
+export const closeLocked = () => request<LockedState>('POST', '/api/locked/close');
+/** A click or key press: keeps an open folder open (sent at most once a minute). */
+export const lockedActivity = () => request<LockedState>('POST', '/api/locked/activity');

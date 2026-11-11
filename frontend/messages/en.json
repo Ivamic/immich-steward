@@ -730,5 +730,14 @@
 	"locked_disconnect": "Disconnect",
 	"error_locked_password_login_failed": "Immich refused password sign-in (it may allow OAuth only). The locked folder can only be connected with an Immich password.",
 	"error_locked_other_user": "This password belongs to another Immich user than the one signed in here.",
-	"error_locked_wrong_password": "Immich did not accept this password."
+	"error_locked_wrong_password": "Immich did not accept this password.",
+	"locked_open": "Open the locked folder",
+	"locked_close": "Close the locked folder",
+	"locked_pin": "Immich PIN code",
+	"locked_pin_note": "The PIN code goes to Immich and is not stored. The folder closes after a while without a click or key press, and when you sign out.",
+	"locked_open_button": "Open",
+	"error_locked_wrong_pin": "Wrong PIN code. Tries left: {left}.",
+	"error_locked_pin_paused": "Too many wrong PIN codes. Try again after {time}.",
+	"error_locked_session_lost": "Immich ended the session of the app (the password changed, or the device was removed). Connect the locked folder again in Settings.",
+	"error_locked_not_connected": "The locked folder is not connected: connect it in Settings."
 }

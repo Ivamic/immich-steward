@@ -2,8 +2,9 @@
 <!-- Settings: connecting the Immich locked folder with the password once, or disconnecting it
      (D-216). Opening and closing the folder is in the header. -->
 <script lang="ts">
-	import { connectLocked, disconnectLocked, getLocked, type LockedState } from '#lib/api.js';
+	import { connectLocked, getLocked, type LockedState } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
+	import { locked } from '#lib/locked.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -30,6 +31,7 @@
 		try {
 			const result = await connectLocked(password);
 			folder = result;
+			locked.replace(result);
 			noPin = !result.has_pin;
 			password = '';
 		} catch (e) {
@@ -43,7 +45,8 @@
 		busy = true;
 		error = '';
 		try {
-			folder = await disconnectLocked();
+			await locked.disconnect();
+			folder = locked.state;
 			noPin = false;
 		} catch (e) {
 			error = errorMessage(e);

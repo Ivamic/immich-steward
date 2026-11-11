@@ -29,6 +29,10 @@ class ConnectRequest(BaseModel):
     password: str = Field(min_length=1, max_length=1000)
 
 
+class OpenRequest(BaseModel):
+    pin_code: str = Field(min_length=1, max_length=64)
+
+
 @router.get("")
 async def get_state(account: CurrentAccount, db: DbDep, settings: SettingsDep) -> LockedState:
     return LockedState(**vars(await locked.state(db, account, settings)))
@@ -45,6 +49,39 @@ async def connect(
 ) -> Connected:
     has_pin = await locked.connect(db, box, factory, settings, account, body.password)
     return Connected(**vars(await locked.state(db, account, settings)), has_pin=has_pin)
+
+
+@router.post("/open")
+async def open_folder(
+    body: OpenRequest,
+    account: CurrentAccount,
+    db: DbDep,
+    box: SecretBoxDep,
+    factory: ImmichFactoryDep,
+    settings: SettingsDep,
+) -> LockedState:
+    await locked.open_folder(db, box, factory, settings, account, body.pin_code)
+    return LockedState(**vars(await locked.state(db, account, settings)))
+
+
+@router.post("/close")
+async def close_folder(
+    account: CurrentAccount,
+    db: DbDep,
+    box: SecretBoxDep,
+    factory: ImmichFactoryDep,
+    settings: SettingsDep,
+) -> LockedState:
+    await locked.close(db, box, factory, settings, account)
+    return LockedState(**vars(await locked.state(db, account, settings)))
+
+
+@router.post("/activity")
+async def activity(account: CurrentAccount, db: DbDep, settings: SettingsDep) -> LockedState:
+    """A click or key press in the app (sent at most once a minute): keeps an open folder open.
+    Background requests of the pages do not, or the folder would never close."""
+    await locked.touch(db, account)
+    return LockedState(**vars(await locked.state(db, account, settings)))
 
 
 @router.delete("")

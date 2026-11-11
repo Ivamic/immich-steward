@@ -730,5 +730,14 @@
 	"locked_disconnect": "Scollega",
 	"error_locked_password_login_failed": "Immich ha rifiutato l’accesso con password (forse è consentito solo OAuth). La cartella bloccata si può collegare solo con una password di Immich.",
 	"error_locked_other_user": "Questa password appartiene a un altro utente di Immich, non a quello che ha effettuato l’accesso qui.",
-	"error_locked_wrong_password": "Immich non ha accettato questa password."
+	"error_locked_wrong_password": "Immich non ha accettato questa password.",
+	"locked_open": "Apri la cartella bloccata",
+	"locked_close": "Chiudi la cartella bloccata",
+	"locked_pin": "PIN di Immich",
+	"locked_pin_note": "Il PIN va a Immich e non viene salvato. La cartella si chiude dopo un po’ senza clic o tasti, e all’uscita.",
+	"locked_open_button": "Apri",
+	"error_locked_wrong_pin": "PIN errato. Tentativi rimasti: {left}.",
+	"error_locked_pin_paused": "Troppi PIN errati. Riprova dopo le {time}.",
+	"error_locked_session_lost": "Immich ha chiuso la sessione dell’app (password cambiata o dispositivo rimosso). Collega di nuovo la cartella bloccata nelle Impostazioni.",
+	"error_locked_not_connected": "La cartella bloccata non è collegata: collegala nelle Impostazioni."
 }

@@ -7,6 +7,9 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import { session } from '#lib/session.svelte.js';
 	import LanguageSwitcher from '#lib/LanguageSwitcher.svelte';
+	import LockedButton from '#lib/LockedButton.svelte';
+	import LockedPinDialog from '#lib/LockedPinDialog.svelte';
+	import { locked } from '#lib/locked.svelte.js';
 	import SaveNotices from '#lib/SaveNotices.svelte';
 	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
 	import UpdateBadge from '#lib/UpdateBadge.svelte';
@@ -63,6 +66,12 @@
 		{ href: resolve('/settings'), label: m.nav_settings(), current: page.route.id === '/settings' }
 	]);
 
+	// The locked folder, while signed in.
+	$effect(() => {
+		if (session.user) return locked.watch();
+	});
+	let askingPin = $state(false);
+
 	async function signOut() {
 		await logout().catch(() => {});
 		session.user = null;
@@ -89,6 +98,9 @@
 	<div class="st-header__end">
 		{#if session.user}
 			<UpdateBadge />
+			<span class="st-header__wide">
+				<LockedButton onunlock={() => (askingPin = true)} />
+			</span>
 			<span class="st-header__user st-header__wide">{session.user.name}</span>
 			<button
 				type="button"
@@ -116,7 +128,13 @@
 			<ThemeSwitcher />
 		</div>
 		{#if session.user}
-			<HeaderMenu {pages} about={aboutPath} user={session.user.name} onsignout={signOut} />
+			<HeaderMenu
+				{pages}
+				about={aboutPath}
+				user={session.user.name}
+				onsignout={signOut}
+				onunlock={() => (askingPin = true)}
+			/>
 		{/if}
 	</div>
 </header>
@@ -133,6 +151,10 @@
 </main>
 
 <SaveNotices />
+
+{#if askingPin}
+	<LockedPinDialog onclose={() => (askingPin = false)} />
+{/if}
 
 <style>
 	.tagline {

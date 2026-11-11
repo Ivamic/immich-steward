@@ -31,6 +31,19 @@ export function errorMessage(error: unknown): string {
 			return m.error_immich_password_login_failed();
 		case 'locked_password_login_failed':
 			return m.error_locked_password_login_failed();
+		case 'locked_wrong_pin':
+			return m.error_locked_wrong_pin({ left: String(p.left ?? '') });
+		case 'locked_pin_paused': {
+			const until = typeof p.until === 'string' ? new Date(p.until) : null;
+			const time = until ? until.toLocaleTimeString([], { timeStyle: 'short' }) : '';
+			return m.error_locked_pin_paused({ time });
+		}
+		case 'locked_no_pin':
+			return m.locked_no_pin();
+		case 'locked_session_lost':
+			return m.error_locked_session_lost();
+		case 'locked_not_connected':
+			return m.error_locked_not_connected();
 		case 'locked_wrong_password':
 			return m.error_locked_wrong_password();
 		case 'locked_other_user':

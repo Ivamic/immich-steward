@@ -7,6 +7,7 @@
 	import { LANGUAGE_NAMES } from '#lib/languages.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale, type Locale } from '#lib/paraglide/runtime.js';
+	import { locked } from '#lib/locked.svelte.js';
 	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 
@@ -20,13 +21,16 @@
 		pages,
 		about,
 		user,
-		onsignout
+		onsignout,
+		onunlock
 	}: {
 		pages: Page[];
 		/** The address of the About page, after the language as in the header. */
 		about: string;
 		user: string;
 		onsignout: () => void;
+		/** Asks for the PIN code of the locked folder. */
+		onunlock: () => void;
 	} = $props();
 
 	let open = $state(false);
@@ -101,6 +105,20 @@
 			</div>
 			<div class="st-menu__sep"></div>
 			<div class="st-menu__heading st-headmenu__user">{user}</div>
+			{#if locked.connected}
+				<button
+					type="button"
+					class="st-menu__item"
+					onclick={() => {
+						open = false;
+						if (locked.open) locked.lock().catch(() => {});
+						else onunlock();
+					}}
+				>
+					<Icon name={locked.open ? 'lock-open' : 'lock'} size={14} />
+					<span class="st-menu__label">{locked.open ? m.locked_close() : m.locked_open()}</span>
+				</button>
+			{/if}
 			<button type="button" class="st-menu__item" onclick={onsignout}>
 				<Icon name="log-out" size={14} />
 				<span class="st-menu__label">{m.auth_sign_out()}</span>

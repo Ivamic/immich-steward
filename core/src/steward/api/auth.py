@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel, Field
 
+from steward import locked
 from steward.auth import (
     api_key_name,
     extend_session,
@@ -16,6 +17,7 @@ from steward.auth import (
     sign_out,
     verify_api_key,
 )
+from steward.crypto import SecretBox, hash_token
 from steward.deps import (
     SESSION_COOKIE,
     CurrentAccount,
@@ -100,9 +102,14 @@ async def login_with_password(
 async def logout(
     response: Response,
     db: DbDep,
+    settings: SettingsDep,
+    immich_factory: ImmichFactoryDep,
     token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None,
 ) -> None:
     if token:
+        if settings.secret_key is not None and settings.immich_url is not None:
+            box = SecretBox(settings.secret_key.get_secret_value())
+            await locked.close_on_sign_out(db, box, immich_factory, settings, hash_token(token))
         await sign_out(db, token)
     response.delete_cookie(SESSION_COOKIE, path="/")
 

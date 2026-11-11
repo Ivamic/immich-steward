@@ -730,5 +730,14 @@
 	"locked_disconnect": "Déconnecter",
 	"error_locked_password_login_failed": "Immich a refusé la connexion par mot de passe (peut-être seul OAuth est-il permis). Le dossier verrouillé ne peut être connecté qu’avec un mot de passe Immich.",
 	"error_locked_other_user": "Ce mot de passe appartient à un autre utilisateur d’Immich que celui connecté ici.",
-	"error_locked_wrong_password": "Immich n’a pas accepté ce mot de passe."
+	"error_locked_wrong_password": "Immich n’a pas accepté ce mot de passe.",
+	"locked_open": "Ouvrir le dossier verrouillé",
+	"locked_close": "Fermer le dossier verrouillé",
+	"locked_pin": "Code PIN d’Immich",
+	"locked_pin_note": "Le code PIN est envoyé à Immich et n’est pas conservé. Le dossier se ferme après un moment sans clic ni touche, et à la déconnexion.",
+	"locked_open_button": "Ouvrir",
+	"error_locked_wrong_pin": "Code PIN incorrect. Essais restants : {left}.",
+	"error_locked_pin_paused": "Trop de codes PIN incorrects. Réessayez après {time}.",
+	"error_locked_session_lost": "Immich a mis fin à la session de l’application (mot de passe changé ou appareil supprimé). Reconnectez le dossier verrouillé dans les Paramètres.",
+	"error_locked_not_connected": "Le dossier verrouillé n’est pas connecté : connectez-le dans les Paramètres."
 }

@@ -730,5 +730,14 @@
 	"locked_disconnect": "Trennen",
 	"error_locked_password_login_failed": "Immich hat die Anmeldung mit Passwort abgelehnt (vielleicht ist nur OAuth erlaubt). Der gesperrte Ordner lässt sich nur mit einem Immich-Passwort verbinden.",
 	"error_locked_other_user": "Dieses Passwort gehört zu einem anderen Immich-Benutzer als dem hier angemeldeten.",
-	"error_locked_wrong_password": "Immich hat dieses Passwort nicht akzeptiert."
+	"error_locked_wrong_password": "Immich hat dieses Passwort nicht akzeptiert.",
+	"locked_open": "Gesperrten Ordner öffnen",
+	"locked_close": "Gesperrten Ordner schließen",
+	"locked_pin": "Immich-PIN",
+	"locked_pin_note": "Die PIN geht an Immich und wird nicht gespeichert. Der Ordner schließt sich nach einer Weile ohne Klick oder Tastendruck und beim Abmelden.",
+	"locked_open_button": "Öffnen",
+	"error_locked_wrong_pin": "Falsche PIN. Verbleibende Versuche: {left}.",
+	"error_locked_pin_paused": "Zu viele falsche PINs. Versuchen Sie es nach {time} erneut.",
+	"error_locked_session_lost": "Immich hat die Sitzung der App beendet (Passwort geändert oder Gerät entfernt). Verbinden Sie den gesperrten Ordner in den Einstellungen erneut.",
+	"error_locked_not_connected": "Der gesperrte Ordner ist nicht verbunden: Verbinden Sie ihn in den Einstellungen."
 }

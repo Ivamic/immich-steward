@@ -44,6 +44,15 @@ of a photo when you press **Save rotation in Immich**. Every location write is k
 history of the photo and can be undone. Groups, their names, folders and the mark "no sign of a
 place" (yours and the app's) stay in the database of the app: Immich does not see them.
 
+## The locked folder
+
+Only when you connect it in Settings: the Immich password signs in once and is not stored; the app
+keeps the Immich session (encrypted with `STEWARD_SECRET_KEY`, never sent to the browser), which
+you see and can end in Immich. The PIN code goes to Immich when you open the folder and is neither
+stored nor logged. The session is used for the locked photos only, and only while the folder is
+open; their images reach the browser with no copy kept (`no-store`) and the workers like other
+photos. Disconnecting ends the session and forgets the locked photos.
+
 ## Your Immich password and API key
 
 When you sign in with your Immich email and password, the password goes through the app to

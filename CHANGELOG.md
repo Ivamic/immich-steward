@@ -18,6 +18,15 @@ between releases.
   models, maps and icons, AI assistance and how to support the project. It opens without signing
   in too.
 
+- **The locked folder of Immich**: connected once in Settings with the Immich password (the app
+  keeps the Immich session, not the password) and opened with the Immich PIN code from the lock in
+  the header. While it is open, its photos are synced, processed and shown in the gallery and on
+  the map with the **Locked folder** filter; while it is closed, they are nowhere, workers do not
+  get them, and as hints for other photos they show a lock instead of the photo. It closes after
+  `STEWARD_LOCKED_IDLE_MINUTES` (15) without a click or key press, not while its photos are
+  being processed (up to an hour), and on signing out. After 5 wrong PIN codes the app waits
+  5 minutes.
+
 ### Changed
 
 - The images take the latest Debian fixes when they are built, even before the Python base image

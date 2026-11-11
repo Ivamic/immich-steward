@@ -473,6 +473,31 @@ sources Auto uses far out and close up. Each family member has their own. How to
 **Updates** shows the version of the app and whether a newer one is out, for the whole
 installation; the check can be turned off there (see [Privacy](privacy.md#what-leaves-your-server)).
 
+## The locked folder
+
+Photos you moved to the **locked folder** of Immich can be processed and help find places too.
+Immich opens that folder only to a signed-in session with your PIN code, never to an API key, so:
+
+1. **Connect it once**: **Settings → Locked folder**, your Immich password. The app keeps the
+   Immich session it opens, not the password; you see it (and can end it) in Immich under
+   *Account settings → Authorized devices*. Without a password in Immich (OAuth sign-in only) it
+   cannot be connected. You need a PIN code in Immich (*Account settings → PIN code*).
+2. **Open it** with the lock in the header (in the menu on a narrow screen) and your Immich PIN
+   code, which goes to Immich and is not stored. After 5 wrong codes in a row the app waits
+   5 minutes.
+3. **It closes by itself** after `STEWARD_LOCKED_IDLE_MINUTES` (15) without a click or key press in
+   the app, but not while workers have its photos (up to an hour), and when you sign out. The open
+   lock in the header closes it at once.
+
+While the folder is **open**, its photos are synced and processed, and the gallery and the map show
+them with the **Locked folder** filter, with a lock on each tile. While it is **closed**, they are
+nowhere in the app and workers do not get them (**Processing** says how many wait); they still help
+other photos as similar photos or time neighbors, but such a hint shows a lock instead of the photo,
+with no name and no link. Locked photos are not put into groups. A photo that leaves the timeline
+while the folder is closed is hidden until it is opened again: then the app sees whether it was
+moved into the folder or deleted. **Disconnect** in Settings ends the session in Immich and forgets
+the locked photos.
+
 ## About
 
 The **ⓘ** icon after the language (in the menu on a narrow screen, on the sign-in card when signed

@@ -30,6 +30,7 @@ homes.
 | `STEWARD_PORT` | `8780` | The port of the web page on the server. |
 | `STEWARD_IMMICH_PUBLIC_URL` | empty | The address of Immich in your browser, for the **Open in Immich** links, when it differs from `STEWARD_IMMICH_URL` (for example when that one is a container name, or Immich is published under a domain). Empty: the same as `STEWARD_IMMICH_URL`. |
 | `STEWARD_COOKIE_SECURE` | `false` | Set to `true` when the app is opened over HTTPS through a reverse proxy. See [Privacy and security](privacy.md#access-from-outside-your-home-network). |
+| `STEWARD_LOCKED_IDLE_MINUTES` | `15` | The [locked folder](usage.md#the-locked-folder) closes after this many minutes (1 to 60) without a click or key press in the app; not while workers have its photos, up to an hour. |
 | `STEWARD_ESTIMATED_TAG` | `steward/estimated` | The Immich tag added to every location written by the app, so they can be told from the ones recorded by a camera. `a/b` creates a nested tag. Empty: no tag. |
 
 ## Map and address search

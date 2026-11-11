@@ -248,11 +248,6 @@ class FakeImmich:
         if path == "/api/auth/session/lock":
             self.elevated.discard(token)
             return httpx2.Response(204)
-        if path == "/api/search/metadata":
-            body = json.loads(request.content)
-            if body.get("visibility") == "locked" and token not in self.elevated:
-                return _json({"message": "Elevated permission is required"}, 401)
-            return self._search(body)
         if path == "/api/api-keys" and method == "GET":
             return _json([{"id": k["id"], "name": k["name"]} for k in self.created_keys.values()])
         if path == "/api/api-keys" and method == "POST":
@@ -269,7 +264,17 @@ class FakeImmich:
             key_id = path.rsplit("/", 1)[1]
             self.created_keys = {s: k for s, k in self.created_keys.items() if k["id"] != key_id}
             return httpx2.Response(204)
-        return _json({"message": "Not found"}, 404)
+        return self._route(request, elevated=token in self.elevated)
+
+    def _locked_ids(self, request: httpx2.Request) -> list[str]:
+        """The assets a request is about (path or body), as Immich checks access to them."""
+        parts = request.url.path.split("/")
+        ids = [parts[3]] if len(parts) >= 4 and parts[2] == "assets" and parts[3] else []
+        if request.method == "PUT" and (
+            request.url.path == "/api/assets" or (len(parts) == 5 and parts[2] == "tags")
+        ):
+            ids += json.loads(request.content).get("ids", [])
+        return [i for i in ids if self.assets.get(i, {}).get("visibility") == "locked"]
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
         path = request.url.path
@@ -291,6 +296,18 @@ class FakeImmich:
                 else self.permissions
             )
             return _json({"id": str(uuid.uuid4()), "name": "k", "permissions": permissions})
+        # An API key never opens the locked folder.
+        return self._route(request, elevated=False)
+
+    def _route(self, request: httpx2.Request, *, elevated: bool) -> httpx2.Response:
+        path = request.url.path
+        if not elevated and self._locked_ids(request):
+            return _json({"message": "Not found or no asset.read access"}, 400)
+        if path == "/api/search/metadata":
+            body = json.loads(request.content)
+            if body.get("visibility") == "locked" and not elevated:
+                return _json({"message": "Elevated permission is required"}, 401)
+            return self._search(body)
         if path == "/api/users/me":
             if "user.read" not in self.permissions and "all" not in self.permissions:
                 return _json({"message": "Missing required permission: user.read"}, 403)
@@ -342,11 +359,6 @@ class FakeImmich:
                 return _json({"message": "Missing required permission: asset.download"}, 403)
             content = self.originals.get(path.split("/")[3], b"original")
             return httpx2.Response(200, content=content, headers={"content-type": "image/jpeg"})
-        if path == "/api/search/metadata":
-            body = json.loads(request.content)
-            if body.get("visibility") == "locked":  # an API key never opens the locked folder
-                return _json({"message": "Elevated permission is required"}, 401)
-            return self._search(body)
         if path == "/api/search/smart":
             body = json.loads(request.content)
             self.smart_requests.append(body)

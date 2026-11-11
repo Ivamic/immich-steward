@@ -16,6 +16,7 @@ from steward.immich.client import (
     ImmichError,
     ImmichUnreachableError,
     api_base_url,
+    auth_headers,
     raise_for_status,
 )
 
@@ -53,10 +54,20 @@ class VideoStreamer:
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def open(self, api_key: str, asset_id: UUID, byte_range: str | None) -> VideoStream:
-        """Starts the video, or the requested part of it (`Range` header of the browser)."""
+    async def open(
+        self,
+        api_key: str,
+        asset_id: UUID,
+        byte_range: str | None,
+        *,
+        session_token: str | None = None,
+    ) -> VideoStream:
+        """Starts the video, or the requested part of it (`Range` header of the browser). A
+        locked video is played with the session of the open folder."""
         path = f"/assets/{asset_id}/video/playback"
-        headers = {"x-api-key": api_key} | ({"range": byte_range} if byte_range else {})
+        headers = auth_headers(api_key, session_token) | (
+            {"range": byte_range} if byte_range else {}
+        )
         request = self._http.build_request("GET", path, headers=headers)
         try:
             response = await self._http.send(request, stream=True)

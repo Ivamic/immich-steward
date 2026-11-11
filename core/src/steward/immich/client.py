@@ -70,10 +70,7 @@ class ImmichClient:
         timeout: float = DEFAULT_TIMEOUT_S,
         transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
-        if session_token:
-            headers = _bearer(session_token)
-        else:
-            headers = {"x-api-key": api_key} if api_key else {}
+        headers = auth_headers(api_key, session_token)
         self._http = httpx2.AsyncClient(
             base_url=api_base_url(base_url),
             headers=headers,
@@ -257,6 +254,13 @@ class ImmichClient:
         if not response.content:
             return None
         return response.json()
+
+
+def auth_headers(api_key: str | None, session_token: str | None = None) -> dict[str, str]:
+    """How a request signs in: with the session when given, else with the API key."""
+    if session_token:
+        return _bearer(session_token)
+    return {"x-api-key": api_key} if api_key else {}
 
 
 def _bearer(access_token: str) -> dict[str, str]:

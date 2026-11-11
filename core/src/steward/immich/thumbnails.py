@@ -16,6 +16,7 @@ from steward.immich.client import (
     ImmichPermissionError,
     ImmichUnreachableError,
     api_base_url,
+    auth_headers,
     raise_for_status,
 )
 
@@ -54,19 +55,26 @@ class ThumbnailFetcher:
         await self._http.aclose()
 
     async def fetch(
-        self, api_key: str, asset_id: UUID, size: ThumbnailSize, edited: bool = False
+        self,
+        api_key: str,
+        asset_id: UUID,
+        size: ThumbnailSize,
+        edited: bool = False,
+        *,
+        session_token: str | None = None,
     ) -> Image:
         """The image as Immich shows it: with the edits of the photo when `edited` (from Immich's
-        `isEdited`)."""
+        `isEdited`). A locked photo is got with the session of the open folder."""
+        auth = auth_headers(api_key, session_token)
         try:
-            return await self._fetch(api_key, asset_id, size, edited or size != "fullsize")
+            return await self._fetch(auth, asset_id, size, edited or size != "fullsize")
         except ImmichPermissionError:
             if size != "fullsize":
                 raise
-            return await self._fetch(api_key, asset_id, "preview", edited=True)
+            return await self._fetch(auth, asset_id, "preview", edited=True)
 
     async def _fetch(
-        self, api_key: str, asset_id: UUID, size: ThumbnailSize, edited: bool
+        self, auth: dict[str, str], asset_id: UUID, size: ThumbnailSize, edited: bool
     ) -> Image:
         path = f"/assets/{asset_id}/thumbnail"
         params = {"size": size} | ({"edited": "true"} if edited else {})
@@ -74,7 +82,7 @@ class ThumbnailFetcher:
             response = await self._http.get(
                 path,
                 params=params,
-                headers={"x-api-key": api_key},
+                headers=auth,
                 follow_redirects=size == "fullsize",
             )
         except httpx2.ConnectError as exc:

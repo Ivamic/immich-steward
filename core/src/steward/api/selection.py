@@ -170,7 +170,7 @@ async def set_location(
 ) -> LocationWritten:
     """Writes one location to the chosen photos (FR-23); undone together with `/location/undo`."""
     assets = await _own_assets(db, account, body.ids)
-    async with _immich(settings, factory, box, account) as client:
+    async with _immich(settings, factory, box, account, db, assets) as client:
         written = await locations.write_batch(
             db,
             client,
@@ -196,7 +196,8 @@ async def undo_location(
     factory: ImmichFactoryDep,
     box: SecretBoxDep,
 ) -> BatchUndone:
-    async with _immich(settings, factory, box, account) as client:
+    batch = await locations.batch_assets(db, account.id, body.batch_id)
+    async with _immich(settings, factory, box, account, db, batch) as client:
         undone = await locations.undo_batch(
             db, client, account.id, body.batch_id, tag=settings.estimated_tag
         )

@@ -8,6 +8,7 @@ used for the locked photos only: with the folder open, any search of the session
 """
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -319,6 +320,40 @@ async def keep_open(
             continue
         if opened is not None:
             await opened[1].aclose()
+
+
+def is_locked(asset: Asset) -> bool:
+    return asset.visibility in LOCKED_VISIBILITIES
+
+
+async def image_session(db: AsyncSession, box: SecretBox, asset: Asset) -> str | None:
+    """The session token to get a locked photo's images with, while the folder is open; None for
+    the other photos (the API key). A locked photo of a closed folder is refused."""
+    if not is_locked(asset):
+        return None
+    folder = await db.get(LockedFolder, asset.account_id)
+    if folder is None or folder.opened_at is None:
+        raise ApiError(423, "locked_closed")
+    return box.decrypt(folder.session_encrypted)
+
+
+async def client_for(
+    db: AsyncSession,
+    box: SecretBox,
+    factory: ImmichClientFactory,
+    settings: Settings,
+    account: Account,
+    assets: Iterable[Asset] = (),
+) -> ImmichClient:
+    """An Immich client to change these photos with: the API key, or the session when one of
+    them is locked (the session reaches the others too), only while the folder is open."""
+    assert settings.immich_url is not None  # guaranteed by SecretBoxDep
+    if any(is_locked(asset) for asset in assets):
+        folder = await db.get(LockedFolder, account.id)
+        if folder is None or folder.opened_at is None:
+            raise ApiError(423, "locked_closed")
+        return _session(box, factory, settings, folder)
+    return factory(settings.immich_url, box.decrypt(account.api_key_encrypted))
 
 
 async def _end(session: ImmichClient) -> None:

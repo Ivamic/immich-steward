@@ -739,5 +739,6 @@
 	"error_locked_wrong_pin": "Falsche PIN. Verbleibende Versuche: {left}.",
 	"error_locked_pin_paused": "Zu viele falsche PINs. Versuchen Sie es nach {time} erneut.",
 	"error_locked_session_lost": "Immich hat die Sitzung der App beendet (Passwort geändert oder Gerät entfernt). Verbinden Sie den gesperrten Ordner in den Einstellungen erneut.",
-	"error_locked_not_connected": "Der gesperrte Ordner ist nicht verbunden: Verbinden Sie ihn in den Einstellungen."
+	"error_locked_not_connected": "Der gesperrte Ordner ist nicht verbunden: Verbinden Sie ihn in den Einstellungen.",
+	"error_locked_closed": "Dieses Foto liegt im gesperrten Ordner: Öffnen Sie den Ordner (das Schloss in der Kopfzeile), um es anzusehen oder zu ändern."
 }

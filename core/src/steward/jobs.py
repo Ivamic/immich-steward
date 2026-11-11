@@ -22,6 +22,7 @@ from steward import locked, rotation, similar_hints, updates, view_groups, worke
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
+from steward.errors import ApiError
 from steward.immich import (
     ImmichAuthError,
     ImmichError,
@@ -161,9 +162,14 @@ async def run_rotate(ctx: JobContext) -> dict[str, Any]:
     progress["done"] = len(progress["done_ids"])
     await ctx.report(progress)
     todo = [a for a in photos if str(a.id) not in done_before]
-    api_key = SecretBox(settings.secret_key.get_secret_value()).decrypt(account.api_key_encrypted)
+    box = SecretBox(settings.secret_key.get_secret_value())
     try:
-        async with ctx.immich_factory(settings.immich_url, api_key) as client:
+        # Locked photos are turned with the session of the folder, only while it is open.
+        immich = await locked.client_for(ctx.db, box, ctx.immich_factory, settings, account, todo)
+    except ApiError as exc:
+        raise JobError(exc.code) from exc
+    try:
+        async with immich as client:
             for start in range(0, len(todo), ROTATE_CHUNK):
                 before: dict[Asset, str | None] = {}
                 for asset in todo[start : start + ROTATE_CHUNK]:

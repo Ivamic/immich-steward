@@ -739,5 +739,6 @@
 	"error_locked_wrong_pin": "Code PIN incorrect. Essais restants : {left}.",
 	"error_locked_pin_paused": "Trop de codes PIN incorrects. Réessayez après {time}.",
 	"error_locked_session_lost": "Immich a mis fin à la session de l’application (mot de passe changé ou appareil supprimé). Reconnectez le dossier verrouillé dans les Paramètres.",
-	"error_locked_not_connected": "Le dossier verrouillé n’est pas connecté : connectez-le dans les Paramètres."
+	"error_locked_not_connected": "Le dossier verrouillé n’est pas connecté : connectez-le dans les Paramètres.",
+	"error_locked_closed": "Cette photo est dans le dossier verrouillé : ouvrez le dossier (le cadenas en haut) pour la voir ou la modifier."
 }

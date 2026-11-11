@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, Response
 from pydantic import BaseModel, Field
 
-from steward import __version__, embeddings, worker_queue, worker_refusals
+from steward import __version__, embeddings, locked, worker_queue, worker_refusals
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
 from steward.images import MAX_SIDE, UnreadableImage, crop, turned
@@ -231,6 +231,13 @@ async def image(
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
     region, turn = leased.run.region, leased.run.turn
     try:
+        session = await locked.image_session(db, box, asset)
+    except ApiError:
+        # The folder closed after the job was handed out: it waits for the next opening.
+        leased = await worker_queue.leased_job(db, worker, job_id)
+        await worker_queue.give_back(db, leased, "the locked folder is closed")
+        raise ApiError(503, "locked_closed") from None
+    try:
         found = await fetcher.fetch(
             box.decrypt(account.api_key_encrypted),
             asset.immich_id,
@@ -238,6 +245,7 @@ async def image(
             "fullsize" if region and asset.type == "IMAGE" else "preview",
             # As Immich shows it: rotated or cropped there, the modules see it so too.
             asset.is_edited,
+            session_token=session,
         )
     except ImmichUnreachableError as exc:
         leased = await worker_queue.leased_job(db, worker, job_id)

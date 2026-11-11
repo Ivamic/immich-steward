@@ -4,7 +4,7 @@
 import asyncio
 import gzip
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import date, datetime, timedelta
@@ -15,9 +15,10 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
-from steward import locations, module_display, rotation, view_groups, worker_queue
+from steward import locations, locked, module_display, rotation, view_groups, worker_queue
 from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
@@ -68,6 +69,8 @@ MAX_PENDING = 2000
 
 # Thumbnails change only when the asset changes in Immich; the ETag covers that.
 IMAGE_CACHE_CONTROL = "private, max-age=604800"
+# Images of a locked photo: the browser keeps no copy.
+LOCKED_CACHE_CONTROL = "no-store"
 
 
 def gallery_filter(
@@ -787,12 +790,22 @@ async def _remote(
 
 @asynccontextmanager
 async def _immich(
-    settings: SettingsDep, factory: ImmichFactoryDep, box: SecretBoxDep, account: Account
+    settings: SettingsDep,
+    factory: ImmichFactoryDep,
+    box: SecretBoxDep,
+    account: Account,
+    db: AsyncSession | None = None,
+    assets: Sequence[Asset] = (),
 ) -> AsyncIterator[ImmichClient]:
-    """An Immich client for the account; Immich failures become API errors."""
+    """An Immich client for the account, to change `assets` with (the session of the locked
+    folder when one of them is locked); Immich failures become API errors."""
     assert settings.immich_url is not None  # guaranteed by SecretBoxDep
+    if db is not None and assets:
+        client = await locked.client_for(db, box, factory, settings, account, assets)
+    else:
+        client = factory(settings.immich_url, box.decrypt(account.api_key_encrypted))
     try:
-        async with factory(settings.immich_url, box.decrypt(account.api_key_encrypted)) as client:
+        async with client:
             yield client
     except ImmichError as exc:
         raise _api_error(exc) from exc
@@ -827,7 +840,7 @@ async def rotate(
     """Saves the photo rotated in Immich (as an edit; the original file is not changed)."""
     asset = await _own_asset(db, account, asset_id)
     try:
-        async with _immich(settings, factory, box, account) as client:
+        async with _immich(settings, factory, box, account, db, [asset]) as client:
             await rotation.save_turn(db, client, asset, body.turn)
     except ApiError as exc:
         if exc.code == "immich_missing_permissions":
@@ -849,7 +862,7 @@ async def set_location(
 ) -> AssetDetail:
     """Writes the location the user picked to Immich (FR-50)."""
     asset = await _own_asset(db, account, asset_id)
-    async with _immich(settings, factory, box, account) as client:
+    async with _immich(settings, factory, box, account, db, [asset]) as client:
         await locations.write_location(
             db,
             client,
@@ -874,7 +887,7 @@ async def undo_location(
 ) -> AssetDetail:
     """Restores the coordinates replaced by the last write (FR-51)."""
     asset = await _own_asset(db, account, asset_id)
-    async with _immich(settings, factory, box, account) as client:
+    async with _immich(settings, factory, box, account, db, [asset]) as client:
         await locations.undo_last(db, client, asset, tag=settings.estimated_tag)
     return await _detail(db, account, asset, filters, settings)
 
@@ -895,16 +908,18 @@ async def video(
     streamer: VideoStreamer | None = request.app.state.videos
     if streamer is None:
         raise ApiError(502, "immich_unreachable")
+    session = await locked.image_session(db, box, asset)
     try:
         stream = await streamer.open(
-            box.decrypt(account.api_key_encrypted), asset.immich_id, range_
+            box.decrypt(account.api_key_encrypted), asset.immich_id, range_, session_token=session
         )
     except ImmichError as exc:
         raise _api_error(exc) from exc
     return StreamingResponse(
         stream.chunks,
         status_code=stream.status_code,
-        headers=stream.headers | {"Cache-Control": "private, no-cache"},
+        headers=stream.headers
+        | {"Cache-Control": LOCKED_CACHE_CONTROL if session else "private, no-cache"},
         background=BackgroundTask(stream.aclose),
     )
 
@@ -924,15 +939,23 @@ async def thumbnail(
     if turn not in TURNS:
         raise ApiError(422, "turn_invalid")
     asset = await _own_asset(db, account, asset_id)
+    session = await locked.image_session(db, box, asset)
     etag = f'"{asset.immich_id}-{asset.immich_updated_at.timestamp():.0f}-{size}-{turn}"'
     headers = {"ETag": etag, "Cache-Control": IMAGE_CACHE_CONTROL}
-    if if_none_match == etag:
+    if session:
+        # A locked photo is never kept by the browser.
+        headers = {"Cache-Control": LOCKED_CACHE_CONTROL}
+    elif if_none_match == etag:
         return Response(status_code=304, headers=headers)
 
     fetcher: ThumbnailFetcher = request.app.state.thumbnails
     try:
         image = await fetcher.fetch(
-            box.decrypt(account.api_key_encrypted), asset.immich_id, size, asset.is_edited
+            box.decrypt(account.api_key_encrypted),
+            asset.immich_id,
+            size,
+            asset.is_edited,
+            session_token=session,
         )
     except ImmichError as exc:
         raise _api_error(exc) from exc

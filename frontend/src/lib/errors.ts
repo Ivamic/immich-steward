@@ -40,6 +40,8 @@ export function errorMessage(error: unknown): string {
 		}
 		case 'locked_no_pin':
 			return m.locked_no_pin();
+		case 'locked_closed':
+			return m.error_locked_closed();
 		case 'locked_session_lost':
 			return m.error_locked_session_lost();
 		case 'locked_not_connected':

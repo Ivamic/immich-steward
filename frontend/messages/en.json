@@ -739,5 +739,6 @@
 	"error_locked_wrong_pin": "Wrong PIN code. Tries left: {left}.",
 	"error_locked_pin_paused": "Too many wrong PIN codes. Try again after {time}.",
 	"error_locked_session_lost": "Immich ended the session of the app (the password changed, or the device was removed). Connect the locked folder again in Settings.",
-	"error_locked_not_connected": "The locked folder is not connected: connect it in Settings."
+	"error_locked_not_connected": "The locked folder is not connected: connect it in Settings.",
+	"error_locked_closed": "This photo is in the locked folder: open the folder (the lock in the header) to see or change it."
 }

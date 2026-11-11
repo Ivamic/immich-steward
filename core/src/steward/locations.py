@@ -251,6 +251,16 @@ async def undo_batch(
     return result
 
 
+async def batch_assets(db: AsyncSession, account_id: UUID, batch_id: UUID) -> list[Asset]:
+    """The photos of a batch write, to choose how to reach Immich for undoing it."""
+    rows = await db.scalars(
+        select(Asset)
+        .join(LocationChange, LocationChange.asset_id == Asset.id)
+        .where(LocationChange.batch_id == batch_id, Asset.account_id == account_id)
+    )
+    return list(rows.unique())
+
+
 async def history(db: AsyncSession, asset: Asset) -> list[LocationChange]:
     return list(
         await db.scalars(

@@ -472,3 +472,11 @@ sources Auto uses far out and close up. Each family member has their own. How to
 
 **Updates** shows the version of the app and whether a newer one is out, for the whole
 installation; the check can be turned off there (see [Privacy](privacy.md#what-leaves-your-server)).
+
+## About
+
+The **ⓘ** icon after the language (in the menu on a narrow screen, on the sign-in card when signed
+out) opens **About**: the versions of the app, of Immich and of the workers, the license with a link
+to the source code of the very version that runs, the third-party models, maps and icons, and how
+to support the project. It opens without signing in too; the workers are listed only for a
+signed-in user.

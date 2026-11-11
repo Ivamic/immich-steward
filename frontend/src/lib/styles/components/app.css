@@ -97,6 +97,12 @@
 		display: inline-flex;
 	}
 }
+/* Signed out on a phone the header has no menu: About is reached from the sign-in card. */
+@media (max-width: 26rem) {
+	.st-header:not(.st-header--menu) .st-header__about {
+		display: none;
+	}
+}
 @media (max-width: 40rem) {
 	.st-header--menu .st-header__nav {
 		display: none;

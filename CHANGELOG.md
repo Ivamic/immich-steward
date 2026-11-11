@@ -13,6 +13,10 @@ between releases.
   in the photo card and in the location window of selected photos): **Google satellite** and
   **Street View nearby** open the point in a new tab. Only the coordinates go to Google, on a
   click.
+- **About**: the ⓘ icon after the language opens the versions of the app, of Immich and of the
+  workers, the license with a link to the source code of the running version, the third-party
+  models, maps and icons, AI assistance and how to support the project. It opens without signing
+  in too.
 
 ### Changed
 

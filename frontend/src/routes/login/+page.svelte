@@ -131,6 +131,7 @@
 				<p>{m.auth_help_storage()}</p>
 			</div>
 		</details>
+		<a class="about" href={resolve('/about')}><Icon name="info" size={14} />{m.about_heading()}</a>
 	</div>
 </div>
 
@@ -166,6 +167,14 @@
 	}
 	h1 {
 		margin: var(--space-2) 0 0;
+	}
+	.about {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		align-self: flex-start;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
 	}
 	.intro,
 	.note {

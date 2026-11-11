@@ -12,6 +12,7 @@
 	import UpdateBadge from '#lib/UpdateBadge.svelte';
 	import Brand from '#lib/ui/Brand.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import '#lib/styles/index.css';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -21,6 +22,7 @@
 	let { children }: LayoutProps = $props();
 
 	const loginPath = resolve('/login');
+	const aboutPath = resolve('/about');
 
 	$effect(() => {
 		document.documentElement.lang = getLocale();
@@ -36,9 +38,11 @@
 			.finally(() => (session.checked = true));
 	});
 
-	// Everything except the sign-in page requires a signed-in user.
+	// Everything except the sign-in page and About (the license and the source code are for
+	// anyone who reaches the app) requires a signed-in user.
 	$effect(() => {
-		if (session.checked && !session.user && page.url.pathname !== loginPath) {
+		const open = page.url.pathname === loginPath || page.url.pathname === aboutPath;
+		if (session.checked && !session.user && !open) {
 			goto(loginPath);
 		}
 	});
@@ -98,11 +102,21 @@
 		<div class="st-header__wide">
 			<LanguageSwitcher />
 		</div>
+		<Tooltip text={m.about_heading()} below>
+			<a
+				class="st-iconbtn st-header__wide st-header__about"
+				href={aboutPath}
+				aria-label={m.about_heading()}
+				aria-current={page.route.id === '/about' ? 'page' : undefined}
+			>
+				<Icon name="info" size={16} />
+			</a>
+		</Tooltip>
 		<div class="st-header__wide">
 			<ThemeSwitcher />
 		</div>
 		{#if session.user}
-			<HeaderMenu {pages} user={session.user.name} onsignout={signOut} />
+			<HeaderMenu {pages} about={aboutPath} user={session.user.name} onsignout={signOut} />
 		{/if}
 	</div>
 </header>

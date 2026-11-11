@@ -18,10 +18,13 @@
 
 	let {
 		pages,
+		about,
 		user,
 		onsignout
 	}: {
 		pages: Page[];
+		/** The address of the About page, after the language as in the header. */
+		about: string;
 		user: string;
 		onsignout: () => void;
 	} = $props();
@@ -87,6 +90,11 @@
 					{/each}
 				</select>
 			</div>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by the layout -->
+			<a class="st-menu__item" href={about} onclick={() => (open = false)}>
+				<Icon name="info" size={14} />
+				<span class="st-menu__label">{m.about_heading()}</span>
+			</a>
 			<div class="st-menu__heading">{m.theme()}</div>
 			<div class="st-headmenu__row">
 				<ThemeSwitcher />

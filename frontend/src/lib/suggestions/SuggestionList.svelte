@@ -100,10 +100,18 @@
 	const canCompare = (module: ModuleSuggestions) =>
 		module.details != null && module.status === 'done' && module.candidates.length > 0;
 
+	/** Nothing to ask for: the comparison runs, or waits at the head of the queue already. A
+	 * comparison the app queued itself can be moved ahead. */
+	const compareBusy = (module: ModuleSuggestions) =>
+		module.details?.status === 'running' ||
+		(module.details?.status === 'queued' && module.details.urgent === true);
+
 	function comparing(module: ModuleSuggestions): string | null {
 		switch (module.details?.status) {
 			case 'queued':
-				return m.details_status_queued();
+				return module.details.queue_position
+					? m.details_status_queued_behind({ count: String(module.details.queue_position) })
+					: m.details_status_queued();
 			case 'running':
 				return m.details_status_running();
 			case 'failed':
@@ -244,11 +252,13 @@
 								<button
 									type="button"
 									class="st-btn st-btn--ghost st-btn--sm"
-									disabled={isComparing(module)}
+									disabled={compareBusy(module)}
 									onclick={() => onrun(DETAILS_MODULE)}
 								>
 									<Icon name="scan-search" size={14} />
-									{m.details_compare()}
+									{module.details?.status === 'queued' && !module.details.urgent
+										? m.details_compare_now()
+										: m.details_compare()}
 								</button>
 							</Tooltip>
 						{/if}

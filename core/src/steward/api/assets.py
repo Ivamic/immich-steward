@@ -74,6 +74,7 @@ from steward.models import (
     Asset,
     AssetAlbum,
     DetailMatch,
+    Job,
     LocationChange,
     ModuleRun,
 )
@@ -381,6 +382,11 @@ class DetailsState(BaseModel):
     status: Literal["not_run", "queued", "running", "done", "failed"]
     # A worker that compares details has contacted the core recently.
     worker_available: bool
+    # Queued: comparisons a worker takes before this one.
+    queue_position: int | None = None
+    # Queued by hand: it goes before the comparisons the app queued itself. One of those can
+    # be moved ahead by asking for the comparison in the card.
+    urgent: bool = False
 
 
 class ModuleSuggestions(BaseModel):
@@ -815,9 +821,14 @@ async def _suggestions(
         whole.worker_loading = remote.id in loading
         if remote.id == similar.MODULE_ID:
             compared = runs.get(details.MODULE_ID)
+            waiting = await db.get(Job, compared.job_id) if compared and compared.job_id else None
             whole.details = DetailsState(
                 status=compared.status if compared else "not_run",
                 worker_available=details.MODULE_ID in available,
+                queue_position=await worker_queue.queue_position(db, compared)
+                if compared
+                else None,
+                urgent=waiting is not None and waiting.priority >= worker_queue.PRIORITY_USER,
             )
         result.append(whole)
         # The run on a part of the photo, if any, right after the one on the whole photo.

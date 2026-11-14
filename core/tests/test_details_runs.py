@@ -179,6 +179,8 @@ def test_the_card_knows_the_state_of_the_comparison(
     assert similar_block(signed_in, query)["details"] == {
         "status": "not_run",
         "worker_available": False,
+        "queue_position": None,
+        "urgent": False,
     }
 
     worker = worker_on(signed_in, "cpu")
@@ -186,6 +188,8 @@ def test_the_card_knows_the_state_of_the_comparison(
     assert similar_block(signed_in, query)["details"] == {
         "status": "queued",
         "worker_available": True,
+        "queue_position": 0,
+        "urgent": True,
     }
 
     job = lease(signed_in, worker).json()
@@ -232,3 +236,20 @@ def test_the_shared_points_of_a_pair_from_either_photo(
     ]
     missing = signed_in.get(f"/api/assets/{query}/details/{kotor}")
     assert (missing.status_code, missing.json()["code"]) == (404, "details_not_compared")
+
+
+def test_a_comparison_queued_by_itself_can_be_moved_ahead_from_the_card(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query = library["query.jpg"]
+    auto(signed_in)
+
+    # Waiting its turn, with no worker with a GPU around.
+    waiting = similar_block(signed_in, query)["details"]
+    assert (waiting["status"], waiting["urgent"], waiting["queue_position"]) == ("queued", False, 0)
+
+    signed_in.post(f"/api/assets/{query}/modules/details/run")
+
+    assert similar_block(signed_in, query)["details"]["urgent"] is True
+    assert lease(signed_in, worker_on(signed_in, "cpu")).json()["asset_id"] == query

@@ -494,6 +494,10 @@ export interface ModuleSuggestions {
 	details?: {
 		status: 'not_run' | 'queued' | 'running' | 'done' | 'failed';
 		worker_available: boolean;
+		/** Queued: comparisons a worker takes before this one. */
+		queue_position?: number | null;
+		/** Queued by hand: ahead of the comparisons the app queued itself. */
+		urgent?: boolean;
 	} | null;
 }
 

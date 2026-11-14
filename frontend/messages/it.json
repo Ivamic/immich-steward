@@ -763,6 +763,8 @@
 	"details_compare_now": "Confronta ora",
 	"details_status_running": "Confronto dei dettagli…",
 	"details_status_failed": "Non è stato possibile confrontare i dettagli",
+	"details_status_none": "Dettagli confrontati: nessuna corrispondenza certa.",
+	"details_status_none_most": "Dettagli confrontati: nessuna corrispondenza certa. Il maggior numero di dettagli in comune con una foto: {count}.",
 	"details_no_worker": "Nessun worker che confronta i dettagli è connesso",
 	"candidate_confirmed": "Confermato dai dettagli",
 	"candidate_confirmed_title": "{count} dettagli in comune con la prima foto. Fai clic per vederli.",

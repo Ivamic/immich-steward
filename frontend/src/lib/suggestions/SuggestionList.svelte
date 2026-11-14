@@ -106,6 +106,19 @@
 		module.details?.status === 'running' ||
 		(module.details?.status === 'queued' && module.details.urgent === true);
 
+	/** The details were compared and confirmed no suggestion: said, so that a comparison
+	 * without a result is not taken for one that did not run. */
+	function unconfirmed(module: ModuleSuggestions): string | null {
+		if (module.candidates.some((c) => c.evidence.confirmed)) return null;
+		const shared = module.candidates
+			.flatMap((c) => c.evidence.neighbors ?? [])
+			.map((n) => n.details)
+			.filter((count) => typeof count === 'number');
+		return shared.length
+			? m.details_status_none_most({ count: String(Math.max(...shared)) })
+			: m.details_status_none();
+	}
+
 	function comparing(module: ModuleSuggestions): string | null {
 		switch (module.details?.status) {
 			case 'queued':
@@ -116,6 +129,8 @@
 				return m.details_status_running();
 			case 'failed':
 				return m.details_status_failed();
+			case 'done':
+				return unconfirmed(module);
 			default:
 				return null;
 		}
@@ -302,8 +317,10 @@
 				<p class="st-sgroup__note" class:failed={module.details?.status === 'failed'}>
 					{#if isComparing(module)}
 						<span class="st-spin"><Icon name="loader-circle" size={14} /></span>
-					{:else}
+					{:else if module.details?.status === 'failed'}
 						<Icon name="circle-alert" size={14} />
+					{:else}
+						<Icon name="info" size={14} />
 					{/if}
 					<span>{comparing(module)}</span>
 				</p>

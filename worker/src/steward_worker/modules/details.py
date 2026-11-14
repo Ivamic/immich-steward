@@ -132,6 +132,7 @@ class DetailsModule:
         return found
 
     def match(self, first: dict[str, Any], second: dict[str, Any]) -> PairMatch:
+        import numpy as np
         import torch
 
         from steward_worker.modules.geometry import geometry_inliers
@@ -144,9 +145,15 @@ class DetailsModule:
         agree = geometry_inliers(a, b)
         wa, ha = first["image_size"][0].tolist()
         wb, hb = second["image_size"][0].tolist()
+        # The points come sorted by their place in the photo: every n-th of the pairs, so that
+        # the ones drawn are spread over it and not all from its top edge.
+        fitting = np.flatnonzero(agree)
+        shown = fitting[
+            np.linspace(0, len(fitting) - 1, min(MAX_LINES, len(fitting))).round().astype(int)
+        ]
         lines = [
             (float(xa / wa), float(ya / ha), float(xb / wb), float(yb / hb))
-            for (xa, ya), (xb, yb) in zip(a[agree][:MAX_LINES], b[agree][:MAX_LINES], strict=True)
+            for (xa, ya), (xb, yb) in zip(a[shown], b[shown], strict=True)
         ]
         return PairMatch(matches=len(pairs), inliers=int(agree.sum()), lines=lines)
 

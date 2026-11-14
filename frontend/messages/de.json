@@ -763,6 +763,8 @@
 	"details_compare_now": "Jetzt abgleichen",
 	"details_status_running": "Details werden abgeglichen…",
 	"details_status_failed": "Die Details konnten nicht abgeglichen werden",
+	"details_status_none": "Details abgeglichen: keine sichere Übereinstimmung.",
+	"details_status_none_most": "Details abgeglichen: keine sichere Übereinstimmung. Die meisten gemeinsamen Details mit einem Foto: {count}.",
 	"details_no_worker": "Kein Worker verbunden, der Details abgleicht",
 	"candidate_confirmed": "Durch Details bestätigt",
 	"candidate_confirmed_title": "{count} gemeinsame Details mit dem ersten Foto. Klicken, um sie zu sehen.",

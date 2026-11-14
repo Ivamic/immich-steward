@@ -38,15 +38,33 @@
 	let frame = $state<HTMLElement>();
 	let first = $state<HTMLImageElement>();
 	let second = $state<HTMLImageElement>();
+	type Box = { left: number; top: number; width: number; height: number };
 	// The two photos as they lie in the frame, in its pixels.
-	let boxes = $state<{ a: DOMRect; b: DOMRect; frame: DOMRect } | null>(null);
+	let boxes = $state<{ a: Box; b: Box; frame: Box } | null>(null);
+
+	/** Where an element lies in the frame. By the layout, not by what is on the screen: the
+	 * window opens with a scale animation, and measured on the screen meanwhile every point
+	 * would be off, the more the farther from the corner of the frame. */
+	function placed(element: HTMLElement): Box {
+		let left = 0;
+		let top = 0;
+		for (
+			let node: HTMLElement | null = element;
+			node && node !== frame;
+			node = node.offsetParent as HTMLElement | null
+		) {
+			left += node.offsetLeft;
+			top += node.offsetTop;
+		}
+		return { left, top, width: element.offsetWidth, height: element.offsetHeight };
+	}
 
 	function measure() {
 		if (!frame || !first || !second || !first.naturalWidth || !second.naturalWidth) return;
 		boxes = {
-			a: first.getBoundingClientRect(),
-			b: second.getBoundingClientRect(),
-			frame: frame.getBoundingClientRect()
+			a: placed(first),
+			b: placed(second),
+			frame: { left: 0, top: 0, width: frame.offsetWidth, height: frame.offsetHeight }
 		};
 	}
 
@@ -59,12 +77,12 @@
 
 	const segments = $derived.by(() => {
 		if (!pair || !boxes) return [];
-		const { a, b, frame: f } = boxes;
+		const { a, b } = boxes;
 		return pair.lines.map(([x1, y1, x2, y2]) => ({
-			x1: a.left - f.left + x1 * a.width,
-			y1: a.top - f.top + y1 * a.height,
-			x2: b.left - f.left + x2 * b.width,
-			y2: b.top - f.top + y2 * b.height
+			x1: a.left + x1 * a.width,
+			y1: a.top + y1 * a.height,
+			x2: b.left + x2 * b.width,
+			y2: b.top + y2 * b.height
 		}));
 	});
 </script>

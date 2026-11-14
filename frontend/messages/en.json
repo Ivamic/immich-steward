@@ -763,6 +763,8 @@
 	"details_compare_now": "Compare now",
 	"details_status_running": "Comparing details…",
 	"details_status_failed": "The details could not be compared",
+	"details_status_none": "Details compared: no sure match.",
+	"details_status_none_most": "Details compared: no sure match. The most shared details with one photo: {count}.",
 	"details_no_worker": "No worker that compares details is connected",
 	"candidate_confirmed": "Confirmed by details",
 	"candidate_confirmed_title": "{count} shared details with the first photo. Click to see them.",

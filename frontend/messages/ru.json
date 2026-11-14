@@ -763,6 +763,8 @@
 	"details_compare_now": "Сверить сейчас",
 	"details_status_running": "Сверяем детали…",
 	"details_status_failed": "Детали сверить не удалось",
+	"details_status_none": "Детали сверены: уверенного совпадения нет.",
+	"details_status_none_most": "Детали сверены: уверенного совпадения нет. Больше всего общих деталей с одним фото — {count}.",
 	"details_no_worker": "Нет подключённого воркера, который сверяет детали",
 	"candidate_confirmed": "Подтверждено по деталям",
 	"candidate_confirmed_title": "{count} общих деталей с первым фото. Нажмите, чтобы посмотреть.",

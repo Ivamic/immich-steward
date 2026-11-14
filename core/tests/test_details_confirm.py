@@ -105,22 +105,35 @@ def test_the_threshold_is_a_setting(signed_in: TestClient, library: Library) -> 
     assert signed_in.put("/api/settings", json={"details_confirmed_from": 7}).status_code == 422
 
 
-def test_the_order_can_stay_that_of_similarity(
+def keys(client: TestClient, asset_id: str) -> list[str]:
+    return [block["key"] for block in client.get(f"/api/assets/{asset_id}/suggestions").json()]
+
+
+def test_similar_photos_with_a_confirmed_suggestion_go_before_every_module(
     signed_in: TestClient,
     library: Library,  # noqa: F811
 ) -> None:
-    compared(signed_in, library["query.jpg"], library["budva.jpg"], 150)
+    query = library["query.jpg"]
+    assert keys(signed_in, query) == ["time_neighbors", "similar", "geoclip"]
+
+    compared(signed_in, query, library["budva.jpg"], 150)
+
+    assert keys(signed_in, query) == ["similar", "time_neighbors", "geoclip"]
+
+
+def test_the_block_can_stay_where_the_account_put_it(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query = library["query.jpg"]
+    compared(signed_in, query, library["budva.jpg"], 150)
     assert signed_in.put("/api/settings", json={"details_first": False}).is_success
 
-    module = similar(signed_in, library["query.jpg"])
-
-    # Confirmed and sure, but where its similarity puts it.
-    assert places(module) == [
-        ("set-by-app.jpg", "confident", False),
-        ("kotor.jpg", "confident", False),
-        ("budva.jpg", "confident", True),
-    ]
-    assert module["candidates"][2]["score"] == CONFIRMED_SCORE
+    assert keys(signed_in, query) == ["time_neighbors", "similar", "geoclip"]
+    # Within the block the confirmed suggestion is first all the same.
+    module = similar(signed_in, query)
+    assert places(module)[0] == ("budva.jpg", "confident", True)
+    assert module["candidates"][0]["score"] == CONFIRMED_SCORE
 
 
 def test_the_place_is_that_of_the_photo_sharing_the_points(

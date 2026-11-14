@@ -34,8 +34,9 @@ DEFAULTS: dict[str, Any] = {
     # their 20 most similar): from 100 points the place is right within 1 km 95 % of the time,
     # with 50-99 about half the time. Applies when the suggestions are shown.
     "details_confirmed_from": 100,
-    # A confirmed suggestion goes before the others; off: the suggestions stay in the order of
-    # their similarity, the confirmed one only marked.
+    # Similar photos with a confirmed suggestion go before every other module in the card; off:
+    # the block stays where the account put it. Within the block the confirmed suggestion is
+    # always first.
     "details_first": True,
     # How many of the most similar photos a photo is compared with: when the comparison runs by
     # itself (workers with a GPU only) and when it is started by hand (any worker; on a CPU a

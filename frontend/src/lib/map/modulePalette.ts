@@ -7,7 +7,9 @@ const SLOTS: Record<string, number> = {
 	geoclip: 2,
 	similar: 3,
 	// The chosen photos' own locations (several photos at once, D-149).
-	selection: 4
+	selection: 4,
+	// Matching details: no markers of its own, the color is for the Processing page.
+	details: 5
 };
 
 /** Palette slot of a module (1–8), or null for a module without one. */

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.errors import ApiError
 from steward.models import ModuleDisplay
-from steward.modules import MODULES, REMOTE_MODULES
+from steward.modules import MODULES, SUGGESTING_MODULES
 
 # Neighbors in time first: they are the most precise when there are any.
 DEFAULT_ORDER = ("time_neighbors", "similar", "geoclip")
@@ -27,7 +27,7 @@ class Display:
 
 def known_modules() -> list[str]:
     """Every module that shows suggestions, in the default order."""
-    ids = [module.id for module in MODULES] + list(REMOTE_MODULES)
+    ids = [module.id for module in MODULES] + list(SUGGESTING_MODULES)
     return sorted(ids, key=lambda i: DEFAULT_ORDER.index(i) if i in DEFAULT_ORDER else len(ids))
 
 

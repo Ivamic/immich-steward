@@ -27,6 +27,9 @@ class RemoteModule:
     shape: MarkerShape
     # Retrieval modules send the vector of the photo, of this length, instead of candidates.
     embedding_dim: int | None = None
+    # False: the module suggests no places itself (`details` confirms those of another), so it
+    # has no block in the card; it is still shown where the work of the workers is.
+    suggests: bool = True
 
 
 # Shown after the core modules, in this order.
@@ -35,11 +38,15 @@ REMOTE_MODULES: dict[str, RemoteModule] = {
     "similar": RemoteModule(
         "similar", color="#1a7f37", shape="diamond", embedding_dim=EMBEDDING_DIM
     ),
+    "details": RemoteModule("details", color="#8250df", shape="triangle", suggests=False),
 }
+# Those with a block of suggestions in the card.
+SUGGESTING_MODULES = {key: module for key, module in REMOTE_MODULES.items() if module.suggests}
 
 __all__ = [
     "MODULES",
     "REMOTE_MODULES",
+    "SUGGESTING_MODULES",
     "Candidate",
     "LocationModule",
     "ModuleContext",

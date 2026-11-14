@@ -77,7 +77,14 @@ from steward.models import (
     LocationChange,
     ModuleRun,
 )
-from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule, similar
+from steward.modules import (
+    MODULES,
+    REMOTE_MODULES,
+    SUGGESTING_MODULES,
+    ModuleContext,
+    RemoteModule,
+    similar,
+)
 
 router = APIRouter(prefix="/assets")
 
@@ -802,7 +809,7 @@ async def _suggestions(
     available = {module for worker in workers for module in worker.enabled_modules}
     loading = {w.state_module for w in workers if w.state in worker_queue.MODEL_STATES}
     paused = await worker_queue.paused_modules(db)
-    for remote in REMOTE_MODULES.values():
+    for remote in SUGGESTING_MODULES.values():
         whole = await _remote(db, asset, remote, runs.get(remote.id), available, settings)
         whole.paused = worker_queue.is_paused(paused, remote.id)
         whole.worker_loading = remote.id in loading
@@ -824,7 +831,21 @@ async def _suggestions(
     for block in result:
         block.hidden = block.module in hidden
     await locked.mask_sources(db, account, result)
-    return sorted(result, key=lambda block: order.get(block.module, len(order)))
+    # Similar photos with a suggestion confirmed by details go before every other module
+    # (a personal setting, D-228): nothing else is right as often.
+    personal = await account_settings.get_all(db, account.id)
+    lifted = personal["details_first"] and any(
+        candidate.evidence.get("confirmed")
+        for block in result
+        if block.module == similar.MODULE_ID and block.region is None
+        for candidate in block.candidates
+    )
+
+    def place(block: ModuleSuggestions) -> tuple[bool, int]:
+        first = lifted and block.module == similar.MODULE_ID
+        return (not first, order.get(block.module, len(order)))
+
+    return sorted(result, key=place)
 
 
 async def _remote(

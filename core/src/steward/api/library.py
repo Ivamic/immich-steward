@@ -9,7 +9,14 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import __version__, embeddings, module_display, worker_queue, worker_refusals
+from steward import (
+    __version__,
+    details,
+    embeddings,
+    module_display,
+    worker_queue,
+    worker_refusals,
+)
 from steward.api.worker import RECOMMENDED_WORKER_VERSION
 from steward.config import Settings
 from steward.deps import CurrentAccount, DbDep, ImmichFactoryDep, SecretBoxDep, SettingsDep
@@ -384,9 +391,12 @@ async def set_module_display(
 
 @router.post("/modules/{module_id}/rerun-failed")
 async def rerun_failed(
-    module_id: str, body: RerunRequest, account: CurrentAccount, db: DbDep
+    module_id: str, body: RerunRequest, account: CurrentAccount, db: DbDep, settings: SettingsDep
 ) -> RerunResult:
     """Runs the module again on this library's photos whose latest run of it failed."""
     if module_id not in REMOTE_MODULES:
         raise ApiError(404, "module_not_found")
+    if module_id == details.MODULE_ID:
+        queued = await details.rerun_failed(db, account.id, settings, body.code)
+        return RerunResult(queued=queued)
     return RerunResult(queued=await worker_queue.rerun_failed(db, account, module_id, body.code))

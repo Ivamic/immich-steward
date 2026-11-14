@@ -239,14 +239,12 @@ def candidates(
     settings: Settings,
     details: Mapping[UUID, int] | None = None,
     confirmed_from: int = account_settings.DEFAULTS["details_confirmed_from"],
-    confirmed_first: bool = account_settings.DEFAULTS["details_first"],
 ) -> list[Candidate]:
     """Groups the neighbors by place, best first; drops the groups below the display minimum.
 
     `details`: the points the photo shares with the neighbors it was compared with. A group with
     a neighbor that shares `confirmed_from` of them or more is confirmed: it is placed at that
-    neighbor, scored `CONFIRMED_SCORE` at least, and (`confirmed_first`) goes before the groups
-    that are not.
+    neighbor, scored `CONFIRMED_SCORE` at least, and goes before the groups that are not.
     """
     details = details or {}
     groups: list[list[Neighbor]] = []
@@ -299,8 +297,7 @@ def candidates(
                 },
             )
         )
-    if confirmed_first:
-        result.sort(key=lambda candidate: not candidate.evidence["confirmed"])
+    result.sort(key=lambda candidate: not candidate.evidence["confirmed"])
     return result[:MAX_CANDIDATES]
 
 
@@ -335,5 +332,4 @@ async def suggest(
         settings,
         details,
         personal["details_confirmed_from"],
-        personal["details_first"],
     )

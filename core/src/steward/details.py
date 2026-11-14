@@ -54,6 +54,26 @@ async def enqueue(
     return await worker_queue.enqueue_pairs(db, asset, MODULE_ID, others, priority)
 
 
+async def rerun_failed(
+    db: AsyncSession, account_id: UUID, settings: Settings, code: str | None
+) -> int:
+    """Queues again the comparisons of the account's photos whose latest one failed, each with
+    the photos it is to be compared with now."""
+    assets = list(
+        await db.scalars(
+            select(Asset)
+            .where(Asset.account_id == account_id, worker_queue.latest_run_failed(MODULE_ID, code))
+            .order_by(Asset.local_taken_at.desc())
+        )
+    )
+    personal = await account_settings.get_all(db, account_id)
+    count = 0
+    for asset in assets:
+        if await enqueue(db, asset, settings, personal["details_candidates_auto"]) is not None:
+            count += 1
+    return count
+
+
 async def auto_enqueue(db: AsyncSession, settings: Settings) -> int:
     """Tops up the background queue with photos that still wait for their comparison: photos
     without a location that have their similar photos found, newest first, once each.

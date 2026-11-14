@@ -19,7 +19,7 @@ from steward.config import Settings
 from steward.embeddings import is_located
 from steward.gallery import CAMERA_SEPARATOR
 from steward.models import Asset, LocationChange, ModuleRun
-from steward.modules import REMOTE_MODULES, similar
+from steward.modules import SUGGESTING_MODULES, similar
 from steward.modules.base import Candidate, MarkerShape, ModuleResult, TrackPoint
 from steward.modules.time_neighbors import (
     MAX_TRACK_POINTS,
@@ -93,7 +93,7 @@ async def suggest(
             neighbors.version,
         ),
     ]
-    for remote in REMOTE_MODULES.values():
+    for remote in SUGGESTING_MODULES.values():
         result = await _remote(db, account_id, assets, remote.id, settings, confident)
         blocks.append(Block(remote.id, result, remote.color, remote.shape))
     chosen = {a.id for a in assets}

@@ -9,16 +9,17 @@ group is a candidate at the spot of its most similar photo.
 
 import bisect
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import bindparam, select, text
+from sqlalchemy import and_, bindparam, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward.config import Settings
-from steward.models import EMBEDDING_DIM, Embedding, ModuleRun
+from steward.models import EMBEDDING_DIM, DetailMatch, Embedding, ModuleRun
 from steward.modules.base import Candidate
 from steward.modules.time_neighbors import distance_m
 
@@ -79,6 +80,11 @@ CALIBRATION_SPREAD: Curve = (
     (0.45, 0.50),
     (0.55, 0.85),
 )
+
+# The score of a suggestion one of whose photos matches the photo point by point (the `details`
+# module): such a suggestion was right within 1 km 95 % of the time, whatever its similarity
+# (D-225, `Settings.details_confirmed_from`).
+CONFIRMED_SCORE = 0.95
 
 # The vector is sent as text; Postgres needs its type to pick the operators and the index.
 _QUERY = f"CAST(:query AS halfvec({EMBEDDING_DIM}))"
@@ -206,8 +212,39 @@ async def search(
     return [n for n in found if include_estimated or not n.estimated]
 
 
-def candidates(found: list[Neighbor], taken_at: datetime, settings: Settings) -> list[Candidate]:
-    """Groups the neighbors by place, best first; drops the groups below the display minimum."""
+async def detail_inliers(db: AsyncSession, asset_id: UUID, others: list[UUID]) -> dict[UUID, int]:
+    """Photo -> the points it shares with the given photo, of the photos compared with it (in
+    either direction: the answer is about the pair)."""
+    if not others:
+        return {}
+    rows = await db.execute(
+        select(DetailMatch.asset_id, DetailMatch.other_id, DetailMatch.inliers).where(
+            or_(
+                and_(DetailMatch.asset_id == asset_id, DetailMatch.other_id.in_(others)),
+                and_(DetailMatch.other_id == asset_id, DetailMatch.asset_id.in_(others)),
+            )
+        )
+    )
+    found: dict[UUID, int] = {}
+    for first, second, inliers in rows:
+        other = second if first == asset_id else first
+        found[other] = max(found.get(other, 0), inliers)
+    return found
+
+
+def candidates(
+    found: list[Neighbor],
+    taken_at: datetime,
+    settings: Settings,
+    details: Mapping[UUID, int] | None = None,
+) -> list[Candidate]:
+    """Groups the neighbors by place, best first; drops the groups below the display minimum.
+
+    `details`: the points the photo shares with the neighbors it was compared with. A group with
+    a neighbor that shares enough of them is confirmed: it is placed at that neighbor, scored
+    `CONFIRMED_SCORE` at least, and goes before the groups that are not.
+    """
+    details = details or {}
     groups: list[list[Neighbor]] = []
     for neighbor in found:  # most similar first
         for group in groups:
@@ -224,9 +261,17 @@ def candidates(found: list[Neighbor], taken_at: datetime, settings: Settings) ->
     result = []
     for group in groups:
         score = calibrated(group[0].similarity, apart)
+        seed = group[0]
+        # Stable: among equals the more similar stays first.
+        closest = max(group, key=lambda n: details.get(n.asset_id, 0))
+        shared = details.get(closest.asset_id)
+        confirmed = shared is not None and shared >= settings.details_confirmed_from
+        if confirmed:
+            score = max(score, CONFIRMED_SCORE)
+            seed = closest
+            group = [closest, *(n for n in group if n is not closest)]
         if score < settings.similar_min_confidence:
             continue
-        seed = group[0]
         spread = max(
             distance_m(seed.latitude, seed.longitude, n.latitude, n.longitude) for n in group
         )
@@ -238,18 +283,26 @@ def candidates(found: list[Neighbor], taken_at: datetime, settings: Settings) ->
                 radius_m=round(max(spread, MIN_RADIUS_M)),
                 kind="similar",
                 evidence={
-                    "neighbors": [_evidence(n, taken_at) for n in group[:MAX_EVIDENCE]],
+                    "neighbors": [
+                        _evidence(n, taken_at, details.get(n.asset_id))
+                        for n in group[:MAX_EVIDENCE]
+                    ],
+                    # The photo shares enough points with the first neighbor (`details`).
+                    "confirmed": confirmed,
                     # Of the photo, not of the candidate: the same for all of them.
                     "spread_km": None if apart is None else round(apart, 1),
                     "spread": spread_class(apart),
                 },
             )
         )
+    result.sort(key=lambda candidate: not candidate.evidence["confirmed"])
     return result[:MAX_CANDIDATES]
 
 
-def _evidence(neighbor: Neighbor, taken_at: datetime) -> dict[str, object]:
+def _evidence(neighbor: Neighbor, taken_at: datetime, details: int | None) -> dict[str, object]:
     return {
+        # Points shared with the photo; None when the two were not compared.
+        "details": details,
         "asset_id": str(neighbor.asset_id),
         "file_name": neighbor.file_name,
         "similarity": round(neighbor.similarity, 3),
@@ -264,4 +317,10 @@ async def suggest(
     db: AsyncSession, run: ModuleRun, account_id: UUID, taken_at: datetime, settings: Settings
 ) -> list[Candidate]:
     found = await neighbors(db, run, account_id, settings.similar_include_estimated)
-    return candidates(found, taken_at, settings)
+    # The details were compared on the whole photos: they say nothing about a part.
+    details = (
+        await detail_inliers(db, run.asset_id, [n.asset_id for n in found])
+        if run.region is None
+        else None
+    )
+    return candidates(found, taken_at, settings, details)

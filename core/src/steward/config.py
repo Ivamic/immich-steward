@@ -126,6 +126,17 @@ class Settings(BaseSettings):
     # Photos whose location was set in this app are searched among too (D-106). The search runs
     # when the suggestions are shown, so a change applies at once, without running anything again.
     similar_include_estimated: bool = True
+    # Matching details (the `details` module of workers, D-225): a suggestion of similar photos
+    # is confirmed when the photo and a photo behind the suggestion share at least this many
+    # points that fit one geometry. Measured on a family library (2026-11-14, 300 photos with
+    # camera GPS against their 20 most similar): from 100 points the place is right within 1 km
+    # 95 % of the time, with 50-99 about half the time. Applies when the suggestions are shown.
+    details_confirmed_from: int = Field(default=100, ge=8)
+    # How many of the most similar photos a photo is compared with: when the comparison runs by
+    # itself (workers with a GPU only) and when it is started by hand (any worker; on a CPU a
+    # comparison takes a couple of seconds).
+    details_candidates_auto: int = Field(default=20, ge=1, le=30)
+    details_candidates_manual: int = Field(default=5, ge=1, le=30)
 
     # A worker counts as active this long after it last contacted the core. Idle workers ask for
     # jobs every 30 s at most, busy ones send a heartbeat every third of the lease.

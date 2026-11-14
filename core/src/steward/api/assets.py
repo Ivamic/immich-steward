@@ -945,6 +945,8 @@ async def thumbnail(
     account: CurrentAccount,
     db: DbDep,
     box: SecretBoxDep,
+    factory: ImmichFactoryDep,
+    settings: SettingsDep,
     size: ThumbnailSize = "thumbnail",
     turn: int = 0,
     if_none_match: Annotated[str | None, Header()] = None,
@@ -972,6 +974,10 @@ async def thumbnail(
             session_token=session,
         )
     except ImmichError as exc:
+        if exc.status == 400 and await locked.hide_if_gone(
+            db, box, factory, settings, account, asset
+        ):
+            raise ApiError(404, "asset_not_found") from exc
         raise _api_error(exc) from exc
     if not turn:
         return Response(content=image.content, media_type=image.media_type, headers=headers)

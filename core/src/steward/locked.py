@@ -442,6 +442,33 @@ async def client_for(
     return factory(settings.immich_url, box.decrypt(account.api_key_encrypted))
 
 
+async def hide_if_gone(
+    db: AsyncSession,
+    box: SecretBox,
+    factory: ImmichClientFactory,
+    settings: Settings,
+    account: Account,
+    asset: Asset,
+) -> bool:
+    """Immich refused an image of a photo the app takes for a timeline one: if the API key no
+    longer reaches the photo at all, it was moved into the locked folder or deleted in Immich
+    since the last sync, which cannot see either (D-221). It is hidden as "missing" until a sync
+    tells which; returns whether it was."""
+    if is_locked(asset):
+        return False
+    assert settings.immich_url is not None  # guaranteed by SecretBoxDep
+    try:
+        async with factory(settings.immich_url, box.decrypt(account.api_key_encrypted)) as client:
+            await client.asset(asset.immich_id)
+    except ImmichError as exc:
+        if exc.status not in (400, 404):
+            return False
+        asset.visibility = "missing"
+        await db.commit()
+        return True
+    return False
+
+
 async def _end(session: ImmichClient) -> None:
     try:
         await session.lock_session()

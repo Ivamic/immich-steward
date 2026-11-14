@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Syncing the photos of the Immich locked folder (D-216, D-220)."""
 
+import uuid
 from typing import Any
 
 from conftest import FakeImmich, run_jobs, sync
@@ -121,3 +122,21 @@ def test_the_app_keeps_the_folder_open_in_immich(
     keep_open(signed_in)
     assert fake_immich.session_requests[asked:] == ["/api/auth/status"]
     assert signed_in.get("/api/locked").json()["open"] is True
+
+
+def test_a_photo_moved_into_the_folder_between_syncs_is_hidden_at_once(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    moved = fake_immich.add_asset()
+    broken = fake_immich.add_asset()
+    sync(signed_in, full=True)
+    rows = dict(run_db(signed_in, select(Asset.immich_id, Asset.id)).all())
+    # Moved in Immich: an incremental sync never sees it, the API key gets no image of it.
+    fake_immich.assets[moved]["visibility"] = "locked"
+    response = signed_in.get(f"/api/assets/{rows[uuid.UUID(moved)]}/thumbnail")
+    assert response.status_code == 404
+    assert visibilities(signed_in)[moved] == "missing"
+    # A photo Immich still has, with a broken file, stays.
+    fake_immich.thumbnail_status[broken] = 400
+    assert signed_in.get(f"/api/assets/{rows[uuid.UUID(broken)]}/thumbnail").status_code != 404
+    assert visibilities(signed_in)[broken] == "timeline"

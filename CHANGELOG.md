@@ -7,6 +7,8 @@ between releases.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-14
+
 The locked folder of Immich, opened with your PIN code; Google Maps for any point; a page about the
 app; three states for the archive filter and quick links in Settings.
 
@@ -704,7 +706,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/Ivamic/immich-steward/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Ivamic/immich-steward/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Ivamic/immich-steward/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Ivamic/immich-steward/compare/v0.6.0...v0.7.0

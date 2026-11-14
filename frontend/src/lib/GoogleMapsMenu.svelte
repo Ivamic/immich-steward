@@ -85,9 +85,9 @@
 		white-space: nowrap;
 		animation: menu-in var(--motion-fast) var(--ease-out);
 	}
+	/* The list stretches the items; a set width with their padding would overflow it. */
 	li a {
 		display: flex;
-		width: 100%;
 	}
 	@keyframes menu-in {
 		from {

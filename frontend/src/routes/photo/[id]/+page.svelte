@@ -7,6 +7,7 @@
 -->
 <script lang="ts">
 	import {
+		ApiError,
 		getAsset,
 		getPhotoGroup,
 		getMapConfig,
@@ -31,6 +32,8 @@
 	} from '#lib/api.js';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
+	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import { locked } from '#lib/locked.svelte.js';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import KeysDialog from '#lib/KeysDialog.svelte';
@@ -98,6 +101,8 @@
 	let groups = $state<Awaited<ReturnType<typeof getPhotoGroup>> | null>(null);
 	let mapConfig = $state<MapConfig | null>(null);
 	let error = $state<string | null>(null);
+	// A photo of the locked folder while it is closed: nothing of it is shown, only the way in.
+	let lockedClosed = $state(false);
 	let busy = $state(false);
 	let picked = $state<LatLon | null>(null);
 	let coordinatesText = $state('');
@@ -320,6 +325,7 @@
 
 	function load(assetId: string, currentFilter: GalleryFilter) {
 		error = null;
+		lockedClosed = false;
 		picked = null;
 		turn = 0;
 		rotationNotice = null;
@@ -344,7 +350,10 @@
 				const found = await suggested;
 				if (assetId === id) mapView?.fitTo(suggestionPoints(found));
 			})
-			.catch((e) => (error = errorMessage(e)));
+			.catch((e) => {
+				if (e instanceof ApiError && e.code === 'locked_closed') lockedClosed = true;
+				else error = errorMessage(e);
+			});
 	}
 
 	/** What to fit the map to: the suggestions as shown (with their circles) and the neighbors. */
@@ -508,7 +517,7 @@
 
 <!-- Fills the window under the header: the card takes what the bars above it leave. -->
 <div class="page">
-	<nav class="toolbar">
+	<nav class="toolbar" class:bare={lockedClosed}>
 		<Tooltip text={m.photo_back()} keys="Esc" below>
 			<a class="st-iconbtn" href={backUrl} aria-label={m.photo_back()}>
 				<Icon name="arrow-left" size={18} />
@@ -574,417 +583,433 @@
 
 	<PauseBar />
 
-	{#if error}
-		<p class="error" role="alert">{error}</p>
-	{/if}
+	{#if lockedClosed}
+		<EmptyState icon="lock" title={m.locked_photo_title()} text={m.locked_photo_text()}>
+			<button type="button" class="st-btn st-btn--primary" onclick={() => (locked.asking = true)}>
+				<Icon name="lock-open" size={14} />
+				{m.locked_open()}
+			</button>
+		</EmptyState>
+	{:else}
+		{#if error}
+			<p class="error" role="alert">{error}</p>
+		{/if}
 
-	<div class="card" class:show-info={tab === 'info'}>
-		<div class="map">
-			{#if mapConfig}
-				<MapView
-					bind:this={mapView}
-					styleUrl={mapConfig.style_url}
-					styleUrlDark={mapConfig.style_url_dark}
-					sources={mapConfig.sources}
-					auto={mapConfig.auto}
-					{current}
-					{picked}
-					suggestions={shown}
-					onpick={pick}
-					{highlight}
-					onhighlight={(h) => (highlight = h)}
-					scrollingPage
-				/>
-			{/if}
-		</div>
-
-		<div class="tabs st-tabs" role="tablist">
-			<button
-				type="button"
-				role="tab"
-				aria-selected={tab === 'place'}
-				onclick={() => (tab = 'place')}>{m.photo_tab_place()}</button
-			>
-			<button type="button" role="tab" aria-selected={tab === 'info'} onclick={() => (tab = 'info')}
-				>{m.photo_tab_info()}</button
-			>
-		</div>
-
-		<section class="panel">
-			<!-- Stays in view: only the search and the suggestions below scroll. -->
-			<div class="pinned">
-				{#if asset}
-					<label
-						class="point st-input st-input--mono"
-						class:picked
-						data-invalid={coordinatesInvalid}
-						title={m.photo_coordinates()}
-					>
-						<Icon name="locate-fixed" />
-						<input
-							type="text"
-							bind:this={coordinatesInput}
-							bind:value={coordinatesText}
-							placeholder={m.photo_coordinates()}
-							aria-label={m.photo_coordinates()}
-							aria-invalid={coordinatesInvalid}
-							onchange={applyCoordinatesText}
-							onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
-						/>
-						{#if picked}
-							<CopyButton
-								text={formatCoordinates(picked)}
-								label={m.copy_coordinates()}
-								onfailed={() => coordinatesInput?.select()}
-							/>
-							<GoogleMapsMenu at={picked} />
-							<button
-								type="button"
-								class="st-iconbtn st-iconbtn--sm"
-								aria-label={m.photo_clear()}
-								title={m.photo_clear()}
-								onclick={clearPicked}
-							>
-								<Icon name="x" />
-							</button>
-						{/if}
-					</label>
-					{#if coordinatesInvalid}
-						<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
-					{/if}
-					<!-- Re-created for every new point, so that it catches the eye each time. -->
-					{#key picked}
-						<button
-							type="button"
-							class="save st-btn st-btn--primary st-btn--lg st-btn--block"
-							class:ready={picked}
-							disabled={!picked}
-							onclick={save}
-						>
-							<Icon name="map-pin-check" />
-							{m.photo_save()}
-							<Kbd>Enter</Kbd>
-						</button>
-					{/key}
-					<div class="actions">
-						{#if asset.review_status === 'new'}
-							<button
-								type="button"
-								class="st-btn st-btn--block"
-								disabled={busy}
-								onclick={() => review('skipped')}
-							>
-								<Icon name="skip-forward" />
-								{m.photo_skip()}
-								<Kbd>S</Kbd>
-							</button>
-							<button
-								type="button"
-								class="st-btn st-btn--block"
-								disabled={busy}
-								onclick={() => review('not_applicable')}
-							>
-								<Icon name="ban" />
-								{m.photo_not_applicable()}
-								<Kbd>N</Kbd>
-							</button>
-						{:else}
-							<button
-								type="button"
-								class="st-btn st-btn--block"
-								disabled={busy}
-								onclick={() => review('new')}
-							>
-								<Icon name="undo-2" />
-								{m.photo_back_to_todo()}
-								<Kbd>U</Kbd>
-							</button>
-						{/if}
-						{#if groups && !groups.no_sign}
-							<button
-								type="button"
-								class="st-btn st-btn--block"
-								title={m.photo_no_sign_mark_hint()}
-								disabled={busy}
-								onclick={() => setNoSign(true)}
-							>
-								<Icon name="eye-off" />
-								{m.groups_photos_trash()}
-							</button>
-						{/if}
-					</div>
-					{#if pending}
-						<div class="st-banner st-banner--warning" role="status">
-							<Icon name="clock" />
-							<span class="st-banner__body">{m.photo_pending()}</span>
-							<span class="st-banner__actions">
-								<button
-									type="button"
-									class="st-btn st-btn--sm"
-									onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button
-								>
-							</span>
-						</div>
-					{/if}
+		<div class="card" class:show-info={tab === 'info'}>
+			<div class="map">
+				{#if mapConfig}
+					<MapView
+						bind:this={mapView}
+						styleUrl={mapConfig.style_url}
+						styleUrlDark={mapConfig.style_url_dark}
+						sources={mapConfig.sources}
+						auto={mapConfig.auto}
+						{current}
+						{picked}
+						suggestions={shown}
+						onpick={pick}
+						{highlight}
+						onhighlight={(h) => (highlight = h)}
+						scrollingPage
+					/>
 				{/if}
 			</div>
 
-			{#if mapConfig?.geocoder_enabled}
-				<GeocoderSearch
-					near={picked ?? current}
-					onselect={(point) => {
-						pick(point);
-						mapView?.flyTo(point);
-					}}
-				/>
-			{/if}
-
-			<SuggestionList
-				modules={listed}
-				hidden={hiddenModules(suggestions, revealed)}
-				onreveal={(module) => (revealed = [...revealed, module])}
-				loading={suggestionsLoading}
-				onchoose={choose}
-				onrun={run}
-				{highlight}
-				onhighlight={(h) => (highlight = h)}
-				{unfolded}
-				ontoggle={(module) =>
-					(unfolded = unfolded.includes(module)
-						? unfolded.filter((m) => m !== module)
-						: [...unfolded, module])}
-				onlocate={(c) =>
-					mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
-				onpart={startPart}
-				onpartshow={(region, partTurn) => (shownPart = partTurn === turn ? region : null)}
-			/>
-		</section>
-
-		<aside class="info">
-			<figure class="preview">
-				{#if playable}
-					{#key id}
-						<!-- Videos of a library have no captions to offer. -->
-						<!-- svelte-ignore a11y_media_has_caption -->
-						<video
-							class="player"
-							controls
-							playsinline
-							preload="metadata"
-							poster={thumbnailUrl(id, 'preview', 0, version)}
-							src={videoUrl(id)}
-						></video>
-					{/key}
-				{:else}
-					<button
-						type="button"
-						class="zoom"
-						aria-label={m.photo_zoom()}
-						onclick={() => (viewerOpen = true)}
-					>
-						<span class="framed">
-							<!-- Re-created for each photo and turn, so that the new one fades in. -->
-							{#key `${id}:${turn}`}
-								<img
-									src={thumbnailUrl(id, 'preview', turn, version)}
-									alt={asset?.file_name ?? ''}
-								/>
-							{/key}
-							{#if shownPart}
-								<span
-									class="part"
-									style:left="{shownPart.x * 100}%"
-									style:top="{shownPart.y * 100}%"
-									style:width="{shownPart.w * 100}%"
-									style:height="{shownPart.h * 100}%"
-								></span>
-							{/if}
-						</span>
-					</button>
-				{/if}
-				{#if !playable}
-					<div class="tools">
-						<div class="st-glass group">
-							<Tooltip text={m.photo_turn_left()} keys="[">
-								<button
-									type="button"
-									class="st-iconbtn st-iconbtn--sm"
-									aria-label={m.photo_turn_left()}
-									onclick={() => rotate(-90)}
-								>
-									<Icon name="rotate-ccw" />
-								</button>
-							</Tooltip>
-							<Tooltip text={m.photo_turn_right()} keys="]">
-								<button
-									type="button"
-									class="st-iconbtn st-iconbtn--sm"
-									aria-label={m.photo_turn_right()}
-									onclick={() => rotate(90)}
-								>
-									<Icon name="rotate-cw" />
-								</button>
-							</Tooltip>
-						</div>
-						<div class="st-glass group">
-							<Tooltip text={m.photo_zoom()} keys="Z">
-								<button
-									type="button"
-									class="st-iconbtn st-iconbtn--sm"
-									aria-label={m.photo_zoom()}
-									onclick={() => (viewerOpen = true)}
-								>
-									<Icon name="maximize-2" />
-								</button>
-							</Tooltip>
-						</div>
-					</div>
-				{/if}
-			</figure>
-			{#if turn}
-				<div class="st-banner st-banner--info rotation" role="status">
-					<Icon name="rotate-cw" />
-					<div class="st-banner__body">
-						{m.photo_turned_note()}
-						<div class="rotation-actions">
-							<button
-								type="button"
-								class="st-btn st-btn--primary st-btn--sm"
-								disabled={busy}
-								onclick={saveRotation}
-							>
-								<Icon name="check" size={14} />
-								{m.photo_rotation_save()}
-							</button>
-							<button type="button" class="st-btn st-btn--ghost st-btn--sm" onclick={resetRotation}>
-								{m.photo_rotation_reset()}
-							</button>
-						</div>
-					</div>
-				</div>
-			{/if}
-			{#if rotationNotice}
-				<p class="turned" role="status">{rotationNotice}</p>
-			{/if}
-
-			{#if asset}
+			<div class="tabs st-tabs" role="tablist">
 				<button
 					type="button"
-					class="facts-toggle st-btn st-btn--block"
-					aria-expanded={factsOpen}
-					onclick={() => (factsOpen = !factsOpen)}
+					role="tab"
+					aria-selected={tab === 'place'}
+					onclick={() => (tab = 'place')}>{m.photo_tab_place()}</button
 				>
-					{m.photo_details()}
-					<Icon name={factsOpen ? 'chevron-up' : 'chevron-down'} />
-				</button>
-				<div class="facts" class:open={factsOpen}>
-					<dl class="details">
-						<dt>{m.photo_camera()}</dt>
-						<dd>{camera}</dd>
-						{#if asset.albums.length}
-							<dt>{m.photo_albums()}</dt>
-							<dd>{asset.albums.join(', ')}</dd>
-						{/if}
-						{#if groups?.group}
-							<dt>{m.photo_group()}</dt>
-							<dd>
-								<a href={resolve('/groups/[id]', { id: groups.group.id })}>
-									{groups.group.name ?? m.groups_unnamed()}
-								</a>
-							</dd>
-						{/if}
-						{#if groups?.no_sign}
-							<dt>{m.photo_no_sign_label()}</dt>
-							<dd>
-								{m.photo_no_sign()}
-								{#if groups.no_sign_auto}{m.photo_no_sign_auto()}{/if}
-								{#if groups.no_sign_self}
-									<!-- Its own mark: taken off here. -->
-									<button
-										type="button"
-										class="st-btn st-btn--ghost st-btn--sm unmark"
-										disabled={busy}
-										onclick={() => setNoSign(false)}
-									>
-										{m.photo_no_sign_unmark()}
-									</button>
-								{:else if groups.group}
-									<!-- Marked with its whole group: changed there. -->
-									<a href={resolve('/groups/[id]', { id: groups.group.id })}>
-										{m.photo_no_sign_change()}
-									</a>
-								{/if}
-							</dd>
-						{/if}
-						<dt>{m.photo_location()}</dt>
-						<dd>
-							{#if current}
-								{#if place}{place}<br />{/if}
-								<span class="current">
-									<span class="st-coords" bind:this={currentCoords}
-										>{formatCoordinates(current)}</span
-									>
-									<CopyButton
-										text={formatCoordinates(current)}
-										label={m.copy_coordinates()}
-										onfailed={() =>
-											currentCoords && getSelection()?.selectAllChildren(currentCoords)}
-									/>
-									<GoogleMapsMenu at={current} />
-								</span>
-							{:else}
-								<span class="muted">{m.photo_no_location()}</span>
-							{/if}
-						</dd>
-						{#if asset.review_status !== 'new'}
-							<dt>{m.photo_status()}</dt>
-							<dd>
-								{asset.review_status === 'skipped'
-									? m.photo_status_skipped()
-									: m.photo_status_not_applicable()}
-							</dd>
-						{/if}
-					</dl>
+				<button
+					type="button"
+					role="tab"
+					aria-selected={tab === 'info'}
+					onclick={() => (tab = 'info')}>{m.photo_tab_info()}</button
+				>
+			</div>
 
-					{#if asset.location_history.length}
-						<section class="history">
-							<h2>{m.photo_history()}</h2>
-							<ol>
-								{#each asset.location_history as change (change.id)}
-									<li class:undone={change.status === 'undone'}>
-										<span class="st-coords coords">
-											{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
-										</span>
-										<span class="muted">
-											{changedAt.format(new Date(change.created_at))}
-											·
-											{change.source === 'manual' ? m.photo_history_manual() : change.source}
-											·
-											{change.prev_latitude != null && change.prev_longitude != null
-												? m.photo_history_was({
-														coordinates: formatCoordinates({
-															lat: change.prev_latitude,
-															lon: change.prev_longitude
-														})
-													})
-												: m.photo_history_was_empty()}
-											{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
-										</span>
-									</li>
-								{/each}
-							</ol>
-							{#if asset.can_undo}
-								<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
-									<Icon name="undo-2" />
-									{m.photo_undo()}
+			<section class="panel">
+				<!-- Stays in view: only the search and the suggestions below scroll. -->
+				<div class="pinned">
+					{#if asset}
+						<label
+							class="point st-input st-input--mono"
+							class:picked
+							data-invalid={coordinatesInvalid}
+							title={m.photo_coordinates()}
+						>
+							<Icon name="locate-fixed" />
+							<input
+								type="text"
+								bind:this={coordinatesInput}
+								bind:value={coordinatesText}
+								placeholder={m.photo_coordinates()}
+								aria-label={m.photo_coordinates()}
+								aria-invalid={coordinatesInvalid}
+								onchange={applyCoordinatesText}
+								onkeydown={(e) => e.key === 'Enter' && applyCoordinatesText()}
+							/>
+							{#if picked}
+								<CopyButton
+									text={formatCoordinates(picked)}
+									label={m.copy_coordinates()}
+									onfailed={() => coordinatesInput?.select()}
+								/>
+								<GoogleMapsMenu at={picked} />
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_clear()}
+									title={m.photo_clear()}
+									onclick={clearPicked}
+								>
+									<Icon name="x" />
 								</button>
 							{/if}
-						</section>
+						</label>
+						{#if coordinatesInvalid}
+							<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
+						{/if}
+						<!-- Re-created for every new point, so that it catches the eye each time. -->
+						{#key picked}
+							<button
+								type="button"
+								class="save st-btn st-btn--primary st-btn--lg st-btn--block"
+								class:ready={picked}
+								disabled={!picked}
+								onclick={save}
+							>
+								<Icon name="map-pin-check" />
+								{m.photo_save()}
+								<Kbd>Enter</Kbd>
+							</button>
+						{/key}
+						<div class="actions">
+							{#if asset.review_status === 'new'}
+								<button
+									type="button"
+									class="st-btn st-btn--block"
+									disabled={busy}
+									onclick={() => review('skipped')}
+								>
+									<Icon name="skip-forward" />
+									{m.photo_skip()}
+									<Kbd>S</Kbd>
+								</button>
+								<button
+									type="button"
+									class="st-btn st-btn--block"
+									disabled={busy}
+									onclick={() => review('not_applicable')}
+								>
+									<Icon name="ban" />
+									{m.photo_not_applicable()}
+									<Kbd>N</Kbd>
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="st-btn st-btn--block"
+									disabled={busy}
+									onclick={() => review('new')}
+								>
+									<Icon name="undo-2" />
+									{m.photo_back_to_todo()}
+									<Kbd>U</Kbd>
+								</button>
+							{/if}
+							{#if groups && !groups.no_sign}
+								<button
+									type="button"
+									class="st-btn st-btn--block"
+									title={m.photo_no_sign_mark_hint()}
+									disabled={busy}
+									onclick={() => setNoSign(true)}
+								>
+									<Icon name="eye-off" />
+									{m.groups_photos_trash()}
+								</button>
+							{/if}
+						</div>
+						{#if pending}
+							<div class="st-banner st-banner--warning" role="status">
+								<Icon name="clock" />
+								<span class="st-banner__body">{m.photo_pending()}</span>
+								<span class="st-banner__actions">
+									<button
+										type="button"
+										class="st-btn st-btn--sm"
+										onclick={() => saves.cancel(pending.key)}>{m.save_cancel()}</button
+									>
+								</span>
+							</div>
+						{/if}
 					{/if}
 				</div>
-			{/if}
-		</aside>
-	</div>
+
+				{#if mapConfig?.geocoder_enabled}
+					<GeocoderSearch
+						near={picked ?? current}
+						onselect={(point) => {
+							pick(point);
+							mapView?.flyTo(point);
+						}}
+					/>
+				{/if}
+
+				<SuggestionList
+					modules={listed}
+					hidden={hiddenModules(suggestions, revealed)}
+					onreveal={(module) => (revealed = [...revealed, module])}
+					loading={suggestionsLoading}
+					onchoose={choose}
+					onrun={run}
+					{highlight}
+					onhighlight={(h) => (highlight = h)}
+					{unfolded}
+					ontoggle={(module) =>
+						(unfolded = unfolded.includes(module)
+							? unfolded.filter((m) => m !== module)
+							: [...unfolded, module])}
+					onlocate={(c) =>
+						mapView?.fitTo([{ lat: c.latitude, lon: c.longitude, radius_m: c.radius_m }])}
+					onpart={startPart}
+					onpartshow={(region, partTurn) => (shownPart = partTurn === turn ? region : null)}
+				/>
+			</section>
+
+			<aside class="info">
+				<figure class="preview">
+					{#if playable}
+						{#key id}
+							<!-- Videos of a library have no captions to offer. -->
+							<!-- svelte-ignore a11y_media_has_caption -->
+							<video
+								class="player"
+								controls
+								playsinline
+								preload="metadata"
+								poster={thumbnailUrl(id, 'preview', 0, version)}
+								src={videoUrl(id)}
+							></video>
+						{/key}
+					{:else}
+						<button
+							type="button"
+							class="zoom"
+							aria-label={m.photo_zoom()}
+							onclick={() => (viewerOpen = true)}
+						>
+							<span class="framed">
+								<!-- Re-created for each photo and turn, so that the new one fades in. -->
+								{#key `${id}:${turn}`}
+									<img
+										src={thumbnailUrl(id, 'preview', turn, version)}
+										alt={asset?.file_name ?? ''}
+									/>
+								{/key}
+								{#if shownPart}
+									<span
+										class="part"
+										style:left="{shownPart.x * 100}%"
+										style:top="{shownPart.y * 100}%"
+										style:width="{shownPart.w * 100}%"
+										style:height="{shownPart.h * 100}%"
+									></span>
+								{/if}
+							</span>
+						</button>
+					{/if}
+					{#if !playable}
+						<div class="tools">
+							<div class="st-glass group">
+								<Tooltip text={m.photo_turn_left()} keys="[">
+									<button
+										type="button"
+										class="st-iconbtn st-iconbtn--sm"
+										aria-label={m.photo_turn_left()}
+										onclick={() => rotate(-90)}
+									>
+										<Icon name="rotate-ccw" />
+									</button>
+								</Tooltip>
+								<Tooltip text={m.photo_turn_right()} keys="]">
+									<button
+										type="button"
+										class="st-iconbtn st-iconbtn--sm"
+										aria-label={m.photo_turn_right()}
+										onclick={() => rotate(90)}
+									>
+										<Icon name="rotate-cw" />
+									</button>
+								</Tooltip>
+							</div>
+							<div class="st-glass group">
+								<Tooltip text={m.photo_zoom()} keys="Z">
+									<button
+										type="button"
+										class="st-iconbtn st-iconbtn--sm"
+										aria-label={m.photo_zoom()}
+										onclick={() => (viewerOpen = true)}
+									>
+										<Icon name="maximize-2" />
+									</button>
+								</Tooltip>
+							</div>
+						</div>
+					{/if}
+				</figure>
+				{#if turn}
+					<div class="st-banner st-banner--info rotation" role="status">
+						<Icon name="rotate-cw" />
+						<div class="st-banner__body">
+							{m.photo_turned_note()}
+							<div class="rotation-actions">
+								<button
+									type="button"
+									class="st-btn st-btn--primary st-btn--sm"
+									disabled={busy}
+									onclick={saveRotation}
+								>
+									<Icon name="check" size={14} />
+									{m.photo_rotation_save()}
+								</button>
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									onclick={resetRotation}
+								>
+									{m.photo_rotation_reset()}
+								</button>
+							</div>
+						</div>
+					</div>
+				{/if}
+				{#if rotationNotice}
+					<p class="turned" role="status">{rotationNotice}</p>
+				{/if}
+
+				{#if asset}
+					<button
+						type="button"
+						class="facts-toggle st-btn st-btn--block"
+						aria-expanded={factsOpen}
+						onclick={() => (factsOpen = !factsOpen)}
+					>
+						{m.photo_details()}
+						<Icon name={factsOpen ? 'chevron-up' : 'chevron-down'} />
+					</button>
+					<div class="facts" class:open={factsOpen}>
+						<dl class="details">
+							<dt>{m.photo_camera()}</dt>
+							<dd>{camera}</dd>
+							{#if asset.albums.length}
+								<dt>{m.photo_albums()}</dt>
+								<dd>{asset.albums.join(', ')}</dd>
+							{/if}
+							{#if groups?.group}
+								<dt>{m.photo_group()}</dt>
+								<dd>
+									<a href={resolve('/groups/[id]', { id: groups.group.id })}>
+										{groups.group.name ?? m.groups_unnamed()}
+									</a>
+								</dd>
+							{/if}
+							{#if groups?.no_sign}
+								<dt>{m.photo_no_sign_label()}</dt>
+								<dd>
+									{m.photo_no_sign()}
+									{#if groups.no_sign_auto}{m.photo_no_sign_auto()}{/if}
+									{#if groups.no_sign_self}
+										<!-- Its own mark: taken off here. -->
+										<button
+											type="button"
+											class="st-btn st-btn--ghost st-btn--sm unmark"
+											disabled={busy}
+											onclick={() => setNoSign(false)}
+										>
+											{m.photo_no_sign_unmark()}
+										</button>
+									{:else if groups.group}
+										<!-- Marked with its whole group: changed there. -->
+										<a href={resolve('/groups/[id]', { id: groups.group.id })}>
+											{m.photo_no_sign_change()}
+										</a>
+									{/if}
+								</dd>
+							{/if}
+							<dt>{m.photo_location()}</dt>
+							<dd>
+								{#if current}
+									{#if place}{place}<br />{/if}
+									<span class="current">
+										<span class="st-coords" bind:this={currentCoords}
+											>{formatCoordinates(current)}</span
+										>
+										<CopyButton
+											text={formatCoordinates(current)}
+											label={m.copy_coordinates()}
+											onfailed={() =>
+												currentCoords && getSelection()?.selectAllChildren(currentCoords)}
+										/>
+										<GoogleMapsMenu at={current} />
+									</span>
+								{:else}
+									<span class="muted">{m.photo_no_location()}</span>
+								{/if}
+							</dd>
+							{#if asset.review_status !== 'new'}
+								<dt>{m.photo_status()}</dt>
+								<dd>
+									{asset.review_status === 'skipped'
+										? m.photo_status_skipped()
+										: m.photo_status_not_applicable()}
+								</dd>
+							{/if}
+						</dl>
+
+						{#if asset.location_history.length}
+							<section class="history">
+								<h2>{m.photo_history()}</h2>
+								<ol>
+									{#each asset.location_history as change (change.id)}
+										<li class:undone={change.status === 'undone'}>
+											<span class="st-coords coords">
+												{formatCoordinates({ lat: change.latitude, lon: change.longitude })}
+											</span>
+											<span class="muted">
+												{changedAt.format(new Date(change.created_at))}
+												·
+												{change.source === 'manual' ? m.photo_history_manual() : change.source}
+												·
+												{change.prev_latitude != null && change.prev_longitude != null
+													? m.photo_history_was({
+															coordinates: formatCoordinates({
+																lat: change.prev_latitude,
+																lon: change.prev_longitude
+															})
+														})
+													: m.photo_history_was_empty()}
+												{#if change.status === 'undone'}· {m.photo_history_undone()}{/if}
+											</span>
+										</li>
+									{/each}
+								</ol>
+								{#if asset.can_undo}
+									<button type="button" class="st-btn st-btn--sm" disabled={busy} onclick={undo}>
+										<Icon name="undo-2" />
+										{m.photo_undo()}
+									</button>
+								{/if}
+							</section>
+						{/if}
+					</div>
+				{/if}
+			</aside>
+		</div>
+	{/if}
 </div>
 
 {#if partPicker}
@@ -1358,5 +1383,9 @@
 	}
 	.history li.undone .coords {
 		text-decoration: line-through;
+	}
+	/* A photo of the closed locked folder: only the way back. */
+	.toolbar.bare > :global(:not(:first-child)) {
+		display: none;
 	}
 </style>

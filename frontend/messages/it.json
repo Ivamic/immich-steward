@@ -91,7 +91,7 @@
 	"filter_any": "Qualsiasi",
 	"filter_date_from": "Da",
 	"filter_date_to": "A",
-	"filter_archived": "Includi archiviate",
+	"filter_archived": "Archivio",
 	"filter_reset": "Azzera",
 	"filter_period": "Periodo",
 	"filter_period_from": "Dal {date}",
@@ -752,5 +752,7 @@
 	"filter_only": "solo",
 	"filter_inclusion_off": "Non mostrate. Clic: mostrale con le altre foto",
 	"filter_inclusion_with": "Mostrate con le altre foto. Clic: mostra solo queste",
-	"filter_inclusion_only": "Sono mostrate solo queste, senza la sequenza. Clic: nascondile"
+	"filter_inclusion_only": "Sono mostrate solo queste, senza la sequenza. Clic: nascondile",
+	"locked_photo_title": "Una foto della cartella bloccata",
+	"locked_photo_text": "La cartella è chiusa: aprila con il PIN di Immich per vedere questa foto."
 }

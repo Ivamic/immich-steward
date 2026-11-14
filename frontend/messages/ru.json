@@ -91,7 +91,7 @@
 	"filter_any": "Любой",
 	"filter_date_from": "С",
 	"filter_date_to": "По",
-	"filter_archived": "Показывать архив",
+	"filter_archived": "Архив",
 	"filter_reset": "Сбросить",
 	"filter_period": "Период",
 	"filter_period_from": "С {date}",
@@ -752,5 +752,7 @@
 	"filter_only": "только",
 	"filter_inclusion_off": "Не показываются. Клик — показать вместе с остальными",
 	"filter_inclusion_with": "Показываются вместе с остальными. Клик — показать только их",
-	"filter_inclusion_only": "Показываются только они, без обычной ленты. Клик — скрыть"
+	"filter_inclusion_only": "Показываются только они, без обычной ленты. Клик — скрыть",
+	"locked_photo_title": "Фото из закрытой папки",
+	"locked_photo_text": "Папка закрыта: откройте её PIN-кодом Immich, чтобы увидеть это фото."
 }

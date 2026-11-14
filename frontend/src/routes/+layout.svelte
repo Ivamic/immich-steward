@@ -70,7 +70,6 @@
 	$effect(() => {
 		if (session.user) return locked.watch();
 	});
-	let askingPin = $state(false);
 
 	async function signOut() {
 		await logout().catch(() => {});
@@ -99,7 +98,7 @@
 		{#if session.user}
 			<UpdateBadge />
 			<span class="st-header__wide">
-				<LockedButton onunlock={() => (askingPin = true)} />
+				<LockedButton onunlock={() => (locked.asking = true)} />
 			</span>
 			<span class="st-header__user st-header__wide">{session.user.name}</span>
 			<button
@@ -133,7 +132,7 @@
 				about={aboutPath}
 				user={session.user.name}
 				onsignout={signOut}
-				onunlock={() => (askingPin = true)}
+				onunlock={() => (locked.asking = true)}
 			/>
 		{/if}
 	</div>
@@ -155,8 +154,8 @@
 
 <SaveNotices />
 
-{#if askingPin}
-	<LockedPinDialog onclose={() => (askingPin = false)} />
+{#if locked.asking}
+	<LockedPinDialog onclose={() => (locked.asking = false)} />
 {/if}
 
 <style>

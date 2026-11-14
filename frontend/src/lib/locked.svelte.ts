@@ -19,6 +19,8 @@ class Locked {
 	state = $state<LockedState | null>(null);
 	/** Changes whenever the folder opens or closes: pages that show locked photos reload. */
 	version = $state(0);
+	/** The PIN window is open (from the header, its menu or a page). */
+	asking = $state(false);
 	#lastActivity = 0;
 
 	get connected(): boolean {

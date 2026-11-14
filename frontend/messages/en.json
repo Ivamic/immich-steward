@@ -91,7 +91,7 @@
 	"filter_any": "Any",
 	"filter_date_from": "From",
 	"filter_date_to": "To",
-	"filter_archived": "Include archived",
+	"filter_archived": "Archive",
 	"filter_reset": "Reset",
 	"filter_period": "Period",
 	"filter_period_from": "From {date}",
@@ -752,5 +752,7 @@
 	"filter_only": "only",
 	"filter_inclusion_off": "Not shown. Click: show with the other photos",
 	"filter_inclusion_with": "Shown with the other photos. Click: show only these",
-	"filter_inclusion_only": "Only these are shown, without the timeline. Click: hide them"
+	"filter_inclusion_only": "Only these are shown, without the timeline. Click: hide them",
+	"locked_photo_title": "A photo of the locked folder",
+	"locked_photo_text": "The folder is closed: open it with your Immich PIN code to see this photo."
 }

@@ -91,7 +91,7 @@
 	"filter_any": "Tous",
 	"filter_date_from": "Du",
 	"filter_date_to": "Au",
-	"filter_archived": "Inclure les archives",
+	"filter_archived": "Archives",
 	"filter_reset": "Réinitialiser",
 	"filter_period": "Période",
 	"filter_period_from": "À partir du {date}",
@@ -752,5 +752,7 @@
 	"filter_only": "seulement",
 	"filter_inclusion_off": "Non affichées. Clic : les afficher avec les autres photos",
 	"filter_inclusion_with": "Affichées avec les autres photos. Clic : n’afficher qu’elles",
-	"filter_inclusion_only": "Seules elles sont affichées, sans la chronologie. Clic : les masquer"
+	"filter_inclusion_only": "Seules elles sont affichées, sans la chronologie. Clic : les masquer",
+	"locked_photo_title": "Une photo du dossier verrouillé",
+	"locked_photo_text": "Le dossier est fermé : ouvrez-le avec votre code PIN d’Immich pour voir cette photo."
 }

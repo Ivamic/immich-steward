@@ -91,7 +91,7 @@
 	"filter_any": "Beliebig",
 	"filter_date_from": "Von",
 	"filter_date_to": "Bis",
-	"filter_archived": "Archivierte einbeziehen",
+	"filter_archived": "Archiv",
 	"filter_reset": "Zurücksetzen",
 	"filter_period": "Zeitraum",
 	"filter_period_from": "Ab {date}",
@@ -752,5 +752,7 @@
 	"filter_only": "nur",
 	"filter_inclusion_off": "Nicht angezeigt. Klick: mit den anderen Fotos anzeigen",
 	"filter_inclusion_with": "Mit den anderen Fotos angezeigt. Klick: nur diese anzeigen",
-	"filter_inclusion_only": "Nur diese werden angezeigt, ohne die Zeitleiste. Klick: ausblenden"
+	"filter_inclusion_only": "Nur diese werden angezeigt, ohne die Zeitleiste. Klick: ausblenden",
+	"locked_photo_title": "Ein Foto aus dem gesperrten Ordner",
+	"locked_photo_text": "Der Ordner ist geschlossen: Öffnen Sie ihn mit Ihrer Immich-PIN, um dieses Foto zu sehen."
 }

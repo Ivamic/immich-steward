@@ -119,6 +119,11 @@ findet weitere zum Ansehen, nach einer Beschreibung über die intelligente Suche
 Die Seite **Karte** zeigt deine Fotos mit Standort, auf dem Server nach Orten gezählt; aus der Nähe
 zeigen die Orte ein Foto, und die Fotos im Ausschnitt stehen neben der Karte.
 
+Auch Fotos im **gesperrten Ordner** von Immich können mitmachen: einmal mit deinem Immich-Passwort
+verbunden, öffnet sich der Ordner in der App mit deiner PIN; seine Fotos werden nur angezeigt und
+verarbeitet, solange er offen ist. Jeder Punkt öffnet sich mit einem Klick in **Google Maps**
+(Satellit oder Street View).
+
 Geplant:
 
 - **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.

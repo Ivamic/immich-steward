@@ -152,6 +152,37 @@ gives fewer marks), or turns the marks of the app off; they then go at the next 
 of a group comes from photos with a location; if those are wrong, it is wrong too. **Apart from the main
 spot** and **Spread out on the map** help to find them.
 
+## The locked folder
+
+### "Immich refused password sign-in"
+
+Connecting the [locked folder](usage.md#the-locked-folder) needs a password sign-in to Immich: Immich
+opens the folder only to a signed-in session, never to an API key. If your Immich allows OAuth only
+(*Administration → Settings → Authentication*), the folder cannot be connected.
+
+### "Wrong PIN code" or a pause after several tries
+
+It is the PIN code of Immich (*Account settings → PIN code*), not your password. After 5 wrong codes
+in a row the app waits 5 minutes before the next try; Immich itself does not limit them.
+
+### "Connect the locked folder again"
+
+Immich ended the session of the app: your password changed, or the device *Steward* was removed in
+Immich (*Account settings → Authorized devices*). Connect the folder again in **Settings → Locked
+folder**.
+
+### The folder closes by itself
+
+That is meant: after `STEWARD_LOCKED_IDLE_MINUTES` (15) without a click or key press in the app, and
+when you sign out. While workers have its photos it stays open, up to an hour. A longer time can be
+set in `.env` ([Configuration](configuration.md#access-and-immich)), up to 60 minutes.
+
+### Photos moved into the locked folder still show in the gallery
+
+Until the folder is connected and opened, or until the daily full sync, the app may still take them
+for timeline photos; the first time it fails to get such a photo's image it hides it. A full sync
+(**Full sync** on the **Processing** page) sets everything right at once.
+
 ## Still stuck?
 
 Open an [issue](https://github.com/Ivamic/immich-steward/issues) with the versions of Steward and

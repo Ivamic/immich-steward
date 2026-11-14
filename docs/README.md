@@ -13,7 +13,7 @@ each one was taken, all on one map, and you pick. It runs on your own server, ne
 | You want to… | Read |
 |---|---|
 | Install the app for the first time | [Installation](install.md): step by step, with every command explained |
-| Learn how to work with it: the gallery, the photo card, the suggestions, the map, groups and folders, the keys | [Using the app](usage.md) |
+| Learn how to work with it: the gallery, the photo card, the suggestions, the map, groups and folders, the locked folder, the keys | [Using the app](usage.md) |
 | Turn on GeoCLIP and similar photos, or use another computer or a graphics card to speed them up | [Workers](workers.md) |
 | Look up a setting | [Configuration](configuration.md): every setting in one place |
 | Update to a new version, back up, remove the app | [Updating and maintenance](updating.md) |

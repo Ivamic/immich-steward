@@ -7,8 +7,23 @@ between releases.
 
 ## [Unreleased]
 
+The locked folder of Immich, opened with your PIN code; Google Maps for any point; a page about the
+app; three states for the archive filter and quick links in Settings.
+
 ### Added
 
+- **The locked folder of Immich**: connected once in **Settings → Locked folder** with the Immich
+  password (the app keeps the Immich session it opens, not the password; you see and can end it in
+  Immich among the authorized devices) and opened with the Immich PIN code from the lock in the
+  header. While it is open, its photos are synced, processed and shown in the gallery and on the
+  map with the **Locked folder** filter, with a lock on each tile. While it is closed, they are
+  nowhere in the app, workers do not get them (**Processing** says how many wait), their card
+  shows only a lock and the way to open the folder, and as hints for other photos (similar photos,
+  time neighbors) they show a lock instead of the photo, with no name and no link. The folder
+  closes after `STEWARD_LOCKED_IDLE_MINUTES` (15) without a click or key press, not while its
+  photos are being processed (up to an hour), and on signing out. Immich does not limit wrong PIN
+  codes; the app waits 5 minutes after 5 in a row. Locked photos are not put into groups.
+  Disconnecting ends the session in Immich and forgets the locked photos.
 - **Google Maps** next to the coordinates of a photo (the picked point and the current location,
   in the photo card and in the location window of selected photos): **Google satellite** and
   **Street View nearby** open the point in a new tab. Only the coordinates go to Google, on a
@@ -17,25 +32,29 @@ between releases.
   workers, the license with a link to the source code of the running version, the third-party
   models, maps and icons, AI assistance and how to support the project. It opens without signing
   in too.
-
-- **The locked folder of Immich**: connected once in Settings with the Immich password (the app
-  keeps the Immich session, not the password) and opened with the Immich PIN code from the lock in
-  the header. While it is open, its photos are synced, processed and shown in the gallery and on
-  the map with the **Locked folder** filter; while it is closed, they are nowhere, workers do not
-  get them, and as hints for other photos they show a lock instead of the photo. It closes after
-  `STEWARD_LOCKED_IDLE_MINUTES` (15) without a click or key press, not while its photos are
-  being processed (up to an hour), and on signing out. After 5 wrong PIN codes the app waits
-  5 minutes.
-
-- **Show archive** and **Locked folder** in the filters have three states: not shown, with the
-  other photos, or only them (without the timeline).
 - **Settings**: a list of the sections beside them (above them on a phone), each with its own
-  address.
+  address, e.g. `/settings#locked`.
 
 ### Changed
 
+- **Archive** (was *Show archive*) and **Locked folder** in the filters have three states, one
+  click to the next: not shown, with the other photos, or only them (without the timeline).
+  Older links with `archived=true` keep working.
 - The images take the latest Debian fixes when they are built, even before the Python base image
   is rebuilt.
+
+### Fixed
+
+- A photo moved into the locked folder (or deleted) in Immich between two syncs no longer shows as
+  a broken image until the daily full sync: the first refused image hides it.
+
+### Security
+
+- Dependencies were checked before the release. Updated: `opentelemetry-api` 1.45.2 (a slow
+  regular expression on trace context the app never reads from outside), SvelteKit 3.1.1 and its
+  static adapter 4.0.1 (advisories for other adapters and for Vercel, which the app does not use).
+  Still open, in the build tools only and not in the images: minimatch (moderate, in the linter)
+  and deepmerge (low, no fix yet).
 
 ## [0.9.0] - 2026-11-07
 

@@ -119,6 +119,11 @@ d'autres à examiner, d'après une description, grâce à la recherche intellige
 La page **Carte** montre vos photos avec un lieu, comptées par endroit sur le serveur ; de près, les
 endroits montrent une photo, et les photos à l'écran sont listées à côté de la carte.
 
+Les photos du **dossier verrouillé** d'Immich peuvent aussi en profiter : connecté une fois avec
+votre mot de passe Immich, le dossier s'ouvre dans l'application avec votre code PIN ; ses photos ne
+sont affichées et traitées que tant qu'il est ouvert. Tout point s'ouvre d'un clic dans **Google
+Maps** (satellite ou Street View).
+
 Prévu :
 
 - **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.

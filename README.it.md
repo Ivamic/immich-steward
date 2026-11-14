@@ -116,6 +116,11 @@ base a una descrizione, con la ricerca intelligente di Immich.
 La pagina **Mappa** mostra le tue foto con posizione, contate per luogo sul server; da vicino i
 luoghi mostrano una foto, e le foto inquadrate sono elencate accanto alla mappa.
 
+Anche le foto nella **cartella bloccata** di Immich possono partecipare: collegata una volta con la
+tua password di Immich, la cartella si apre nell'app con il tuo PIN; le sue foto sono mostrate ed
+elaborate solo mentre è aperta. Ogni punto si apre con un clic in **Google Maps** (satellite o
+Street View).
+
 In programma:
 
 - **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.

@@ -109,6 +109,10 @@ marks too, and finds more to look at, by a description through the smart search 
 The **Map** page shows your photos with a location, counted by place on the server; close up the
 places show a photo, and the photos in view are listed beside the map.
 
+Photos in the **locked folder** of Immich can take part too: connected once with your Immich
+password, the folder opens in the app with your PIN code; its photos are shown and processed only
+while it is open. Any point opens in **Google Maps** (satellite or Street View) with a click.
+
 Planned:
 
 - **Street-level panoramas** on the map, to check a place by eye.

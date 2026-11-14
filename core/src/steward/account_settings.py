@@ -28,6 +28,20 @@ DEFAULTS: dict[str, Any] = {
     "trash_auto": True,
     "trash_auto_marks": 3,
     "trash_auto_similarity": 0.5,
+    # Matching details (the `details` module of workers, D-225): a suggestion of similar photos is
+    # confirmed when the photo and a photo behind it share at least this many points that fit one
+    # geometry. Measured on a family library (2026-11-14, 300 photos with camera GPS against
+    # their 20 most similar): from 100 points the place is right within 1 km 95 % of the time,
+    # with 50-99 about half the time. Applies when the suggestions are shown.
+    "details_confirmed_from": 100,
+    # A confirmed suggestion goes before the others; off: the suggestions stay in the order of
+    # their similarity, the confirmed one only marked.
+    "details_first": True,
+    # How many of the most similar photos a photo is compared with: when the comparison runs by
+    # itself (workers with a GPU only) and when it is started by hand (any worker; on a CPU a
+    # comparison takes a couple of seconds).
+    "details_candidates_auto": 20,
+    "details_candidates_manual": 5,
 }
 # Settings whose change rebuilds the groups.
 GROUP_RULE = (

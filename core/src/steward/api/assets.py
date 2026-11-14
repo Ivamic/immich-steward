@@ -18,7 +18,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 
-from steward import locations, locked, module_display, rotation, view_groups, worker_queue
+from steward import (
+    account_settings,
+    details,
+    locations,
+    locked,
+    module_display,
+    rotation,
+    view_groups,
+    worker_queue,
+)
 from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
@@ -675,6 +684,20 @@ async def run_module(
 ) -> list[ModuleSuggestions]:
     """Queues a worker module for the photo, or a part of it, ahead of the background runs
     (FR-34, FR-35)."""
+    cameras = frozenset(exclude_camera or ())
+    if module_id == details.MODULE_ID:
+        # Compares the photo with its most similar photos; nothing to queue when there are
+        # none, or all were compared already.
+        asset = await _own_asset(db, account, asset_id)
+        personal = await account_settings.get_all(db, account.id)
+        await details.enqueue(
+            db,
+            asset,
+            settings,
+            personal["details_candidates_manual"],
+            worker_queue.PRIORITY_USER,
+        )
+        return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
     if module_id not in REMOTE_MODULES:
         raise ApiError(404, "module_not_found")
     asset = await _own_asset(db, account, asset_id)
@@ -683,7 +706,6 @@ async def run_module(
     await worker_queue.enqueue_module(
         db, asset, module_id, worker_queue.PRIORITY_USER, region, turn
     )
-    cameras = frozenset(exclude_camera or ())
     return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
 
 

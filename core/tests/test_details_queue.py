@@ -8,6 +8,7 @@ import pytest
 from conftest import FakeImmich, sync
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from test_details_runs import worker_on
 from test_worker_api import db_call, lease, register
 
 from steward import worker_queue
@@ -63,7 +64,7 @@ def test_photo_is_compared_with_the_named_photos(
     first, second = asset_ids(photos)
     stranger = uuid4()
     run_id = enqueue_pairs(photos, [second, first, second])
-    worker = register(photos, modules=["details"])
+    worker = worker_on(photos, "cuda")
 
     job = lease(photos, worker, ["details"]).json()
     # Not with itself, and each photo once.
@@ -103,7 +104,7 @@ def test_photo_is_compared_with_the_named_photos(
 
 def test_a_new_answer_replaces_the_older_one(photos: TestClient) -> None:
     _, second = asset_ids(photos)
-    worker = register(photos, modules=["details"])
+    worker = worker_on(photos, "cuda")
     for inliers in (40, 150):
         enqueue_pairs(photos, [second])
         job = lease(photos, worker, ["details"]).json()
@@ -118,7 +119,7 @@ def test_a_photo_immich_cannot_give_is_skipped_not_failed(
 ) -> None:
     _, second = asset_ids(photos)
     run_id = enqueue_pairs(photos, [second])
-    worker = register(photos, modules=["details"])
+    worker = worker_on(photos, "cuda")
     job = lease(photos, worker, ["details"]).json()
 
     async def immich_id_of(db: Any) -> str:
@@ -160,7 +161,7 @@ def test_other_jobs_name_no_photos(photos: TestClient) -> None:
 
 def test_answers_go_when_the_image_of_a_photo_changes(photos: TestClient) -> None:
     _, second = asset_ids(photos)
-    worker = register(photos, modules=["details"])
+    worker = worker_on(photos, "cuda")
     enqueue_pairs(photos, [second])
     job = lease(photos, worker, ["details"]).json()
     body = {"module_version": "1", "candidates": [], "pairs": [pair(second)]}

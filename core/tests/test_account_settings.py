@@ -10,6 +10,10 @@ DEFAULTS = {
     "trash_auto": True,
     "trash_auto_marks": 3,
     "trash_auto_similarity": 0.5,
+    "details_confirmed_from": 100,
+    "details_first": True,
+    "details_candidates_auto": 20,
+    "details_candidates_manual": 5,
 }
 
 

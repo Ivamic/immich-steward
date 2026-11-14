@@ -4,7 +4,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from steward import account_settings, jobs, view_groups
+from steward import account_settings, jobs, view_groups, worker_queue
 from steward.deps import CurrentAccount, DbDep
 
 router = APIRouter(prefix="/settings")
@@ -19,6 +19,10 @@ class AccountSettings(BaseModel):
     trash_auto: bool
     trash_auto_marks: int
     trash_auto_similarity: float
+    details_confirmed_from: int
+    details_first: bool
+    details_candidates_auto: int
+    details_candidates_manual: int
 
 
 class AccountSettingsIn(BaseModel):
@@ -32,6 +36,11 @@ class AccountSettingsIn(BaseModel):
     trash_auto: bool | None = None
     trash_auto_marks: int | None = Field(default=None, ge=1, le=view_groups.NEIGHBORS)
     trash_auto_similarity: float | None = Field(default=None, ge=0.1, le=0.95)
+    # Fewer than 8 shared points fit any geometry.
+    details_confirmed_from: int | None = Field(default=None, ge=8, le=2000)
+    details_first: bool | None = None
+    details_candidates_auto: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
+    details_candidates_manual: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
 
 
 @router.get("")

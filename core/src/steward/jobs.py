@@ -18,7 +18,7 @@ import httpx2
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import locked, rotation, similar_hints, updates, view_groups, worker_queue
+from steward import details, locked, rotation, similar_hints, updates, view_groups, worker_queue
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -337,7 +337,20 @@ class JobRunner:
             workers = await worker_queue.active_workers(db, within)
             active = {module for worker in workers for module in worker.enabled_modules}
             paused = await worker_queue.paused_modules(db)
+            # Comparisons run by themselves only on a GPU (`worker_queue.lease`).
+            with_gpu = {
+                module
+                for worker in workers
+                if worker_queue.has_gpu(worker)
+                for module in worker.enabled_modules
+            }
             for module_id in modules:
+                if module_id == details.MODULE_ID:
+                    if module_id in with_gpu and not worker_queue.is_paused(paused, module_id):
+                        added = await details.auto_enqueue(db, self._settings)
+                        if added:
+                            log.info("queued %d photos for %s", added, module_id)
+                    continue
                 if module_id in active and not worker_queue.is_paused(paused, module_id):
                     added = await worker_queue.auto_enqueue(db, module_id)
                     if added:

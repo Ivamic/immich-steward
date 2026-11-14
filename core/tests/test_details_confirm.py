@@ -98,9 +98,29 @@ def test_fewer_shared_points_are_shown_but_confirm_nothing(
 
 def test_the_threshold_is_a_setting(signed_in: TestClient, library: Library) -> None:  # noqa: F811
     compared(signed_in, library["query.jpg"], library["budva.jpg"], 60)
-    signed_in.app.state.settings.details_confirmed_from = 50  # type: ignore[attr-defined]
+    assert signed_in.put("/api/settings", json={"details_confirmed_from": 50}).is_success
 
     assert places(similar(signed_in, library["query.jpg"]))[0] == ("budva.jpg", "confident", True)
+    # Fewer than 8 points fit any geometry: not a threshold.
+    assert signed_in.put("/api/settings", json={"details_confirmed_from": 7}).status_code == 422
+
+
+def test_the_order_can_stay_that_of_similarity(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    compared(signed_in, library["query.jpg"], library["budva.jpg"], 150)
+    assert signed_in.put("/api/settings", json={"details_first": False}).is_success
+
+    module = similar(signed_in, library["query.jpg"])
+
+    # Confirmed and sure, but where its similarity puts it.
+    assert places(module) == [
+        ("set-by-app.jpg", "confident", False),
+        ("kotor.jpg", "confident", False),
+        ("budva.jpg", "confident", True),
+    ]
+    assert module["candidates"][2]["score"] == CONFIRMED_SCORE
 
 
 def test_the_place_is_that_of_the_photo_sharing_the_points(

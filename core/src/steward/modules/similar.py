@@ -18,6 +18,7 @@ from uuid import UUID
 from sqlalchemy import and_, bindparam, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from steward import account_settings
 from steward.config import Settings
 from steward.models import EMBEDDING_DIM, DetailMatch, Embedding, ModuleRun
 from steward.modules.base import Candidate
@@ -83,7 +84,7 @@ CALIBRATION_SPREAD: Curve = (
 
 # The score of a suggestion one of whose photos matches the photo point by point (the `details`
 # module): such a suggestion was right within 1 km 95 % of the time, whatever its similarity
-# (D-225, `Settings.details_confirmed_from`).
+# (D-225; from how many points is a personal setting, `details_confirmed_from`).
 CONFIRMED_SCORE = 0.95
 
 # The vector is sent as text; Postgres needs its type to pick the operators and the index.
@@ -237,12 +238,15 @@ def candidates(
     taken_at: datetime,
     settings: Settings,
     details: Mapping[UUID, int] | None = None,
+    confirmed_from: int = account_settings.DEFAULTS["details_confirmed_from"],
+    confirmed_first: bool = account_settings.DEFAULTS["details_first"],
 ) -> list[Candidate]:
     """Groups the neighbors by place, best first; drops the groups below the display minimum.
 
     `details`: the points the photo shares with the neighbors it was compared with. A group with
-    a neighbor that shares enough of them is confirmed: it is placed at that neighbor, scored
-    `CONFIRMED_SCORE` at least, and goes before the groups that are not.
+    a neighbor that shares `confirmed_from` of them or more is confirmed: it is placed at that
+    neighbor, scored `CONFIRMED_SCORE` at least, and (`confirmed_first`) goes before the groups
+    that are not.
     """
     details = details or {}
     groups: list[list[Neighbor]] = []
@@ -265,7 +269,7 @@ def candidates(
         # Stable: among equals the more similar stays first.
         closest = max(group, key=lambda n: details.get(n.asset_id, 0))
         shared = details.get(closest.asset_id)
-        confirmed = shared is not None and shared >= settings.details_confirmed_from
+        confirmed = shared is not None and shared >= confirmed_from
         if confirmed:
             score = max(score, CONFIRMED_SCORE)
             seed = closest
@@ -295,7 +299,8 @@ def candidates(
                 },
             )
         )
-    result.sort(key=lambda candidate: not candidate.evidence["confirmed"])
+    if confirmed_first:
+        result.sort(key=lambda candidate: not candidate.evidence["confirmed"])
     return result[:MAX_CANDIDATES]
 
 
@@ -323,4 +328,12 @@ async def suggest(
         if run.region is None
         else None
     )
-    return candidates(found, taken_at, settings, details)
+    personal = await account_settings.get_all(db, account_id)
+    return candidates(
+        found,
+        taken_at,
+        settings,
+        details,
+        personal["details_confirmed_from"],
+        personal["details_first"],
+    )

@@ -167,16 +167,24 @@ async def enqueue_pairs(
 ) -> ModuleRun:
     """Queues a comparison of the photo with other photos of the same account.
 
-    A comparison still waiting in the queue takes the new list; one already running is left as
-    it is.
+    A comparison still waiting in the queue takes the new list unless its own is longer; one
+    already running is left as it is.
     """
     run = await enqueue_module(db, asset, module_id, priority)
     job = await db.get(Job, run.job_id) if run.job_id else None
     if job is not None and job.status == "queued":
         names = list(dict.fromkeys(str(other) for other in others if other != asset.id))
-        job.payload = {**job.payload, "others": names[:MAX_OTHERS]}
+        # A comparison asked again with fewer photos (by hand, after the one queued by itself)
+        # keeps its longer list.
+        waiting = job.payload.get("others") or []
+        if len(names) >= len(waiting):
+            job.payload = {**job.payload, "others": names[:MAX_OTHERS]}
         await db.commit()
     return run
+
+
+def has_gpu(worker: Worker) -> bool:
+    return worker.device.startswith("cuda")
 
 
 def others_of(job: Job) -> list[UUID]:
@@ -618,6 +626,13 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
     if not modules:
         await db.commit()
         return None
+    # Comparing a photo with twenty others takes a couple of seconds on a GPU and most of a
+    # minute on a CPU: without a GPU a worker takes only the comparisons started by hand.
+    heavy = (
+        true()
+        if has_gpu(worker)
+        else or_(Job.module_id.not_in(PAIR_MODULES), Job.priority >= PRIORITY_USER)
+    )
     module_order = case({module: i for i, module in enumerate(modules)}, value=Job.module_id)
     paused = await paused_modules(db)
     now = datetime.now(UTC)
@@ -635,6 +650,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
                     and_(Job.status == "running", Job.lease_until < now),
                 ),
                 ~waiting_for_pin(),
+                heavy,
             )
             .order_by(Job.priority.desc(), module_order, Job.created_at)
             .limit(1)

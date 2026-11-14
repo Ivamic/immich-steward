@@ -108,6 +108,17 @@ export const SHOW_CATEGORIES: readonly ShowCategory[] = [
 ];
 export type ReviewStatus = 'new' | 'skipped' | 'not_applicable';
 
+/** A category of photos in the filter: left out, shown with the timeline, or shown alone. "only"
+ * on the archive or the locked folder hides the timeline; each that is not off adds its photos. */
+export type Inclusion = 'off' | 'with' | 'only';
+
+/** In the address: "true" for "with", as older links say. */
+export const inclusionParam = (value: Inclusion): string | null =>
+	value === 'off' ? null : value === 'with' ? 'true' : 'only';
+
+export const inclusionOf = (value: string | null): Inclusion =>
+	value === 'true' || value === 'with' ? 'with' : value === 'only' ? 'only' : 'off';
+
 export interface GalleryFilter {
 	/** Groups to show; empty means all of them. */
 	show: ShowCategory[];
@@ -116,9 +127,10 @@ export interface GalleryFilter {
 	album: string | null;
 	date_from: string | null;
 	date_to: string | null;
-	archived: boolean;
-	/** The photos of the Immich locked folder too, while it is open. */
-	locked_folder: boolean;
+	/** The archive: left out, with the timeline, or alone (without the timeline). */
+	archived: Inclusion;
+	/** The Immich locked folder (while it is open), the same way. */
+	locked_folder: Inclusion;
 	/** Only photos without a location that GeoCLIP places confidently. */
 	geoclip_confident: boolean;
 	/** Only photos without a location with a confidently similar located one. */
@@ -183,8 +195,10 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.album) params.set('album', filter.album);
 	if (filter.date_from) params.set('date_from', filter.date_from);
 	if (filter.date_to) params.set('date_to', filter.date_to);
-	if (filter.archived) params.set('archived', 'true');
-	if (filter.locked_folder) params.set('locked_folder', 'true');
+	for (const key of ['archived', 'locked_folder'] as const) {
+		const value = inclusionParam(filter[key]);
+		if (value) params.set(key, value);
+	}
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.nearby) params.set('nearby', 'true');

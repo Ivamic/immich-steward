@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The gallery filter lives in the page URL, so that a filtered view can be bookmarked and
 // survives going to a photo and back.
-import { SHOW_CATEGORIES, type GalleryFilter } from '#lib/api.js';
+import { inclusionOf, inclusionParam, SHOW_CATEGORIES, type GalleryFilter } from '#lib/api.js';
 
 export const defaultFilter: GalleryFilter = {
 	show: ['todo'],
@@ -10,8 +10,8 @@ export const defaultFilter: GalleryFilter = {
 	album: null,
 	date_from: null,
 	date_to: null,
-	archived: false,
-	locked_folder: false,
+	archived: 'off',
+	locked_folder: 'off',
 	geoclip_confident: false,
 	similar_confident: false,
 	nearby: false,
@@ -32,8 +32,8 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		album: params.get('album'),
 		date_from: params.get('date_from'),
 		date_to: params.get('date_to'),
-		archived: params.get('archived') === 'true',
-		locked_folder: params.get('locked_folder') === 'true',
+		archived: inclusionOf(params.get('archived')),
+		locked_folder: inclusionOf(params.get('locked_folder')),
 		geoclip_confident: params.get('geoclip_confident') === 'true',
 		similar_confident: params.get('similar_confident') === 'true',
 		nearby: params.get('nearby') === 'true',
@@ -46,7 +46,7 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 export const failedFilter = (module: string, failure: string | null = null): GalleryFilter => ({
 	...defaultFilter,
 	show: [...SHOW_CATEGORIES],
-	archived: true,
+	archived: 'with',
 	failed_module: module,
 	failure
 });
@@ -66,8 +66,10 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	if (filter.album) params.set('album', filter.album);
 	if (filter.date_from) params.set('date_from', filter.date_from);
 	if (filter.date_to) params.set('date_to', filter.date_to);
-	if (filter.archived) params.set('archived', 'true');
-	if (filter.locked_folder) params.set('locked_folder', 'true');
+	for (const key of ['archived', 'locked_folder'] as const) {
+		const value = inclusionParam(filter[key]);
+		if (value) params.set(key, value);
+	}
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.nearby) params.set('nearby', 'true');

@@ -20,8 +20,20 @@ describe('gallery filter in the URL', () => {
 	it('shows every group, archived photos included, for failed photos', () => {
 		const filter = failedFilter('geoclip');
 		expect(filter.show).toEqual(['todo', 'with', 'skipped', 'not_applicable']);
-		expect(filter.archived).toBe(true);
+		expect(filter.archived).toBe('with');
 		expect(filter.failure).toBeNull();
+	});
+
+	it('keeps the three states of the archive and the locked folder', () => {
+		expect(parse('archived=true').archived).toBe('with');
+		expect(parse('archived=only&locked_folder=true')).toMatchObject({
+			archived: 'only',
+			locked_folder: 'with'
+		});
+		const filter = { ...defaultFilter, archived: 'only' as const, locked_folder: 'with' as const };
+		expect(filterToUrl(filter)).toContain('archived=only&locked_folder=true');
+		expect(parse(filterToUrl(filter))).toEqual(filter);
+		expect(parse('archived=maybe').archived).toBe('off');
 	});
 
 	it('ignores a reason without a module', () => {

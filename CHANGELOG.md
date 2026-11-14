@@ -27,6 +27,8 @@ between releases.
   being processed (up to an hour), and on signing out. After 5 wrong PIN codes the app waits
   5 minutes.
 
+- **Show archive** and **Locked folder** in the filters have three states: not shown, with the
+  other photos, or only them (without the timeline).
 - **Settings**: a list of the sections beside them (above them on a phone), each with its own
   address.
 

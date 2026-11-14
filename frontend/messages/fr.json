@@ -748,5 +748,9 @@
 	"locked_setup": "Connecter le dossier verrouillé",
 	"locked_is_closed": "Dossier verrouillé : fermé. L’ouvrir avec le code PIN",
 	"locked_is_open": "Dossier verrouillé : ouvert, ses photos sont visibles. Le fermer",
-	"settings_sections": "Sections des paramètres"
+	"settings_sections": "Sections des paramètres",
+	"filter_only": "seulement",
+	"filter_inclusion_off": "Non affichées. Clic : les afficher avec les autres photos",
+	"filter_inclusion_with": "Affichées avec les autres photos. Clic : n’afficher qu’elles",
+	"filter_inclusion_only": "Seules elles sont affichées, sans la chronologie. Clic : les masquer"
 }

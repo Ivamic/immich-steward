@@ -8,6 +8,7 @@
 		SHOW_CATEGORIES,
 		type FilterOptions,
 		type GalleryFilter,
+		type Inclusion,
 		type ShowCategory
 	} from '#lib/api.js';
 	import { locked } from '#lib/locked.svelte.js';
@@ -112,6 +113,25 @@
 	const isDefault = $derived(filterToUrl(filter) === filterToUrl(defaultFilter));
 	const active = $derived(activeFilters(filter));
 	let sheet = $state(false);
+
+	// A click goes on to the next state: left out, with the timeline, alone.
+	const NEXT: Record<Inclusion, Inclusion> = { off: 'with', with: 'only', only: 'off' };
+
+	function inclusionHint(value: Inclusion): string {
+		return value === 'off'
+			? m.filter_inclusion_off()
+			: value === 'with'
+				? m.filter_inclusion_with()
+				: m.filter_inclusion_only();
+	}
+
+	// A folder closed while its photos are filtered for: the filter goes, or the page would show
+	// nothing (or wait for photos it cannot get).
+	$effect(() => {
+		if (locked.state && !locked.open && filter.locked_folder !== 'off') {
+			onchange({ ...filter, locked_folder: 'off' });
+		}
+	});
 </script>
 
 <!-- On a phone the chips take the whole screen: one button opens them in a window instead. -->
@@ -277,25 +297,35 @@
 		</ChipPopover>
 	{/if}
 
-	<button
-		type="button"
-		class="st-chip"
-		aria-pressed={filter.archived}
-		onclick={() => set({ archived: !filter.archived })}
-	>
-		{m.filter_archived()}
-	</button>
-
-	{#if locked.open || filter.locked_folder}
+	<Tooltip text={inclusionHint(filter.archived)} below>
 		<button
 			type="button"
 			class="st-chip"
-			aria-pressed={filter.locked_folder}
-			onclick={() => set({ locked_folder: !filter.locked_folder })}
+			class:only={filter.archived === 'only'}
+			aria-pressed={filter.archived !== 'off'}
+			onclick={() => set({ archived: NEXT[filter.archived] })}
 		>
-			<Icon name="lock" size={12} />
-			{m.filter_locked_folder()}
+			{m.filter_archived()}{#if filter.archived === 'only'}<span class="only-mark"
+					>· {m.filter_only()}</span
+				>{/if}
 		</button>
+	</Tooltip>
+
+	{#if locked.open || filter.locked_folder !== 'off'}
+		<Tooltip text={inclusionHint(filter.locked_folder)} below>
+			<button
+				type="button"
+				class="st-chip"
+				class:only={filter.locked_folder === 'only'}
+				aria-pressed={filter.locked_folder !== 'off'}
+				onclick={() => set({ locked_folder: NEXT[filter.locked_folder] })}
+			>
+				<Icon name="lock" size={12} />
+				{m.filter_locked_folder()}{#if filter.locked_folder === 'only'}<span class="only-mark"
+						>· {m.filter_only()}</span
+					>{/if}
+			</button>
+		</Tooltip>
 	{/if}
 
 	{#if !isDefault}
@@ -392,5 +422,13 @@
 		font-size: var(--text-sm);
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+	}
+	/* "Only": the category without the timeline. */
+	.st-chip.only {
+		box-shadow: inset 0 0 0 1px var(--color-accent);
+		font-weight: 600;
+	}
+	.only-mark {
+		margin-inline-start: 0.25em;
 	}
 </style>

@@ -748,5 +748,9 @@
 	"locked_setup": "Collega la cartella bloccata",
 	"locked_is_closed": "Cartella bloccata: chiusa. Aprila con il PIN",
 	"locked_is_open": "Cartella bloccata: aperta, le sue foto sono visibili. Chiudila",
-	"settings_sections": "Sezioni delle impostazioni"
+	"settings_sections": "Sezioni delle impostazioni",
+	"filter_only": "solo",
+	"filter_inclusion_off": "Non mostrate. Clic: mostrale con le altre foto",
+	"filter_inclusion_with": "Mostrate con le altre foto. Clic: mostra solo queste",
+	"filter_inclusion_only": "Sono mostrate solo queste, senza la sequenza. Clic: nascondile"
 }

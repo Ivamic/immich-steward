@@ -46,8 +46,13 @@ def test_the_gallery_shows_locked_photos_only_with_their_filter_while_open(
     ).json()
     assert [item["locked"] for item in items if item["id"] == hidden] == [True]
 
+    assert months(signed_in, **show_all, locked_folder="only") == {"2024-05": 1}
+    # The archive alone and the locked folder with it: both, without the timeline (none here).
+    assert months(signed_in, **show_all, archived="only", locked_folder="with") == {"2024-05": 1}
+
     signed_in.post("/api/locked/close")
     assert months(signed_in, **show_all, locked_folder=True) == {"2024-05": 1}
+    assert months(signed_in, **show_all, locked_folder="only") == {}
 
 
 def test_counts_and_the_heat_map_leave_out_a_closed_folder(

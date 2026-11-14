@@ -20,6 +20,10 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   like a photo with a location (the same street, house or view). They are a good place to start. Then the type (photos, videos), the
   camera, the album, the **Period** and the **Processing errors** of the modules. *Reset* brings
   the default filters back.
+- **Show archive** and **Locked folder** (the latter while the [locked folder](#the-locked-folder)
+  is open) have three states, one click to the next: not shown; shown with the other photos;
+  **only** them, without the timeline. With both on and either of them on "only", the gallery shows
+  the archive and the locked folder together, without the timeline.
 - **The camera and album lists** have a search field on top when they are long: type any part of
   the name, in any case and without accents ("zab" finds "Žabljak"). The arrows, Enter and Esc
   work as in any list.

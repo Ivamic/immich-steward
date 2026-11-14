@@ -748,5 +748,9 @@
 	"locked_setup": "Gesperrten Ordner verbinden",
 	"locked_is_closed": "Gesperrter Ordner: geschlossen. Mit der PIN öffnen",
 	"locked_is_open": "Gesperrter Ordner: offen, seine Fotos sind sichtbar. Schließen",
-	"settings_sections": "Abschnitte der Einstellungen"
+	"settings_sections": "Abschnitte der Einstellungen",
+	"filter_only": "nur",
+	"filter_inclusion_off": "Nicht angezeigt. Klick: mit den anderen Fotos anzeigen",
+	"filter_inclusion_with": "Mit den anderen Fotos angezeigt. Klick: nur diese anzeigen",
+	"filter_inclusion_only": "Nur diese werden angezeigt, ohne die Zeitleiste. Klick: ausblenden"
 }

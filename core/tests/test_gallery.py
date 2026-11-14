@@ -44,6 +44,10 @@ def test_month_buckets_and_filters(signed_in: TestClient) -> None:
     # Newest first; archived and trashed assets are hidden by default.
     assert list(months(signed_in).items()) == [("2024-06", 2), ("2024-05", 2), ("2009-08", 1)]
     assert months(signed_in, archived=True)["2024-06"] == 3
+    assert months(signed_in, archived="with")["2024-06"] == 3
+    # Only the archive: the timeline goes.
+    assert months(signed_in, archived="only") == {"2024-06": 1}
+    assert signed_in.get("/api/assets/months", params={"archived": "all"}).status_code == 422
     assert months(signed_in, show="with") == {"2024-05": 1}
     assert sum(months(signed_in, show="todo").values()) == 4
     assert sum(months(signed_in, show=["todo", "with"]).values()) == 5

@@ -39,6 +39,7 @@ from steward.gallery import (
     geoclip_confident_ids,
     heatmap_cells,
     heatmap_version,
+    inclusion,
     map_cells,
     map_photos,
     month_assets_query,
@@ -73,6 +74,11 @@ IMAGE_CACHE_CONTROL = "private, max-age=604800"
 LOCKED_CACHE_CONTROL = "no-store"
 
 
+# The archive and the locked folder in the address: "false" / "true" (with the timeline), "with",
+# or "only" (`gallery.inclusion`).
+InclusionParam = Annotated[str, Query(pattern="^(false|true|off|with|only)$")]
+
+
 def gallery_filter(
     settings: SettingsDep,
     show: Annotated[list[ShowCategory] | None, Query()] = None,
@@ -81,8 +87,8 @@ def gallery_filter(
     album: UUID | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    archived: bool = False,
-    locked_folder: bool = False,
+    archived: InclusionParam = "false",
+    locked_folder: InclusionParam = "false",
     geoclip_confident: bool = False,
     similar_confident: bool = False,
     nearby: bool = False,
@@ -96,8 +102,8 @@ def gallery_filter(
         album_id=album,
         date_from=date_from,
         date_to=date_to,
-        include_archived=archived,
-        include_locked=locked_folder,
+        archive=inclusion(archived),
+        locked_folder=inclusion(locked_folder),
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
         similar_confidence=settings.similar_confident_from if similar_confident else None,
         nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
@@ -115,8 +121,8 @@ def map_filter(
     album: UUID | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
-    archived: bool = False,
-    locked_folder: bool = False,
+    archived: InclusionParam = "false",
+    locked_folder: InclusionParam = "false",
 ) -> GalleryFilter:
     """The filters of the gallery that mean something for photos with a location (D-207): what
     to show and the badges are about photos without one."""
@@ -126,8 +132,8 @@ def map_filter(
         album_id=album,
         date_from=date_from,
         date_to=date_to,
-        include_archived=archived,
-        include_locked=locked_folder,
+        archive=inclusion(archived),
+        locked_folder=inclusion(locked_folder),
     )
 
 

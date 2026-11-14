@@ -748,5 +748,9 @@
 	"locked_setup": "Connect the locked folder",
 	"locked_is_closed": "Locked folder: closed. Open it with your PIN code",
 	"locked_is_open": "Locked folder: open, its photos are shown. Close it",
-	"settings_sections": "Sections of the settings"
+	"settings_sections": "Sections of the settings",
+	"filter_only": "only",
+	"filter_inclusion_off": "Not shown. Click: show with the other photos",
+	"filter_inclusion_with": "Shown with the other photos. Click: show only these",
+	"filter_inclusion_only": "Only these are shown, without the timeline. Click: hide them"
 }

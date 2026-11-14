@@ -33,6 +33,17 @@ from steward.worker_queue import latest_run_failed, whole_photo
 # review status); todo: no location and not marked; skipped / not_applicable: no location and
 # marked so by the user.
 ShowCategory = Literal["todo", "with", "skipped", "not_applicable"]
+Inclusion = Literal["off", "with", "only"]
+
+
+def inclusion(value: str) -> Inclusion:
+    """A filter value of the address: "true" (older links) and "with" add the category, "only"
+    shows it alone, anything else leaves it out."""
+    if value in ("true", "with"):
+        return "with"
+    return "only" if value == "only" else "off"
+
+
 TypeFilter = Literal["all", "image", "video"]
 
 # Separates make and model in the camera filter value.
@@ -56,9 +67,11 @@ class GalleryFilter:
     album_id: UUID | None = None
     date_from: date | None = None
     date_to: date | None = None
-    include_archived: bool = False
-    # The photos of the locked folder, while it is open (D-216).
-    include_locked: bool = False
+    # The archive and the locked folder (while it is open, D-216): left out ("off"), shown with
+    # the timeline ("with"), or shown without the timeline ("only"). "only" on either hides the
+    # timeline; each that is not off adds its photos.
+    archive: Inclusion = "off"
+    locked_folder: Inclusion = "off"
     # Only photos without a location that GeoCLIP places with at least this confidence.
     geoclip_confidence: float | None = None
     # Only photos without a location with a located photo this confidently similar (the badge
@@ -76,8 +89,11 @@ class GalleryFilter:
             Asset.account_id == account.id,
             Asset.is_trashed.is_(False),
         ]
-        visible = ("timeline", "archive") if self.include_archived else ("timeline",)
-        if self.include_locked:
+        only = "only" in (self.archive, self.locked_folder)
+        visible = [] if only else ["timeline"]
+        if self.archive != "off":
+            visible.append("archive")
+        if self.locked_folder != "off":
             result.append(
                 or_(
                     Asset.visibility.in_(visible),

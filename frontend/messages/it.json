@@ -743,5 +743,10 @@
 	"error_locked_closed": "Questa foto è nella cartella bloccata: apri la cartella (il lucchetto in alto) per vederla o modificarla.",
 	"workers_locked_waiting": "Foto della cartella bloccata in attesa che venga aperta: {count}. I worker le ricevono solo mentre è aperta.",
 	"filter_locked_folder": "Cartella bloccata",
-	"locked_photo": "Una foto della cartella bloccata"
+	"locked_photo": "Una foto della cartella bloccata",
+	"locked_setup_hint": "Cartella bloccata di Immich: non collegata. Per lavorare con le sue foto, collegala in Impostazioni → Cartella bloccata (una volta la tua password di Immich), poi aprila qui con il tuo PIN.",
+	"locked_setup": "Collega la cartella bloccata",
+	"locked_is_closed": "Cartella bloccata: chiusa. Aprila con il PIN",
+	"locked_is_open": "Cartella bloccata: aperta, le sue foto sono visibili. Chiudila",
+	"settings_sections": "Sezioni delle impostazioni"
 }

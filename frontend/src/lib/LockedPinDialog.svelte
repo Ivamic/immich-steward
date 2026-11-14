@@ -37,10 +37,20 @@
 		<label class="st-field">
 			<span class="st-field__label">{m.locked_pin()}</span>
 			<!-- svelte-ignore a11y_autofocus -->
+			<!-- Not type="password": the browser would fill in the saved Immich password and offer to
+			     save the PIN as one. Hidden by the style instead; password managers are told to keep out. -->
 			<input
-				type="password"
+				class="pin"
+				type="text"
 				inputmode="numeric"
-				autocomplete="off"
+				autocomplete="one-time-code"
+				autocapitalize="off"
+				spellcheck="false"
+				name="steward-locked-pin"
+				data-1p-ignore
+				data-lpignore="true"
+				data-bwignore
+				data-form-type="other"
 				bind:this={input}
 				bind:value={pin}
 				required
@@ -83,5 +93,9 @@
 	}
 	.error {
 		color: var(--color-danger-text);
+	}
+	.pin {
+		-webkit-text-security: disc;
+		letter-spacing: 0.2em;
 	}
 </style>

@@ -743,5 +743,10 @@
 	"error_locked_closed": "Cette photo est dans le dossier verrouillé : ouvrez le dossier (le cadenas en haut) pour la voir ou la modifier.",
 	"workers_locked_waiting": "Photos du dossier verrouillé en attente de son ouverture : {count}. Les workers ne les reçoivent que pendant qu’il est ouvert.",
 	"filter_locked_folder": "Dossier verrouillé",
-	"locked_photo": "Une photo du dossier verrouillé"
+	"locked_photo": "Une photo du dossier verrouillé",
+	"locked_setup_hint": "Dossier verrouillé d’Immich : non connecté. Pour travailler avec ses photos, connectez-le dans Paramètres → Dossier verrouillé (une fois votre mot de passe Immich), puis ouvrez-le ici avec votre code PIN.",
+	"locked_setup": "Connecter le dossier verrouillé",
+	"locked_is_closed": "Dossier verrouillé : fermé. L’ouvrir avec le code PIN",
+	"locked_is_open": "Dossier verrouillé : ouvert, ses photos sont visibles. Le fermer",
+	"settings_sections": "Sections des paramètres"
 }

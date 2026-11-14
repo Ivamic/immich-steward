@@ -743,5 +743,10 @@
 	"error_locked_closed": "This photo is in the locked folder: open the folder (the lock in the header) to see or change it.",
 	"workers_locked_waiting": "Photos of the locked folder waiting for it to be opened: {count}. Workers get them only while it is open.",
 	"filter_locked_folder": "Locked folder",
-	"locked_photo": "A photo of the locked folder"
+	"locked_photo": "A photo of the locked folder",
+	"locked_setup_hint": "Locked folder of Immich: not connected. To work with its photos, connect it in Settings → Locked folder (your Immich password once), then open it here with your PIN code.",
+	"locked_setup": "Connect the locked folder",
+	"locked_is_closed": "Locked folder: closed. Open it with your PIN code",
+	"locked_is_open": "Locked folder: open, its photos are shown. Close it",
+	"settings_sections": "Sections of the settings"
 }

@@ -743,5 +743,10 @@
 	"error_locked_closed": "Dieses Foto liegt im gesperrten Ordner: Öffnen Sie den Ordner (das Schloss in der Kopfzeile), um es anzusehen oder zu ändern.",
 	"workers_locked_waiting": "Fotos des gesperrten Ordners warten auf das Öffnen: {count}. Worker erhalten sie nur, solange er offen ist.",
 	"filter_locked_folder": "Gesperrter Ordner",
-	"locked_photo": "Ein Foto aus dem gesperrten Ordner"
+	"locked_photo": "Ein Foto aus dem gesperrten Ordner",
+	"locked_setup_hint": "Gesperrter Ordner von Immich: nicht verbunden. Um mit seinen Fotos zu arbeiten, verbinden Sie ihn unter Einstellungen → Gesperrter Ordner (einmal Ihr Immich-Passwort) und öffnen Sie ihn dann hier mit Ihrer PIN.",
+	"locked_setup": "Gesperrten Ordner verbinden",
+	"locked_is_closed": "Gesperrter Ordner: geschlossen. Mit der PIN öffnen",
+	"locked_is_open": "Gesperrter Ordner: offen, seine Fotos sind sichtbar. Schließen",
+	"settings_sections": "Abschnitte der Einstellungen"
 }

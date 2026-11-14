@@ -10,6 +10,7 @@
 	import { locked } from '#lib/locked.svelte.js';
 	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Page {
 		href: string;
@@ -105,7 +106,17 @@
 			</div>
 			<div class="st-menu__sep"></div>
 			<div class="st-menu__heading st-headmenu__user">{user}</div>
-			{#if locked.connected}
+			{#if locked.state && !locked.connected}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved, with the section -->
+				<a
+					class="st-menu__item"
+					href="{resolve('/settings')}#locked"
+					onclick={() => (open = false)}
+				>
+					<Icon name="lock" size={14} />
+					<span class="st-menu__label">{m.locked_setup()}</span>
+				</a>
+			{:else if locked.connected}
 				<button
 					type="button"
 					class="st-menu__item"

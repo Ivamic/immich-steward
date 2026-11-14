@@ -464,6 +464,9 @@ The **Processing** page shows how the work goes:
 
 ## Settings
 
+On a wide screen the sections of **Settings** are listed beside them (above them on a phone), and each
+has its own address, e.g. `/settings#locked`.
+
 **Settings** holds the details shown over a photo of the gallery, how strict [groups](#changing-groups)
 are and the marks of the app, the order of the modules in the photo card and which of them are shown, and
 the **map sources**: satellite imagery, their keys, how many tiles the app loaded, and which
@@ -483,7 +486,8 @@ Immich opens that folder only to a signed-in session with your PIN code, never t
    *Account settings → Authorized devices*. Without a password in Immich (OAuth sign-in only) it
    cannot be connected. You need a PIN code in Immich (*Account settings → PIN code*).
 2. **Open it** with the lock in the header (in the menu on a narrow screen) and your Immich PIN
-   code, which goes to Immich and is not stored. After 5 wrong codes in a row the app waits
+   code, which goes to Immich and is not stored. Before the folder is connected the lock is faint and
+   leads to its place in Settings; while the folder is open it stands out in color. After 5 wrong codes in a row the app waits
    5 minutes.
 3. **It closes by itself** after `STEWARD_LOCKED_IDLE_MINUTES` (15) without a click or key press in
    the app, but not while workers have its photos (up to an hour), and when you sign out. The open

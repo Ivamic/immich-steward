@@ -26,6 +26,10 @@
 .st-dialog--wide {
 	width: min(100%, 40rem);
 }
+/* For looking at photos: nearly the whole window. */
+.st-dialog--full {
+	width: min(100%, 110rem);
+}
 .st-dialog__head {
 	display: flex;
 	align-items: flex-start;

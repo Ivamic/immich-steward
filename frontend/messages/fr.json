@@ -779,5 +779,7 @@
 	"details_settings_auto": "Photos comparées automatiquement",
 	"details_settings_auto_hint": "Les plus ressemblantes, par photo. Ne se lance seul que sur un worker avec carte graphique.",
 	"details_settings_manual": "Photos comparées au lancement manuel",
-	"details_settings_manual_hint": "Avec le bouton de la fiche de la photo, sur n’importe quel worker."
+	"details_settings_manual_hint": "Avec le bouton de la fiche de la photo, sur n’importe quel worker.",
+	"details_dialog_zoom_in": "Agrandir",
+	"details_dialog_zoom_out": "Réduire"
 }

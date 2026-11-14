@@ -779,5 +779,7 @@
 	"details_settings_auto": "Automatisch abgeglichene Fotos",
 	"details_settings_auto_hint": "Die ähnlichsten, pro Foto. Läuft von selbst nur auf einem Worker mit Grafikkarte.",
 	"details_settings_manual": "Abgeglichene Fotos beim Start von Hand",
-	"details_settings_manual_hint": "Mit der Schaltfläche in der Fotokarte, auf jedem Worker."
+	"details_settings_manual_hint": "Mit der Schaltfläche in der Fotokarte, auf jedem Worker.",
+	"details_dialog_zoom_in": "Vergrößern",
+	"details_dialog_zoom_out": "Verkleinern"
 }

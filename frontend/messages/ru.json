@@ -779,5 +779,7 @@
 	"details_settings_auto": "Сколько фото сверять автоматически",
 	"details_settings_auto_hint": "Самые похожие, на каждое фото. Само запускается только на воркере с видеокартой.",
 	"details_settings_manual": "Сколько фото сверять по кнопке",
-	"details_settings_manual_hint": "Кнопкой в карточке фото, на любом воркере."
+	"details_settings_manual_hint": "Кнопкой в карточке фото, на любом воркере.",
+	"details_dialog_zoom_in": "Увеличить",
+	"details_dialog_zoom_out": "Уменьшить"
 }

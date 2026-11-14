@@ -779,5 +779,7 @@
 	"details_settings_auto": "Foto confrontate automaticamente",
 	"details_settings_auto_hint": "Le più simili, per foto. Parte da solo soltanto su un worker con scheda grafica.",
 	"details_settings_manual": "Foto confrontate all’avvio manuale",
-	"details_settings_manual_hint": "Con il pulsante nella scheda della foto, su qualsiasi worker."
+	"details_settings_manual_hint": "Con il pulsante nella scheda della foto, su qualsiasi worker.",
+	"details_dialog_zoom_in": "Ingrandisci",
+	"details_dialog_zoom_out": "Riduci"
 }

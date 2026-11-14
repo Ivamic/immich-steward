@@ -779,5 +779,7 @@
 	"details_settings_auto": "Photos compared automatically",
 	"details_settings_auto_hint": "The most similar ones, per photo. Runs by itself only on a worker with a graphics card.",
 	"details_settings_manual": "Photos compared when started by hand",
-	"details_settings_manual_hint": "With the button in the photo card, on any worker."
+	"details_settings_manual_hint": "With the button in the photo card, on any worker.",
+	"details_dialog_zoom_in": "Enlarge",
+	"details_dialog_zoom_out": "Reduce"
 }

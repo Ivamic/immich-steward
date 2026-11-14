@@ -11,6 +11,7 @@
 		title,
 		icon,
 		wide = false,
+		full = false,
 		onclose,
 		children,
 		footer
@@ -18,6 +19,8 @@
 		title: string;
 		icon?: IconName;
 		wide?: boolean;
+		/** As large as the window allows: for looking at photos. */
+		full?: boolean;
 		onclose: () => void;
 		children: Snippet;
 		footer?: Snippet;
@@ -35,6 +38,7 @@
 	bind:this={dialog}
 	class="st-dialog"
 	class:st-dialog--wide={wide}
+	class:st-dialog--full={full}
 	aria-label={title}
 	oncancel={(e) => {
 		e.preventDefault();

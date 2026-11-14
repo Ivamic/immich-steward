@@ -37,4 +37,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Older versions know neither locked photos nor "missing" ones (taken for the timeline, they
+    # would show broken); the next sync brings back those still in the timeline.
+    op.execute("DELETE FROM asset WHERE visibility IN ('locked', 'missing')")
     op.drop_table("locked_folder")

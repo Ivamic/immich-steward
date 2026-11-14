@@ -12,6 +12,7 @@
 		getPhotoGroup,
 		getMapConfig,
 		getSuggestions,
+		isComparing,
 		isPending,
 		markPhotos,
 		restorePhotos,
@@ -233,7 +234,7 @@
 
 	// While a worker module is queued or running, look for its result every few seconds.
 	$effect(() => {
-		if (!suggestions.some(isPending)) return;
+		if (!suggestions.some((block) => isPending(block) || isComparing(block))) return;
 		const assetId = id;
 		const timer = setTimeout(() => fetchSuggestions(assetId), 2000);
 		return () => clearTimeout(timer);
@@ -760,6 +761,7 @@
 				{/if}
 
 				<SuggestionList
+					assetId={id}
 					modules={listed}
 					hidden={hiddenModules(suggestions, revealed)}
 					onreveal={(module) => (revealed = [...revealed, module])}

@@ -68,7 +68,15 @@ from steward.immich import (
 from steward.immich.compat import EDIT_PERMISSIONS
 from steward.immich.thumbnails import ThumbnailFetcher, ThumbnailSize
 from steward.immich.videos import VideoStreamer
-from steward.models import Account, Album, Asset, AssetAlbum, LocationChange, ModuleRun
+from steward.models import (
+    Account,
+    Album,
+    Asset,
+    AssetAlbum,
+    DetailMatch,
+    LocationChange,
+    ModuleRun,
+)
 from steward.modules import MODULES, REMOTE_MODULES, ModuleContext, RemoteModule, similar
 
 router = APIRouter(prefix="/assets")
@@ -359,6 +367,15 @@ class CameraCountItem(BaseModel):
     excluded: bool
 
 
+class DetailsState(BaseModel):
+    """The comparison of the photo with its most similar photos, point by point (`details`)."""
+
+    # Of the latest comparison; not_run: the photo was never compared.
+    status: Literal["not_run", "queued", "running", "done", "failed"]
+    # A worker that compares details has contacted the core recently.
+    worker_available: bool
+
+
 class ModuleSuggestions(BaseModel):
     module: str
     version: str
@@ -392,6 +409,8 @@ class ModuleSuggestions(BaseModel):
     turn: int = 0
     # The account hides the module in the card (`module_display`); it still runs.
     hidden: bool = False
+    # Similar photos, on the whole photo: its suggestions can be confirmed by details.
+    details: DetailsState | None = None
 
 
 class RunRequest(BaseModel):
@@ -558,6 +577,34 @@ async def filter_options(
         failed_modules=list(REMOTE_MODULES),
         nearby_minutes=settings.time_neighbors_nearby_minutes,
     )
+
+
+class DetailPair(BaseModel):
+    """How two photos match point by point."""
+
+    matches: int
+    inliers: int
+    # x, y in the photo and x, y in the other photo, 0..1 of the sides of the previews.
+    lines: list[tuple[float, float, float, float]]
+
+
+@router.get("/{asset_id}/details/{other_id}")
+async def detail_pair(
+    asset_id: UUID, other_id: UUID, account: CurrentAccount, db: DbDep
+) -> DetailPair:
+    """The points the photo shares with another photo it was compared with, for drawing them."""
+    asset = await _own_asset(db, account, asset_id)
+    other = await _own_asset(db, account, other_id)
+    found = await db.get(DetailMatch, (asset.id, other.id))
+    if found is not None:
+        lines = [(a, b, c, d) for a, b, c, d in found.lines]
+    else:
+        # Compared the other way round: the same pairs, seen from the other photo.
+        found = await db.get(DetailMatch, (other.id, asset.id))
+        if found is None:
+            raise ApiError(404, "details_not_compared")
+        lines = [(c, d, a, b) for a, b, c, d in found.lines]
+    return DetailPair(matches=found.matches, inliers=found.inliers, lines=lines)
 
 
 async def _own_asset(db: DbDep, account: CurrentAccount, asset_id: UUID) -> Asset:
@@ -759,6 +806,12 @@ async def _suggestions(
         whole = await _remote(db, asset, remote, runs.get(remote.id), available, settings)
         whole.paused = worker_queue.is_paused(paused, remote.id)
         whole.worker_loading = remote.id in loading
+        if remote.id == similar.MODULE_ID:
+            compared = runs.get(details.MODULE_ID)
+            whole.details = DetailsState(
+                status=compared.status if compared else "not_run",
+                worker_available=details.MODULE_ID in available,
+            )
         result.append(whole)
         # The run on a part of the photo, if any, right after the one on the whole photo.
         if run := region_runs.get(remote.id):

@@ -92,6 +92,8 @@ export function moduleName(id: string): string {
 			return m.module_geoclip();
 		case 'similar':
 			return m.module_similar();
+		case 'details':
+			return m.module_details();
 		case 'selection':
 			return m.module_selection();
 		case 'group':
@@ -115,6 +117,9 @@ export function neighborMeta(neighbor: NeighborEvidence, camera: string): string
 					m.neighbor_similarity({ percent: String(Math.round(neighbor.similarity * 100)) }),
 					neighbor.local_taken_at?.slice(0, 10) ?? ''
 				];
+	if (typeof neighbor.details === 'number') {
+		parts.push(m.neighbor_details({ count: String(neighbor.details) }));
+	}
 	if (neighbor.estimated) parts.push(m.candidate_estimated());
 	return parts.filter(Boolean).join(' · ');
 }

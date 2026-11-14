@@ -9,6 +9,8 @@
 -->
 <script lang="ts">
 	import {
+		DETAILS_MODULE,
+		isComparing,
 		isPending,
 		thumbnailUrl,
 		type Candidate,
@@ -25,6 +27,7 @@
 	import { resolve } from '$app/paths';
 	import { moduleColor, moduleOnColor } from '#lib/map/modulePalette.js';
 	import { cameraFilter, setCameraExcluded } from './cameraFilter.svelte.js';
+	import DetailsDialog from './DetailsDialog.svelte';
 	import type { Highlight } from './highlight.js';
 	import {
 		candidateDetails,
@@ -43,6 +46,7 @@
 	} from './format.js';
 
 	let {
+		assetId,
 		modules,
 		hidden,
 		onreveal,
@@ -57,6 +61,8 @@
 		onpart,
 		onpartshow
 	}: {
+		/** The photo the suggestions are for; none for the suggestions of several photos. */
+		assetId?: string;
 		modules: ModuleSuggestions[];
 		/** Modules hidden in the card (Settings page); a click shows one here. */
 		hidden: string[];
@@ -86,6 +92,26 @@
 		const block = partBlock(module);
 		return block !== undefined && isPending(block);
 	};
+
+	// The similar photo whose shared details are shown (`DetailsDialog`).
+	let pairWith = $state<NeighborEvidence | null>(null);
+
+	/** The comparison of details can be asked for: the suggestions are on the whole photo. */
+	const canCompare = (module: ModuleSuggestions) =>
+		module.details != null && module.status === 'done' && module.candidates.length > 0;
+
+	function comparing(module: ModuleSuggestions): string | null {
+		switch (module.details?.status) {
+			case 'queued':
+				return m.details_status_queued();
+			case 'running':
+				return m.details_status_running();
+			case 'failed':
+				return m.details_status_failed();
+			default:
+				return null;
+		}
+	}
 
 	// Enlarged thumbnail of a neighbor photo, next to the hovered one.
 	let peek = $state<{
@@ -213,6 +239,19 @@
 									? m.module_run()
 									: m.module_rerun()}
 						</button>
+						{#if canCompare(module)}
+							<Tooltip text={m.details_compare_hint()}>
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									disabled={isComparing(module)}
+									onclick={() => onrun(DETAILS_MODULE)}
+								>
+									<Icon name="scan-search" size={14} />
+									{m.details_compare()}
+								</button>
+							</Tooltip>
+						{/if}
 						{#if !module.region}
 							<Tooltip text={m.module_part_hint()}>
 								<button
@@ -247,6 +286,21 @@
 				</p>
 				{#if module.status === 'failed' && module.error_code === 'lease_expired'}
 					<p class="st-sgroup__note">{m.failure_lease_expired_hint()}</p>
+				{/if}
+			{/if}
+			{#if comparing(module)}
+				<p class="st-sgroup__note" class:failed={module.details?.status === 'failed'}>
+					{#if isComparing(module)}
+						<span class="st-spin"><Icon name="loader-circle" size={14} /></span>
+					{:else}
+						<Icon name="circle-alert" size={14} />
+					{/if}
+					<span>{comparing(module)}</span>
+				</p>
+				{#if isComparing(module) && !module.details?.worker_available}
+					<p class="st-sgroup__note warning">
+						<Icon name="triangle-alert" size={14} />{m.details_no_worker()}
+					</p>
 				{/if}
 			{/if}
 			{#if module.worker_loading && isPending(module)}
@@ -341,6 +395,19 @@
 									label={candidate.tier === 'confident' ? m.candidate_confident() : undefined}
 									title={m.candidate_score({ percent: String(Math.round(candidate.score * 100)) })}
 								/>
+								{#if candidate.evidence.confirmed && candidate.evidence.neighbors?.length}
+									{@const sharing = candidate.evidence.neighbors[0]}
+									<button
+										type="button"
+										class="st-cand__agree confirmed"
+										disabled={sharing.locked || !assetId}
+										title={m.candidate_confirmed_title({ count: String(sharing.details ?? 0) })}
+										onclick={() => (pairWith = sharing)}
+									>
+										<Icon name="circle-check" size={14} />
+										{m.candidate_confirmed()}
+									</button>
+								{/if}
 								{#if candidate.radius_m}
 									<span class="st-cand__radius">±{formatDistance(candidate.radius_m)}</span>
 								{/if}
@@ -422,6 +489,10 @@
 	{/if}
 </section>
 
+{#if pairWith && assetId}
+	<DetailsDialog {assetId} other={pairWith} onclose={() => (pairWith = null)} />
+{/if}
+
 {#if peek}
 	<div class="peek" style:left="{peek.left}px" style:top="{peek.top}px" aria-hidden="true">
 		<img src={thumbnailUrl(peek.id, 'thumbnail', 0, peek.version)} alt="" />
@@ -501,6 +572,23 @@
 	}
 	.choose {
 		white-space: nowrap;
+	}
+	/* A button that reads as the mark it is. */
+	.confirmed {
+		padding: 0;
+		border: none;
+		background: none;
+		font: inherit;
+		font-weight: var(--weight-medium);
+		cursor: pointer;
+	}
+	.confirmed:hover:not(:disabled) {
+		text-decoration: underline;
+	}
+	.confirmed:focus-visible {
+		outline: none;
+		box-shadow: var(--focus-ring);
+		border-radius: var(--radius-xs);
 	}
 	.devices {
 		display: flex;

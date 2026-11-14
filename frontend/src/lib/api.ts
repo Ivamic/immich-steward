@@ -408,6 +408,9 @@ export interface NeighborEvidence {
 	locked?: boolean;
 	/** Similar photos only: 0..1, and when the photo was taken (local time). */
 	similarity?: number;
+	/** Similar photos only: the details the photo shares with this one (`details` module);
+	 * null when the two were not compared. */
+	details?: number | null;
 	local_taken_at?: string;
 }
 
@@ -426,6 +429,8 @@ export interface Candidate {
 		/** Similar photos (M3): how far apart the most similar photos lie, km (D-200). */
 		spread_km?: number | null;
 		spread?: 'point' | 'apart' | 'wide' | null;
+		/** Similar photos: the photo shares enough details with the first neighbor (D-225). */
+		confirmed?: boolean;
 	} & Record<string, unknown>;
 	/** weak: shown folded ("probably only the region is right"); confident: marked as such. */
 	tier: 'weak' | 'normal' | 'confident';
@@ -484,6 +489,12 @@ export interface ModuleSuggestions {
 	turn: Turn;
 	/** The account hides the module in the card (Settings page); the module still runs. */
 	hidden: boolean;
+	/** Similar photos, on the whole photo: the comparison of details that confirms its
+	 * suggestions. */
+	details?: {
+		status: 'not_run' | 'queued' | 'running' | 'done' | 'failed';
+		worker_available: boolean;
+	} | null;
 }
 
 /** A module in the order of the photo card, and whether it is shown there. */
@@ -509,6 +520,21 @@ export type ModuleStatus = 'ready' | 'not_run' | 'queued' | 'running' | 'done' |
 
 export const isPending = (module: ModuleSuggestions) =>
 	module.status === 'queued' || module.status === 'running';
+
+/** The photo is being compared with its similar photos point by point, or waits for it. */
+export const isComparing = (module: ModuleSuggestions) =>
+	module.details?.status === 'queued' || module.details?.status === 'running';
+
+/** How two photos match point by point (`details` module). */
+export interface DetailPair {
+	matches: number;
+	inliers: number;
+	/** x, y in the photo and x, y in the other one, 0..1 of the sides of the previews. */
+	lines: [number, number, number, number][];
+}
+
+export const getDetailPair = (assetId: string, otherId: string) =>
+	request<DetailPair>('GET', `/api/assets/${assetId}/details/${otherId}`);
 
 export interface WorkerInfo {
 	id: string;
@@ -652,7 +678,16 @@ export interface AccountSettings {
 	trash_auto: boolean;
 	trash_auto_marks: number;
 	trash_auto_similarity: number;
+	/** Matching details (D-225): shared details that confirm a suggestion of similar photos. */
+	details_confirmed_from: number;
+	/** A confirmed suggestion goes before the others. */
+	details_first: boolean;
+	/** Photos a photo is compared with: by itself, and when started by hand. */
+	details_candidates_auto: number;
+	details_candidates_manual: number;
 }
+
+export const DETAILS_MODULE = 'details';
 
 export const getAccountSettings = () => request<AccountSettings>('GET', '/api/settings');
 /** Only the settings given change. */

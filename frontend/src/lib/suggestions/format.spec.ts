@@ -118,6 +118,12 @@ describe('suggestion formatting', () => {
 		expect(candidateRemarks(similar([photo('a.jpg')]))).toEqual([]);
 		expect(neighborMeta(photo('a.jpg'), '')).toBe('42% alike · 2019-07-14');
 		expect(neighborMeta(photo('a.jpg', true), '')).toContain('set by hand');
+		// Compared point by point: the shared details are said, even when there are none.
+		expect(neighborMeta({ ...photo('a.jpg'), details: 132 }, '')).toBe(
+			'42% alike · 2019-07-14 · 132 shared details'
+		);
+		expect(neighborMeta({ ...photo('a.jpg'), details: 0 }, '')).toContain('0 shared details');
+		expect(neighborMeta({ ...photo('a.jpg'), details: null }, '')).not.toContain('details');
 	});
 
 	it('says once when the most similar photos lie far apart', () => {

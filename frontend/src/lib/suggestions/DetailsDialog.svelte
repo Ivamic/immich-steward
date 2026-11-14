@@ -1,0 +1,167 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+  Why a suggestion of similar photos is confirmed: the photo and the similar one side by side, with
+  lines between the details both show (the answer of the `details` module of a worker).
+-->
+<script lang="ts">
+	import { getDetailPair, thumbnailUrl, type DetailPair } from '#lib/api.js';
+	import { errorMessage } from '#lib/errors.js';
+	import { m } from '#lib/paraglide/messages.js';
+	import Dialog from '#lib/ui/Dialog.svelte';
+
+	let {
+		assetId,
+		other,
+		onclose
+	}: {
+		assetId: string;
+		other: { asset_id: string; file_name: string; version?: string | null };
+		onclose: () => void;
+	} = $props();
+
+	let pair = $state<DetailPair | null>(null);
+	let error = $state<string | null>(null);
+
+	$effect(() => {
+		getDetailPair(assetId, other.asset_id)
+			.then((result) => (pair = result))
+			.catch((e) => (error = errorMessage(e)));
+	});
+
+	let frame = $state<HTMLElement>();
+	let first = $state<HTMLImageElement>();
+	let second = $state<HTMLImageElement>();
+	// The two photos as they lie in the frame, in its pixels.
+	let boxes = $state<{ a: DOMRect; b: DOMRect; frame: DOMRect } | null>(null);
+
+	function measure() {
+		if (!frame || !first || !second || !first.naturalWidth || !second.naturalWidth) return;
+		boxes = {
+			a: first.getBoundingClientRect(),
+			b: second.getBoundingClientRect(),
+			frame: frame.getBoundingClientRect()
+		};
+	}
+
+	$effect(() => {
+		if (!frame) return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(frame);
+		return () => observer.disconnect();
+	});
+
+	const segments = $derived.by(() => {
+		if (!pair || !boxes) return [];
+		const { a, b, frame: f } = boxes;
+		return pair.lines.map(([x1, y1, x2, y2]) => ({
+			x1: a.left - f.left + x1 * a.width,
+			y1: a.top - f.top + y1 * a.height,
+			x2: b.left - f.left + x2 * b.width,
+			y2: b.top - f.top + y2 * b.height
+		}));
+	});
+</script>
+
+<Dialog title={m.details_dialog_title()} icon="scan-search" wide {onclose}>
+	{#if error}
+		<p class="error" role="alert">{error}</p>
+	{/if}
+	<div class="frame" bind:this={frame}>
+		<figure>
+			<img
+				bind:this={first}
+				src={thumbnailUrl(assetId, 'preview')}
+				alt={m.details_dialog_this()}
+				onload={measure}
+			/>
+			<figcaption>{m.details_dialog_this()}</figcaption>
+		</figure>
+		<figure>
+			<img
+				bind:this={second}
+				src={thumbnailUrl(other.asset_id, 'preview', 0, other.version ?? null)}
+				alt={other.file_name}
+				onload={measure}
+			/>
+			<figcaption>{m.details_dialog_other()} · {other.file_name}</figcaption>
+		</figure>
+		{#if boxes}
+			<svg aria-hidden="true" width={boxes.frame.width} height={boxes.frame.height}>
+				{#each segments as s, index (index)}
+					<line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
+					<circle cx={s.x1} cy={s.y1} r="2.5" />
+					<circle cx={s.x2} cy={s.y2} r="2.5" />
+				{/each}
+			</svg>
+		{/if}
+	</div>
+	<p class="note">
+		{#if pair}
+			{m.details_dialog_note({
+				shown: String(pair.lines.length),
+				count: String(pair.inliers)
+			})}
+		{:else if !error}
+			{m.details_dialog_loading()}
+		{/if}
+	</p>
+</Dialog>
+
+<style>
+	.frame {
+		position: relative;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-3);
+		align-items: start;
+	}
+	figure {
+		margin: 0;
+	}
+	img {
+		display: block;
+		width: 100%;
+		max-height: 60vh;
+		object-fit: contain;
+		border-radius: var(--radius-sm);
+		background: var(--color-surface-sunken);
+	}
+	figcaption {
+		margin-top: var(--space-1);
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	svg {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+	}
+	line {
+		stroke: var(--color-accent);
+		stroke-width: 1;
+		opacity: 0.7;
+	}
+	circle {
+		fill: var(--color-accent);
+		stroke: var(--gray-0);
+		stroke-width: 0.75;
+	}
+	.error {
+		margin: 0 0 var(--space-3);
+		color: var(--color-danger-text);
+	}
+	.note {
+		margin: var(--space-3) 0 0;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+	}
+	/* One photo under the other on a narrow screen: the lines still join them. */
+	@media (max-width: 40rem) {
+		.frame {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

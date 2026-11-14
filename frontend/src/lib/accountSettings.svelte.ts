@@ -10,7 +10,11 @@ const DEFAULTS: AccountSettings = {
 	groups_mutual: true,
 	trash_auto: true,
 	trash_auto_marks: 3,
-	trash_auto_similarity: 0.5
+	trash_auto_similarity: 0.5,
+	details_confirmed_from: 100,
+	details_first: true,
+	details_candidates_auto: 20,
+	details_candidates_manual: 5
 };
 
 class AccountSettingsState {

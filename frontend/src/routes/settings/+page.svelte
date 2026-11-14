@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
 	import GalleryPanel from '#lib/GalleryPanel.svelte';
+	import DetailsPanel from '#lib/DetailsPanel.svelte';
 	import GroupsPanel from '#lib/GroupsPanel.svelte';
 	import LockedFolderPanel from '#lib/LockedFolderPanel.svelte';
 	import MapSourcesPanel from '#lib/MapSourcesPanel.svelte';
@@ -69,7 +70,7 @@
 	<div class="sections">
 		<div id="gallery"><GalleryPanel /></div>
 		<div id="groups"><GroupsPanel /></div>
-		<div id="suggestions"><ModuleDisplayPanel /></div>
+		<div id="suggestions"><ModuleDisplayPanel /><DetailsPanel /></div>
 		<div id="maps"><MapSourcesPanel /></div>
 		<div id="locked"><LockedFolderPanel /></div>
 		<div id="updates"><UpdatesPanel /></div>

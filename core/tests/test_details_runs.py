@@ -160,3 +160,75 @@ def test_someone_elses_photo_is_not_found(signed_in: TestClient) -> None:
     unknown = UUID(int=1)
 
     assert signed_in.post(f"/api/assets/{unknown}/modules/details/run").status_code == 404
+
+
+# --- What the card is told ---
+
+
+def similar_block(client: TestClient, asset_id: str) -> dict[str, Any]:
+    blocks = client.get(f"/api/assets/{asset_id}/suggestions").json()
+    block: dict[str, Any] = next(b for b in blocks if b["key"] == "similar")
+    return block
+
+
+def test_the_card_knows_the_state_of_the_comparison(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query = library["query.jpg"]
+    assert similar_block(signed_in, query)["details"] == {
+        "status": "not_run",
+        "worker_available": False,
+    }
+
+    worker = worker_on(signed_in, "cpu")
+    signed_in.post(f"/api/assets/{query}/modules/details/run")
+    assert similar_block(signed_in, query)["details"] == {
+        "status": "queued",
+        "worker_available": True,
+    }
+
+    job = lease(signed_in, worker).json()
+    assert similar_block(signed_in, query)["details"]["status"] == "running"
+    body = {"module_version": "1", "candidates": [], "pairs": []}
+    signed_in.post(f"/api/worker/jobs/{job['job_id']}/result", json=body, headers=worker)
+    assert similar_block(signed_in, query)["details"]["status"] == "done"
+
+    # Only similar photos are confirmed by details.
+    others = signed_in.get(f"/api/assets/{query}/suggestions").json()
+    assert all(b["details"] is None for b in others if b["key"] != "similar")
+
+
+def test_the_shared_points_of_a_pair_from_either_photo(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query, budva, kotor = (library[n] for n in ("query.jpg", "budva.jpg", "kotor.jpg"))
+
+    async def work(db: Any) -> None:
+        from steward.models import DetailMatch
+
+        db.add(
+            DetailMatch(
+                asset_id=UUID(query),
+                other_id=UUID(budva),
+                matches=300,
+                inliers=150,
+                lines=[[0.1, 0.2, 0.3, 0.4]],
+                module_version="1",
+            )
+        )
+        await db.commit()
+
+    db_call(signed_in, work)
+
+    assert signed_in.get(f"/api/assets/{query}/details/{budva}").json() == {
+        "matches": 300,
+        "inliers": 150,
+        "lines": [[0.1, 0.2, 0.3, 0.4]],
+    }
+    assert signed_in.get(f"/api/assets/{budva}/details/{query}").json()["lines"] == [
+        [0.3, 0.4, 0.1, 0.2]
+    ]
+    missing = signed_in.get(f"/api/assets/{query}/details/{kotor}")
+    assert (missing.status_code, missing.json()["code"]) == (404, "details_not_compared")

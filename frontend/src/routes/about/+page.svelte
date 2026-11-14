@@ -7,7 +7,9 @@
 	import { getHealth, getWorkers, type Health, type WorkerInfo } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { session } from '#lib/session.svelte.js';
+	import Icon from '#lib/ui/Icon.svelte';
 	import { displayVersion } from '#lib/versions.js';
+	import { resolve } from '$app/paths';
 
 	let health = $state<Health | null>(null);
 	let workers = $state<WorkerInfo[]>([]);
@@ -72,6 +74,13 @@
 <svelte:head>
 	<title>{m.about_heading()} · {m.app_title()}</title>
 </svelte:head>
+
+{#if session.checked && !session.user}
+	<a class="back" href={resolve('/login')}>
+		<Icon name="arrow-left" size={16} />
+		{m.auth_sign_in()}
+	</a>
+{/if}
 
 <h1>{m.about_heading()}</h1>
 <p class="lead">{m.app_title()} — {m.app_tagline()}</p>
@@ -163,6 +172,12 @@
 <!-- eslint-enable svelte/no-navigation-without-resolve -->
 
 <style>
+	.back {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		margin-bottom: var(--space-4);
+	}
 	h1 {
 		margin-bottom: var(--space-2);
 	}

@@ -83,7 +83,10 @@
 </svelte:head>
 
 <header class="st-header" class:st-header--menu={session.user}>
-	<Brand href={session.user ? resolve('/') : undefined} />
+	<!-- Signed out, the logo leads back to the sign-in (from About), but is no link on it. -->
+	<Brand
+		href={session.user ? resolve('/') : page.url.pathname !== loginPath ? loginPath : undefined}
+	/>
 	{#if session.user}
 		<nav class="st-header__nav">
 			{#each pages as item (item.href)}

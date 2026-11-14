@@ -397,6 +397,31 @@ class ModuleRun(Base):
     finished_at: Mapped[datetime | None]
 
 
+class DetailMatch(Base):
+    """How well two photos match point by point: the answer of the `details` module of a worker
+    about a photo and a photo another module found for it (D-225). The newest answer replaces
+    the older one."""
+
+    __tablename__ = "detail_match"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    other_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    # Points paired up between the two photos, and those of them that fit one geometry.
+    matches: Mapped[int] = mapped_column(Integer)
+    inliers: Mapped[int] = mapped_column(Integer)
+    # Some of the fitting pairs for drawing: [x, y, x of the other, y of the other], 0..1 of the
+    # sides of the previews.
+    lines: Mapped[list[list[float]]] = mapped_column(
+        JSON().with_variant(JSONB(), "postgresql"), default=list
+    )
+    module_version: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 # Length of the vectors of the similar-photos module (MegaLoc, M3).
 EMBEDDING_DIM = 8448
 

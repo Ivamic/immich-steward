@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Contract of the modules a worker runs."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 # What the core sends: the previews of Immich (JPEG or WebP) or parts it cut (JPEG). Pillow would
 # try every format it knows otherwise, and the rare ones have had most of the decoder bugs.
@@ -66,4 +67,22 @@ class WorkerModule(Protocol):
 
     def run(self, image: bytes) -> list[Candidate] | Embedding:
         """Candidate locations for one image (JPEG or WebP), or its vector. Runs in a thread."""
+        ...
+
+
+@runtime_checkable
+class PairModule(Protocol):
+    """A module that compares the photo of a job with other photos the core names, instead of
+    suggesting places for it (`details`). Loaded and unloaded like a `WorkerModule`."""
+
+    id: str
+    version: str
+
+    def load(self) -> None: ...
+
+    def unload(self) -> None: ...
+
+    def compare(self, image: bytes, others: Sequence[bytes]) -> list[PairMatch | None]:
+        """The photo against each of the others, in their order; None where the other photo
+        cannot be read. Runs in a thread."""
         ...

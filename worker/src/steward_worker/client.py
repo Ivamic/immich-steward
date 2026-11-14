@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import httpx2
 
-from steward_worker.modules import Candidate, Embedding
+from steward_worker.modules import Candidate, Embedding, PairMatch
 
 # Version of the worker API this worker speaks, and the oldest one of the core it works with.
 # Within a major version of the app the protocol only grows by additions both sides can do
@@ -58,6 +58,10 @@ class WorkerTooOld(CoreRefused):
     """The core no longer speaks the protocol of this worker: the worker needs an update."""
 
 
+class OtherUnavailable(CoreRefused):
+    """A photo to compare with cannot be had (gone, or in the locked folder): it is skipped."""
+
+
 class CoreTooOld(CoreRefused):
     """The core is older than this worker needs: the server needs an update."""
 
@@ -69,6 +73,8 @@ class LeasedJob:
     asset_id: UUID
     attempt: int
     lease_seconds: int
+    # Photos to compare the job's photo with (jobs of pair modules): the core's names for them.
+    others: tuple[str, ...] = ()
 
 
 class CoreClient:
@@ -137,17 +143,27 @@ class CoreClient:
             asset_id=UUID(data["asset_id"]),
             attempt=int(data["attempt"]),
             lease_seconds=int(data["lease_seconds"]),
+            others=tuple(str(other) for other in data.get("others") or ()),
         )
 
-    async def image(self, job_id: UUID) -> bytes:
-        return (await self._call("GET", f"/jobs/{job_id}/image")).content
+    async def image(self, job_id: UUID, other: str | None = None) -> bytes:
+        """The photo of the job, or one of the photos it is compared with."""
+        params = {"other": other} if other else None
+        return (await self._call("GET", f"/jobs/{job_id}/image", params=params)).content
 
     async def heartbeat(self, job_id: UUID) -> None:
         await self._call("POST", f"/jobs/{job_id}/heartbeat")
 
-    async def result(self, job_id: UUID, version: str, output: list[Candidate] | Embedding) -> None:
+    async def result(
+        self,
+        job_id: UUID,
+        version: str,
+        output: list[Candidate] | Embedding | dict[str, PairMatch],
+    ) -> None:
         body: dict[str, Any] = {"module_version": version, "candidates": []}
-        if isinstance(output, Embedding):
+        if isinstance(output, dict):
+            body["pairs"] = [{"other": other, **asdict(pair)} for other, pair in output.items()]
+        elif isinstance(output, Embedding):
             data = base64.b64encode(output.data).decode("ascii")
             body["embedding"] = {"dim": output.dim, "data": data}
         else:
@@ -179,6 +195,8 @@ class CoreClient:
             raise WorkerUnknown(code)
         if response.status_code == 409 and code == "lease_lost":
             raise LeaseLost(code)
+        if response.status_code == 404 and code == "other_unavailable":
+            raise OtherUnavailable(code)
         if response.status_code == 410 and code == "image_unavailable":
             raise ImageUnavailable(_param(response, "reason") or code)
         if response.status_code == 503 and code == "immich_unreachable":

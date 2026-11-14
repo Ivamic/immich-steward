@@ -11,6 +11,7 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 from steward_worker import __version__
 from steward_worker.client import (
@@ -24,11 +25,12 @@ from steward_worker.client import (
     LeaseLost,
     NameTaken,
     NotSteward,
+    OtherUnavailable,
     WorkerTooOld,
     WorkerUnknown,
 )
 from steward_worker.load import system_busy
-from steward_worker.modules import Embedding, PermanentError, WorkerModule
+from steward_worker.modules import Embedding, PairMatch, PairModule, PermanentError, WorkerModule
 from steward_worker.versions import is_newer, update_hint
 
 log = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ class Worker:
     def __init__(
         self,
         client: CoreClient,
-        modules: dict[str, WorkerModule],
+        modules: dict[str, WorkerModule | PairModule],
         config: WorkerConfig,
         sleep: Callable[[float], Awaitable[None]] | None = None,
         busy: Callable[[float | None], bool] = system_busy,
@@ -250,7 +252,11 @@ class Worker:
             self._loaded[job.module] = time.monotonic()
             await self._report(WORKING, job.module)
             started = time.monotonic()
-            output = await asyncio.to_thread(module.run, image)
+            output: list[Any] | Embedding | dict[str, PairMatch]
+            if isinstance(module, PairModule):
+                output = await self._compare(job, module, image)
+            else:
+                output = await asyncio.to_thread(module.run, image)
             self._loaded[job.module] = time.monotonic()
             await self._client.result(job.job_id, module.version, output)
             log.info(
@@ -259,6 +265,8 @@ class Worker:
                 time.monotonic() - started,
                 f"a vector of {output.dim} numbers"
                 if isinstance(output, Embedding)
+                else f"compared with {len(output)} photos"
+                if isinstance(output, dict)
                 else f"{len(output)} candidates",
             )
         except LeaseLost:
@@ -288,6 +296,20 @@ class Worker:
             heartbeat.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await heartbeat
+
+    async def _compare(
+        self, job: LeasedJob, module: PairModule, image: bytes
+    ) -> dict[str, PairMatch]:
+        """The job's photo against the photos the core named; a photo that cannot be had or
+        read is left out, the rest still count."""
+        others: dict[str, bytes] = {}
+        for other in job.others:
+            try:
+                others[other] = await self._client.image(job.job_id, other)
+            except OtherUnavailable:
+                log.info("job %s: photo %s cannot be had, skipping it", job.job_id, other)
+        pairs = await asyncio.to_thread(module.compare, image, list(others.values()))
+        return {other: pair for other, pair in zip(others, pairs, strict=True) if pair is not None}
 
     async def _heartbeat(self, job: LeasedJob) -> None:
         """Extends the lease while the module works (a slow CPU may need longer than one)."""

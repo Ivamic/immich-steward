@@ -104,6 +104,9 @@ class LeasedJob(BaseModel):
     asset_id: UUID
     attempt: int
     lease_seconds: int
+    # Jobs of pair modules (`details`): the photos to compare the job's photo with. The worker
+    # asks for each with `image?other=`.
+    others: list[UUID] = Field(default_factory=list)
 
 
 class CandidateIn(BaseModel):
@@ -121,11 +124,21 @@ class EmbeddingIn(BaseModel):
     data: str = Field(max_length=(MAX_EMBEDDING_DIM * 2 + 2) // 3 * 4)
 
 
+class PairIn(BaseModel):
+    other: UUID
+    matches: int = Field(ge=0, le=100_000)
+    inliers: int = Field(ge=0, le=100_000)
+    # x, y in the job's photo and x, y in the other, 0..1 of the sides.
+    lines: list[tuple[float, float, float, float]] = Field(default_factory=list, max_length=200)
+
+
 class ResultRequest(BaseModel):
     module_version: str = Field(min_length=1, max_length=32)
     candidates: list[CandidateIn] = Field(max_length=MAX_CANDIDATES)
     # From retrieval modules (M3) instead of candidates.
     embedding: EmbeddingIn | None = None
+    # From pair modules (`details`) instead of candidates.
+    pairs: list[PairIn] | None = Field(default=None, max_length=worker_queue.MAX_OTHERS)
 
 
 class FailRequest(BaseModel):
@@ -196,6 +209,7 @@ async def lease(
         asset_id=leased.run.asset_id,
         attempt=leased.job.attempts,
         lease_seconds=settings.worker_lease_seconds,
+        others=worker_queue.others_of(leased.job),
     )
 
 
@@ -207,9 +221,18 @@ async def heartbeat(job_id: UUID, worker: WorkerDep, db: DbDep, settings: Settin
 
 @router.get("/jobs/{job_id}/image")
 async def image(
-    job_id: UUID, request: Request, worker: WorkerDep, db: DbDep, box: SecretBoxDep
+    job_id: UUID,
+    request: Request,
+    worker: WorkerDep,
+    db: DbDep,
+    box: SecretBoxDep,
+    other: UUID | None = None,
 ) -> Response:
     """The preview of the job's photo (JPEG or WebP, about 1440 px on the long side).
+
+    With `other`: the preview of one of the photos the job compares its photo with, as Immich
+    shows it. When it is not one of them or cannot be had (gone, in the closed locked folder),
+    the answer is 404 `other_unavailable` and the worker goes on without it.
 
     For a run on a part of the photo, the part is cut from the full-size image (the preview
     when the API key may not download originals, and for videos), as a JPEG of up to 1440 px.
@@ -222,6 +245,8 @@ async def image(
     `immich_unreachable`: the worker waits a little.
     """
     leased = await worker_queue.leased_job(db, worker, job_id)
+    if other is not None:
+        return await _other_image(request, db, box, worker, leased, other)
     await db.commit()  # releases the row lock while Immich is asked
     asset = await db.get(Asset, leased.run.asset_id)
     account = await db.get(Account, asset.account_id) if asset else None
@@ -270,6 +295,43 @@ async def image(
     return Response(content=found.content, media_type=found.media_type)
 
 
+async def _other_image(
+    request: Request,
+    db: DbDep,
+    box: SecretBoxDep,
+    worker: Worker,
+    leased: worker_queue.Lease,
+    other: UUID,
+) -> Response:
+    job_id, account_id = leased.job.id, leased.job.account_id
+    named = other in worker_queue.others_of(leased.job)
+    await db.commit()  # releases the row lock while Immich is asked
+    asset = await db.get(Asset, other) if named else None
+    account = await db.get(Account, account_id) if account_id else None
+    if asset is None or account is None or asset.account_id != account.id:
+        raise ApiError(404, "other_unavailable")
+    try:
+        session = await locked.image_session(db, box, asset)
+    except ApiError:
+        raise ApiError(404, "other_unavailable") from None
+    fetcher: ThumbnailFetcher = request.app.state.thumbnails
+    try:
+        found = await fetcher.fetch(
+            box.decrypt(account.api_key_encrypted),
+            asset.immich_id,
+            "preview",
+            asset.is_edited,
+            session_token=session,
+        )
+    except ImmichUnreachableError as exc:
+        leased = await worker_queue.leased_job(db, worker, job_id)
+        await worker_queue.give_back(db, leased, str(exc))
+        raise ApiError(503, "immich_unreachable") from exc
+    except ImmichError as exc:
+        raise ApiError(404, "other_unavailable") from exc
+    return Response(content=found.content, media_type=found.media_type)
+
+
 async def _image_failed(
     db: DbDep, worker: Worker, job_id: UUID, error: str, code: str, retry: bool = False
 ) -> NoReturn:
@@ -281,6 +343,10 @@ async def _image_failed(
 @router.post("/jobs/{job_id}/result", status_code=204)
 async def result(job_id: UUID, body: ResultRequest, worker: WorkerDep, db: DbDep) -> None:
     leased = await worker_queue.leased_job(db, worker, job_id)
+    if leased.job.module_id in worker_queue.PAIR_MODULES:
+        pairs = [pair.model_dump() for pair in body.pairs or []]
+        await worker_queue.complete_pairs(db, leased, body.module_version, pairs)
+        return
     candidates = [c.model_dump() for c in body.candidates]
     remote = REMOTE_MODULES.get(leased.job.module_id or "")
     expected = remote.embedding_dim if remote else None

@@ -45,10 +45,13 @@ class FakeCore:
     states: list[tuple[str, str | None]] | None = field(default_factory=list)
     core_version: str | None = None
     worker_recommended: str | None = None
+    # Photos to compare with that the core cannot hand out.
+    missing_others: set[str] = field(default_factory=set)
 
-    def add_job(self, module: str = "stub") -> str:
+    def add_job(self, module: str = "stub", others: list[str] | None = None) -> str:
         job_id = str(uuid.uuid4())
-        self.jobs.append({"job_id": job_id, "module": module, "asset_id": str(uuid.uuid4())})
+        job = {"job_id": job_id, "module": module, "asset_id": str(uuid.uuid4())}
+        self.jobs.append(job | ({"others": others} if others is not None else {}))
         return job_id
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
@@ -90,7 +93,12 @@ class FakeCore:
         if path.endswith("/image"):
             if self.image_error:
                 return httpx2.Response(self.image_error[0], json=self.image_error[1])
-            return httpx2.Response(200, content=b"image-bytes")
+            other = request.url.params.get("other")
+            if other in self.missing_others:
+                return httpx2.Response(404, json={"code": "other_unavailable"})
+            return httpx2.Response(
+                200, content=f"image-{other}".encode() if other else b"image-bytes"
+            )
         if self.lose_lease:
             return httpx2.Response(409, json={"code": "lease_lost"})
         if path.endswith("/result"):

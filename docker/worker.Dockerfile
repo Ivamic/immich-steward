@@ -18,10 +18,10 @@ WORKDIR /src
 COPY pyproject.toml uv.lock ./
 COPY core/pyproject.toml core/
 COPY worker/pyproject.toml worker/
-RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cpu \
+RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cpu \
     --no-install-workspace
 COPY worker/ worker/
-RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cpu \
+RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cpu \
     --no-editable
 
 FROM python:${PYTHON_VERSION}-slim
@@ -34,6 +34,7 @@ COPY LICENSE THIRD_PARTY_NOTICES.md /app/
 ENV PATH=/app/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     HF_HOME=/models \
+    TORCH_HOME=/models/torch \
     STEWARD_WORKER_ID_FILE=/models/steward-worker.id \
     STEWARD_WORKER_IMAGE=1 \
     HF_HUB_DISABLE_PROGRESS_BARS=1

@@ -19,7 +19,16 @@ from sqlalchemy.sql import ColumnElement
 
 from steward import embeddings
 from steward.errors import ApiError
-from steward.models import Account, Asset, Job, LockedFolder, ModulePause, ModuleRun, Worker
+from steward.models import (
+    Account,
+    Asset,
+    DetailMatch,
+    Job,
+    LockedFolder,
+    ModulePause,
+    ModuleRun,
+    Worker,
+)
 
 MODULE_JOB = "module"
 ACTIVE = ("queued", "running")
@@ -141,6 +150,38 @@ async def enqueue_module(
     db.add(run)
     await db.commit()
     return run
+
+
+# Modules that compare the photo of a job with other photos instead of suggesting places for it.
+PAIR_MODULES = ("details",)
+# Photos one job compares its photo with, at most.
+MAX_OTHERS = 30
+
+
+async def enqueue_pairs(
+    db: AsyncSession,
+    asset: Asset,
+    module_id: str,
+    others: list[UUID],
+    priority: int = PRIORITY_BACKGROUND,
+) -> ModuleRun:
+    """Queues a comparison of the photo with other photos of the same account.
+
+    A comparison still waiting in the queue takes the new list; one already running is left as
+    it is.
+    """
+    run = await enqueue_module(db, asset, module_id, priority)
+    job = await db.get(Job, run.job_id) if run.job_id else None
+    if job is not None and job.status == "queued":
+        names = list(dict.fromkeys(str(other) for other in others if other != asset.id))
+        job.payload = {**job.payload, "others": names[:MAX_OTHERS]}
+        await db.commit()
+    return run
+
+
+def others_of(job: Job) -> list[UUID]:
+    """The photos the job compares its photo with."""
+    return [UUID(other) for other in job.payload.get("others") or []]
 
 
 async def latest_runs(
@@ -427,6 +468,11 @@ async def forget_results(db: AsyncSession, asset_ids: list[UUID]) -> None:
     await db.execute(
         delete(ModuleRun).where(ModuleRun.asset_id.in_(asset_ids), ModuleRun.status.not_in(ACTIVE))
     )
+    await db.execute(
+        delete(DetailMatch).where(
+            or_(DetailMatch.asset_id.in_(asset_ids), DetailMatch.other_id.in_(asset_ids))
+        )
+    )
 
 
 async def run_counts(db: AsyncSession, account: Account) -> dict[str, dict[str, int]]:
@@ -642,6 +688,30 @@ async def complete(
         asset = await db.get(Asset, leased.run.asset_id)
         if asset is not None:
             await embeddings.store(db, leased.run, asset, module_version, embedding)
+    _finish(leased.job, leased.run, "done")
+    await db.commit()
+
+
+async def complete_pairs(
+    db: AsyncSession, leased: Lease, module_version: str, pairs: list[dict[str, Any]]
+) -> None:
+    """Keeps the answers about the photos the job named; answers about any other are dropped."""
+    named = set(others_of(leased.job))
+    for pair in pairs:
+        if pair["other"] not in named or await db.get(Asset, pair["other"]) is None:
+            continue
+        await db.merge(
+            DetailMatch(
+                asset_id=leased.run.asset_id,
+                other_id=pair["other"],
+                matches=pair["matches"],
+                inliers=pair["inliers"],
+                lines=[list(line) for line in pair["lines"]],
+                module_version=module_version,
+                created_at=datetime.now(UTC),
+            )
+        )
+    leased.run.module_version = module_version
     _finish(leased.job, leased.run, "done")
     await db.commit()
 

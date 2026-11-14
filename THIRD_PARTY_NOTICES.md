@@ -49,6 +49,8 @@ Python packages (in `/app/venv`), the main ones:
 |---|---|
 | [GeoCLIP](https://github.com/VicenteVivan/geo-clip) with its model weights and GPS gallery | MIT |
 | [MegaLoc](https://github.com/gmberton/MegaLoc) model code (copied into the worker, see below) | MIT |
+| [LightGlue](https://github.com/cvg/LightGlue) matcher code (copied into the worker, see below) | Apache-2.0 |
+| [ALIKED](https://github.com/Shiaoming/ALIKED) keypoint extractor code (copied into the worker, see below) | BSD-3-Clause |
 | PyTorch and torchvision (CPU build) | BSD-3-Clause |
 | Transformers, Hugging Face Hub, safetensors, tokenizers | Apache-2.0 |
 | NumPy, pandas, NetworkX, Jinja2 | BSD-3-Clause |
@@ -57,7 +59,9 @@ Python packages (in `/app/venv`), the main ones:
 
 The image contains no NVIDIA libraries. The CLIP ViT-L/14 model (MIT) and the MegaLoc weights
 (MIT, [gberton/MegaLoc](https://huggingface.co/gberton/MegaLoc)) are not part of the image: the
-worker downloads them from Hugging Face on first use.
+worker downloads them from Hugging Face on first use. The same goes for the weights of ALIKED
+(BSD-3-Clause, [Shiaoming/ALIKED](https://github.com/Shiaoming/ALIKED)) and LightGlue (Apache-2.0,
+[cvg/LightGlue](https://github.com/cvg/LightGlue)), downloaded from GitHub.
 
 ## Full list
 
@@ -102,6 +106,33 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+`worker/src/steward_worker/modules/lightglue_model.py` is the LightGlue matcher from
+[cvg/LightGlue](https://github.com/cvg/LightGlue) (file `lightglue/lightglue.py`, commit `5a650c4`),
+unchanged, under the Apache License 2.0:
+
+```text
+Copyright 2023 ETH Zurich
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
+
+`worker/src/steward_worker/modules/aliked_model.py` is the ALIKED keypoint extractor from the same
+repository (file `lightglue/aliked.py`, there adapted from
+[Shiaoming/ALIKED](https://github.com/Shiaoming/ALIKED)), under the BSD 3-Clause License,
+Copyright (c) 2022, Zhao Xiaoming; the full text is at the top of the file. Only its imports are
+changed: three helpers come from `lightglue_utils.py` of the worker, written after
+`lightglue/utils.py` (Apache-2.0), instead of that file and kornia.
 
 ## Services used at run time
 

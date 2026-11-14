@@ -32,6 +32,19 @@ class Embedding:
     dim: int
 
 
+@dataclass(frozen=True)
+class PairMatch:
+    """How well two photos match point by point (the `details` module)."""
+
+    # Points paired up between the two photos.
+    matches: int
+    # Of them, the pairs that fit one geometry: the same scene seen from two places.
+    inliers: int
+    # Some of those pairs for drawing: x, y in the first photo and x, y in the second, 0..1 of
+    # the width and the height.
+    lines: list[tuple[float, float, float, float]] = field(default_factory=list)
+
+
 class PermanentError(Exception):
     """Running the job again cannot help (e.g. the image cannot be decoded)."""
 

@@ -19,6 +19,8 @@ dev = [
     "steward-worker",
     "httpx2>=2.13",
     "mypy>=1.15",
+    # The geometry check of the worker (extra `details`) is tested without PyTorch.
+    "numpy>=2",
     "pip-licenses>=5.0",
     "pytest>=8.3",
     "ruff>=0.11",
@@ -28,7 +30,11 @@ dev = [
 line-length = 100
 target-version = "py312"
 # Third-party code kept exactly as published.
-extend-exclude = ["worker/src/steward_worker/modules/megaloc_model.py"]
+extend-exclude = [
+    "worker/src/steward_worker/modules/megaloc_model.py",
+    "worker/src/steward_worker/modules/aliked_model.py",
+    "worker/src/steward_worker/modules/lightglue_model.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
@@ -53,7 +59,11 @@ ignore_missing_imports = true
 
 # Third-party code kept exactly as published.
 [[tool.mypy.overrides]]
-module = ["steward_worker.modules.megaloc_model"]
+module = [
+    "steward_worker.modules.megaloc_model",
+    "steward_worker.modules.aliked_model",
+    "steward_worker.modules.lightglue_model",
+]
 ignore_errors = true
 
 [tool.pytest.ini_options]

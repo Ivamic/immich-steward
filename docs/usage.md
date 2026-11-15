@@ -31,7 +31,8 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   a photo with a location was taken within 15 minutes, filled when by the same camera (the
   stronger hint) and outlined when by another one, such as a phone; an orange crosshair means
   GeoCLIP has a confident guess for it; purple photos mean a confidently similar photo has a
-  location; a play sign marks a video. The 15 minutes are a setting
+  location; a check mark means the place of a similar photo is
+  [confirmed by details](#confirmed-by-details); a play sign marks a video. The 15 minutes are a setting
   (`STEWARD_TIME_NEIGHBORS_NEARBY_MINUTES`).
 - **Months and days**: within a month, the photos are grouped by the day they were taken, under
   the day of the week, the date and the number of photos.
@@ -193,6 +194,36 @@ number on the map, in the list and the key are the same.
   its view tells nothing of the place. A part of the photo drawn with **R** is searched as usual.
 - **GeoCLIP** (orange squares): recognizes the place by its look, anywhere in the world. Its
   answer is an area, so the circle around it is wide.
+
+#### Confirmed by details
+
+Two streets of one town may look alike. **Matching details** looks closer: a worker compares
+the photo with its most similar photos point by point and counts the details both show that
+fit one geometry, as the same building seen from two places does. A suggestion of similar
+photos whose photo shares at least 100 details with yours is **Confirmed by details**: it is
+marked, counts as sure, stands first, and its block goes before the other modules, so its key
+is **1**. On a real family library such a suggestion was right within 1 km 95 times out of
+100; with 50 to 99 details, about half the time.
+
+- **Click the mark** to see the two photos side by side, with lines between the details they
+  share. The window can be enlarged up to four times; point at a line or at one of its ends
+  to make that pair stand out. A few lines may join the wrong things: the check asks that
+  the pairs fit one geometry together, not that each of them is right.
+- **Hover a thumbnail** of a similar photo to see how many details it shares with the photo,
+  also when they are too few to confirm anything.
+- **Compare details** in the block of similar photos starts the comparison for this photo,
+  ahead of the queue, on any worker; while the photo waits its turn in the background, the
+  button reads **Compare now**. When nothing is confirmed, the card says so and how many
+  details the closest photo shares.
+- **By itself** the comparison runs for the photos without a location once their similar
+  photos are found, the newest first, only on a [worker with a graphics card](workers.md):
+  comparing a photo with twenty others takes a couple of seconds there and most of a minute
+  on a CPU.
+- **In the gallery** the filter **Confirmed by details** shows the photos without a location
+  that have a confirmed suggestion: the place can be set almost without looking.
+
+A part of the photo drawn with **R** is not confirmed by the comparison of the whole photos.
+The threshold, the order and how many photos are compared are in [Settings](#settings).
 
 **Confidence.** The bars next to a suggestion show how sure the module is: one bar is weak, two
 are normal, three (green, with the word *confident*) are confident. The percentage is the
@@ -459,8 +490,9 @@ The **Processing** page shows how the work goes:
   next job on, without a restart. **Add a device** shows the commands to start a worker on another
   computer, with the address and the name filled in; the worker token only for administrators of
   Immich. A worker that has not been seen for a while can be removed from the list.
-- **Modules**: for GeoCLIP and similar photos, how many photos are done, running, queued and
-  failed. Failures are grouped by reason; **Show** opens those photos in the gallery and **Run
+- **Modules**: for GeoCLIP, similar photos and matching details, how many photos are done,
+  running, queued and failed (for matching details, *done* also counts the photos that had
+  nothing to be compared with). Failures are grouped by reason; **Show** opens those photos in the gallery and **Run
   again** queues them once more.
 - **Pause**: holds the background runs of one module or of all, until you resume or for a
   while (30 minutes to a day), for example while you watch a film on the same server. Runs started
@@ -472,7 +504,10 @@ On a wide screen the sections of **Settings** are listed beside them (above them
 has its own address, e.g. `/settings#locked`.
 
 **Settings** holds the details shown over a photo of the gallery, how strict [groups](#changing-groups)
-are and the marks of the app, the order of the modules in the photo card and which of them are shown, and
+are and the marks of the app, the order of the modules in the photo card and which of them are shown,
+**matching details** (from how many shared details a suggestion is confirmed, 100; whether similar photos
+with a confirmed suggestion go before the other modules; how many photos a photo is compared with, 20 by
+itself and 5 from the button), and
 the **map sources**: satellite imagery, their keys, how many tiles the app loaded, and which
 sources Auto uses far out and close up. Each family member has their own. How to get the keys:
 [Configuration](configuration.md#satellite-imagery-in-settings).

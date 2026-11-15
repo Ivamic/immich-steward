@@ -95,6 +95,13 @@ Verfügbare Module:
   Hälfte seiner Vorschläge auf 1 km genau richtig, bei den sicheren mehr als acht von zehn. Wie
   sicher ein Vorschlag ist, hängt auch davon ab, wie weit die ähnlichsten Fotos auseinanderliegen.
   Die Suche berücksichtigt immer auch die Standorte, die du inzwischen gesetzt hast.
+- **Detailabgleich** *(optionaler Worker)* — sieht sich genauer an, was die ähnlichen Fotos
+  gefunden haben: Er vergleicht das Foto Punkt für Punkt mit den ähnlichsten
+  ([ALIKED](https://github.com/Shiaoming/ALIKED) und
+  [LightGlue](https://github.com/cvg/LightGlue)). Ein Vorschlag, dessen Foto hundert Details mit
+  deinem gemeinsam hat, wird als bestätigt markiert und zuerst gezeigt: In einer echten
+  Familienmediathek lag ein solcher Vorschlag in 95 von 100 Fällen auf 1 km genau richtig. Ein
+  Klick zeigt beide Fotos nebeneinander, mit Linien zwischen den gemeinsamen Details.
 
 Ein Foto lässt sich in der App drehen, um es besser zu sehen; die Module arbeiten mit dem
 gedrehten Foto, und die Drehung kann in Immich gespeichert werden.
@@ -127,8 +134,6 @@ verarbeitet, solange er offen ist. Jeder Punkt öffnet sich mit einem Klick in *
 Geplant:
 
 - **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.
-- **Geometrische Prüfung** ähnlicher Fotos (übereinstimmende Details, nicht nur der
-  Gesamteindruck).
 - **Schlussfolgern mit einem LLM** (im Stil von Img2Loc) — ein Bild-Sprach-Modell denkt über das
   Foto und die von den anderen Modulen gesammelten Hinweise nach.
 - **Externe Dienste** — optionale Cloud-Erkennung, ein Modul pro Dienst.

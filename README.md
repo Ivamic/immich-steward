@@ -87,6 +87,13 @@ Available modules:
   family library, about half of its suggestions are right within 1 km, and more than eight
   out of ten of its confident ones. How sure a suggestion is also depends on how far apart the
   most similar photos lie. The search always includes the locations you have set since.
+- **Matching details** *(optional worker)* — looks closer at what similar photos found: it
+  compares the photo with the most similar ones point by point
+  ([ALIKED](https://github.com/Shiaoming/ALIKED) and
+  [LightGlue](https://github.com/cvg/LightGlue)). A suggestion whose photo shares a hundred
+  details with yours is marked as confirmed and shown first: on a real family library such a
+  suggestion was right within 1 km 95 times out of 100. A click shows the two photos side by
+  side, with lines between the details they share.
 
 A photo can be rotated in the app for a better look, the modules run on it rotated, and the
 rotation can be saved to Immich.
@@ -116,7 +123,6 @@ while it is open. Any point opens in **Google Maps** (satellite or Street View) 
 Planned:
 
 - **Street-level panoramas** on the map, to check a place by eye.
-- **Geometric verification** of similar photos (matching details, not only the overall look).
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
   plus the evidence collected by the other modules.
 - **External services** — optional cloud recognizers, one module per service.

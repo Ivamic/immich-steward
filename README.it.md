@@ -92,6 +92,13 @@ Moduli disponibili:
   1 km, e più di otto su dieci di quelli affidabili. Quanto un suggerimento è affidabile dipende
   anche da quanto sono lontane tra loro le foto più simili. La ricerca tiene sempre conto delle
   posizioni che hai impostato nel frattempo.
+- **Confronto dei dettagli** *(worker facoltativo)* — guarda più da vicino ciò che le foto
+  simili hanno trovato: confronta la foto punto per punto con le più simili
+  ([ALIKED](https://github.com/Shiaoming/ALIKED) e
+  [LightGlue](https://github.com/cvg/LightGlue)). Un suggerimento la cui foto ha un centinaio
+  di dettagli in comune con la tua è segnato come confermato e mostrato per primo: su una vera
+  libreria di famiglia un suggerimento così era giusto entro 1 km 95 volte su 100. Un clic
+  mostra le due foto affiancate, con linee tra i dettagli in comune.
 
 Una foto può essere ruotata nell'app per vederla meglio; i moduli lavorano sulla foto ruotata, e
 la rotazione può essere salvata in Immich.
@@ -124,8 +131,6 @@ Street View).
 In programma:
 
 - **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.
-- **Verifica geometrica** delle foto simili (corrispondenza dei dettagli, non solo dell'aspetto
-  generale).
 - **Ragionamento con un LLM** (sul modello di Img2Loc) — un modello visione-linguaggio ragiona
   sulla foto e sugli indizi raccolti dagli altri moduli.
 - **Servizi esterni** — riconoscimento facoltativo nel cloud, un modulo per servizio.

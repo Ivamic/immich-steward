@@ -1,6 +1,6 @@
 # Workers
 
-Two location modules are neural networks: **GeoCLIP** and **similar photos**. They run in a
+Three modules are neural networks: **GeoCLIP**, **similar photos** and **matching details**. They run in a
 separate program, the *worker*, which takes photos one by one in the background and sends the
 results to the app. The worker is optional: without it the app still suggests places from the
 photos taken shortly before and after, and you can pick points on the map yourself.
@@ -13,6 +13,10 @@ photos taken shortly before and after, and you can pick points on the map yourse
   photos without a location. Its suggestions are purple diamonds, with thumbnails of the similar
   photos. The search runs when you open a photo, so it always includes the locations you have
   set since.
+- **Matching details** confirms what similar photos found: it compares a photo with its most
+  similar photos point by point ([usage](usage.md#confirmed-by-details)). It suggests no
+  places itself. By itself it runs only on a worker with a graphics card; a comparison
+  started from a photo card runs on any worker.
 
 Photos never leave your home network: the worker gets them from the app, not from the internet.
 
@@ -32,6 +36,7 @@ What it needs (measured on an Intel Core i3-13100 next to Immich):
   while loading (the container is limited to 6 GB); a 1.4 GB image;
 - on their first use, the models are downloaded from Hugging Face into the volume
   `immich-steward_model-cache` (CLIP 1.7 GB, MegaLoc 0.9 GB), then loaded for a minute or two;
+  those of matching details (50 MB) come from GitHub into the same volume;
 - with 2 CPU threads, about 0.8 seconds per photo for GeoCLIP and 0.3 to 0.6 seconds for similar
   photos. The first pass of similar photos over a library of 100,000 photos takes a day or two in
   the background.
@@ -196,7 +201,8 @@ worker from source instead; the GPU build of PyTorch is downloaded during the in
 Measured on a laptop with an RTX 3060 Laptop GPU (6 GB), connected to the server over the home
 network: about 0.25 seconds per photo for GeoCLIP, some 10,000 photos an hour (the server's CPU
 worker next to it needs 0.8 seconds), and 0.1 seconds for similar photos. Both models together
-take about 4 GB of video memory.
+take about 4 GB of video memory. Matching details takes about 1 GB more and a couple of seconds
+for a photo and its twenty most similar ones.
 
 What it needs:
 
@@ -225,7 +231,7 @@ Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 ```powershell
 git clone --branch v0.10.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 Start the worker (every time; it runs while the window is open):
@@ -233,7 +239,7 @@ Start the worker (every time; it runs while the window is open):
 ```powershell
 cd D:\steward-worker
 $env:STEWARD_WORKER_TOKEN = "your-token"
-.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip --name laptop
+.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details --name laptop
 ```
 
 ### GPU worker on Linux (bash)
@@ -245,7 +251,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 git clone --branch v0.10.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 Start the worker (every time; it runs while the terminal is open):
@@ -253,7 +259,7 @@ Start the worker (every time; it runs while the terminal is open):
 ```sh
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
-.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip --name desktop
+.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details --name desktop
 ```
 
 ### Start the GPU worker with one file
@@ -269,7 +275,7 @@ On Windows, create `D:\steward-worker\start-worker.cmd` (e.g. in Notepad, saved 
 cd /d D:\steward-worker
 set STEWARD_WORKER_TOKEN=your-token
 set STEWARD_CORE_URL=http://192.168.1.10:8780
-set STEWARD_WORKER_MODULES=similar,geoclip
+set STEWARD_WORKER_MODULES=similar,geoclip,details
 set STEWARD_WORKER_NAME=laptop
 .venv\Scripts\steward-worker.exe
 pause
@@ -288,7 +294,7 @@ On Linux, create `~/steward-worker/start-worker.sh`:
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
 export STEWARD_CORE_URL=http://192.168.1.10:8780
-export STEWARD_WORKER_MODULES=similar,geoclip
+export STEWARD_WORKER_MODULES=similar,geoclip,details
 export STEWARD_WORKER_NAME=desktop
 exec .venv/bin/steward-worker
 ```
@@ -316,7 +322,7 @@ Update to a new version (replace `0.10.0` with the new version), on Windows:
 cd D:\steward-worker
 git fetch --tags
 git checkout v0.10.0
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 On Linux:
@@ -325,7 +331,7 @@ On Linux:
 cd ~/steward-worker
 git fetch --tags
 git checkout v0.10.0
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra cuda
+uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 Don't skip `uv sync` after `git checkout`: without it the old version keeps running.

@@ -7,6 +7,43 @@ between releases.
 
 ## [Unreleased]
 
+Suggestions of similar photos confirmed by matching details.
+
+### Added
+
+- **Matching details**, a new worker module: it compares a photo with its most similar photos
+  point by point ([ALIKED](https://github.com/Shiaoming/ALIKED) and
+  [LightGlue](https://github.com/cvg/LightGlue)) and counts the details both show that fit one
+  geometry. A suggestion of similar photos whose photo shares at least 100 details with yours is
+  **Confirmed by details**: it is marked, counts as sure, stands first, and its block goes before
+  the other modules. On a family library (300 photos with camera GPS against their 20 most
+  similar) such a suggestion was right within 1 km 95 % of the time; a similarity high enough to
+  be marked confident, 86 %, and for half as many photos.
+- **The shared details of two photos**: a click on the mark shows the photo and the similar one
+  side by side, with lines between the details they share; the window can be enlarged, and the
+  pair under the pointer stands out. The tooltip of a similar photo says how many details it
+  shares with the photo.
+- **Compare details** in the block of similar photos of the photo card: on any worker, ahead of
+  the queue. By itself the comparison runs for the photos without a location, only on a worker
+  with a graphics card (`details` in `STEWARD_AUTO_MODULES`).
+- **Confirmed by details** in the gallery: a filter and a check mark on the tiles.
+- **Settings → Matching details**, personal: from how many shared details a suggestion is
+  confirmed (100), whether similar photos with a confirmed suggestion go before the other
+  modules, how many photos a photo is compared with (20 by itself, 5 from the button).
+- **Processing** shows matching details as a module: its counts, pause, failures.
+
+### Changed
+
+- `STEWARD_AUTO_MODULES` is `geoclip,similar,details` by default.
+- The worker of the server image also runs matching details (only the comparisons started from a
+  photo card: it has no graphics card).
+
+### Fixed
+
+- The photo card stopped looking for the result of a worker module after the first answer that
+  changed nothing: a job longer than a couple of seconds showed its result only after the page
+  was loaded again. In the card since 0.2.0.
+
 ## [0.10.0] - 2026-11-14
 
 The locked folder of Immich, opened with your PIN code; Google Maps for any point; a page about the

@@ -95,6 +95,13 @@ Modules disponibles :
   moitié de ses suggestions sont justes à 1 km près, et plus de huit sur dix de ses suggestions
   sûres. La confiance d'une suggestion dépend aussi de la distance entre les photos les plus
   similaires. La recherche tient toujours compte des lieux que vous avez définis entre-temps.
+- **Comparaison des détails** *(worker facultatif)* — regarde de plus près ce que les photos
+  similaires ont trouvé : elle compare la photo point par point avec les plus ressemblantes
+  ([ALIKED](https://github.com/Shiaoming/ALIKED) et
+  [LightGlue](https://github.com/cvg/LightGlue)). Une suggestion dont la photo partage une
+  centaine de détails avec la vôtre est marquée comme confirmée et affichée en premier : sur
+  une vraie photothèque familiale, une telle suggestion était juste à 1 km près 95 fois sur
+  100. Un clic montre les deux photos côte à côte, avec des lignes entre les détails communs.
 
 Une photo peut être pivotée dans l'application pour mieux la voir ; les modules travaillent sur
 la photo pivotée, et la rotation peut être enregistrée dans Immich.
@@ -127,8 +134,6 @@ Maps** (satellite ou Street View).
 Prévu :
 
 - **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.
-- **Vérification géométrique** des photos similaires (concordance des détails, pas seulement de
-  l'aspect général).
 - **Raisonnement par LLM** (dans l'esprit d'Img2Loc) — un modèle vision-langage raisonne sur la
   photo et sur les indices rassemblés par les autres modules.
 - **Services externes** — des services de reconnaissance en ligne facultatifs, un module par

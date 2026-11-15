@@ -180,12 +180,16 @@ source is marked in Settings and over the map, and **Auto** takes the next sourc
 These only change what is shown: the modules keep their full results, so a change applies at once,
 without running anything again.
 
+Matching details has no settings here: from how many shared details a suggestion is confirmed and how
+many photos a photo is compared with are personal, in **Settings** of the app
+([usage](usage.md#confirmed-by-details)).
+
 ## Workers: the app side
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `STEWARD_WORKER_TOKEN` | empty | The shared secret of the [workers](workers.md) (`openssl rand -hex 32`). Empty: workers are turned off. Every worker, on the server or elsewhere, must use the same value. |
-| `STEWARD_AUTO_MODULES` | `geoclip,similar` | Modules that run automatically in the background on the photos without a location (similar photos also on the ones with a location: they are its search index, and go first). Empty: modules run only when started with **Run** in a photo card. |
+| `STEWARD_AUTO_MODULES` | `geoclip,similar,details` | Modules that run automatically in the background on the photos without a location (similar photos also on the ones with a location: they are its search index, and go first; matching details only on a worker with a graphics card). Empty: modules run only when started with **Run** in a photo card. If you have set this yourself, add `details` to it. |
 
 ## Worker on the server
 
@@ -193,7 +197,7 @@ These apply to the worker started with `docker compose --profile worker up -d`.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `STEWARD_WORKER_MODULES` | `similar,geoclip` | Modules this worker runs; the photos of the first one go first (photos you start a module on from a card always go first). |
+| `STEWARD_WORKER_MODULES` | `similar,geoclip,details` | Modules this worker runs; the photos of the first one go first (photos you start a module on from a card always go first). |
 | `STEWARD_WORKER_THREADS` | `2` | CPU threads for the models. More is faster but leaves less for Immich. |
 | `STEWARD_WORKER_MAX_LOAD` | empty | E.g. `0.8`: the worker waits while the server is busy (the load average per CPU is above 0.8), for instance while Immich converts videos. |
 | `STEWARD_WORKER_ONE_MODEL` | `false` | `true`: one model in memory at a time. The worker then finishes one module's photos before it loads the other model; a memory limit of `4g` is enough. |
@@ -210,7 +214,7 @@ A worker started with `docker run` or from source is configured with environment
 | `STEWARD_CORE_URL` | `--core` | — | The address of the app, e.g. `http://192.168.1.10:8780`. Required. |
 | `STEWARD_WORKER_TOKEN` | — | — | The worker token from the server's `.env`. Required. Only as a variable, so that it does not show in the list of processes. |
 | `STEWARD_WORKER_NAME` | `--name` | the computer's name | The name shown on the **Processing** page. Every worker needs its own. |
-| `STEWARD_WORKER_MODULES` | `--modules` | `similar,geoclip` | Modules to run; the photos of the first one go first. |
+| `STEWARD_WORKER_MODULES` | `--modules` | `similar,geoclip,details` | Modules to run; the photos of the first one go first. |
 | `STEWARD_WORKER_THREADS` | `--threads` | `2` | CPU threads for the models. |
 | `STEWARD_WORKER_MAX_LOAD` | `--max-load` | empty | Wait while the computer is busy (Linux only). |
 | `STEWARD_WORKER_ONE_MODEL` | `--one-model` | `false` | One model in memory at a time. |

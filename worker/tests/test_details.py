@@ -23,7 +23,8 @@ def two_views(points: int, seed: int = 1) -> tuple["np.ndarray", "np.ndarray"]:
     moved = world @ turn.T + np.array([1.5, 0.1, 0.3])
 
     def project(xyz: "np.ndarray") -> "np.ndarray":
-        return focal * xyz[:, :2] / xyz[:, 2:3] + center
+        pixels: np.ndarray = focal * xyz[:, :2] / xyz[:, 2:3] + center
+        return pixels
 
     return project(world), project(moved)
 

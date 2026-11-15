@@ -232,11 +232,22 @@
 		fetchSuggestions(id);
 	}
 
+	// Counts the finished looks for a result: each one starts the wait for the next. Without it
+	// the looking stopped after the first answer that changed nothing (unchanged results are not
+	// assigned, see setSuggestions), and a job longer than a couple of seconds showed its result
+	// only after the page was loaded again.
+	let polls = $state(0);
+
 	// While a worker module is queued or running, look for its result every few seconds.
 	$effect(() => {
+		void polls;
 		if (!suggestions.some((block) => isPending(block) || isComparing(block))) return;
 		const assetId = id;
-		const timer = setTimeout(() => fetchSuggestions(assetId), 2000);
+		const timer = setTimeout(() => {
+			fetchSuggestions(assetId)
+				.catch(() => {})
+				.finally(() => (polls += 1));
+		}, 2000);
 		return () => clearTimeout(timer);
 	});
 

@@ -192,7 +192,7 @@
 												<Icon name="map-pin" size={14} strokeWidth={2.25} />
 											</span>
 										</span>
-									{:else if item.nearby || item.geoclip_confident || item.similar_confident}
+									{:else if item.nearby || item.geoclip_confident || item.similar_confident || item.details_confirmed}
 										<span class="st-tile-markers">
 											{#if item.nearby}
 												<!-- Clock in the color of time neighbors: filled for the same camera
@@ -231,6 +231,17 @@
 													title={m.asset_similar_confident()}
 												>
 													<Icon name="images" size={14} strokeWidth={2.25} />
+												</span>
+											{/if}
+											{#if item.details_confirmed}
+												<!-- A check: the place of a similar photo is confirmed by shared details. -->
+												<span
+													class="st-tile-marker details"
+													role="img"
+													aria-label={m.asset_details_confirmed()}
+													title={m.asset_details_confirmed()}
+												>
+													<Icon name="circle-check" size={14} strokeWidth={2.25} />
 												</span>
 											{/if}
 										</span>
@@ -422,6 +433,10 @@
 	.similar {
 		background: var(--module-3);
 		color: var(--module-3-on);
+	}
+	.details {
+		background: var(--module-5);
+		color: var(--module-5-on);
 	}
 	.nearby {
 		background: var(--module-1);

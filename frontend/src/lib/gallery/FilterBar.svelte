@@ -176,6 +176,18 @@
 			</button>
 		</Tooltip>
 
+		<Tooltip text={m.filter_details_confirmed_hint()} below>
+			<button
+				type="button"
+				class="st-chip"
+				aria-pressed={filter.details_confirmed}
+				onclick={() => set({ details_confirmed: !filter.details_confirmed })}
+			>
+				<span class="st-chip__dot" style:background="var(--module-5)"></span>
+				{m.filter_details_confirmed()}
+			</button>
+		</Tooltip>
+
 		<Tooltip text={m.filter_nearby_hint({ minutes: options.nearby_minutes })} below>
 			<button
 				type="button"

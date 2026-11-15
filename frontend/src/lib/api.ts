@@ -135,6 +135,8 @@ export interface GalleryFilter {
 	geoclip_confident: boolean;
 	/** Only photos without a location with a confidently similar located one. */
 	similar_confident: boolean;
+	/** Only photos without a location that share enough details with a located one. */
+	details_confirmed: boolean;
 	/** Only photos without a location with a located one taken close in time. */
 	nearby: boolean;
 	/** Only photos whose latest run of this module failed... */
@@ -160,6 +162,8 @@ export interface AssetItem {
 	geoclip_confident: boolean;
 	/** No location yet, but a photo with one is confidently similar. */
 	similar_confident: boolean;
+	/** No location yet, but a photo with one shares enough details with it. */
+	details_confirmed?: boolean;
 	/** No location yet, but a photo taken close in time has one: by the same camera or another. */
 	nearby: NearbyLevel | null;
 	width: number | null;
@@ -201,6 +205,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	}
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	if (filter.similar_confident) params.set('similar_confident', 'true');
+	if (filter.details_confirmed) params.set('details_confirmed', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);

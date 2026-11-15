@@ -242,3 +242,44 @@ def test_a_photo_without_a_vector_has_nothing_to_compare_with(
     db_call(signed_in, forget)
 
     assert queue_details(signed_in, library["query.jpg"], 3) is None
+
+
+# --- The gallery ---
+
+
+def gallery(client: TestClient, **params: Any) -> dict[str, bool]:
+    """File name -> whether its tile is marked as confirmed by details."""
+    items = client.get("/api/assets", params={"month": "2024-05", **params}).json()
+    return {item["file_name"]: item["details_confirmed"] for item in items}
+
+
+def test_the_gallery_marks_and_filters_the_photos_confirmed_by_details(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query = library["query.jpg"]
+    assert not any(gallery(signed_in).values())
+    assert gallery(signed_in, details_confirmed=True) == {}
+
+    # Too few shared details confirm nothing.
+    compared(signed_in, query, library["kotor.jpg"], 60)
+    assert not any(gallery(signed_in).values())
+
+    compared(signed_in, library["budva.jpg"], query, 150)
+    assert [name for name, marked in gallery(signed_in).items() if marked] == ["query.jpg"]
+    assert gallery(signed_in, details_confirmed=True) == {"query.jpg": True}
+
+    # The threshold of the account applies to the gallery as to the card.
+    signed_in.put("/api/settings", json={"details_confirmed_from": 200})
+    assert gallery(signed_in, details_confirmed=True) == {}
+
+
+def test_a_photo_with_a_location_is_not_marked(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    # Two photos with a location share details: neither needs a place.
+    compared(signed_in, library["kotor.jpg"], library["kotor-near.jpg"], 300)
+
+    assert not any(gallery(signed_in).values())
+    assert gallery(signed_in, details_confirmed=True) == {}

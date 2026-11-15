@@ -45,6 +45,7 @@ from steward.gallery import (
     TypeFilter,
     album_options,
     camera_options,
+    details_confirmed_ids,
     geoclip_confident_ids,
     heatmap_cells,
     heatmap_version,
@@ -104,8 +105,10 @@ LOCKED_CACHE_CONTROL = "no-store"
 InclusionParam = Annotated[str, Query(pattern="^(false|true|off|with|only)$")]
 
 
-def gallery_filter(
+async def gallery_filter(
     settings: SettingsDep,
+    account: CurrentAccount,
+    db: DbDep,
     show: Annotated[list[ShowCategory] | None, Query()] = None,
     type: TypeFilter = "all",
     camera: str | None = None,
@@ -116,10 +119,17 @@ def gallery_filter(
     locked_folder: InclusionParam = "false",
     geoclip_confident: bool = False,
     similar_confident: bool = False,
+    details_confirmed: bool = False,
     nearby: bool = False,
     failed_module: Annotated[str | None, Query(max_length=32)] = None,
     failure: Annotated[str | None, Query(max_length=32)] = None,
 ) -> GalleryFilter:
+    # From how many shared details a suggestion is confirmed is a personal setting.
+    shared = (
+        (await account_settings.get_all(db, account.id))["details_confirmed_from"]
+        if details_confirmed
+        else None
+    )
     return GalleryFilter(
         show=frozenset(show or ()),
         type=type,
@@ -131,6 +141,7 @@ def gallery_filter(
         locked_folder=inclusion(locked_folder),
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
         similar_confidence=settings.similar_confident_from if similar_confident else None,
+        details_shared=shared,
         nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
         failed_module=failed_module,
         failure=failure if failed_module else None,
@@ -194,6 +205,8 @@ class AssetItem(BaseModel):
     geoclip_confident: bool = False
     # No location yet, but a photo with one is confidently similar (`similar_hints`).
     similar_confident: bool = False
+    # No location yet, but a photo with one shares enough details with it (`details`).
+    details_confirmed: bool = False
     # No location yet, but a photo taken close in time has one: by the same camera or another.
     nearby: NearbyLevel | None = None
     width: int | None
@@ -213,8 +226,10 @@ class AssetItem(BaseModel):
         geoclip_confident: bool = False,
         nearby: NearbyLevel | None = None,
         similar_confident: bool = False,
+        details_confirmed: bool = False,
     ) -> "AssetItem":
         return cls(
+            details_confirmed=details_confirmed,
             geoclip_confident=geoclip_confident,
             similar_confident=similar_confident,
             nearby=nearby,
@@ -480,8 +495,18 @@ async def list_month(
     similar = await similar_confident_ids(
         db, [a.id for a in assets], settings.similar_confident_from
     )
+    personal = await account_settings.get_all(db, account.id)
+    confirmed = await details_confirmed_ids(
+        db, [a.id for a in assets], personal["details_confirmed_from"]
+    )
     return [
-        AssetItem.of(asset, asset.id in confident, nearby.get(asset.id), asset.id in similar)
+        AssetItem.of(
+            asset,
+            asset.id in confident,
+            nearby.get(asset.id),
+            asset.id in similar,
+            asset.id in confirmed,
+        )
         for asset in assets
     ]
 

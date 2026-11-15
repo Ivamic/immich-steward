@@ -26,7 +26,15 @@ from sqlalchemy.orm import aliased
 from steward import locked
 from steward.embeddings import located
 from steward.marks import is_marked
-from steward.models import Account, Album, Asset, AssetAlbum, ModuleRun, SimilarHint
+from steward.models import (
+    Account,
+    Album,
+    Asset,
+    AssetAlbum,
+    DetailMatch,
+    ModuleRun,
+    SimilarHint,
+)
 from steward.worker_queue import latest_run_failed, whole_photo
 
 # Disjoint groups the gallery can show in any combination. with: has a location (whatever its
@@ -77,6 +85,9 @@ class GalleryFilter:
     # Only photos without a location with a located photo this confidently similar (the badge
     # of `similar_hints`).
     similar_confidence: float | None = None
+    # Only photos without a location that share at least this many details with a located
+    # photo (`details_confirmed`).
+    details_shared: int | None = None
     # Only photos without a location with a located one this many minutes before or after.
     nearby_minutes: float | None = None
     # Only photos whose latest run of this module (`ANY_MODULE`: of any module) failed (with
@@ -126,6 +137,9 @@ class GalleryFilter:
         if self.similar_confidence is not None:
             result.append(~located())
             result.append(similar_confident(self.similar_confidence))
+        if self.details_shared is not None:
+            result.append(~located())
+            result.append(details_confirmed(self.details_shared))
         if self.nearby_minutes is not None:
             result.append(located_nearby(self.nearby_minutes))
         if self.date_to is not None:
@@ -167,6 +181,30 @@ def similar_confident(min_score: float) -> ColumnElement[bool]:
         exists().where(SimilarHint.asset_id == Asset.id, SimilarHint.score >= min_score),
         ~is_marked(),
     )
+
+
+def details_confirmed(min_shared: int) -> ColumnElement[bool]:
+    """A photo with a location shares at least this many details with the photo (the `details`
+    module of workers, D-225): the suggestion of similar photos the card shows as confirmed. The
+    comparison counts whichever of the two it was asked about; a photo marked as showing nothing
+    of the place is left out, as for `similar_confident`."""
+    other = aliased(Asset)
+    has_place = and_(
+        other.latitude.is_not(None), other.longitude.is_not(None), other.is_trashed.is_(False)
+    )
+    asked = exists().where(
+        DetailMatch.asset_id == Asset.id,
+        DetailMatch.inliers >= min_shared,
+        other.id == DetailMatch.other_id,
+        has_place,
+    )
+    named = exists().where(
+        DetailMatch.other_id == Asset.id,
+        DetailMatch.inliers >= min_shared,
+        other.id == DetailMatch.asset_id,
+        has_place,
+    )
+    return and_(or_(asked, named), ~is_marked())
 
 
 def is_scan(asset: Any = Asset) -> ColumnElement[bool]:
@@ -279,6 +317,18 @@ async def geoclip_confident_ids(
         select(Asset.id).where(
             Asset.id.in_(asset_ids), Asset.latitude.is_(None), geoclip_confident(min_score)
         )
+    )
+    return set(rows)
+
+
+async def details_confirmed_ids(
+    db: AsyncSession, asset_ids: list[UUID], min_shared: int
+) -> set[UUID]:
+    """Of the given assets, those without a location confirmed by details."""
+    if not asset_ids:
+        return set()
+    rows = await db.scalars(
+        select(Asset.id).where(Asset.id.in_(asset_ids), ~located(), details_confirmed(min_shared))
     )
     return set(rows)
 

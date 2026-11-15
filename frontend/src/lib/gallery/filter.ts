@@ -14,6 +14,7 @@ export const defaultFilter: GalleryFilter = {
 	locked_folder: 'off',
 	geoclip_confident: false,
 	similar_confident: false,
+	details_confirmed: false,
 	nearby: false,
 	failed_module: null,
 	failure: null
@@ -36,6 +37,7 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		locked_folder: inclusionOf(params.get('locked_folder')),
 		geoclip_confident: params.get('geoclip_confident') === 'true',
 		similar_confident: params.get('similar_confident') === 'true',
+		details_confirmed: params.get('details_confirmed') === 'true',
 		nearby: params.get('nearby') === 'true',
 		failed_module: params.get('failed_module'),
 		failure: params.get('failed_module') ? params.get('failure') : null
@@ -72,6 +74,7 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	}
 	if (filter.geoclip_confident) params.set('geoclip_confident', 'true');
 	if (filter.similar_confident) params.set('similar_confident', 'true');
+	if (filter.details_confirmed) params.set('details_confirmed', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);
@@ -90,6 +93,7 @@ export function activeFilters(filter: GalleryFilter): number {
 		'locked_folder',
 		'geoclip_confident',
 		'similar_confident',
+		'details_confirmed',
 		'nearby',
 		'failed_module'
 	];

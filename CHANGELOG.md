@@ -25,7 +25,8 @@ Suggestions of similar photos confirmed by matching details.
   shares with the photo.
 - **Compare details** in the block of similar photos of the photo card: on any worker, ahead of
   the queue. By itself the comparison runs for the photos without a location, only on a worker
-  with a graphics card (`details` in `STEWARD_AUTO_MODULES`).
+  with a graphics card (`details` in `STEWARD_AUTO_MODULES`); a photo not confirmed is looked at
+  again a day later, for the photos that got a location since.
 - **Confirmed by details** in the gallery: a filter and a check mark on the tiles.
 - **Settings → Matching details**, personal: from how many shared details a suggestion is
   confirmed (100), whether similar photos with a confirmed suggestion go before the other
@@ -43,6 +44,13 @@ Suggestions of similar photos confirmed by matching details.
 - The photo card stopped looking for the result of a worker module after the first answer that
   changed nothing: a job longer than a couple of seconds showed its result only after the page
   was loaded again. In the card since 0.2.0.
+
+### Security
+
+- Dependencies were checked before the release: nothing new. Still open, in the build tools only
+  and not in the images: minimatch (moderate, in the linter) and deepmerge (low, no fix yet).
+- The weights of matching details are downloaded from pinned addresses and checked against their
+  SHA-256 before they are loaded.
 
 ## [0.10.0] - 2026-11-14
 

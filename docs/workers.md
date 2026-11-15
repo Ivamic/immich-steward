@@ -39,7 +39,8 @@ What it needs (measured on an Intel Core i3-13100 next to Immich):
   those of matching details (50 MB) come from GitHub into the same volume;
 - with 2 CPU threads, about 0.8 seconds per photo for GeoCLIP and 0.3 to 0.6 seconds for similar
   photos. The first pass of similar photos over a library of 100,000 photos takes a day or two in
-  the background.
+  the background. Matching details started from a photo card takes about 12 seconds for a photo
+  and its five most similar ones.
 
 To start it:
 
@@ -214,7 +215,7 @@ What it needs:
   0.9 GB), which are downloaded on their first use.
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
-`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.10.0` with
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.11.0` with
 the version of the app on your server (shown in **Settings → Updates**).
 
 ### GPU worker on Windows (PowerShell)
@@ -229,7 +230,7 @@ winget install --id astral-sh.uv -e
 Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 
 ```powershell
-git clone --branch v0.10.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+git clone --branch v0.11.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
@@ -249,7 +250,7 @@ Install once (Git is usually installed already; otherwise `sudo apt install git`
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-git clone --branch v0.10.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+git clone --branch v0.11.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
@@ -316,12 +317,12 @@ driver with `nvidia-smi`). The other messages are the same as in the
 Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Processing**
 page shows the worker as not connected right away.
 
-Update to a new version (replace `0.10.0` with the new version), on Windows:
+Update to a new version (replace `0.11.0` with the new version), on Windows:
 
 ```powershell
 cd D:\steward-worker
 git fetch --tags
-git checkout v0.10.0
+git checkout v0.11.0
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
@@ -330,7 +331,7 @@ On Linux:
 ```sh
 cd ~/steward-worker
 git fetch --tags
-git checkout v0.10.0
+git checkout v0.11.0
 uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 

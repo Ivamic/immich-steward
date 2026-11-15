@@ -253,3 +253,93 @@ def test_a_comparison_queued_by_itself_can_be_moved_ahead_from_the_card(
 
     assert similar_block(signed_in, query)["details"]["urgent"] is True
     assert lease(signed_in, worker_on(signed_in, "cpu")).json()["asset_id"] == query
+
+
+# --- A second look a day later ---
+
+
+def a_day_passed(client: TestClient) -> None:
+    """Every comparison so far was made a day and an hour ago."""
+
+    async def work(db: Any) -> None:
+        from datetime import timedelta
+
+        from sqlalchemy import update
+
+        ago = timedelta(hours=25)
+        await db.execute(
+            update(ModuleRun)
+            .where(ModuleRun.module_id == "details")
+            .values(created_at=ModuleRun.created_at - ago, finished_at=ModuleRun.finished_at - ago)
+        )
+        await db.commit()
+
+    db_call(client, work)
+
+
+def finish(client: TestClient, pairs: dict[str, int]) -> None:
+    """A worker with a GPU takes the next comparison and answers with these shared details."""
+    worker = worker_on(client, "cuda", "gpu")
+    job = lease(client, worker).json()
+    body = {
+        "module_version": "1",
+        "candidates": [],
+        "pairs": [
+            {"other": other, "matches": 2 * count, "inliers": count, "lines": []}
+            for other, count in pairs.items()
+            if other in job["others"]
+        ],
+    }
+    assert client.post(
+        f"/api/worker/jobs/{job['job_id']}/result", json=body, headers=worker
+    ).is_success
+
+
+def test_a_photo_started_by_hand_gets_the_rest_of_its_similar_photos_a_day_later(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    signed_in.put("/api/settings", json={"details_candidates_manual": 2})
+    query = library["query.jpg"]
+    signed_in.post(f"/api/assets/{query}/modules/details/run")
+    finish(signed_in, {library["set-by-app.jpg"]: 20, library["kotor.jpg"]: 30})
+
+    # Compared a moment ago: not looked at again yet.
+    assert auto(signed_in) == 0
+
+    a_day_passed(signed_in)
+    assert auto(signed_in) == 1
+    # The three it was not compared with, of its five similar photos.
+    assert detail_runs(signed_in)[-1] == ("query.jpg", "queued", 3)
+
+
+def test_a_confirmed_photo_is_not_compared_with_more(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    signed_in.put("/api/settings", json={"details_candidates_manual": 2})
+    query = library["query.jpg"]
+    signed_in.post(f"/api/assets/{query}/modules/details/run")
+    finish(signed_in, {library["set-by-app.jpg"]: 20, library["kotor.jpg"]: 180})
+    a_day_passed(signed_in)
+
+    assert auto(signed_in) == 0
+    assert [status for _, status, _ in detail_runs(signed_in)] == ["done"]
+    # Noted as looked at: the next pass leaves it alone too.
+    assert auto(signed_in) == 0
+
+
+def test_a_photo_with_nothing_new_to_compare_with_waits_another_day(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query = library["query.jpg"]
+    for name in ("kotor.jpg", "kotor-near.jpg", "budva.jpg", "paris.jpg", "set-by-app.jpg"):
+        compared(signed_in, query, library[name], 15)
+    assert auto(signed_in) == 0
+    a_day_passed(signed_in)
+
+    # Looked at again, nothing new: one run still, and the next pass leaves the photo alone.
+    assert auto(signed_in) == 0
+    assert detail_runs(signed_in) == [("query.jpg", "done", 0)]
+    assert auto(signed_in) == 0

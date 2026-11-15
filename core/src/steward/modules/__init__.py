@@ -38,7 +38,7 @@ REMOTE_MODULES: dict[str, RemoteModule] = {
     "similar": RemoteModule(
         "similar", color="#1a7f37", shape="diamond", embedding_dim=EMBEDDING_DIM
     ),
-    "details": RemoteModule("details", color="#8250df", shape="triangle", suggests=False),
+    "details": RemoteModule("details", color="#bf8700", shape="triangle", suggests=False),
 }
 # Those with a block of suggestions in the card.
 SUGGESTING_MODULES = {key: module for key, module in REMOTE_MODULES.items() if module.suggests}

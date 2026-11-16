@@ -123,6 +123,12 @@ base a una descrizione, con la ricerca intelligente di Immich.
 La pagina **Mappa** mostra le tue foto con posizione, contate per luogo sul server; da vicino i
 luoghi mostrano una foto, e le foto inquadrate sono elencate accanto alla mappa.
 
+Gli **album** di Immich si possono riempire dalla galleria: scegli le foto con qualsiasi filtro e
+in qualsiasi ordine (tutti i video di qualche anno, prima i più vecchi) e aggiungile a un album,
+esistente o nuovo, in un solo passo che si può annullare. La pagina **Album** mostra i tuoi album e
+quelli condivisi; un album si apre nella galleria con tutti i suoi filtri, e i tuoi si possono
+rinominare o eliminare.
+
 Anche le foto nella **cartella bloccata** di Immich possono partecipare: collegata una volta con la
 tua password di Immich, la cartella si apre nell'app con il tuo PIN; le sue foto sono mostrate ed
 elaborate solo mentre è aperta. Ogni punto si apre con un clic in **Google Maps** (satellite o
@@ -163,7 +169,8 @@ In futuro si potranno aggiungere nuovi moduli come plugin.
 ## Principi
 
 - **Niente viene scritto in Immich automaticamente.** Le coordinate vengono inviate solo dopo che
-  hai confermato una posizione. Ogni modifica si può annullare.
+  hai confermato una posizione, e gli album cambiano solo con un tuo clic. Ogni modifica si può
+  annullare.
 - **Prima il locale.** I moduli predefiniti girano sul tuo hardware. I moduli che inviano
   immagini a servizi di terze parti non vengono mai eseguiti automaticamente — solo su richiesta
   esplicita, con un avviso chiaro su che cosa viene inviato e dove.

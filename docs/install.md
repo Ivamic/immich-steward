@@ -125,7 +125,7 @@ sign in with your **Immich email and password**.
 
 - The password is checked by Immich and is not stored. On the first sign-in the app creates an
   API key named `immich-steward …` in your Immich account and keeps it encrypted; later sign-ins
-  reuse it.
+  reuse it, and give it the permissions a newer version of the app needs.
 - If you sign in to Immich through OAuth and have no password, use **Sign in with an API key
   instead**: create a key in Immich (Account Settings → API Keys) with the permissions listed on
   the sign-in page.
@@ -136,8 +136,8 @@ Within a minute after the first sign-in the app reads your library from Immich (
 for thousands of photos; the **Processing** page has a button to start it right away). After
 that it checks Immich for changes every 15 minutes.
 
-Nothing is written to Immich until you save a location for a photo. Saved locations get the tag
-`steward/estimated` in Immich, so you can always find them there.
+Nothing is written to Immich until you save a location for a photo or change an album. Saved
+locations get the tag `steward/estimated` in Immich, so you can always find them there.
 
 ## What next
 

@@ -126,6 +126,12 @@ d'autres à examiner, d'après une description, grâce à la recherche intellige
 La page **Carte** montre vos photos avec un lieu, comptées par endroit sur le serveur ; de près, les
 endroits montrent une photo, et les photos à l'écran sont listées à côté de la carte.
 
+Les **albums** d'Immich se remplissent depuis la galerie : choisissez des photos avec n'importe
+quels filtres et dans l'ordre voulu (toutes les vidéos de quelques années, les plus anciennes
+d'abord) et ajoutez-les à un album, existant ou nouveau, en une étape qui peut être annulée. La
+page **Albums** montre vos albums et ceux partagés avec vous ; un album s'ouvre dans la galerie
+avec tous ses filtres, et les vôtres peuvent être renommés ou supprimés.
+
 Les photos du **dossier verrouillé** d'Immich peuvent aussi en profiter : connecté une fois avec
 votre mot de passe Immich, le dossier s'ouvre dans l'application avec votre code PIN ; ses photos ne
 sont affichées et traitées que tant qu'il est ouvert. Tout point s'ouvre d'un clic dans **Google
@@ -167,7 +173,8 @@ De nouveaux modules pourront être ajoutés plus tard sous forme d'extensions.
 ## Principes
 
 - **Rien n'est écrit automatiquement dans Immich.** Les coordonnées ne sont envoyées qu'après
-  que vous avez confirmé un lieu. Toute modification peut être annulée.
+  que vous avez confirmé un lieu, et les albums ne changent que sur votre clic. Toute modification
+  peut être annulée.
 - **Le local d'abord.** Les modules par défaut fonctionnent sur votre propre matériel. Les modules
   qui envoient des images à des services tiers ne sont jamais lancés automatiquement — seulement
   sur demande explicite, avec un avertissement clair sur ce qui est envoyé et où.

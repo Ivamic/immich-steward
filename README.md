@@ -116,6 +116,11 @@ marks too, and finds more to look at, by a description through the smart search 
 The **Map** page shows your photos with a location, counted by place on the server; close up the
 places show a photo, and the photos in view are listed beside the map.
 
+**Albums** of Immich can be filled from the gallery: choose photos with any filter and in either
+order (all the videos of a few years, oldest first), and put them into an album, an existing one
+or a new one, in one step that can be undone. The **Albums** page lists your albums and the shared
+ones; an album opens in the gallery with all its filters, and your own can be renamed or deleted.
+
 Photos in the **locked folder** of Immich can take part too: connected once with your Immich
 password, the folder opens in the app with your PIN code; its photos are shown and processed only
 while it is open. Any point opens in **Google Maps** (satellite or Street View) with a click.
@@ -155,7 +160,7 @@ New modules can be added later as plugins.
 ## Principles
 
 - **Nothing is written to Immich automatically.** Coordinates are sent only after you
-  confirm a location. Every change can be undone.
+  confirm a location, albums change only on your click. Every change can be undone.
 - **Local first.** Default modules run on your own hardware. Modules that send images
   to third-party services are never run automatically — only on an explicit request,
   with a clear warning about what is sent and where.

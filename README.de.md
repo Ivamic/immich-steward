@@ -126,6 +126,12 @@ findet weitere zum Ansehen, nach einer Beschreibung über die intelligente Suche
 Die Seite **Karte** zeigt deine Fotos mit Standort, auf dem Server nach Orten gezählt; aus der Nähe
 zeigen die Orte ein Foto, und die Fotos im Ausschnitt stehen neben der Karte.
 
+**Alben** von Immich lassen sich aus der Galerie füllen: Wähle Fotos mit beliebigen Filtern und in
+beliebiger Reihenfolge (alle Videos einiger Jahre, älteste zuerst) und füge sie einem vorhandenen
+oder neuen Album hinzu, in einem Schritt, der sich rückgängig machen lässt. Die Seite **Alben**
+zeigt deine und die geteilten Alben; ein Album öffnet sich in der Galerie mit all ihren Filtern,
+eigene lassen sich umbenennen oder löschen.
+
 Auch Fotos im **gesperrten Ordner** von Immich können mitmachen: einmal mit deinem Immich-Passwort
 verbunden, öffnet sich der Ordner in der App mit deiner PIN; seine Fotos werden nur angezeigt und
 verarbeitet, solange er offen ist. Jeder Punkt öffnet sich mit einem Klick in **Google Maps**
@@ -166,7 +172,8 @@ Neue Module können später als Plugins hinzukommen.
 ## Grundsätze
 
 - **Nichts wird automatisch in Immich geschrieben.** Koordinaten werden erst gesendet, nachdem du
-  einen Standort bestätigt hast. Jede Änderung lässt sich rückgängig machen.
+  einen Standort bestätigt hast, Alben ändern sich nur auf deinen Klick. Jede Änderung lässt sich
+  rückgängig machen.
 - **Lokal zuerst.** Die Standardmodule laufen auf deiner eigenen Hardware. Module, die Bilder an
   Dienste Dritter senden, laufen nie automatisch — nur auf ausdrücklichen Wunsch, mit einem
   klaren Hinweis, was wohin gesendet wird.

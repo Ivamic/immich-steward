@@ -4,13 +4,14 @@ This page shows how to go through your photos without a location: find them in t
 look at the suggestions in the photo card, and save the right place. The app is made to be used
 mostly with the keyboard, but everything works with the mouse too.
 
-The pages are at the top: **Gallery**, **Map**, **Groups**, **Processing** and **Settings**. On the right are the
+The pages are at the top: **Gallery**, **Map**, **Albums**, **Groups**, **Processing** and **Settings**. On the right are the
 language and the theme (light, dark, or as in your system).
 
 ## The gallery
 
-The gallery shows your photos by month, newest first. By default it shows the photos
-**without a location**: your to-do list.
+The gallery shows your photos by month, newest first; **Newest first** at the end of the filter
+row turns it to **Oldest first** and back. By default it shows the photos **without a location**:
+your to-do list.
 
 - **Filters** are the row of buttons at the top (on a phone, behind the **Filters** button). Which photos to show: *Without location*,
   *With location*, *Skipped*, *Not applicable* (several can be on at once). *Confident GeoCLIP
@@ -45,7 +46,11 @@ The gallery shows your photos by month, newest first. By default it shows the ph
   week), the camera and the size. **Settings → Gallery** turns this off; then only the file name
   is shown.
 
-The filter is kept in the address of the page, so a filtered view can be bookmarked.
+The filter and the order are kept in the address of the page, so a filtered view can be
+bookmarked. The order goes everywhere the gallery does: the months and the days, the photos of a
+day, **←** and **→** in the photo card, and Shift + click when choosing; **Reset** leaves it as
+it is. Videos only, oldest first, is a quick way to put the videos of a few years into an album
+in the order they were taken.
 
 ### Several photos at once
 
@@ -82,6 +87,11 @@ what they are to other photos (**No sign of a place**):
   are dimmed with a spinner in the gallery, as are the photos whose location is being saved (a
   clock while the save can still be cancelled). Videos are not turned:
   the notice says how many were left out. The API key needs the `asset.edit` permissions.
+- **Add to album** (key **A**) puts the chosen photos into an album of Immich, an existing one or
+  a new one. See [Albums](#albums).
+- **Take out of "…"** appears when the gallery shows one album (its filter is on, e.g. from the
+  **Albums** page) and you may change it: it takes the chosen photos out of that album. They stay
+  in the library; **Undo** in the notice puts them back.
 - **Skip for now** and **Location not applicable** mark all the chosen photos.
 - **No sign of a place** marks them as telling nothing of where they were taken (a pet, a
   document): other photos no longer get their place from them. See
@@ -256,11 +266,15 @@ you press **Save rotation in Immich** (photos only: a video has no rotation butt
 Saving the rotation needs the API key permissions `asset.edit.get`, `asset.edit.create` and
 `asset.edit.delete`; keys created by Steward 0.3.0 and later have them.
 
-The details below the photo show when it was taken, the camera, the albums, its
+The details below the photo show when it was taken, the camera, its albums, its
 [group](#groups) with a link, whether it is marked as showing no sign of a place (by you or by the
 app, with **Take the mark off**), and its current location. **No sign of a place** under the
 actions marks the photo. **Open in Immich** (the arrow in the top right corner) opens the photo in Immich in a
 new tab.
+
+The albums are shown as labels: a click on one shows that album in the gallery, the cross takes
+the photo out of it (after asking; only in albums you may change). **Add to album** (or **A**)
+puts the photo into another one.
 
 ### Keyboard keys
 
@@ -278,6 +292,7 @@ Press **?** in the card to see them all.
 | Z | Enlarge the photo |
 | R | Recognize a part of the photo (GeoCLIP) |
 | [ ] | Rotate the photo |
+| A | Add to an album |
 | Esc | Back to the gallery |
 | ? | The list of keys |
 
@@ -302,6 +317,37 @@ view only, so the page stays quick on a large library.
 - Photos in the list are chosen as in the [gallery](#several-photos-at-once), with the same bar.
 - Where the map is lives in the address: **Back** from a photo leads to the same place, and a view
   can be bookmarked.
+
+## Albums
+
+The app changes albums of Immich on your click only, at once, and each change can be undone from
+its notice. Photos never leave the library this way: taking a photo out of an album or deleting an
+album leaves the photo where it was.
+
+**Putting photos into an album.** **Add to album** in the bar of chosen photos, or in the details
+of the photo card (key **A** in both), opens a window with your albums, the ones changed lately
+first. Type to find one, or type a new name and pick **New album "…"**; the arrows and Enter work
+too. A box before each album tells whether the photos are in it already: a check when all of them
+are, a dash when some ("already here: 3 of 5"), empty when none. Picking an album with some of the
+photos adds the others. The notice says how many were added and how many were there already;
+**Undo** takes out again only the photos added now, and deletes an album made by this step.
+
+**The Albums page** shows your albums and the ones shared with you as tiles: the cover, the number
+of photos, when they were taken. A shared album has a mark; one shared with you may be changed
+only if its owner made you an editor. Search by name, and sort the albums by the latest change, by
+name or by when the photos were taken.
+
+- A click on an album opens it in the gallery of the app, with all its photos and every filter
+  and order of the gallery (videos only, oldest first, …). The arrow opens it in Immich.
+- **New album** makes an empty one. The pencil beside the name renames an album, the bin deletes
+  it after asking: for everyone it is shared with, while its photos stay in the library. Only the
+  owner of an album can rename or delete it.
+
+**The API key.** Changing albums needs the permissions `albumAsset.create`, `albumAsset.delete`,
+`album.create`, `album.update` and `album.delete`. A key the app made gets them when you sign in
+with your password again (**Sign out**, then sign in). A key you made yourself keeps the
+permissions you gave it: add these in Immich (Account Settings → API Keys). Without them the
+buttons are off, and the hint names the permission that is missing.
 
 ## Groups
 

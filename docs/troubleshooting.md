@@ -62,8 +62,26 @@ needs.
 ### "Save rotation in Immich" fails
 
 The app's API key lacks the permissions `asset.edit.get`, `asset.edit.create` and
-`asset.edit.delete`. Keys created by an app older than 0.3.0 don't have them: add them in Immich
-(Account Settings → API Keys → edit the key `immich-steward …`).
+`asset.edit.delete`. Keys created by an app older than 0.3.0 don't have them. Sign out and sign in
+with your Immich password again: since 0.12.0 the app then gives its key the permissions it lacks.
+A key you made yourself: add them in Immich (Account Settings → API Keys → edit the key).
+
+### The album buttons are off
+
+**Add to album**, **New album** or the bin of an album are off, and their hint names a permission:
+the API key lacks the album permissions (`albumAsset.create`, `albumAsset.delete`, `album.create`,
+`album.update`, `album.delete`). Sign out and sign in with your Immich password again: the app gives
+its key the permissions it lacks. A key you made yourself: add them in Immich (Account Settings →
+API Keys → edit the key).
+
+An album shared with you can be changed only if its owner made you an editor in Immich; renaming
+and deleting it is up to the owner.
+
+### You are asked to sign in again and again
+
+Two installations of the app on the same address (e.g. a test copy on another port) share the
+sign-in in the browser: signing in to one signs you out of the other. Open one of them by another
+name of the server (its IP address, for example), or in a private window.
 
 ## The map and the address search
 

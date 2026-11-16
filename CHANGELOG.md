@@ -7,8 +7,38 @@ between releases.
 
 ## [Unreleased]
 
+Albums: putting photos into albums of Immich from the gallery, and an Albums page.
+
+### Added
+
+- **Add to album** for the chosen photos in the gallery, groups and the map, and in the photo card
+  (key **A**): into an existing album or a new one. A box before each album tells whether the
+  photos are in it already, all of them or some. The notice says how many were added and how many
+  were there; **Undo** takes out only the photos added now, and deletes an album made by this step.
+- **Take out of the album**: for the chosen photos when the gallery shows one album, and in the
+  photo card, where the albums are labels with a cross (after asking). **Undo** puts them back.
+- **The Albums page**: your albums and the shared ones, with cover, number of photos and period;
+  search, three sort orders, a new album, renaming and deleting your own (the photos stay in the
+  library). An album opens in the gallery with all its filters, or in Immich.
+- **Oldest first** in the gallery: the months, the days, the photos, paging in the photo card and
+  Shift + click follow the order; it is kept in the address of the page.
+- Changing albums needs new, optional permissions of the API key: `albumAsset.create`,
+  `albumAsset.delete`, `album.create`, `album.update`, `album.delete`. Without them the buttons
+  are off and name the permission missing.
+
+### Changed
+
+- Signing in with the Immich password gives the app's API key the permissions a newer version of
+  the app needs, keeping the ones it has; the key itself stays the same. A key you made is not
+  changed.
+- When the session is over, the app goes to the sign-in page at once and comes back to the same
+  page after signing in.
+
 ### Fixed
 
+- A window closed when a selection of text made in it ended outside it.
+- A month of the gallery whose photos could not be loaded stayed empty for good; it now says so,
+  with **Try again**, and tries again when it comes near the screen.
 - Installing a worker from source could fail with "Microsoft Visual C++ 14.0 or greater is
   required": uv picked the newest Python, for which some libraries have no ready-made builds.
   The repository now pins Python 3.12 in `.python-version`, and the commands in

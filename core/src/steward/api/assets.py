@@ -123,6 +123,7 @@ async def gallery_filter(
     nearby: bool = False,
     failed_module: Annotated[str | None, Query(max_length=32)] = None,
     failure: Annotated[str | None, Query(max_length=32)] = None,
+    order: Literal["newest", "oldest"] = "newest",
 ) -> GalleryFilter:
     # From how many shared details a suggestion is confirmed is a personal setting.
     shared = (
@@ -145,6 +146,7 @@ async def gallery_filter(
         nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
         failed_module=failed_module,
         failure=failure if failed_module else None,
+        oldest_first=order == "oldest",
     )
 
 

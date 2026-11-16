@@ -17,7 +17,8 @@ export const defaultFilter: GalleryFilter = {
 	details_confirmed: false,
 	nearby: false,
 	failed_module: null,
-	failure: null
+	failure: null,
+	order: 'newest'
 };
 
 const oneOf = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
@@ -40,7 +41,8 @@ export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): 
 		details_confirmed: params.get('details_confirmed') === 'true',
 		nearby: params.get('nearby') === 'true',
 		failed_module: params.get('failed_module'),
-		failure: params.get('failed_module') ? params.get('failure') : null
+		failure: params.get('failed_module') ? params.get('failure') : null,
+		order: oneOf(params.get('order'), ['newest', 'oldest'] as const, defaultFilter.order)
 	};
 }
 
@@ -80,6 +82,7 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 		params.set('failed_module', filter.failed_module);
 		if (filter.failure) params.set('failure', filter.failure);
 	}
+	if (filter.order === 'oldest') params.set('order', 'oldest');
 	return `?${params}`;
 }
 

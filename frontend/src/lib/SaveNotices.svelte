@@ -89,6 +89,13 @@
 					{#each notice.details as detail (detail)}<span class="error">{detail}</span>{/each}
 				</span>
 				<span class="st-toast__actions">
+					{#if notice.phase === 'done' && notice.undo}
+						<button
+							type="button"
+							class="st-btn st-btn--sm"
+							onclick={() => bulkNotices.runUndo(notice.key)}>{m.save_undo()}</button
+						>
+					{/if}
 					{#if notice.phase !== 'running'}
 						<button
 							type="button"

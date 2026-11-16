@@ -110,7 +110,10 @@
 		const reason = filter.failure ? ` · ${failureReason(filter.failure)}` : '';
 		return `${m.filter_failed()}: ${module}${reason}`;
 	});
-	const isDefault = $derived(filterToUrl(filter) === filterToUrl(defaultFilter));
+	// The order is not a filter: resetting keeps it.
+	const isDefault = $derived(
+		filterToUrl({ ...filter, order: defaultFilter.order }) === filterToUrl(defaultFilter)
+	);
 	const active = $derived(activeFilters(filter));
 	let sheet = $state(false);
 
@@ -344,7 +347,7 @@
 		<button
 			type="button"
 			class="st-btn st-btn--ghost st-btn--sm"
-			onclick={() => onchange(defaultFilter)}
+			onclick={() => onchange({ ...defaultFilter, order: filter.order })}
 		>
 			<Icon name="rotate-ccw" size={14} />
 			{m.filter_reset()}
@@ -359,6 +362,19 @@
 		{#if active}<span class="active">{active}</span>{/if}
 	</button>
 	<div class="chips">{@render controls()}</div>
+	{#if !placesOnly}
+		{@const oldest = filter.order === 'oldest'}
+		<Tooltip text={oldest ? m.gallery_order_to_newest() : m.gallery_order_to_oldest()} below>
+			<button
+				type="button"
+				class="st-btn st-btn--ghost st-btn--sm"
+				onclick={() => onchange({ ...filter, order: oldest ? 'newest' : 'oldest' })}
+			>
+				<Icon name="arrow-down-up" size={14} />
+				{oldest ? m.gallery_order_oldest() : m.gallery_order_newest()}
+			</button>
+		</Tooltip>
+	{/if}
 	{#if total !== null}
 		<span class="total">{m.gallery_total({ count: new Intl.NumberFormat().format(total) })}</span>
 	{/if}

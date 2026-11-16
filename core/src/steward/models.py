@@ -201,6 +201,13 @@ class Album(Base):
     asset_count: Mapped[int] = mapped_column(Integer)
     shared: Mapped[bool] = mapped_column(Boolean, default=False)
     immich_updated_at: Mapped[datetime]
+    # The account's role in the album: owner, editor (may add and remove photos) or viewer.
+    role: Mapped[str] = mapped_column(String(16), default="owner", server_default="owner")
+    # Immich id of the cover photo, possibly another user's in a shared album.
+    thumbnail_immich_id: Mapped[uuid.UUID | None]
+    # Taken times of the earliest and the latest photo, as Immich counts them.
+    start_date: Mapped[datetime | None]
+    end_date: Mapped[datetime | None]
 
 
 class AssetAlbum(Base):

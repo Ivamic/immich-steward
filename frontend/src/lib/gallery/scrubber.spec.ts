@@ -17,6 +17,15 @@ describe('scrubber marks', () => {
 		]);
 	});
 
+	it('labels a year at the top of its earliest month when the oldest are on top', () => {
+		const marks = scrubberMarks(months('2016-11', '2016-12', '2017-01', '2017-02'), (px) => px);
+		// 2016: top of November (the first segment); 2017: top of January.
+		expect(marks.years).toEqual([
+			{ year: '2016', y: 0 },
+			{ year: '2017', y: 60 }
+		]);
+	});
+
 	it('never moves a crowded year label to a later month of the year', () => {
 		// 2017 begins right above the 2016 label: no room for it at January, so no label at all
 		// (Immich would put it at March, the first month far enough).

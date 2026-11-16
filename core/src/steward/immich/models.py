@@ -95,9 +95,39 @@ class SearchPage(BaseModel):
     next_page: int | None
 
 
+class AlbumUserRef(ImmichModel):
+    id: UUID
+
+
+class AlbumUser(ImmichModel):
+    user: AlbumUserRef
+    role: str  # owner | editor | viewer
+
+
 class ImmichAlbum(ImmichModel):
     id: UUID
     album_name: str
     asset_count: int
     updated_at: datetime
     shared: bool = False
+    album_thumbnail_asset_id: UUID | None = None
+    # Taken times of the earliest and the latest asset; none in an empty album.
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    # The owner first, then the signed-in user if it is someone else, then the rest.
+    album_users: list[AlbumUser] = []
+
+    def role_of(self, user_id: UUID) -> str | None:
+        """owner | editor | viewer; the owner when Immich lists nobody (not seen in 3.x)."""
+        if not self.album_users:
+            return "owner"
+        return next((u.role for u in self.album_users if u.user.id == user_id), None)
+
+
+class BulkResult(ImmichModel):
+    """Immich's answer for one id of a bulk request."""
+
+    id: UUID
+    success: bool
+    # duplicate | no_permission | not_found | unknown | validation
+    error: str | None = None

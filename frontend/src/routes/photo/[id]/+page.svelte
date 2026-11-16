@@ -31,6 +31,7 @@
 		type ReviewStatus,
 		type Turn
 	} from '#lib/api.js';
+	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
@@ -112,6 +113,7 @@
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let viewerOpen = $state(false);
+	let albumOpen = $state(false);
 	let keysOpen = $state(false);
 	// The module to choose a part of the photo for, and the part to start from (FR-35).
 	let partPicker = $state<{ module: string; region: Region | null } | null>(null);
@@ -485,7 +487,7 @@
 	function onkeydown(event: KeyboardEvent) {
 		if (event.key === 'Tab') pointerControl = null;
 		// The viewer and the windows handle their own keys (Esc closes them).
-		if (viewerOpen || partPicker || keysOpen) return;
+		if (viewerOpen || partPicker || keysOpen || albumOpen) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		// A focused player keeps its own keys (arrows seek, space plays).
 		if ((event.target as HTMLElement).closest('input, textarea, select, video')) return;
@@ -918,10 +920,18 @@
 						<dl class="details">
 							<dt>{m.photo_camera()}</dt>
 							<dd>{camera}</dd>
-							{#if asset.albums.length}
-								<dt>{m.photo_albums()}</dt>
-								<dd>{asset.albums.join(', ')}</dd>
-							{/if}
+							<dt>{m.photo_albums()}</dt>
+							<dd class="albums">
+								{#if asset.albums.length}<span>{asset.albums.join(', ')}</span>{/if}
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									onclick={() => (albumOpen = true)}
+								>
+									<Icon name="folder-plus" size={14} />
+									{m.album_add()}
+								</button>
+							</dd>
 							{#if groups?.group}
 								<dt>{m.photo_group()}</dt>
 								<dd>
@@ -1041,6 +1051,18 @@
 
 {#if keysOpen}
 	<KeysDialog onclose={() => (keysOpen = false)} />
+{/if}
+
+{#if albumOpen && asset}
+	<AlbumPicker
+		ids={[asset.id]}
+		onclose={() => (albumOpen = false)}
+		ondone={() => {
+			getAsset(id, filter)
+				.then((result) => (asset = result))
+				.catch((e) => (error = errorMessage(e)));
+		}}
+	/>
 {/if}
 
 {#if viewerOpen}
@@ -1346,6 +1368,12 @@
 		margin: 0;
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
+	}
+	.albums {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1) var(--space-2);
 	}
 	.details {
 		display: grid;

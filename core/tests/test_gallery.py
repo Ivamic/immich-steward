@@ -163,6 +163,29 @@ def test_detail_and_neighbors_follow_the_filter(signed_in: TestClient) -> None:
 
 
 @pytest.mark.usefixtures("library")
+def test_oldest_first(signed_in: TestClient) -> None:
+    oldest = {"order": "oldest"}
+    assert list(months(signed_in, **oldest)) == ["2009-08", "2024-05", "2024-06"]
+    buckets = signed_in.get("/api/assets/months", params=oldest).json()
+    june = next(b for b in buckets if b["month"] == "2024-06")
+    assert june["days"] == [1, 1]
+    times = [item["local_taken_at"] for item in month(signed_in, "2024-05", **oldest)]
+    assert times == ["2024-05-03T12:00:00", "2024-05-31T23:59:59"]
+
+    # Paging through goes the same way: from the oldest photo to the newest.
+    first = asset_id_of(signed_in, "2009-08")
+    assert signed_in.get(f"/api/assets/{first}", params=oldest).json()["previous_id"] is None
+    seen, current = [], first
+    while current:
+        seen.append(current)
+        current = signed_in.get(f"/api/assets/{current}", params=oldest).json()["next_id"]
+    newest = asset_id_of(signed_in, "2024-06")
+    assert len(seen) == 5
+    assert seen[-1] == newest
+    assert signed_in.get("/api/assets/months", params={"order": "up"}).status_code == 422
+
+
+@pytest.mark.usefixtures("library")
 def test_review_status_moves_photo_between_views(signed_in: TestClient) -> None:
     june = asset_id_of(signed_in, "2024-06", 1)
     todo_before = sum(months(signed_in, show="todo").values())

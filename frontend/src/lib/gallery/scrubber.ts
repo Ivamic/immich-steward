@@ -18,8 +18,9 @@ export interface Marks {
 }
 
 /**
- * Going from the oldest month up, a year is labeled at the bottom of its earliest month
- * (January, usually), and months get a dot at their bottom; labels and dots that would crowd the
+ * Going from the oldest month on (up from the bottom when the newest are on top, down from the
+ * top when the oldest are), a year is labeled at the edge where its earliest month (January,
+ * usually) begins, and months get a dot at that edge; labels and dots that would crowd the
  * previous ones are left out. Unlike Immich, a crowded year label is left out rather than moved
  * to a later month of the year: a label always marks where its year begins. `toY` turns
  * timeline px into bar px.
@@ -30,19 +31,21 @@ export function scrubberMarks(segments: Segment[], toY: (px: number) => number):
 	let labeledYear = '';
 	let sinceLabel = Infinity;
 	let sinceDot = Infinity;
-	for (const segment of segments.toReversed()) {
+	const oldestFirst =
+		segments.length > 1 && segments[0].month < segments[segments.length - 1].month;
+	for (const segment of oldestFirst ? segments : segments.toReversed()) {
 		const year = segment.month.slice(0, 4);
-		const bottom = toY(segment.top + segment.height);
+		const start = toY(oldestFirst ? segment.top : segment.top + segment.height);
 		const height = toY(segment.height);
 		if (year !== labeledYear) {
 			if (sinceLabel > MIN_LABEL_GAP) {
-				years.push({ year, y: bottom });
+				years.push({ year, y: start });
 				sinceLabel = 0;
 			}
 			labeledYear = year;
 		}
 		if (dots.length === 0 || (height > MIN_DOT_HEIGHT && sinceDot > MIN_DOT_GAP)) {
-			dots.push(bottom);
+			dots.push(start);
 			sinceDot = 0;
 		}
 		sinceLabel += height;

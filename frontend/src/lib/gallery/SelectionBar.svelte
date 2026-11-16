@@ -1,8 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Actions on the photos chosen in the gallery (D-149), in a bar at the bottom of the window:
      their own location first (a location for all of them, the map opens; skip; "not applicable"),
-     then turning them in Immich (videos are left as they are), then the actions of the page. -->
+     then putting them into an album (D-233), turning them in Immich (videos are left as they are),
+     then the actions of the page. -->
 <script lang="ts">
+	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
 	import { rotateSelection, setSelectionReview, type ReviewStatus } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -24,6 +26,7 @@
 	} = $props();
 
 	let busy = $state(false);
+	let picking = $state(false);
 	let error = $state<string | null>(null);
 	const photos = $derived(selection.size - selection.videos);
 
@@ -116,6 +119,18 @@
 		</button>
 	</span>
 
+	<span class="group">
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			disabled={busy}
+			onclick={() => (picking = true)}
+		>
+			<Icon name="folder-plus" size={14} />
+			{m.album_add()}
+		</button>
+	</span>
+
 	<span class="group" title={photos ? undefined : m.selection_rotate_videos_only()}>
 		<Tooltip text={m.photo_turn_left()}>
 			<button
@@ -156,6 +171,14 @@
 	{/if}
 	{#if error}<p class="error" role="alert">{error}</p>{/if}
 </div>
+
+{#if picking}
+	<AlbumPicker
+		ids={selection.ids}
+		onclose={() => (picking = false)}
+		ondone={() => selection.clear()}
+	/>
+{/if}
 
 <style>
 	.bar {

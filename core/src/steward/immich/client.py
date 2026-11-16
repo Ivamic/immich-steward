@@ -13,6 +13,7 @@ from steward.immich.models import (
     ApiKey,
     ApiKeyInfo,
     AuthStatus,
+    BulkResult,
     ImmichAlbum,
     ImmichAsset,
     ImmichUser,
@@ -143,11 +144,28 @@ class ImmichClient:
         return [UUID(item["id"]) for item in data["items"]]
 
     async def albums(self) -> list[ImmichAlbum]:
-        """Albums owned by the user and albums shared with them."""
-        owned = await self._request("GET", "/albums")
-        shared = await self._request("GET", "/albums", params={"shared": "true"})
-        by_id = {album["id"]: album for album in [*owned, *shared]}
-        return [ImmichAlbum.model_validate(album) for album in by_id.values()]
+        """Albums owned by the user and albums shared with them (Immich 3.x lists both)."""
+        albums = await self._request("GET", "/albums")
+        return [ImmichAlbum.model_validate(album) for album in albums]
+
+    async def create_album(self, name: str, asset_ids: list[UUID]) -> ImmichAlbum:
+        body = {"albumName": name, "assetIds": [str(i) for i in asset_ids]}
+        return ImmichAlbum.model_validate(await self._request("POST", "/albums", json=body))
+
+    async def rename_album(self, album_id: UUID, name: str) -> ImmichAlbum:
+        data = await self._request("PATCH", f"/albums/{album_id}", json={"albumName": name})
+        return ImmichAlbum.model_validate(data)
+
+    async def delete_album(self, album_id: UUID) -> None:
+        """Deletes the album only; its photos stay in Immich."""
+        await self._request("DELETE", f"/albums/{album_id}")
+
+    async def add_to_album(self, album_id: UUID, asset_ids: list[UUID]) -> list[BulkResult]:
+        """One result per asset; an asset already in the album fails with "duplicate"."""
+        return await self._bulk_results("PUT", f"/albums/{album_id}/assets", asset_ids)
+
+    async def remove_from_album(self, album_id: UUID, asset_ids: list[UUID]) -> list[BulkResult]:
+        return await self._bulk_results("DELETE", f"/albums/{album_id}/assets", asset_ids)
 
     # Password sign-in. The session token is passed explicitly and only lives for one request.
 
@@ -239,8 +257,14 @@ class ImmichClient:
         return await self._bulk_ids("DELETE", f"/tags/{tag_id}/assets", asset_ids)
 
     async def _bulk_ids(self, method: str, path: str, asset_ids: list[UUID]) -> set[UUID]:
+        results = await self._bulk_results(method, path, asset_ids)
+        return {r.id for r in results if r.success}
+
+    async def _bulk_results(
+        self, method: str, path: str, asset_ids: list[UUID]
+    ) -> list[BulkResult]:
         results = await self._request(method, path, json={"ids": [str(i) for i in asset_ids]})
-        return {UUID(r["id"]) for r in results if r["success"]}
+        return [BulkResult.model_validate(r) for r in results]
 
     async def _get[M: BaseModel](self, path: str, model: type[M]) -> M:
         return model.model_validate(await self._request("GET", path))

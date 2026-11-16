@@ -94,6 +94,9 @@ class GalleryFilter:
     # this failure code, if set).
     failed_module: str | None = None
     failure: str | None = None
+    # The order of the gallery: oldest first instead of newest first (D-233). Not a condition:
+    # only how the photos are listed and paged through.
+    oldest_first: bool = False
 
     def conditions(self, account: Account) -> list[ColumnElement[bool]]:
         result: list[ColumnElement[bool]] = [
@@ -356,15 +359,15 @@ def _next_month(month: date) -> datetime:
 async def month_buckets(
     db: AsyncSession, account: Account, gallery_filter: GalleryFilter
 ) -> list[tuple[date, list[int]]]:
-    """The months with photos, newest first, each with the number of photos of each of its days
-    that has any (newest first too): the gallery shows the days as groups and sizes a month
-    before its photos are loaded."""
+    """The months with photos in the gallery order (newest first, unless `oldest_first`), each
+    with the number of photos of each of its days that has any (in the same order): the gallery
+    shows the days as groups and sizes a month before its photos are loaded."""
     day = func.date_trunc("day", Asset.local_taken_at).label("day")
     rows = await db.execute(
         select(day, func.count())
         .where(*gallery_filter.conditions(account))
         .group_by(day)
-        .order_by(day.desc())
+        .order_by(day.asc() if gallery_filter.oldest_first else day.desc())
     )
     months: list[tuple[date, list[int]]] = []
     for taken, count in rows:
@@ -375,8 +378,11 @@ async def month_buckets(
     return months
 
 
-def gallery_order() -> tuple[Any, ...]:
-    """Newest first; the file name breaks ties between photos taken in the same second."""
+def gallery_order(oldest_first: bool = False) -> tuple[Any, ...]:
+    """Newest first (or oldest first); the file name breaks ties between photos taken in the
+    same second."""
+    if oldest_first:
+        return (Asset.local_taken_at, Asset.original_file_name, Asset.id)
     return (Asset.local_taken_at.desc(), Asset.original_file_name.desc(), Asset.id.desc())
 
 
@@ -392,29 +398,30 @@ def month_assets_query(
                 Asset.local_taken_at < _next_month(month),
             ),
         )
-        .order_by(*gallery_order())
+        .order_by(*gallery_order(gallery_filter.oldest_first))
     )
 
 
 async def neighbors(
     db: AsyncSession, account: Account, gallery_filter: GalleryFilter, asset: Asset
 ) -> tuple[UUID | None, UUID | None]:
-    """Previous (newer) and next (older) asset in the gallery order under the filter."""
+    """Previous and next asset in the gallery order under the filter: newer and older, or the
+    other way round when the gallery shows the oldest first."""
     key = tuple_(Asset.local_taken_at, Asset.original_file_name, Asset.id)
     current = tuple_(
         literal(asset.local_taken_at), literal(asset.original_file_name), literal(asset.id)
     )
     conditions = gallery_filter.conditions(account)
-    previous = await db.scalar(
+    newer = await db.scalar(
         select(Asset.id)
         .where(*conditions, key > current)
-        .order_by(Asset.local_taken_at, Asset.original_file_name, Asset.id)
+        .order_by(*gallery_order(oldest_first=True))
         .limit(1)
     )
-    following = await db.scalar(
+    older = await db.scalar(
         select(Asset.id).where(*conditions, key < current).order_by(*gallery_order()).limit(1)
     )
-    return previous, following
+    return (older, newer) if gallery_filter.oldest_first else (newer, older)
 
 
 async def camera_options(db: AsyncSession, account: Account) -> list[dict[str, Any]]:

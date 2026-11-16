@@ -19,9 +19,17 @@ REQUIRED_PERMISSIONS = frozenset(
 )
 
 # Used when granted: asset.download shows originals in full size in the photo viewer; the
-# asset.edit ones save a photo rotated in the app to Immich.
+# asset.edit ones save a photo rotated in the app to Immich; the album ones change albums.
 EDIT_PERMISSIONS = ("asset.edit.get", "asset.edit.create", "asset.edit.delete")
-OPTIONAL_PERMISSIONS = frozenset({"asset.download", *EDIT_PERMISSIONS})
+# What each change of albums needs (D-233).
+ALBUM_PERMISSIONS = {
+    "add": "albumAsset.create",
+    "remove": "albumAsset.delete",
+    "create": "album.create",
+    "rename": "album.update",
+    "delete": "album.delete",
+}
+OPTIONAL_PERMISSIONS = frozenset({"asset.download", *EDIT_PERMISSIONS, *ALBUM_PERMISSIONS.values()})
 
 # Immich lets a key be created with every permission at once.
 ALL_PERMISSIONS = "all"
@@ -29,6 +37,10 @@ ALL_PERMISSIONS = "all"
 
 def is_supported(version: ServerVersion) -> bool:
     return version.major in SUPPORTED_MAJOR_VERSIONS
+
+
+def has_permission(granted: list[str], permission: str) -> bool:
+    return ALL_PERMISSIONS in granted or permission in granted
 
 
 def missing_permissions(granted: list[str]) -> list[str]:

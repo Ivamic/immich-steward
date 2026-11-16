@@ -20,6 +20,7 @@ from starlette.types import Scope
 
 from steward import __version__
 from steward.api import (
+    albums,
     assets,
     auth,
     groups,
@@ -124,6 +125,7 @@ def create_app(
     app.include_router(library.router, prefix="/api")
     app.include_router(groups.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
+    app.include_router(albums.router, prefix="/api")
     app.include_router(maps.router, prefix="/api")
     app.include_router(selection.router, prefix="/api")
     app.include_router(worker.router, prefix="/api")

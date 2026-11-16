@@ -143,12 +143,17 @@ export interface GalleryFilter {
 	failed_module: string | null;
 	/** ...for this reason (a failure code); null: any reason. */
 	failure: string | null;
+	/** How the gallery lists the photos: the newest or the oldest first (D-233). */
+	order: GalleryOrder;
 }
+
+export type GalleryOrder = 'newest' | 'oldest';
 
 export interface MonthBucket {
 	month: string; // YYYY-MM
 	count: number;
-	/** Photos of each day of the month that has any, newest first (cores before 0.7.0: none). */
+	/** Photos of each day of the month that has any, in the gallery order (cores before 0.7.0:
+	 * none). */
 	days?: number[];
 }
 
@@ -211,6 +216,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 		params.set('failed_module', filter.failed_module);
 		if (filter.failure) params.set('failure', filter.failure);
 	}
+	if (filter.order === 'oldest') params.set('order', 'oldest');
 	const query = params.toString();
 	return query ? `?${query}` : '';
 }
@@ -849,6 +855,65 @@ export const setSelectionReview = (ids: string[], status: ReviewStatus) =>
 export const rotateSelection = (ids: string[], turn: Exclude<Turn, 0>) =>
 	request<Job>('POST', '/api/selection/rotate', { ids, turn });
 export const getSelectionJob = (id: string) => request<Job>('GET', `/api/selection/jobs/${id}`);
+
+/** An album of Immich: the account's own or one shared with it (D-233). */
+export interface Album {
+	id: string;
+	immich_id: string;
+	name: string;
+	/** Photos in the album as Immich counts them (in a shared album, other users' too). */
+	count: number;
+	/** Of them, photos of this library: what the gallery shows with the album filter. */
+	own_count: number;
+	shared: boolean;
+	role: 'owner' | 'editor' | 'viewer';
+	can_change_photos: boolean;
+	owned: boolean;
+	has_cover: boolean;
+	start_date: string | null;
+	end_date: string | null;
+	updated_at: string;
+}
+
+export type AlbumAction = 'add' | 'remove' | 'create' | 'rename' | 'delete';
+
+export interface AlbumList {
+	albums: Album[];
+	/** What the Immich API key allows. */
+	allowed: Record<AlbumAction, boolean>;
+	/** The Immich permission each action needs. */
+	permissions: Record<AlbumAction, string>;
+	/** Immich in the browser: albums are at `/albums/{immich_id}` there. */
+	immich_url: string | null;
+}
+
+export interface AlbumAdded {
+	album: Album;
+	/** The photos put into the album now: what an undo takes out again. */
+	added: string[];
+	already: number;
+	skipped_locked: number;
+	failed: number;
+	/** The album was made by this change: undoing it deletes the album. */
+	created: boolean;
+}
+
+export const getAlbums = () => request<AlbumList>('GET', '/api/albums');
+export const createAlbum = (name: string, ids: string[] = []) =>
+	request<AlbumAdded>('POST', '/api/albums', { name, ids });
+export const addToAlbum = (albumId: string, ids: string[]) =>
+	request<AlbumAdded>('PUT', `/api/albums/${albumId}/assets`, { ids });
+export const removeFromAlbum = (albumId: string, ids: string[]) =>
+	request<{ album: Album; removed: number; failed: number }>(
+		'POST',
+		`/api/albums/${albumId}/assets/remove`,
+		{ ids }
+	);
+export const renameAlbum = (albumId: string, name: string) =>
+	request<Album>('PATCH', `/api/albums/${albumId}`, { name });
+export const deleteAlbum = (albumId: string) => request<void>('DELETE', `/api/albums/${albumId}`);
+export const albumCoverUrl = (album: Album) =>
+	`/api/albums/${album.id}/cover?v=${encodeURIComponent(album.updated_at)}`;
 
 export const getMapConfig = () => request<MapConfig>('GET', '/api/config/map');
 export function geocode(q: string, lang: string, near: { lat: number; lon: number } | null) {

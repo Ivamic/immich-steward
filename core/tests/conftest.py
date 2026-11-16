@@ -5,7 +5,7 @@ import os
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -105,6 +105,8 @@ class FakeImmich:
     smart_results: dict[str, list[str]] = field(default_factory=dict)
     smart_search_on: bool = True
     smart_requests: list[dict[str, Any]] = field(default_factory=list)
+    # Requests that change an album or its photos.
+    album_changes: int = 0
 
     def add_asset(self, **fields: Any) -> str:
         """Adds an asset in the Immich API shape; returns its id."""
@@ -134,9 +136,61 @@ class FakeImmich:
             "assetCount": len(asset_ids),
             "updatedAt": "2026-01-01T00:00:00Z",
             "shared": False,
+            "albumThumbnailAssetId": asset_ids[0] if asset_ids else None,
+            "albumUsers": [{"user": {"id": str(self.user_id)}, "role": "owner"}],
         } | fields
         self.album_assets[album_id] = list(asset_ids)
         return album_id
+
+    def _allowed(self, permission: str) -> bool:
+        return "all" in self.permissions or permission in self.permissions
+
+    def _albums(self, request: httpx2.Request, parts: list[str]) -> httpx2.Response:
+        """/api/albums[/{id}[/assets]], as Immich 3.x answers them."""
+        method = request.method
+        if len(parts) == 3:
+            if method == "GET":
+                return _json(list(self.albums.values()))
+            if not self._allowed("album.create"):
+                return _json({"message": "Missing required permission: album.create"}, 403)
+            body = json.loads(request.content)
+            album_id = self.add_album(body["albumName"], body.get("assetIds", []))
+            return _json(self.albums[album_id], 201)
+        album = self.albums.get(parts[3])
+        if album is None:
+            return _json({"message": "Not found or no album.read access"}, 400)
+        self.album_changes += 1
+        if len(parts) == 4:
+            permission = {"PATCH": "album.update", "DELETE": "album.delete"}[method]
+            if not self._allowed(permission):
+                return _json({"message": f"Missing required permission: {permission}"}, 403)
+            if method == "DELETE":
+                del self.albums[parts[3]]
+                del self.album_assets[parts[3]]
+                return httpx2.Response(204)
+            album["albumName"] = json.loads(request.content)["albumName"]
+            album["updatedAt"] = datetime.now(UTC).isoformat()
+            return _json(album)
+        permission = "albumAsset.create" if method == "PUT" else "albumAsset.delete"
+        if not self._allowed(permission):
+            return _json({"message": f"Missing required permission: {permission}"}, 403)
+        members = self.album_assets[parts[3]]
+        results: list[dict[str, Any]] = []
+        for asset_id in json.loads(request.content)["ids"]:
+            if asset_id not in self.assets:
+                results.append({"id": asset_id, "success": False, "error": "no_permission"})
+            elif method == "PUT" and asset_id in members:
+                results.append({"id": asset_id, "success": False, "error": "duplicate"})
+            elif method == "DELETE" and asset_id not in members:
+                results.append({"id": asset_id, "success": False, "error": "not_found"})
+            else:
+                if method == "PUT":
+                    members.append(asset_id)
+                else:
+                    members.remove(asset_id)
+                results.append({"id": asset_id, "success": True})
+        album["assetCount"] = len(members)
+        return _json(results)
 
     def _search(self, body: dict[str, Any]) -> httpx2.Response:
         self.search_requests.append(body)
@@ -367,9 +421,8 @@ class FakeImmich:
             found = self.smart_results.get(body["query"], [])[: body.get("size", 100)]
             items = [self.assets[i] for i in found if i in self.assets]
             return _json({"assets": {"items": items, "nextPage": None}})
-        if path == "/api/albums":
-            shared = request.url.params.get("shared") == "true"
-            return _json([a for a in self.albums.values() if a["shared"] == shared])
+        if parts[2] == "albums" and (len(parts) == 3 or len(parts) == 4 or parts[4] == "assets"):
+            return self._albums(request, parts)
         return _json({"message": "Not found"}, 404)
 
     def _video(self, request: httpx2.Request, asset_id: str) -> httpx2.Response:

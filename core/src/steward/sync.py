@@ -230,15 +230,24 @@ async def _sync_albums(
         if album is None:
             album = Album(account_id=account.id, immich_id=item.id)
             db.add(album)
-        album.name = item.album_name
-        album.asset_count = item.asset_count
-        album.shared = item.shared
-        album.immich_updated_at = item.updated_at
+        apply_album(album, item, account)
         await db.flush()
         if changed or refresh_all:
             await _sync_album_members(db, client, account, album, item)
     await db.commit()
     return len(remote)
+
+
+def apply_album(album: Album, item: ImmichAlbum, account: Account) -> None:
+    """Copies what Immich says about an album into the local row."""
+    album.name = item.album_name
+    album.asset_count = item.asset_count
+    album.shared = item.shared
+    album.immich_updated_at = item.updated_at
+    album.role = item.role_of(account.immich_user_id) or "viewer"
+    album.thumbnail_immich_id = item.album_thumbnail_asset_id
+    album.start_date = item.start_date
+    album.end_date = item.end_date
 
 
 async def _sync_album_members(

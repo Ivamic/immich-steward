@@ -44,6 +44,10 @@
 		e.preventDefault();
 		onclose();
 	}}
+	onkeydown={(e) => {
+		// Esc closes the window only, not what the page does with it (e.g. clear the choice).
+		if (e.key === 'Escape') e.stopPropagation();
+	}}
 	onclick={(e) => e.target === e.currentTarget && onclose()}
 >
 	<div class="st-dialog__head">

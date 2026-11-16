@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- The name of a group on a tile, a link to it, renamed in place with the pencil: Enter or leaving
-     the field saves, Esc cancels; an empty name takes the name away. -->
+     the field saves, Esc cancels; an empty name takes the name away. An album's tile uses it too,
+     with its own way to save and a name that cannot be empty (D-233). -->
 <script lang="ts">
 	import { updateGroup } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -12,7 +13,11 @@
 		name,
 		href,
 		onclick,
-		onrenamed
+		onrenamed,
+		rename = async (wanted) => (await updateGroup(id, { name: wanted })).group.name,
+		canRename = true,
+		required = false,
+		label = m.groups_name()
 	}: {
 		id: string;
 		name: string | null;
@@ -21,6 +26,14 @@
 		onclick?: (event: MouseEvent) => void;
 		/** Saved: the new name, null when taken away. */
 		onrenamed: (name: string | null) => void;
+		/** Saves the name; returns it as saved. */
+		rename?: (name: string) => Promise<string | null>;
+		/** No pencil: the name cannot be changed here. */
+		canRename?: boolean;
+		/** An empty name is not saved. */
+		required?: boolean;
+		/** What the field is, for screen readers. */
+		label?: string;
 	} = $props();
 
 	let editing = $state(false);
@@ -37,14 +50,13 @@
 	async function save() {
 		if (!editing || saving) return;
 		const wanted = value.trim();
-		if (wanted === (name ?? '')) {
+		if (wanted === (name ?? '') || (required && !wanted)) {
 			editing = false;
 			return;
 		}
 		saving = true;
 		try {
-			const answer = await updateGroup(id, { name: wanted });
-			onrenamed(answer.group.name);
+			onrenamed(await rename(wanted));
 			editing = false;
 		} catch (e) {
 			error = errorMessage(e);
@@ -71,8 +83,8 @@
 {#if editing}
 	<span class="st-input st-input--sm field">
 		<input
-			aria-label={m.groups_name()}
-			placeholder={m.groups_unnamed()}
+			aria-label={label}
+			placeholder={required ? label : m.groups_unnamed()}
 			maxlength="200"
 			disabled={saving}
 			bind:value
@@ -86,15 +98,17 @@
 	<span class="row">
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved by the page -->
 		<a class="name" class:unnamed={!name} {href} {onclick}>{name ?? m.groups_unnamed()}</a>
-		<button
-			type="button"
-			class="st-iconbtn st-iconbtn--sm edit"
-			aria-label={m.groups_rename()}
-			title={m.groups_rename()}
-			onclick={start}
-		>
-			<Icon name="pencil" size={13} />
-		</button>
+		{#if canRename}
+			<button
+				type="button"
+				class="st-iconbtn st-iconbtn--sm edit"
+				aria-label={m.groups_rename()}
+				title={m.groups_rename()}
+				onclick={start}
+			>
+				<Icon name="pencil" size={13} />
+			</button>
+		{/if}
 	</span>
 {/if}
 

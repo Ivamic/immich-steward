@@ -72,6 +72,12 @@ export function errorMessage(error: unknown): string {
 			return m.error_location_nothing_to_undo();
 		case 'rotate_not_supported':
 			return m.error_rotate_not_supported();
+		case 'album_read_only':
+			return m.error_album_read_only();
+		case 'album_not_owned':
+			return m.error_album_not_owned();
+		case 'album_not_found':
+			return m.error_album_not_found();
 		default:
 			return m.error_unexpected();
 	}

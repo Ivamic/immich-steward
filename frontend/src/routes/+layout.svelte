@@ -53,6 +53,7 @@
 	const pages = $derived([
 		{ href: resolve('/'), label: m.nav_gallery(), current: page.route.id === '/' },
 		{ href: resolve('/map'), label: m.nav_map(), current: page.route.id === '/map' },
+		{ href: resolve('/albums'), label: m.nav_albums(), current: page.route.id === '/albums' },
 		{
 			href: resolve('/groups'),
 			label: m.nav_groups(),

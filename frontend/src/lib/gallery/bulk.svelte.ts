@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Notices about actions on several photos chosen in the gallery (D-149): turning them in Immich
-// (a background job of the core, followed here until it is over) and marking them. Shown with the
+// (a background job of the core, followed here until it is over), marking them, putting them into
+// an album (with an undo, D-233). Shown with the
 // save notices (SaveNotices.svelte). Locations for several photos are saves (saves.svelte.ts).
 import { ApiError, getSelectionJob, type Job } from '#lib/api.js';
 import { errorMessage } from '#lib/errors.js';
@@ -14,6 +15,8 @@ const FIRST_POLL_MS = 500;
 const POLL_MS = 1500;
 // How long a notice about a finished action stays on screen.
 const NOTICE_MS = 10_000;
+// One that can be undone stays longer, to leave time for the undo.
+const UNDO_NOTICE_MS = 20_000;
 // What turning needs from the Immich API key, for the message when it is missing.
 const EDIT_PERMISSIONS = ['asset.edit.get', 'asset.edit.create', 'asset.edit.delete'];
 
@@ -25,6 +28,8 @@ export interface BulkNotice {
 	details: string[];
 	/** While running: how far it got. */
 	progress: { done: number; total: number } | null;
+	/** Reverts the action and tells what it did; shown as "Undo" while the notice is done. */
+	undo?: () => Promise<string>;
 }
 
 interface Progress {
@@ -89,6 +94,26 @@ export class BulkNotices {
 		setTimeout(() => this.dismiss(notice.key), NOTICE_MS);
 	}
 
+	/** A finished action that can be undone. */
+	undoable(text: string, details: string[], undo: () => Promise<string>) {
+		const notice = this.#add('done', text);
+		notice.details = details;
+		notice.undo = undo;
+		this.#dismissLater(notice.key, UNDO_NOTICE_MS);
+	}
+
+	async runUndo(key: number) {
+		const item = this.#get(key);
+		const undo = item?.undo;
+		if (!item || !undo) return;
+		Object.assign(item, { phase: 'running', undo: undefined });
+		try {
+			this.#finish(key, 'done', await undo(), []);
+		} catch (error) {
+			this.#finish(key, 'failed', m.undo_failed({ error: errorMessage(error) }), []);
+		}
+	}
+
 	dismiss(key: number) {
 		this.items = this.items.filter((item) => item.key !== key);
 	}
@@ -107,7 +132,14 @@ export class BulkNotices {
 		const item = this.#get(key);
 		if (!item) return;
 		Object.assign(item, { phase, text, details, progress: null });
-		setTimeout(() => this.dismiss(key), NOTICE_MS);
+		this.#dismissLater(key, NOTICE_MS);
+	}
+
+	/** Dismisses the notice later, unless it is busy again by then (an undo running). */
+	#dismissLater(key: number, ms: number) {
+		setTimeout(() => {
+			if (this.#get(key)?.phase !== 'running') this.dismiss(key);
+		}, ms);
 	}
 }
 

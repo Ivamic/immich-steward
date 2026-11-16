@@ -140,22 +140,29 @@
 				>
 					{#if 'album' in row}
 						{@const state = inAlbum(row.album)}
-						<Icon name={row.album.shared ? 'users' : 'images'} size={16} />
-						<span class="st-menu__label">{row.album.name}</span>
+						<!-- Whether the photos are in it: all (a check), some (a dash) or none (empty). -->
+						<span
+							class="st-check__box"
+							data-state={state}
+							role="img"
+							aria-label={state === 'all' ? m.album_has_all() : undefined}
+							aria-hidden={state === 'all' ? undefined : 'true'}
+						></span>
+						<span class="st-menu__label"
+							>{row.album.name}{#if row.album.shared}<span class="shared" title={m.albums_shared()}
+									><Icon name="users" size={12} /></span
+								>{/if}</span
+						>
 						<span class="st-menu__hint">
 							{[
-								state === 'all'
-									? m.album_has_all()
-									: state === 'some'
-										? m.album_has_some({ count: counts[row.album.id], total: ids.length })
-										: period(row.album),
+								state === 'some'
+									? m.album_has_some({ count: counts[row.album.id], total: ids.length })
+									: period(row.album),
 								m.album_photos({ count: row.album.count })
 							]
 								.filter(Boolean)
 								.join(' · ')}
 						</span>
-						{#if state}<span class="st-check__box" data-state={state} aria-hidden="true"
-							></span>{/if}
 					{:else}
 						<Icon name="plus" size={16} />
 						<span class="st-menu__label">{m.album_new({ name: row.name })}</span>
@@ -189,6 +196,11 @@
 		flex-direction: column;
 		max-height: min(22rem, 55vh);
 		overflow-y: auto;
+	}
+	.shared {
+		margin-inline-start: var(--space-1-5);
+		color: var(--color-text-subtle);
+		vertical-align: -1px;
 	}
 	.note {
 		margin: 0;

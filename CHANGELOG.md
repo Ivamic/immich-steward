@@ -49,6 +49,11 @@ Albums: putting photos into albums of Immich from the gallery, and an Albums pag
   The repository now pins Python 3.12 in `.python-version`, and the commands in
   [Workers](docs/workers.md) pass `--python 3.12`.
 
+### Security
+
+- Dependencies were checked before the release: nothing new. Still open, in the build tools only
+  and not in the images: minimatch (moderate, in the linter) and deepmerge (low, no fix yet).
+
 ## [0.11.0] - 2026-11-15
 
 Suggestions of similar photos confirmed by matching details.

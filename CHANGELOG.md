@@ -33,12 +33,17 @@ Albums: putting photos into albums of Immich from the gallery, and an Albums pag
   changed.
 - When the session is over, the app goes to the sign-in page at once and comes back to the same
   page after signing in.
+- A location saved for a photo: the photos without a location that look like it are compared
+  with it at once (matching details), not at the daily second look.
 
 ### Fixed
 
 - A window closed when a selection of text made in it ended outside it.
 - A month of the gallery whose photos could not be loaded stayed empty for good; it now says so,
   with **Try again**, and tries again when it comes near the screen.
+- The mark **Confirmed by details** did nothing in **Set location** for chosen photos; it now
+  shows the shared details, as in the photo card. In both, it shows the similar photo that shares
+  the most details.
 - Installing a worker from source could fail with "Microsoft Visual C++ 14.0 or greater is
   required": uv picked the newest Python, for which some libraries have no ready-made builds.
   The repository now pins Python 3.12 in `.python-version`, and the commands in

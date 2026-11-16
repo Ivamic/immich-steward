@@ -1036,6 +1036,7 @@ async def set_location(
             source="manual",
             tag=settings.estimated_tag,
         )
+    await details.after_location(db, settings, [asset])
     return await _detail(db, account, asset, filters, settings)
 
 

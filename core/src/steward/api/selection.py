@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import jobs, locations, locked, module_display, selection, view_groups
+from steward import details, jobs, locations, locked, module_display, selection, view_groups
 from steward.api.assets import (
     CandidateItem,
     ModuleSuggestions,
@@ -183,6 +183,9 @@ async def set_location(
             overwrite=body.overwrite,
             tag=settings.estimated_tag,
         )
+    if written.batch_id is not None:
+        located = await locations.batch_assets(db, account.id, written.batch_id)
+        await details.after_location(db, settings, located)
     return LocationWritten(
         batch_id=written.batch_id,
         written=written.written,

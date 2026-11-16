@@ -94,7 +94,11 @@
 	};
 
 	// The similar photo whose shared details are shown (`DetailsDialog`).
-	let pairWith = $state<NeighborEvidence | null>(null);
+	let pairWith = $state<{ photo: string; other: NeighborEvidence } | null>(null);
+
+	/** The similar photo that shares the most details: the pair the confirmation is about. */
+	const confirming = (neighbors: NeighborEvidence[]) =>
+		neighbors.reduce((best, n) => ((n.details ?? 0) > (best.details ?? 0) ? n : best));
 
 	/** The comparison of details can be asked for: the suggestions are on the whole photo. */
 	const canCompare = (module: ModuleSuggestions) =>
@@ -423,13 +427,14 @@
 									title={m.candidate_score({ percent: String(Math.round(candidate.score * 100)) })}
 								/>
 								{#if candidate.evidence.confirmed && candidate.evidence.neighbors?.length}
-									{@const sharing = candidate.evidence.neighbors[0]}
+									{@const sharing = confirming(candidate.evidence.neighbors)}
+									{@const photo = sharing.photo_id ?? assetId}
 									<button
 										type="button"
 										class="st-cand__agree confirmed"
-										disabled={sharing.locked || !assetId}
+										disabled={sharing.locked || !photo}
 										title={m.candidate_confirmed_title({ count: String(sharing.details ?? 0) })}
-										onclick={() => (pairWith = sharing)}
+										onclick={() => photo && (pairWith = { photo, other: sharing })}
 									>
 										<Icon name="circle-check" size={14} />
 										{m.candidate_confirmed()}
@@ -516,8 +521,12 @@
 	{/if}
 </section>
 
-{#if pairWith && assetId}
-	<DetailsDialog {assetId} other={pairWith} onclose={() => (pairWith = null)} />
+{#if pairWith}
+	<DetailsDialog
+		assetId={pairWith.photo}
+		other={pairWith.other}
+		onclose={() => (pairWith = null)}
+	/>
 {/if}
 
 {#if peek}

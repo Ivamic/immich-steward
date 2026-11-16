@@ -431,6 +431,8 @@ export interface NeighborEvidence {
 	/** Similar photos only: the details the photo shares with this one (`details` module);
 	 * null when the two were not compared. */
 	details?: number | null;
+	/** Suggestions for several chosen photos: the chosen photo it is a neighbor of. */
+	photo_id?: string;
 	local_taken_at?: string;
 }
 

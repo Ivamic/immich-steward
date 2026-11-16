@@ -259,7 +259,8 @@ def _add(
     cluster.photos.add(asset_id)
     for neighbor in neighbors:
         item = neighbor if isinstance(neighbor, dict) else _neighbor(neighbor)
-        cluster.neighbors.setdefault(item["asset_id"], item)
+        # Which chosen photo it is a neighbor of: the pair whose shared details are shown.
+        cluster.neighbors.setdefault(item["asset_id"], {**item, "photo_id": str(asset_id)})
 
 
 def _evidence(cluster: _Cluster) -> dict[str, Any]:

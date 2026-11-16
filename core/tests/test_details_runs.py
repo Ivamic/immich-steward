@@ -4,11 +4,12 @@
 from typing import Any
 from uuid import UUID
 
+from conftest import sync
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_details_confirm import compared
-from test_embeddings import AUTH
-from test_similar_search import library  # noqa: F401
+from test_embeddings import AUTH, encoded, run_module, start_worker
+from test_similar_search import ROME, library, similar_to_query  # noqa: F401
 from test_worker_api import db_call
 
 from steward import details, worker_queue
@@ -343,3 +344,47 @@ def test_a_photo_with_nothing_new_to_compare_with_waits_another_day(
     assert auto(signed_in) == 0
     assert detail_runs(signed_in) == [("query.jpg", "done", 0)]
     assert auto(signed_in) == 0
+
+
+def located_newly(client: TestClient, fake_immich: Any) -> str:
+    """A photo like query.jpg, without a location at first; its vector found. Returns its id."""
+    fake_immich.add_asset(taken="2024-05-01T20:00:00", originalFileName="new.jpg")
+    sync(client, full=True)
+    items = client.get("/api/assets", params={"month": "2024-05"}).json()
+    new = next(item["id"] for item in items if item["file_name"] == "new.jpg")
+    worker = start_worker(client)
+    vector = similar_to_query(0.9, 7)
+    assert run_module(client, worker, new, {"embedding": encoded(vector)}).is_success
+    return str(new)
+
+
+def test_a_location_saved_looks_again_at_the_photos_like_it(
+    signed_in: TestClient,
+    fake_immich: Any,
+    library: Library,  # noqa: F811
+) -> None:
+    # query.jpg was compared with every photo with a location: nothing to do for it now.
+    for name in ("kotor.jpg", "kotor-near.jpg", "budva.jpg", "paris.jpg", "set-by-app.jpg"):
+        compared(signed_in, library["query.jpg"], library[name], 5)
+    new = located_newly(signed_in, fake_immich)
+
+    # A photo like it gets a location: it is compared at once, not a day later.
+    assert signed_in.put(f"/api/assets/{new}/location", json=ROME).is_success
+
+    assert detail_runs(signed_in) == [("query.jpg", "queued", 1)]
+
+
+def test_without_the_comparison_by_itself_a_location_queues_nothing(
+    signed_in: TestClient,
+    fake_immich: Any,
+    library: Library,  # noqa: F811
+) -> None:
+    app_settings = signed_in.app.state.settings  # type: ignore[attr-defined]
+    signed_in.app.state.settings = app_settings.model_copy(  # type: ignore[attr-defined]
+        update={"auto_modules": "geoclip,similar"}
+    )
+    new = located_newly(signed_in, fake_immich)
+
+    assert signed_in.put(f"/api/assets/{new}/location", json=ROME).is_success
+
+    assert detail_runs(signed_in) == []

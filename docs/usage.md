@@ -230,7 +230,8 @@ is **1**. On a real family library such a suggestion was right within 1 km 95 ti
   comparing a photo with twenty others takes a couple of seconds there and most of a minute
   on a CPU. A photo that is not confirmed is looked at again a day later: photos that got a
   location since may be similar to it now, and a comparison started from the button took only
-  the five most similar ones.
+  the five most similar ones. When you save a location, the photos without one that look like
+  that photo are looked at again at once.
 - **In the gallery** the filter **Confirmed by details** shows the photos without a location
   that have a confirmed suggestion: the place can be set almost without looking.
 

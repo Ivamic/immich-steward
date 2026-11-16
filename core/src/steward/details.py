@@ -6,17 +6,20 @@ compares the photo with the most similar of them point by point. The answers are
 (`DetailMatch`) and confirm the suggestions when they are shown (`modules.similar.candidates`).
 """
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import bindparam, exists, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import account_settings, worker_queue
 from steward.config import Settings
-from steward.models import Asset, Job, ModuleRun
+from steward.models import EMBEDDING_DIM, Asset, Embedding, Job, ModuleRun
 from steward.modules import similar
+
+log = logging.getLogger(__name__)
 
 MODULE_ID = "details"
 # Background comparisons waiting in the queue at most, and queued in one pass (each needs a search
@@ -180,6 +183,103 @@ async def auto_enqueue(db: AsyncSession, settings: Settings) -> int:
             latest.finished_at = now
         await db.commit()
     return count
+
+
+# A location just saved: for this many of the photos at most, the photos without a location most
+# like each of them (this many) are looked at again at once, not a day later (`look_again_near`).
+NEAR_LOOK_PHOTOS = 50
+NEAR_LOOK_NEIGHBORS = 30
+
+_QUERY = f"CAST(:query AS halfvec({EMBEDDING_DIM}))"
+_UNLOCATED_NEAR = text(
+    f"""
+    SELECT near.asset_id FROM (
+        SELECT asset_id, vector FROM embedding
+        WHERE NOT region AND NOT located AND account_id = :account_id AND module_id = :module_id
+            AND asset_id <> :asset_id
+        ORDER BY binary_quantize(vector)::bit({EMBEDDING_DIM}) <~> binary_quantize({_QUERY})
+        LIMIT :pool
+    ) AS near
+    ORDER BY near.vector <#> {_QUERY}
+    LIMIT :limit
+    """
+).bindparams(bindparam("query", type_=Embedding.vector.type))
+
+
+async def look_again_near(db: AsyncSession, settings: Settings, located: list[Asset]) -> int:
+    """Photos just given a location may be what the photos without one that look like them were
+    waiting for: their comparison is queued now, as the daily second look would do a day later.
+    `enqueue` keeps only the photos for which there is something new to compare with. Only when
+    the comparison runs by itself (`details` in STEWARD_AUTO_MODULES). Returns how many were
+    queued."""
+    if MODULE_ID not in settings.auto_module_ids:
+        return 0
+    seen: set[UUID] = {asset.id for asset in located}
+    personal: dict[UUID, dict[str, Any]] = {}
+    count = 0
+    for photo in located[:NEAR_LOOK_PHOTOS]:
+        vector = await db.scalar(
+            select(Embedding.vector).where(
+                Embedding.asset_id == photo.id,
+                Embedding.module_id == similar.MODULE_ID,
+                Embedding.region.is_(False),
+            )
+        )
+        if vector is None:
+            continue
+        await db.execute(text(f"SET LOCAL hnsw.ef_search = {similar.POOL}"))
+        await db.execute(text("SET LOCAL hnsw.iterative_scan = relaxed_order"))
+        near = await db.scalars(
+            _UNLOCATED_NEAR,
+            {
+                "query": vector,
+                "account_id": photo.account_id,
+                "module_id": similar.MODULE_ID,
+                "asset_id": photo.id,
+                "pool": similar.POOL,
+                "limit": NEAR_LOOK_NEIGHBORS,
+            },
+        )
+        for other_id in list(near):
+            if other_id in seen:
+                continue
+            seen.add(other_id)
+            asset = await db.get(Asset, other_id)
+            if asset is None or not _waits(asset):
+                continue
+            latest = (await worker_queue.latest_runs(db, asset.id)).get(MODULE_ID)
+            if latest is not None and latest.status in worker_queue.ACTIVE:
+                continue
+            if asset.account_id not in personal:
+                personal[asset.account_id] = await account_settings.get_all(db, asset.account_id)
+            mine = personal[asset.account_id]
+            if await is_confirmed(db, asset, settings, mine["details_confirmed_from"]):
+                continue
+            if await enqueue(db, asset, settings, mine["details_candidates_auto"]) is not None:
+                count += 1
+    await db.commit()
+    return count
+
+
+async def after_location(db: AsyncSession, settings: Settings, located: list[Asset]) -> None:
+    """`look_again_near` after a location was saved; a failure here leaves the saved location
+    alone (the daily second look still comes)."""
+    try:
+        await look_again_near(db, settings, located)
+    except Exception:
+        await db.rollback()
+        log.exception("Could not queue the comparisons of the photos like the ones just located")
+
+
+def _waits(asset: Asset) -> bool:
+    """A photo the comparison runs for by itself (as `auto_enqueue` picks them)."""
+    return (
+        asset.latitude is None
+        and asset.review_status == "new"
+        and asset.visibility in ("timeline", "locked")
+        and asset.type == "IMAGE"
+        and not asset.is_trashed
+    )
 
 
 async def is_confirmed(

@@ -61,14 +61,15 @@ def library(signed_in: TestClient, fake_immich: FakeImmich) -> dict[str, str]:
     sync(signed_in)
     items = signed_in.get("/api/assets", params={"month": "2024-05"}).json()
     ids = {item["file_name"]: item["id"] for item in items}
+    # A location set in the app: searched among by default (D-106). Set before the vectors, so
+    # that it queues no comparison (`details.look_again_near`).
+    assert signed_in.put(f"/api/assets/{ids['set-by-app.jpg']}/location", json=ROME).is_success
     worker = start_worker(signed_in)
     for index, (file_name, (_, similarity)) in enumerate(photos.items(), start=1):
         vector = QUERY if file_name == "query.jpg" else similar_to_query(similarity, index)
         assert run_module(
             signed_in, worker, ids[file_name], {"embedding": encoded(vector)}
         ).is_success
-    # A location set in the app: searched among by default (D-106).
-    assert signed_in.put(f"/api/assets/{ids['set-by-app.jpg']}/location", json=ROME).is_success
     return ids
 
 

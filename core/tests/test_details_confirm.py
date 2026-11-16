@@ -283,3 +283,18 @@ def test_a_photo_with_a_location_is_not_marked(
 
     assert not any(gallery(signed_in).values())
     assert gallery(signed_in, details_confirmed=True) == {}
+
+
+def test_suggestions_for_chosen_photos_name_the_photo_of_each_pair(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    compared(signed_in, library["query.jpg"], library["budva.jpg"], 150)
+
+    response = signed_in.post("/api/selection/suggestions", json={"ids": [library["query.jpg"]]})
+
+    module = next(m for m in response.json() if m["module"] == "similar")
+    confirmed = next(c for c in module["candidates"] if c["evidence"]["confirmed"])
+    sharing = max(confirmed["evidence"]["neighbors"], key=lambda n: n["details"] or 0)
+    assert sharing["asset_id"] == library["budva.jpg"]
+    assert sharing["photo_id"] == library["query.jpg"]

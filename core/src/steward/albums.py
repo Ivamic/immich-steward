@@ -4,6 +4,7 @@ renaming and deleting albums. Each change is made in Immich first, then mirrored
 tables, so that the album filter shows it before the next sync."""
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -74,6 +75,8 @@ async def add_assets(
             result.failed += 1
     await _link(db, album, present)
     album.asset_count += len(result.added)
+    if result.added:
+        _touched(album)
     await db.commit()
     return result
 
@@ -104,6 +107,8 @@ async def remove_assets(
             delete(AssetAlbum).where(AssetAlbum.album_id == album.id, AssetAlbum.asset_id.in_(gone))
         )
     album.asset_count = max(0, album.asset_count - len(result.removed))
+    if result.removed:
+        _touched(album)
     await db.commit()
     return result
 
@@ -145,6 +150,12 @@ async def own_assets(db: AsyncSession, account: Account, ids: list[UUID]) -> lis
         )
     }
     return [found[i] for i in dict.fromkeys(ids) if i in found]
+
+
+def _touched(album: Album) -> None:
+    """The album changed now: it goes first among the ones changed lately at once, not only after
+    the next sync (which then reads its photos again, as for any change in Immich)."""
+    album.immich_updated_at = datetime.now(UTC)
 
 
 async def _link(db: AsyncSession, album: Album, asset_ids: list[UUID]) -> None:

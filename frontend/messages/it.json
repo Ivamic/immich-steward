@@ -846,5 +846,6 @@
 	"album_cannot_remove": "La chiave API non consente di togliere foto dagli album: serve il permesso {permission}. Modifica la chiave in Immich.",
 	"album_show_in_gallery": "Mostra l'album nella galleria",
 	"album_has_all": "già qui",
-	"album_has_some": "già qui: {count} su {total}"
+	"album_has_some": "già qui: {count} su {total}",
+	"keys_album": "Aggiungi a un album"
 }

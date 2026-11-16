@@ -846,5 +846,6 @@
 	"album_cannot_remove": "API-ключ не разрешает убирать фото из альбомов: нужно право {permission}. Измените ключ в Immich.",
 	"album_show_in_gallery": "Показать альбом в галерее",
 	"album_has_all": "уже здесь",
-	"album_has_some": "уже здесь: {count} из {total}"
+	"album_has_some": "уже здесь: {count} из {total}",
+	"keys_album": "Добавить в альбом"
 }

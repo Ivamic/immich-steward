@@ -18,6 +18,7 @@
 		[['Z'], m.keys_zoom],
 		[['R'], m.keys_part],
 		[['[', ']'], m.keys_rotate],
+		[['A'], m.keys_album],
 		[['Esc'], m.keys_gallery],
 		[['?'], m.keys_help]
 	];

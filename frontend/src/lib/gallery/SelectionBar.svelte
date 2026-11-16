@@ -15,6 +15,7 @@
 		type ReviewStatus
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
+	import { shortcutKey } from '#lib/keys.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
@@ -66,6 +67,16 @@
 		});
 	}
 
+	/** A: the chosen photos into an album, unless a field or a window has the keys. */
+	function onkeydown(event: KeyboardEvent) {
+		if (event.ctrlKey || event.metaKey || event.altKey || picking || busy) return;
+		if ((event.target as HTMLElement).closest('input, textarea, select, dialog')) return;
+		if (document.querySelector('dialog[open]')) return;
+		if (shortcutKey(event) !== 'a') return;
+		event.preventDefault();
+		picking = true;
+	}
+
 	async function takeOut(album: Album) {
 		await act(() => takeOutOfAlbum(album, selection.ids));
 	}
@@ -95,6 +106,8 @@
 		}
 	}
 </script>
+
+<svelte:window {onkeydown} />
 
 <div class="bar" role="toolbar" aria-label={m.selection_actions()}>
 	<Tooltip text={m.selection_clear()} keys="Esc">
@@ -147,15 +160,17 @@
 	</span>
 
 	<span class="group">
-		<button
-			type="button"
-			class="st-btn st-btn--ghost st-btn--sm"
-			disabled={busy}
-			onclick={() => (picking = true)}
-		>
-			<Icon name="folder-plus" size={14} />
-			{m.album_add()}
-		</button>
+		<Tooltip text={m.album_add()} keys="A">
+			<button
+				type="button"
+				class="st-btn st-btn--ghost st-btn--sm"
+				disabled={busy}
+				onclick={() => (picking = true)}
+			>
+				<Icon name="folder-plus" size={14} />
+				{m.album_add()}
+			</button>
+		</Tooltip>
 		{#if shownAlbum && albums}
 			<button
 				type="button"

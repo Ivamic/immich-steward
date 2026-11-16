@@ -846,5 +846,6 @@
 	"album_cannot_remove": "The API key does not allow taking photos out of albums: it needs the permission {permission}. Edit the key in Immich.",
 	"album_show_in_gallery": "Show the album in the gallery",
 	"album_has_all": "already here",
-	"album_has_some": "already here: {count} of {total}"
+	"album_has_some": "already here: {count} of {total}",
+	"keys_album": "Add to an album"
 }

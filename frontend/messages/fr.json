@@ -846,5 +846,6 @@
 	"album_cannot_remove": "La clé d'API ne permet pas de retirer des photos des albums : il lui faut l'autorisation {permission}. Modifiez la clé dans Immich.",
 	"album_show_in_gallery": "Afficher l'album dans la galerie",
 	"album_has_all": "déjà ici",
-	"album_has_some": "déjà ici : {count} sur {total}"
+	"album_has_some": "déjà ici : {count} sur {total}",
+	"keys_album": "Ajouter à un album"
 }

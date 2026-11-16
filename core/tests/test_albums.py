@@ -257,3 +257,17 @@ def test_which_albums_have_the_photos_already(
     assert counts == {trip["id"]: 1}
     other = signed_in.post("/api/albums/contains", json={"ids": [photos["b"][0]]}).json()
     assert other["counts"] == {}
+
+
+def test_an_album_just_changed_comes_first_among_the_recent(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    fake_immich.add_album("Newer", [], updatedAt="2026-06-01T00:00:00Z")
+    sync(signed_in)
+    trip = album(signed_in, "Trip")
+    newer = album(signed_in, "Newer")
+    assert trip["updated_at"] < newer["updated_at"]
+
+    signed_in.put(f"/api/albums/{trip['id']}/assets", json={"ids": [photos["b"][0]]})
+
+    assert album(signed_in, "Trip")["updated_at"] > newer["updated_at"]

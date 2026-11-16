@@ -40,6 +40,7 @@
 	import { locked } from '#lib/locked.svelte.js';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import { galleryChanges } from '#lib/gallery/selection.svelte.js';
 	import KeysDialog from '#lib/KeysDialog.svelte';
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
 	import MapView from '#lib/map/MapView.svelte';
@@ -229,6 +230,19 @@
 		void cameraFilter.excluded;
 		void cameraFilter.sameOnly;
 		if (untrack(() => asset)) untrack(() => fetchSuggestions(id));
+	});
+
+	// Photos changed elsewhere on the page (e.g. an undo in a notice took it out of an album):
+	// the card shows the photo as it is now.
+	let seenChanges = galleryChanges.count;
+	$effect(() => {
+		const count = galleryChanges.count;
+		if (count === seenChanges) return;
+		seenChanges = count;
+		if (!untrack(() => asset)) return;
+		getAsset(id, filter)
+			.then((result) => (asset = result))
+			.catch((e) => (error = errorMessage(e)));
 	});
 
 	/** Back in this tab (e.g. after fixing a neighbor in another one): bring the data up to date. */
@@ -506,6 +520,7 @@
 			s: () => review('skipped'),
 			u: () => review('new'),
 			z: () => (viewerOpen = true),
+			a: () => (albumOpen = !!asset),
 			r: pickPart,
 			'[': () => rotate(-90),
 			']': () => rotate(90),
@@ -951,14 +966,16 @@
 										{/if}
 									</span>
 								{/each}
-								<button
-									type="button"
-									class="st-btn st-btn--ghost st-btn--sm"
-									onclick={() => (albumOpen = true)}
-								>
-									<Icon name="folder-plus" size={14} />
-									{m.album_add()}
-								</button>
+								<Tooltip text={m.album_add()} keys="A">
+									<button
+										type="button"
+										class="st-btn st-btn--ghost st-btn--sm"
+										onclick={() => (albumOpen = true)}
+									>
+										<Icon name="folder-plus" size={14} />
+										{m.album_add()}
+									</button>
+								</Tooltip>
 							</dd>
 							{#if groups?.group}
 								<dt>{m.photo_group()}</dt>

@@ -843,5 +843,6 @@
 	"album_removed": "Tolte da «{album}»: {count}",
 	"album_remove_failed_some": "Non tolte da Immich: {count}",
 	"album_remove_undone": "Di nuovo in «{album}»: {count}",
-	"album_cannot_remove": "La chiave API non consente di togliere foto dagli album: serve il permesso {permission}. Modifica la chiave in Immich."
+	"album_cannot_remove": "La chiave API non consente di togliere foto dagli album: serve il permesso {permission}. Modifica la chiave in Immich.",
+	"album_show_in_gallery": "Mostra l'album nella galleria"
 }

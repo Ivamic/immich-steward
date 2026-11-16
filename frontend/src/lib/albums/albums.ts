@@ -7,12 +7,25 @@ import {
 	createAlbum,
 	deleteAlbum,
 	removeFromAlbum,
+	SHOW_CATEGORIES,
 	type Album,
 	type AlbumAdded
 } from '#lib/api.js';
 import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
+import { defaultFilter, filterToUrl } from '#lib/gallery/filter.js';
 import { galleryChanged } from '#lib/gallery/selection.svelte.js';
 import { m } from '#lib/paraglide/messages.js';
+
+/** The album in the gallery of the app: all its photos, the archived ones too (a query to put
+ * after the gallery path). */
+export function albumGalleryQuery(albumId: string) {
+	return filterToUrl({
+		...defaultFilter,
+		show: [...SHOW_CATEGORIES],
+		archived: 'with',
+		album: albumId
+	});
+}
 
 /** Where the photos go: an existing album, or a new one by name. */
 export type AlbumTarget = { album: Album } | { name: string };

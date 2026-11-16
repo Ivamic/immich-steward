@@ -843,5 +843,6 @@
 	"album_removed": "Retirées de « {album} » : {count}",
 	"album_remove_failed_some": "Non retirées par Immich : {count}",
 	"album_remove_undone": "Remises dans « {album} » : {count}",
-	"album_cannot_remove": "La clé d'API ne permet pas de retirer des photos des albums : il lui faut l'autorisation {permission}. Modifiez la clé dans Immich."
+	"album_cannot_remove": "La clé d'API ne permet pas de retirer des photos des albums : il lui faut l'autorisation {permission}. Modifiez la clé dans Immich.",
+	"album_show_in_gallery": "Afficher l'album dans la galerie"
 }

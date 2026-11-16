@@ -843,5 +843,6 @@
 	"album_removed": "Taken out of “{album}”: {count}",
 	"album_remove_failed_some": "Immich did not take out: {count}",
 	"album_remove_undone": "Put back into “{album}”: {count}",
-	"album_cannot_remove": "The API key does not allow taking photos out of albums: it needs the permission {permission}. Edit the key in Immich."
+	"album_cannot_remove": "The API key does not allow taking photos out of albums: it needs the permission {permission}. Edit the key in Immich.",
+	"album_show_in_gallery": "Show the album in the gallery"
 }

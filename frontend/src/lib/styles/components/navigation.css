@@ -116,13 +116,24 @@
 .st-chip__remove {
 	display: inline-grid;
 	place-items: center;
+	flex-shrink: 0;
 	margin-inline-end: calc(var(--space-1) * -1);
 	width: 1.125rem;
 	height: 1.125rem;
+	padding: 0;
+	border: 0;
 	border-radius: var(--radius-full);
+	background: none;
+	color: var(--color-text-muted);
+	cursor: pointer;
+}
+.st-chip__remove:focus-visible {
+	outline: none;
+	box-shadow: var(--focus-ring);
 }
 .st-chip__remove:hover {
 	background: var(--color-surface-active);
+	color: var(--color-text);
 }
 .st-chip__dot {
 	width: 0.5rem;

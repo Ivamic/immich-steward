@@ -843,5 +843,6 @@
 	"album_removed": "Убрано из «{album}»: {count}",
 	"album_remove_failed_some": "Immich не убрал: {count}",
 	"album_remove_undone": "Снова в «{album}»: {count}",
-	"album_cannot_remove": "API-ключ не разрешает убирать фото из альбомов: нужно право {permission}. Измените ключ в Immich."
+	"album_cannot_remove": "API-ключ не разрешает убирать фото из альбомов: нужно право {permission}. Измените ключ в Immich.",
+	"album_show_in_gallery": "Показать альбом в галерее"
 }

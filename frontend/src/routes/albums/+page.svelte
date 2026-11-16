@@ -9,13 +9,12 @@
 		deleteAlbum,
 		getAlbums,
 		renameAlbum,
-		SHOW_CATEGORIES,
 		type Album,
 		type AlbumList
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
-	import { defaultFilter, filterToUrl } from '#lib/gallery/filter.js';
+	import { albumGalleryQuery } from '#lib/albums/albums.js';
 	import GroupName from '#lib/groups/GroupName.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { matches } from '#lib/search.js';
@@ -87,15 +86,7 @@
 	});
 
 	/** The album in the gallery of the app: all its photos, the archived ones too. */
-	function galleryHref(album: Album): string {
-		const filter = {
-			...defaultFilter,
-			show: [...SHOW_CATEGORIES],
-			archived: 'with' as const,
-			album: album.id
-		};
-		return resolve(`/${filterToUrl(filter)}`);
-	}
+	const galleryHref = (album: Album) => resolve(`/${albumGalleryQuery(album.id)}`);
 
 	function period(album: Album): string | null {
 		if (!album.start_date) return null;

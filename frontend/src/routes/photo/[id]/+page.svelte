@@ -32,7 +32,7 @@
 		type Turn
 	} from '#lib/api.js';
 	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
-	import { takeOutOfAlbum } from '#lib/albums/albums.js';
+	import { albumGalleryQuery, takeOutOfAlbum } from '#lib/albums/albums.js';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -930,7 +930,11 @@
 							<dd class="albums">
 								{#each asset.albums as album (album.id)}
 									<span class="st-chip">
-										<span class="st-chip__text">{album.name}</span>
+										<a
+											class="st-chip__text album-link"
+											href={resolve(`/${albumGalleryQuery(album.id)}`)}
+											title={m.album_show_in_gallery()}>{album.name}</a
+										>
 										{#if album.can_change_photos}
 											<button
 												type="button"
@@ -1425,6 +1429,10 @@
 		margin: 0;
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
+	}
+	.album-link {
+		color: inherit;
+		text-decoration: none;
 	}
 	.albums {
 		display: flex;

@@ -843,5 +843,6 @@
 	"album_removed": "Aus „{album}“ entfernt: {count}",
 	"album_remove_failed_some": "Von Immich nicht entfernt: {count}",
 	"album_remove_undone": "Wieder in „{album}“: {count}",
-	"album_cannot_remove": "Der API-Schlüssel erlaubt nicht, Fotos aus Alben zu entfernen: Er braucht die Berechtigung {permission}. Bearbeite den Schlüssel in Immich."
+	"album_cannot_remove": "Der API-Schlüssel erlaubt nicht, Fotos aus Alben zu entfernen: Er braucht die Berechtigung {permission}. Bearbeite den Schlüssel in Immich.",
+	"album_show_in_gallery": "Album in der Galerie zeigen"
 }

@@ -19,7 +19,8 @@ Albums: putting photos into albums of Immich from the gallery, and an Albums pag
   photo card, where the albums are labels with a cross (after asking). **Undo** puts them back.
 - **The Albums page**: your albums and the shared ones, with cover, number of photos and period;
   search, three sort orders, a new album, renaming and deleting your own (the photos stay in the
-  library). An album opens in the gallery with all its filters, or in Immich.
+  library). An album opens in the gallery with all its filters, or in Immich. Opening the page
+  brings the albums up to date with Immich (made, renamed or deleted there).
 - **Oldest first** in the gallery: the months, the days, the photos, paging in the photo card and
   Shift + click follow the order; it is kept in the address of the page.
 - Changing albums needs new, optional permissions of the API key: `albumAsset.create`,

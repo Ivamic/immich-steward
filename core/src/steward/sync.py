@@ -137,7 +137,7 @@ async def sync_account(
     if locked_full and folder is not None:
         folder.synced_at = started
 
-    stats.albums = await _sync_albums(db, client, account, refresh_all=full)
+    stats.albums = await sync_albums(db, client, account, refresh_all=full)
     # Photos that got (or lost) a location in Immich join (or leave) the similar-photos search.
     await embeddings.refresh_located(db, account_id=account.id)
 
@@ -212,9 +212,11 @@ async def _upsert_assets(db: AsyncSession, rows: list[dict[str, Any]]) -> None:
     )
 
 
-async def _sync_albums(
+async def sync_albums(
     db: AsyncSession, client: ImmichClient, account: Account, *, refresh_all: bool
 ) -> int:
+    """The albums as Immich has them now; the photos of an album are read again only when it
+    changed (or `refresh_all`). Also when the Albums page is opened."""
     remote = await client.albums()
     local = {
         album.immich_id: album

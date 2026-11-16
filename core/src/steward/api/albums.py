@@ -11,6 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
 from steward import albums
 from steward.api.assets import IMAGE_CACHE_CONTROL, _api_error, _immich
@@ -21,6 +22,7 @@ from steward.immich import ImmichClient, ImmichError
 from steward.immich.compat import ALBUM_PERMISSIONS, has_permission
 from steward.immich.thumbnails import ThumbnailFetcher
 from steward.models import Account, Album, Asset, AssetAlbum
+from steward.sync import sync_albums
 
 router = APIRouter(prefix="/albums")
 
@@ -99,9 +101,15 @@ async def album_list(
     factory: ImmichFactoryDep,
     box: SecretBoxDep,
 ) -> AlbumList:
-    """The account's albums and the ones shared with it, by name."""
+    """The account's albums and the ones shared with it, by name: brought up to date with Immich
+    first (made, renamed or deleted there, new covers), not only at the next sync."""
     async with _immich(settings, factory, box, account) as client:
         granted = (await client.api_key_info()).permissions
+        try:
+            await sync_albums(db, client, account, refresh_all=False)
+        except IntegrityError:
+            # A sync of the library wrote the same albums at the same moment: its rows will do.
+            await db.rollback()
     rows = await db.scalars(
         select(Album).where(Album.account_id == account.id).order_by(func.lower(Album.name))
     )

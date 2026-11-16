@@ -194,6 +194,9 @@ class FakeImmich:
                     members.remove(asset_id)
                 results.append({"id": asset_id, "success": True})
         album["assetCount"] = len(members)
+        # As Immich 3.4: adding photos marks the album changed, taking them out does not.
+        if method == "PUT" and any(r["success"] for r in results):
+            album["updatedAt"] = datetime.now(UTC).isoformat()
         return _json(results)
 
     def _search(self, body: dict[str, Any]) -> httpx2.Response:

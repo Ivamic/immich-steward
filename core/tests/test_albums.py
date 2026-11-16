@@ -271,3 +271,23 @@ def test_an_album_just_changed_comes_first_among_the_recent(
     signed_in.put(f"/api/albums/{trip['id']}/assets", json={"ids": [photos["b"][0]]})
 
     assert album(signed_in, "Trip")["updated_at"] > newer["updated_at"]
+
+
+def test_the_albums_page_shows_albums_as_immich_has_them_now(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    trip = album(signed_in, "Trip")
+    # Changed in Immich after the last sync: renamed, and a new album made there.
+    fake_immich.albums[trip["immich_id"]] |= {
+        "albumName": "Trip 2024",
+        "updatedAt": "2099-01-01T00:00:00Z",
+        "startDate": "2024-05-01T10:00:00Z",
+    }
+    fake_immich.add_album("Made in Immich", [photos["b"][1]])
+
+    listing = album_list(signed_in)
+
+    names = {a["name"]: a for a in listing["albums"]}
+    assert set(names) == {"Trip 2024", "Made in Immich"}
+    assert names["Trip 2024"]["start_date"].startswith("2024-05-01")
+    assert (names["Made in Immich"]["own_count"], names["Made in Immich"]["has_cover"]) == (1, True)

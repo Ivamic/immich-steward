@@ -92,6 +92,10 @@ class FakeImmich:
     # Path of every request made with a session token, in order.
     session_requests: list[str] = field(default_factory=list)
     created_keys: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Changing a key's permissions is refused (as without apiKey.update).
+    fail_key_update: bool = False
+    # Id of the key `valid_key`, made by the user in Immich.
+    key_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     fail_tagging: bool = False
     # Asset id -> its edits (crop, rotate, mirror) as Immich keeps them.
     edits: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
@@ -314,6 +318,16 @@ class FakeImmich:
             }
             self.created_keys[secret] = key
             return _json({"secret": secret, "apiKey": key} | key)
+        if path.startswith("/api/api-keys/") and method == "PUT":
+            key_id = path.rsplit("/", 1)[1]
+            if self.fail_key_update:
+                return _json({"message": "Missing required permission: apiKey.update"}, 403)
+            body = json.loads(request.content)
+            for key in self.created_keys.values():
+                if key["id"] == key_id:
+                    key.update(name=body["name"], permissions=body["permissions"])
+                    return _json(key)
+            return _json({"message": "API key not found"}, 400)
         if path.startswith("/api/api-keys/") and method == "DELETE":
             key_id = path.rsplit("/", 1)[1]
             self.created_keys = {s: k for s, k in self.created_keys.items() if k["id"] != key_id}
@@ -344,12 +358,9 @@ class FakeImmich:
         if key != self.valid_key and key not in self.created_keys:
             return _json({"message": "Invalid API key"}, 401)
         if path == "/api/api-keys/me":
-            permissions = (
-                self.created_keys[key]["permissions"]
-                if key in self.created_keys
-                else self.permissions
-            )
-            return _json({"id": str(uuid.uuid4()), "name": "k", "permissions": permissions})
+            if key in self.created_keys:
+                return _json(self.created_keys[key])
+            return _json({"id": self.key_id, "name": "my key", "permissions": self.permissions})
         # An API key never opens the locked folder.
         return self._route(request, elevated=False)
 

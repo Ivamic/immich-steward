@@ -27,6 +27,7 @@ from steward.immich import (
     ImmichUser,
 )
 from steward.immich.compat import (
+    ALL_PERMISSIONS,
     OPTIONAL_PERMISSIONS,
     REQUIRED_PERMISSIONS,
     SUPPORTED_MAJOR_VERSIONS,
@@ -94,12 +95,15 @@ async def password_login(
         if stored is not None:
             async with key_client(stored) as keyed:
                 try:
-                    return await verify_api_key(keyed), stored
+                    user = await verify_api_key(keyed)
                 except ApiError as exc:
                     # Only a key Immich rejects is replaced, not one hit by a network problem.
                     if exc.code not in KEY_PROBLEMS:
                         raise
                     log.info("Stored API key of %s no longer works; creating a new one", email)
+                else:
+                    await _complete_permissions(client, keyed, session.access_token)
+                    return user, stored
         api_key = await _create_api_key(client, session.access_token, key_name)
         async with key_client(api_key) as keyed:
             return await verify_api_key(keyed), api_key
@@ -112,6 +116,28 @@ async def password_login(
             await client.logout(session.access_token)
         except ImmichError as exc:
             log.warning("Could not close the Immich session: %s", exc)
+
+
+async def _complete_permissions(
+    client: ImmichClient, keyed: ImmichClient, access_token: str
+) -> None:
+    """Gives a key this app made the permissions a newer version of the app uses (the album
+    ones of 0.12.0, D-233), keeping the ones it has: it is the same key, so another installation
+    sharing it (a test copy) keeps working. A key the user made is left as it is. A refusal only
+    leaves the new features off."""
+    wanted = REQUIRED_PERMISSIONS | OPTIONAL_PERMISSIONS
+    try:
+        key = await keyed.api_key_info()
+        granted = set(key.permissions)
+        if not key.name.startswith(KEY_NAME_PREFIX) or ALL_PERMISSIONS in granted:
+            return
+        if wanted <= granted:
+            return
+        await client.update_api_key(access_token, key.id, key.name, sorted(granted | wanted))
+    except ImmichError as exc:
+        log.warning("Could not give the API key the permissions it lacks: %s", exc)
+        return
+    log.info("Gave the API key the permissions: %s", ", ".join(sorted(wanted - granted)))
 
 
 async def _check_version(client: ImmichClient) -> None:

@@ -209,6 +209,13 @@ class ImmichClient:
         created = await self._request("POST", "/api-keys", json=body, headers=_bearer(access_token))
         return str(created["secret"])
 
+    async def update_api_key(
+        self, access_token: str, key_id: UUID, name: str, permissions: list[str]
+    ) -> None:
+        """Gives the key these permissions (its secret stays the same)."""
+        body = {"name": name, "permissions": permissions}
+        await self._request("PUT", f"/api-keys/{key_id}", json=body, headers=_bearer(access_token))
+
     async def delete_api_key(self, access_token: str, key_id: UUID) -> None:
         await self._request("DELETE", f"/api-keys/{key_id}", headers=_bearer(access_token))
 

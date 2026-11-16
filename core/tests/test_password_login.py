@@ -52,6 +52,36 @@ def test_next_login_reuses_the_stored_key(client: TestClient, fake_immich: FakeI
     assert fake_immich.sessions == set()
 
 
+def test_next_login_gives_the_key_the_permissions_it_lacks(
+    client: TestClient, fake_immich: FakeImmich
+) -> None:
+    # A key made by an older version: without the album permissions, with one the user added.
+    password_login(client, fake_immich)
+    client.post("/api/auth/logout")
+    [(secret, key)] = fake_immich.created_keys.items()
+    key["permissions"] = sorted(REQUIRED_PERMISSIONS | {"person.read"})
+
+    assert password_login(client, fake_immich).status_code == 200
+
+    # The same key (its secret), now with every permission the app uses and the user's one.
+    assert list(fake_immich.created_keys) == [secret]
+    assert set(key["permissions"]) == REQUIRED_PERMISSIONS | OPTIONAL_PERMISSIONS | {"person.read"}
+    assert fake_immich.sessions == set()
+
+
+def test_refused_update_of_the_key_still_signs_in(
+    client: TestClient, fake_immich: FakeImmich
+) -> None:
+    password_login(client, fake_immich)
+    client.post("/api/auth/logout")
+    [key] = fake_immich.created_keys.values()
+    key["permissions"] = sorted(REQUIRED_PERMISSIONS)
+    fake_immich.fail_key_update = True
+
+    assert password_login(client, fake_immich).status_code == 200
+    assert set(key["permissions"]) == REQUIRED_PERMISSIONS
+
+
 def test_key_deleted_in_immich_is_replaced(client: TestClient, fake_immich: FakeImmich) -> None:
     password_login(client, fake_immich)
     [(secret, key)] = fake_immich.created_keys.items()
@@ -70,6 +100,9 @@ def test_account_from_key_login_keeps_its_key(client: TestClient, fake_immich: F
     client.post("/api/auth/logout")
     assert password_login(client, fake_immich).status_code == 200
     assert fake_immich.created_keys == {}
+    # A key the user made is not changed either.
+    assert fake_immich.permissions == sorted(REQUIRED_PERMISSIONS)
+    assert "/api/api-keys/" + fake_immich.key_id not in fake_immich.session_requests
 
 
 def test_wrong_password(client: TestClient, fake_immich: FakeImmich) -> None:

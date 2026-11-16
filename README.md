@@ -138,12 +138,20 @@ New modules can be added later as plugins.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP suggests the Bay of Kotor with 78% confidence, in the dark theme"></td>
-    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Suggestions of three modules on one map: a GeoCLIP area, a time neighbor from another camera and similar photos"></td>
+    <td width="50%"><img src="docs/images/confirmed-by-details.webp" alt="Photo card: similar photos of the same place, 95% confident and confirmed by matching details, on a satellite map"></td>
+    <td width="50%"><img src="docs/images/shared-details.webp" alt="Shared details of two photos of one church, on a sunny day and in snow, joined by lines"></td>
   </tr>
   <tr>
-    <td>GeoCLIP recognizes the place from the image alone: a confident guess for a camera without GPS (dark theme).</td>
-    <td>Several modules at once: the GeoCLIP area, a phone photo taken two hours later and similar photos agree on the city.</td>
+    <td>Similar photos of your own library find the place, and matching details confirms it: a night photo of an opera house without GPS.</td>
+    <td>Why it is sure: the details both photos share, joined by lines, across seasons and cameras.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/several-modules.webp" alt="GeoCLIP and time neighbors on one satellite map of Rome: an area, the route between photos before and after, a heat map"></td>
+    <td width="50%"><img src="docs/images/group.webp" alt="A group of 52 photos of one view: 46 with a location lie in one spot, and the place can be set on the other 6"></td>
+  </tr>
+  <tr>
+    <td>Several modules at once: the GeoCLIP area, the route between the photos taken before and after, and the heat map of places nearby.</td>
+    <td>Groups: photos of one view gathered by themselves; when those with a location agree, the place is set on the others in one step.</td>
   </tr>
   <tr>
     <td colspan="2"><img src="docs/images/gallery.png" alt="Gallery of photos without a location, filtered to confident GeoCLIP guesses, with the filter chips and the timeline"></td>
@@ -152,8 +160,10 @@ New modules can be added later as plugins.
     <td colspan="2">The gallery: filters as chips, a badge on every photo with a location or a confident guess, the timeline on the right.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/processing.png" alt="Processing page: library counts, workers and the progress of each module"></td>
-    <td>Processing: the library and its sync, the workers and what they do, and the progress and failures of each module, with a pause for the background runs.</td>
+    <td colspan="2"><img src="docs/images/processing.webp" alt="Processing page: the library, three workers (two with a graphics card) and the progress of each of the three modules"></td>
+  </tr>
+  <tr>
+    <td colspan="2">Processing: the library and its sync, the workers and what they do, the progress of each module, with a pause for the background runs.</td>
   </tr>
 </table>
 

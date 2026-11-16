@@ -151,12 +151,20 @@ De nouveaux modules pourront être ajoutés plus tard sous forme d'extensions.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP propose les bouches de Kotor avec 78 % de confiance, en thème sombre"></td>
-    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Suggestions de trois modules sur une même carte : une zone GeoCLIP, une voisine dans le temps prise par un autre appareil et des photos similaires"></td>
+    <td width="50%"><img src="docs/images/confirmed-by-details.webp" alt="Fiche photo : des photos semblables du même endroit, sûres à 95 % et confirmées par la comparaison des détails, sur une carte satellite"></td>
+    <td width="50%"><img src="docs/images/shared-details.webp" alt="Détails communs à deux photos d'une même église, par beau temps et sous la neige, reliés par des lignes"></td>
   </tr>
   <tr>
-    <td>GeoCLIP reconnaît le lieu à partir de l'image seule : une estimation sûre pour un appareil sans GPS (thème sombre).</td>
-    <td>Plusieurs modules à la fois : la zone GeoCLIP, une photo de téléphone prise deux heures plus tard et des photos similaires s'accordent sur la ville.</td>
+    <td>Les photos semblables de votre propre photothèque trouvent le lieu, et la comparaison des détails le confirme : une photo de nuit d'un opéra, sans GPS.</td>
+    <td>Pourquoi c'est sûr : les détails que partagent les deux photos, reliés par des lignes, d'une saison et d'un appareil à l'autre.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/several-modules.webp" alt="GeoCLIP et les voisins dans le temps sur une carte satellite de Rome : une zone, le trajet entre les photos d'avant et d'après, une carte de chaleur"></td>
+    <td width="50%"><img src="docs/images/group.webp" alt="Un groupe de 52 photos d'une même vue : 46 avec un lieu sont au même endroit, et le lieu peut être donné aux 6 autres"></td>
+  </tr>
+  <tr>
+    <td>Plusieurs modules à la fois : la zone GeoCLIP, le trajet entre les photos prises avant et après, et la carte de chaleur des lieux proches.</td>
+    <td>Les groupes : les photos d'une même vue se rassemblent d'elles-mêmes ; quand celles qui ont un lieu concordent, les autres le reçoivent en une étape.</td>
   </tr>
   <tr>
     <td colspan="2"><img src="docs/images/gallery.png" alt="Galerie des photos sans lieu, filtrée sur les estimations GeoCLIP sûres, avec les filtres en pastilles et la frise"></td>
@@ -165,8 +173,10 @@ De nouveaux modules pourront être ajoutés plus tard sous forme d'extensions.
     <td colspan="2">La galerie : des filtres en pastilles, un badge sur chaque photo qui a un lieu ou une estimation sûre, la frise chronologique à droite.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/processing.png" alt="Page Traitement : chiffres de la photothèque, workers et avancement de chaque module"></td>
-    <td>Traitement : la photothèque et sa synchronisation, les workers et ce qu'ils font, l'avancement et les échecs de chaque module, avec une pause pour les traitements en arrière-plan.</td>
+    <td colspan="2"><img src="docs/images/processing.webp" alt="Page Traitement : la photothèque, trois workers (deux avec une carte graphique) et l'avancement de chacun des trois modules"></td>
+  </tr>
+  <tr>
+    <td colspan="2">Traitement : la photothèque et sa synchronisation, les workers et ce qu'ils font, l'avancement de chaque module, avec une pause pour les traitements en arrière-plan.</td>
   </tr>
 </table>
 

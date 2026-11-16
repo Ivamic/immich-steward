@@ -150,12 +150,20 @@ Neue Module können später als Plugins hinzukommen.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP schlägt die Bucht von Kotor mit 78 % Konfidenz vor, im dunklen Design"></td>
-    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Vorschläge dreier Module auf einer Karte: ein GeoCLIP-Gebiet, ein zeitlicher Nachbar von einer anderen Kamera und ähnliche Fotos"></td>
+    <td width="50%"><img src="docs/images/confirmed-by-details.webp" alt="Fotokarte: ähnliche Fotos desselben Ortes, zu 95 % sicher und durch übereinstimmende Details bestätigt, auf einer Satellitenkarte"></td>
+    <td width="50%"><img src="docs/images/shared-details.webp" alt="Gemeinsame Details zweier Fotos einer Kirche, an einem sonnigen Tag und im Schnee, durch Linien verbunden"></td>
   </tr>
   <tr>
-    <td>GeoCLIP erkennt den Ort allein am Bild: eine sichere Schätzung für eine Kamera ohne GPS (dunkles Design).</td>
-    <td>Mehrere Module zugleich: das GeoCLIP-Gebiet, ein zwei Stunden später aufgenommenes Handyfoto und ähnliche Fotos stimmen in der Stadt überein.</td>
+    <td>Ähnliche Fotos aus deiner eigenen Mediathek finden den Ort, und der Detailabgleich bestätigt ihn: ein Nachtfoto eines Opernhauses ohne GPS.</td>
+    <td>Warum es sicher ist: die Details, die beide Fotos teilen, durch Linien verbunden – über Jahreszeiten und Kameras hinweg.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/several-modules.webp" alt="GeoCLIP und zeitliche Nachbarn auf einer Satellitenkarte von Rom: ein Gebiet, die Route zwischen den Fotos davor und danach, eine Heatmap"></td>
+    <td width="50%"><img src="docs/images/group.webp" alt="Eine Gruppe aus 52 Fotos einer Ansicht: 46 mit Standort liegen an einer Stelle, der Ort lässt sich den übrigen 6 zuweisen"></td>
+  </tr>
+  <tr>
+    <td>Mehrere Module zugleich: das GeoCLIP-Gebiet, die Route zwischen den davor und danach aufgenommenen Fotos und die Heatmap der Orte in der Nähe.</td>
+    <td>Gruppen: Fotos einer Ansicht finden sich von selbst; stimmen die Fotos mit Standort überein, bekommen die anderen den Ort in einem Schritt.</td>
   </tr>
   <tr>
     <td colspan="2"><img src="docs/images/gallery.png" alt="Galerie der Fotos ohne Standort, gefiltert auf sichere GeoCLIP-Schätzungen, mit den Filterchips und der Zeitleiste"></td>
@@ -164,8 +172,10 @@ Neue Module können später als Plugins hinzukommen.
     <td colspan="2">Die Galerie: Filter als Chips, ein Abzeichen auf jedem Foto mit Standort oder sicherer Schätzung, rechts die Zeitleiste.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/processing.png" alt="Seite Verarbeitung: Zahlen der Mediathek, Worker und der Fortschritt jedes Moduls"></td>
-    <td>Verarbeitung: die Mediathek und ihre Synchronisierung, die Worker und was sie tun, Fortschritt und Fehler jedes Moduls, mit einer Pause für die Hintergrundläufe.</td>
+    <td colspan="2"><img src="docs/images/processing.webp" alt="Seite Verarbeitung: die Mediathek, drei Worker (zwei mit Grafikkarte) und der Fortschritt jedes der drei Module"></td>
+  </tr>
+  <tr>
+    <td colspan="2">Verarbeitung: die Mediathek und ihre Synchronisierung, die Worker und was sie tun, der Fortschritt jedes Moduls und eine Pause für die Hintergrundläufe.</td>
   </tr>
 </table>
 

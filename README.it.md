@@ -147,12 +147,20 @@ In futuro si potranno aggiungere nuovi moduli come plugin.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/geoclip-confident.png" alt="GeoCLIP suggerisce le Bocche di Cattaro con un'affidabilità del 78%, nel tema scuro"></td>
-    <td width="50%"><img src="docs/images/geoclip-and-time-neighbors.png" alt="Suggerimenti di tre moduli sulla stessa mappa: una zona di GeoCLIP, una foto vicina nel tempo di un'altra fotocamera e foto simili"></td>
+    <td width="50%"><img src="docs/images/confirmed-by-details.webp" alt="Scheda della foto: foto simili dello stesso luogo, affidabili al 95% e confermate dal confronto dei dettagli, su una mappa satellitare"></td>
+    <td width="50%"><img src="docs/images/shared-details.webp" alt="Dettagli comuni a due foto della stessa chiesa, in una giornata di sole e sotto la neve, uniti da linee"></td>
   </tr>
   <tr>
-    <td>GeoCLIP riconosce il luogo dalla sola immagine: una stima affidabile per una fotocamera senza GPS (tema scuro).</td>
-    <td>Più moduli insieme: la zona di GeoCLIP, una foto del telefono scattata due ore dopo e le foto simili concordano sulla città.</td>
+    <td>Le foto simili della tua stessa libreria trovano il luogo, e il confronto dei dettagli lo conferma: una foto notturna di un teatro dell'opera senza GPS.</td>
+    <td>Perché è sicuro: i dettagli che le due foto condividono, uniti da linee, tra stagioni e fotocamere diverse.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/several-modules.webp" alt="GeoCLIP e i vicini nel tempo su una mappa satellitare di Roma: una zona, il tragitto tra le foto di prima e di dopo, una mappa di calore"></td>
+    <td width="50%"><img src="docs/images/group.webp" alt="Un gruppo di 52 foto della stessa vista: 46 con una posizione stanno in un punto, e la posizione si può dare alle altre 6"></td>
+  </tr>
+  <tr>
+    <td>Più moduli insieme: la zona di GeoCLIP, il tragitto tra le foto scattate prima e dopo e la mappa di calore dei luoghi vicini.</td>
+    <td>I gruppi: le foto della stessa vista si raccolgono da sole; quando quelle con una posizione concordano, le altre la ricevono in un solo passo.</td>
   </tr>
   <tr>
     <td colspan="2"><img src="docs/images/gallery.png" alt="Galleria delle foto senza posizione, filtrata sulle stime affidabili di GeoCLIP, con i filtri a pillola e la linea del tempo"></td>
@@ -161,8 +169,10 @@ In futuro si potranno aggiungere nuovi moduli come plugin.
     <td colspan="2">La galleria: filtri a pillola, un badge su ogni foto con una posizione o una stima affidabile, la linea del tempo a destra.</td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/processing.png" alt="Pagina Elaborazione: numeri della libreria, worker e avanzamento di ogni modulo"></td>
-    <td>Elaborazione: la libreria e la sua sincronizzazione, i worker e che cosa fanno, l'avanzamento e gli errori di ogni modulo, con una pausa per le esecuzioni in background.</td>
+    <td colspan="2"><img src="docs/images/processing.webp" alt="Pagina Elaborazione: la libreria, tre worker (due con scheda grafica) e l'avanzamento di ciascuno dei tre moduli"></td>
+  </tr>
+  <tr>
+    <td colspan="2">Elaborazione: la libreria e la sua sincronizzazione, i worker e cosa fanno, l'avanzamento di ogni modulo, con una pausa per le elaborazioni in background.</td>
   </tr>
 </table>
 

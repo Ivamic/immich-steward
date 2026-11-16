@@ -12,6 +12,13 @@ export class ApiError extends Error {
 	}
 }
 
+let onSignedOut: (() => void) | null = null;
+
+/** What to do when the core says the session is over (expired, or signed out elsewhere). */
+export function whenSignedOut(handler: () => void) {
+	onSignedOut = handler;
+}
+
 async function request<T>(
 	method: string,
 	path: string,
@@ -33,6 +40,7 @@ async function request<T>(
 	if (response.status === 204) return undefined as T;
 	const data = await response.json().catch(() => null);
 	if (!response.ok) {
+		if (response.status === 401 && data?.code === 'not_authenticated') onSignedOut?.();
 		throw new ApiError(response.status, data?.code ?? 'unexpected_error', data?.params ?? {});
 	}
 	return data as T;
@@ -273,7 +281,8 @@ export interface AssetDetail {
 	state: string | null;
 	country: string | null;
 	review_status: ReviewStatus;
-	albums: string[];
+	/** The albums the photo is in; `can_change_photos`: it can be taken out of it here. */
+	albums: { id: string; name: string; can_change_photos: boolean }[];
 	/** Newest first. */
 	location_history: LocationChange[];
 	/** The last write replaced earlier coordinates, so it can be undone. */
@@ -904,7 +913,7 @@ export const createAlbum = (name: string, ids: string[] = []) =>
 export const addToAlbum = (albumId: string, ids: string[]) =>
 	request<AlbumAdded>('PUT', `/api/albums/${albumId}/assets`, { ids });
 export const removeFromAlbum = (albumId: string, ids: string[]) =>
-	request<{ album: Album; removed: number; failed: number }>(
+	request<{ album: Album; removed: number; removed_ids: string[]; failed: number }>(
 		'POST',
 		`/api/albums/${albumId}/assets/remove`,
 		{ ids }

@@ -86,6 +86,8 @@ class AddedOut(BaseModel):
 class RemovedOut(BaseModel):
     album: AlbumOut
     removed: int
+    # Local ids of the photos taken out now: what an undo puts back.
+    removed_ids: list[UUID]
     failed: int
 
 
@@ -169,7 +171,12 @@ async def remove(
     async with _album_change(settings, factory, box, account, "remove") as client:
         result = await albums.remove_assets(db, client, album, assets)
     count = (await _own_counts(db, [album.id])).get(album.id, 0)
-    return RemovedOut(album=_out(album, count), removed=result.removed, failed=result.failed)
+    return RemovedOut(
+        album=_out(album, count),
+        removed=len(result.removed),
+        removed_ids=result.removed,
+        failed=result.failed,
+    )
 
 
 @router.patch("/{album_id}")

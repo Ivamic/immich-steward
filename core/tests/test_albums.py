@@ -113,6 +113,7 @@ def test_add_reports_new_and_already_there_and_undo_removes_only_new(
     ).json()
 
     assert (undo["removed"], undo["failed"]) == (2, 0)
+    assert sorted(undo["removed_ids"]) == sorted(added["added"])
     assert undo["album"]["own_count"] == 1
     assert fake_immich.album_assets[trip["immich_id"]] == [photos["a"][1]]
     assert in_album(signed_in, trip["id"]) == {photos["a"][0]}
@@ -222,3 +223,24 @@ def test_unknown_album_and_other_accounts_photos(
 
     stranger = signed_in.put(f"/api/albums/{trip['id']}/assets", json={"ids": [str(uuid.uuid4())]})
     assert stranger.json()["added"] == []
+
+
+def test_photo_card_tells_which_albums_it_can_leave(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    other = {"user": {"id": str(uuid.uuid4())}, "role": "owner"}
+    me = str(fake_immich.user_id)
+    fake_immich.add_album(
+        "Theirs",
+        [photos["a"][1]],
+        shared=True,
+        albumUsers=[other, {"user": {"id": me}, "role": "viewer"}],
+    )
+    sync(signed_in)
+
+    detail = signed_in.get(f"/api/assets/{photos['a'][0]}").json()
+
+    assert [(a["name"], a["can_change_photos"]) for a in detail["albums"]] == [
+        ("Theirs", False),
+        ("Trip", True),
+    ]

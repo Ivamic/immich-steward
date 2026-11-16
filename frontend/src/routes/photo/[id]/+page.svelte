@@ -32,6 +32,8 @@
 		type Turn
 	} from '#lib/api.js';
 	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
+	import { takeOutOfAlbum } from '#lib/albums/albums.js';
+	import Dialog from '#lib/ui/Dialog.svelte';
 	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
@@ -114,6 +116,10 @@
 	let mapView = $state<ReturnType<typeof MapView>>();
 	let viewerOpen = $state(false);
 	let albumOpen = $state(false);
+	// The album to take the photo out of, while asking whether to; and why it failed.
+	let leaving = $state<{ id: string; name: string } | null>(null);
+	let leaveError = $state('');
+	let leaveBusy = $state(false);
 	let keysOpen = $state(false);
 	// The module to choose a part of the photo for, and the part to start from (FR-35).
 	let partPicker = $state<{ module: string; region: Region | null } | null>(null);
@@ -487,7 +493,7 @@
 	function onkeydown(event: KeyboardEvent) {
 		if (event.key === 'Tab') pointerControl = null;
 		// The viewer and the windows handle their own keys (Esc closes them).
-		if (viewerOpen || partPicker || keysOpen || albumOpen) return;
+		if (viewerOpen || partPicker || keysOpen || albumOpen || leaving) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		// A focused player keeps its own keys (arrows seek, space plays).
 		if ((event.target as HTMLElement).closest('input, textarea, select, video')) return;
@@ -922,7 +928,25 @@
 							<dd>{camera}</dd>
 							<dt>{m.photo_albums()}</dt>
 							<dd class="albums">
-								{#if asset.albums.length}<span>{asset.albums.join(', ')}</span>{/if}
+								{#each asset.albums as album (album.id)}
+									<span class="st-chip">
+										<span class="st-chip__text">{album.name}</span>
+										{#if album.can_change_photos}
+											<button
+												type="button"
+												class="st-chip__remove"
+												aria-label={m.album_remove({ album: album.name })}
+												title={m.album_remove({ album: album.name })}
+												onclick={() => {
+													leaveError = '';
+													leaving = album;
+												}}
+											>
+												<Icon name="x" size={12} />
+											</button>
+										{/if}
+									</span>
+								{/each}
 								<button
 									type="button"
 									class="st-btn st-btn--ghost st-btn--sm"
@@ -1051,6 +1075,39 @@
 
 {#if keysOpen}
 	<KeysDialog onclose={() => (keysOpen = false)} />
+{/if}
+
+{#if leaving && asset}
+	{@const album = leaving}
+	{@const photo = asset}
+	<Dialog title={m.album_remove_short()} icon="triangle-alert" onclose={() => (leaving = null)}>
+		<p>{m.album_remove_confirm({ album: album.name })}</p>
+		{#if leaveError}<p class="error" role="alert">{leaveError}</p>{/if}
+		{#snippet footer()}
+			<button type="button" class="st-btn st-btn--secondary" onclick={() => (leaving = null)}>
+				{m.groups_reset_cancel()}
+			</button>
+			<button
+				type="button"
+				class="st-btn st-btn--danger"
+				disabled={leaveBusy}
+				onclick={async () => {
+					leaveBusy = true;
+					try {
+						await takeOutOfAlbum(album, [photo.id]);
+						leaving = null;
+						asset = await getAsset(id, filter);
+					} catch (e) {
+						leaveError = errorMessage(e);
+					} finally {
+						leaveBusy = false;
+					}
+				}}
+			>
+				{m.album_remove_short()}
+			</button>
+		{/snippet}
+	</Dialog>
 {/if}
 
 {#if albumOpen && asset}

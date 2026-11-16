@@ -145,7 +145,7 @@ def test_detail_and_neighbors_follow_the_filter(signed_in: TestClient) -> None:
     newest_june = asset_id_of(signed_in, "2024-06")
     detail = signed_in.get(f"/api/assets/{newest_june}").json()
     assert detail["type"] == "VIDEO"
-    assert detail["albums"] == ["Summer"]
+    assert [(a["name"], a["can_change_photos"]) for a in detail["albums"]] == [("Summer", True)]
     assert detail["review_status"] == "new"
     assert detail["previous_id"] is None  # newest photo of the library
 

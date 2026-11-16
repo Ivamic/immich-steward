@@ -28,6 +28,7 @@ from steward import (
     view_groups,
     worker_queue,
 )
+from steward.albums import WRITE_ROLES
 from steward.config import Settings
 from steward.deps import (
     CurrentAccount,
@@ -273,6 +274,13 @@ class LocationChangeItem(BaseModel):
         )
 
 
+class AlbumRef(BaseModel):
+    id: UUID
+    name: str
+    # The photo can be taken out of it here (own album, or shared with the editor role).
+    can_change_photos: bool
+
+
 class AssetDetail(BaseModel):
     id: UUID
     type: str
@@ -291,7 +299,7 @@ class AssetDetail(BaseModel):
     state: str | None
     country: str | None
     review_status: str
-    albums: list[str]
+    albums: list[AlbumRef]
     # Newest first.
     location_history: list[LocationChangeItem]
     # There is an applied change to undo.
@@ -659,7 +667,7 @@ async def _detail(
     db: DbDep, account: CurrentAccount, asset: Asset, filters: GalleryFilter, settings: Settings
 ) -> AssetDetail:
     albums = await db.scalars(
-        select(Album.name)
+        select(Album)
         .join(AssetAlbum, AssetAlbum.album_id == Album.id)
         .where(AssetAlbum.asset_id == asset.id)
         .order_by(Album.name)
@@ -685,7 +693,9 @@ async def _detail(
         state=asset.state,
         country=asset.country,
         review_status=asset.review_status,
-        albums=list(albums),
+        albums=[
+            AlbumRef(id=a.id, name=a.name, can_change_photos=a.role in WRITE_ROLES) for a in albums
+        ],
         location_history=[LocationChangeItem.of(change) for change in history],
         can_undo=last_applied is not None,
         previous_id=previous_id,

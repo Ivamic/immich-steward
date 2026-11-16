@@ -833,5 +833,15 @@
 	"albums_role_viewer": "Partagé avec vous : consultation seulement",
 	"albums_delete": "Supprimer l'album",
 	"albums_delete_warning": "L'album « {album} » est supprimé dans Immich, aussi pour tous ceux avec qui il est partagé. Ses photos restent dans la bibliothèque.",
-	"album_cannot_delete": "La clé d'API ne permet pas de supprimer des albums : il lui faut l'autorisation {permission}. Modifiez la clé dans Immich."
+	"album_cannot_delete": "La clé d'API ne permet pas de supprimer des albums : il lui faut l'autorisation {permission}. Modifiez la clé dans Immich.",
+	"auth_help_optional_albums": "facultatif : ajoute des photos aux albums et modifie les albums",
+	"gallery_month_failed": "Impossible de charger les photos de ce mois : {error}",
+	"gallery_month_retry": "Réessayer",
+	"album_remove": "Retirer de « {album} »",
+	"album_remove_short": "Retirer de l'album",
+	"album_remove_confirm": "Retirer cette photo de l'album « {album} » ? Elle reste dans la bibliothèque et dans ses autres albums.",
+	"album_removed": "Retirées de « {album} » : {count}",
+	"album_remove_failed_some": "Non retirées par Immich : {count}",
+	"album_remove_undone": "Remises dans « {album} » : {count}",
+	"album_cannot_remove": "La clé d'API ne permet pas de retirer des photos des albums : il lui faut l'autorisation {permission}. Modifiez la clé dans Immich."
 }

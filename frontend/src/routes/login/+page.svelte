@@ -12,6 +12,7 @@
 	import { session } from '#lib/session.svelte.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	// Keep in sync with REQUIRED_PERMISSIONS and OPTIONAL_PERMISSIONS in
 	// core/src/steward/immich/compat.py.
@@ -29,8 +30,19 @@
 		['asset.download', m.auth_help_optional_download],
 		['asset.edit.get', m.auth_help_optional_edit],
 		['asset.edit.create', m.auth_help_optional_edit],
-		['asset.edit.delete', m.auth_help_optional_edit]
+		['asset.edit.delete', m.auth_help_optional_edit],
+		['albumAsset.create', m.auth_help_optional_albums],
+		['albumAsset.delete', m.auth_help_optional_albums],
+		['album.create', m.auth_help_optional_albums],
+		['album.update', m.auth_help_optional_albums],
+		['album.delete', m.auth_help_optional_albums]
 	];
+
+	/** The page that sent here to sign in: only a path of this app. */
+	function nextPage(): string {
+		const next = page.url.searchParams.get('next');
+		return next && next.startsWith('/') && !next.startsWith('//') ? next : resolve('/');
+	}
 
 	let email = $state('');
 	let password = $state('');
@@ -46,7 +58,8 @@
 			session.user = await request();
 			password = '';
 			apiKey = '';
-			await goto(resolve('/'));
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- a path of this app
+			await goto(nextPage());
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {

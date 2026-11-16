@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
 	import favicon from '#lib/assets/favicon.svg';
-	import { ApiError, getMe, logout } from '#lib/api.js';
+	import { ApiError, getMe, logout, whenSignedOut } from '#lib/api.js';
 	import HeaderMenu from '#lib/HeaderMenu.svelte';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
@@ -41,12 +41,21 @@
 			.finally(() => (session.checked = true));
 	});
 
+	// A request finds the session over (it expired, or another tab signed in elsewhere): to the
+	// sign-in page at once, rather than a page that only shows what it had.
+	whenSignedOut(() => {
+		if (session.checked) session.user = null;
+	});
+
 	// Everything except the sign-in page and About (the license and the source code are for
-	// anyone who reaches the app) requires a signed-in user.
+	// anyone who reaches the app) requires a signed-in user. After signing in, back to the page.
 	$effect(() => {
 		const open = page.url.pathname === loginPath || page.url.pathname === aboutPath;
 		if (session.checked && !session.user && !open) {
-			goto(loginPath);
+			const back = page.url.pathname + page.url.search;
+			const next = back === resolve('/') ? '' : `?next=${encodeURIComponent(back)}`;
+			// eslint-disable-next-line svelte/no-navigation-without-resolve -- loginPath is resolved
+			goto(`${loginPath}${next}`);
 		}
 	});
 

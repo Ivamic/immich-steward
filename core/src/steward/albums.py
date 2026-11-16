@@ -32,7 +32,8 @@ class Added:
 
 @dataclass
 class Removed:
-    removed: int = 0
+    # Local ids of the photos taken out now: what an undo puts back.
+    removed: list[UUID] = field(default_factory=list)
     failed: int = 0
 
 
@@ -91,7 +92,7 @@ async def remove_assets(
         if asset is None:
             continue
         if answer.success:
-            result.removed += 1
+            result.removed.append(asset.id)
             gone.append(asset.id)
         elif answer.error == "not_found":
             # Not in the album (any more): only the local copy was behind.
@@ -102,7 +103,7 @@ async def remove_assets(
         await db.execute(
             delete(AssetAlbum).where(AssetAlbum.album_id == album.id, AssetAlbum.asset_id.in_(gone))
         )
-    album.asset_count = max(0, album.asset_count - result.removed)
+    album.asset_count = max(0, album.asset_count - len(result.removed))
     await db.commit()
     return result
 

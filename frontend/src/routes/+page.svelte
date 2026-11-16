@@ -236,7 +236,7 @@
 {/if}
 
 {#if selection.size}
-	<SelectionBar {selection} onlocation={() => (locationOpen = true)}>
+	<SelectionBar {selection} albumId={filter.album} onlocation={() => (locationOpen = true)}>
 		<button
 			type="button"
 			class="st-btn st-btn--ghost st-btn--sm"

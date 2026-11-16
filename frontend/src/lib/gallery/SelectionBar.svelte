@@ -5,7 +5,15 @@
      then the actions of the page. -->
 <script lang="ts">
 	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
-	import { rotateSelection, setSelectionReview, type ReviewStatus } from '#lib/api.js';
+	import { takeOutOfAlbum } from '#lib/albums/albums.js';
+	import {
+		getAlbums,
+		rotateSelection,
+		setSelectionReview,
+		type Album,
+		type AlbumList,
+		type ReviewStatus
+	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -17,16 +25,31 @@
 	let {
 		selection,
 		onlocation,
+		albumId = null,
 		children
 	}: {
 		selection: Selection;
 		onlocation: () => void;
+		/** The gallery shows this album: the photos can be taken out of it. */
+		albumId?: string | null;
 		/** Actions of the page, in a group of their own at the end. */
 		children?: Snippet;
 	} = $props();
 
 	let busy = $state(false);
 	let picking = $state(false);
+	// The album the gallery shows, when the photos can be taken out of it.
+	let albums = $state<AlbumList | null>(null);
+	const shownAlbum = $derived<Album | null>(
+		albums?.albums.find((a) => a.id === albumId && a.can_change_photos) ?? null
+	);
+
+	$effect(() => {
+		if (!albumId) return;
+		getAlbums()
+			.then((result) => (albums = result))
+			.catch(() => (albums = null));
+	});
 	let error = $state<string | null>(null);
 	const photos = $derived(selection.size - selection.videos);
 
@@ -41,6 +64,10 @@
 				photos
 			);
 		});
+	}
+
+	async function takeOut(album: Album) {
+		await act(() => takeOutOfAlbum(album, selection.ids));
 	}
 
 	async function review(status: ReviewStatus) {
@@ -129,6 +156,20 @@
 			<Icon name="folder-plus" size={14} />
 			{m.album_add()}
 		</button>
+		{#if shownAlbum && albums}
+			<button
+				type="button"
+				class="st-btn st-btn--ghost st-btn--sm"
+				disabled={busy || !albums.allowed.remove}
+				title={albums.allowed.remove
+					? undefined
+					: m.album_cannot_remove({ permission: albums.permissions.remove })}
+				onclick={() => shownAlbum && takeOut(shownAlbum)}
+			>
+				<Icon name="minus" size={14} />
+				{m.album_remove({ album: shownAlbum.name })}
+			</button>
+		{/if}
 	</span>
 
 	<span class="group" title={photos ? undefined : m.selection_rotate_videos_only()}>

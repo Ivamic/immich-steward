@@ -833,5 +833,15 @@
 	"albums_role_viewer": "Shared with you: view only",
 	"albums_delete": "Delete album",
 	"albums_delete_warning": "The album “{album}” is deleted in Immich, for everyone it is shared with. Its photos stay in the library.",
-	"album_cannot_delete": "The API key does not allow deleting albums: it needs the permission {permission}. Edit the key in Immich."
+	"album_cannot_delete": "The API key does not allow deleting albums: it needs the permission {permission}. Edit the key in Immich.",
+	"auth_help_optional_albums": "optional: adds photos to albums and changes albums",
+	"gallery_month_failed": "Could not load the photos of this month: {error}",
+	"gallery_month_retry": "Try again",
+	"album_remove": "Take out of “{album}”",
+	"album_remove_short": "Take out of the album",
+	"album_remove_confirm": "Take this photo out of the album “{album}”? It stays in the library and in its other albums.",
+	"album_removed": "Taken out of “{album}”: {count}",
+	"album_remove_failed_some": "Immich did not take out: {count}",
+	"album_remove_undone": "Put back into “{album}”: {count}",
+	"album_cannot_remove": "The API key does not allow taking photos out of albums: it needs the permission {permission}. Edit the key in Immich."
 }

@@ -833,5 +833,15 @@
 	"albums_role_viewer": "Mit dir geteilt: nur ansehen",
 	"albums_delete": "Album löschen",
 	"albums_delete_warning": "Das Album „{album}“ wird in Immich gelöscht, auch für alle, mit denen es geteilt ist. Seine Fotos bleiben in der Bibliothek.",
-	"album_cannot_delete": "Der API-Schlüssel erlaubt nicht, Alben zu löschen: Er braucht die Berechtigung {permission}. Bearbeite den Schlüssel in Immich."
+	"album_cannot_delete": "Der API-Schlüssel erlaubt nicht, Alben zu löschen: Er braucht die Berechtigung {permission}. Bearbeite den Schlüssel in Immich.",
+	"auth_help_optional_albums": "optional: fügt Fotos zu Alben hinzu und ändert Alben",
+	"gallery_month_failed": "Die Fotos dieses Monats konnten nicht geladen werden: {error}",
+	"gallery_month_retry": "Erneut versuchen",
+	"album_remove": "Aus „{album}“ entfernen",
+	"album_remove_short": "Aus dem Album entfernen",
+	"album_remove_confirm": "Dieses Foto aus dem Album „{album}“ entfernen? In der Bibliothek und in anderen Alben bleibt es.",
+	"album_removed": "Aus „{album}“ entfernt: {count}",
+	"album_remove_failed_some": "Von Immich nicht entfernt: {count}",
+	"album_remove_undone": "Wieder in „{album}“: {count}",
+	"album_cannot_remove": "Der API-Schlüssel erlaubt nicht, Fotos aus Alben zu entfernen: Er braucht die Berechtigung {permission}. Bearbeite den Schlüssel in Immich."
 }

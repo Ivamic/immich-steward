@@ -27,6 +27,8 @@
 	} = $props();
 
 	let dialog: HTMLDialogElement;
+	// The press of the current click was beside the window (on the backdrop).
+	let pressedBeside = false;
 
 	$effect(() => {
 		dialog.showModal();
@@ -48,7 +50,13 @@
 		// Esc closes the window only, not what the page does with it (e.g. clear the choice).
 		if (e.key === 'Escape') e.stopPropagation();
 	}}
-	onclick={(e) => e.target === e.currentTarget && onclose()}
+	onpointerdown={(e) => (pressedBeside = e.target === e.currentTarget)}
+	onclick={(e) => {
+		// Only a click that also began beside the window: selecting text in it and letting go
+		// outside it is not one.
+		if (pressedBeside && e.target === e.currentTarget) onclose();
+		pressedBeside = false;
+	}}
 >
 	<div class="st-dialog__head">
 		{#if icon}<span class="st-dialog__icon"><Icon name={icon} /></span>{/if}

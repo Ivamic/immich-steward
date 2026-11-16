@@ -833,5 +833,15 @@
 	"albums_role_viewer": "Вам открыт доступ: только просмотр",
 	"albums_delete": "Удалить альбом",
 	"albums_delete_warning": "Альбом «{album}» будет удалён в Immich, в том числе у всех, с кем он общий. Фото останутся в библиотеке.",
-	"album_cannot_delete": "API-ключ не разрешает удалять альбомы: нужно право {permission}. Измените ключ в Immich."
+	"album_cannot_delete": "API-ключ не разрешает удалять альбомы: нужно право {permission}. Измените ключ в Immich.",
+	"auth_help_optional_albums": "необязательно: добавление фото в альбомы и изменение альбомов",
+	"gallery_month_failed": "Не удалось загрузить фото этого месяца: {error}",
+	"gallery_month_retry": "Попробовать снова",
+	"album_remove": "Убрать из «{album}»",
+	"album_remove_short": "Убрать из альбома",
+	"album_remove_confirm": "Убрать это фото из альбома «{album}»? В библиотеке и в других альбомах оно останется.",
+	"album_removed": "Убрано из «{album}»: {count}",
+	"album_remove_failed_some": "Immich не убрал: {count}",
+	"album_remove_undone": "Снова в «{album}»: {count}",
+	"album_cannot_remove": "API-ключ не разрешает убирать фото из альбомов: нужно право {permission}. Измените ключ в Immich."
 }

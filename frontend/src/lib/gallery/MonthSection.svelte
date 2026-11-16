@@ -15,6 +15,7 @@
 		type GalleryFilter,
 		type MonthBucket
 	} from '#lib/api.js';
+	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { replaceState } from '$app/navigation';
@@ -64,7 +65,9 @@
 	let section: HTMLElement;
 	let near = $state(false);
 	let items = $state<AssetItem[] | null>(null);
-	let failed = $state(false);
+	// The photos could not be fetched: said in place of them, with a retry; tried again too when
+	// the month comes near the screen again.
+	let failed = $state<string | null>(null);
 
 	// Each day of the month is a group with its heading (`month.ts` sizes them the same way).
 	// A month without its days (an older core) counts as one day.
@@ -81,9 +84,15 @@
 	}
 
 	$effect(() => {
-		const observer = new IntersectionObserver(([entry]) => (near = entry.isIntersecting), {
-			rootMargin: `${NEAR_VIEWPORT} 0px`
-		});
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				near = entry.isIntersecting;
+				if (!near) failed = null;
+			},
+			{
+				rootMargin: `${NEAR_VIEWPORT} 0px`
+			}
+		);
 		observer.observe(section);
 		return () => observer.disconnect();
 	});
@@ -103,12 +112,13 @@
 	});
 
 	function fetchItems() {
+		failed = null;
 		getMonthAssets(bucket.month, filter)
 			.then((result) => {
 				items = result;
 				onitems(bucket.month, result);
 			})
-			.catch(() => (failed = true));
+			.catch((error) => (failed = errorMessage(error)));
 	}
 
 	/** While photos are being chosen, a click chooses rather than opens. */
@@ -281,7 +291,17 @@
 			{/each}
 		</div>
 	{:else}
-		<div class="placeholder" style:height="{estimatedHeight}px"></div>
+		<div class="placeholder" style:height="{estimatedHeight}px">
+			{#if failed}
+				<p class="failed" role="alert">
+					{m.gallery_month_failed({ error: failed })}
+					<button type="button" class="st-btn st-btn--sm" onclick={fetchItems}>
+						<Icon name="refresh-cw" size={14} />
+						{m.gallery_month_retry()}
+					</button>
+				</p>
+			{/if}
+		</div>
 	{/if}
 </section>
 
@@ -450,9 +470,22 @@
 			var(--shadow-badge);
 	}
 	.placeholder {
+		position: relative;
 		border-radius: 2px;
-		background: var(--color-skeleton);
-		opacity: 0.5;
+		background: color-mix(in oklch, var(--color-skeleton) 50%, transparent);
+	}
+	.failed {
+		position: sticky;
+		top: calc(var(--header-height) + var(--space-16));
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-2);
+		margin: 0;
+		padding: var(--space-4);
+		color: var(--color-text);
+		font-size: var(--text-sm);
 	}
 	/* In the other corner: the location markers keep theirs. */
 	.locked-marker {

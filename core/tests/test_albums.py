@@ -244,3 +244,16 @@ def test_photo_card_tells_which_albums_it_can_leave(
         ("Theirs", False),
         ("Trip", True),
     ]
+
+
+def test_which_albums_have_the_photos_already(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    trip = album(signed_in, "Trip")
+    ids = [photos[n][0] for n in ("a", "b", "clip")]
+
+    counts = signed_in.post("/api/albums/contains", json={"ids": ids}).json()["counts"]
+
+    assert counts == {trip["id"]: 1}
+    other = signed_in.post("/api/albums/contains", json={"ids": [photos["b"][0]]}).json()
+    assert other["counts"] == {}

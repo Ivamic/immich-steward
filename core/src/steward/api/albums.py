@@ -20,7 +20,7 @@ from steward.errors import ApiError
 from steward.immich import ImmichClient, ImmichError
 from steward.immich.compat import ALBUM_PERMISSIONS, has_permission
 from steward.immich.thumbnails import ThumbnailFetcher
-from steward.models import Account, Album, AssetAlbum
+from steward.models import Account, Album, Asset, AssetAlbum
 
 router = APIRouter(prefix="/albums")
 
@@ -116,6 +116,23 @@ async def album_list(
         permissions=dict(ALBUM_PERMISSIONS),
         immich_url=settings.immich_browser_url,
     )
+
+
+class ContainsOut(BaseModel):
+    # Album id -> how many of the photos asked about are in it (albums with none left out).
+    counts: dict[UUID, int]
+
+
+@router.post("/contains")
+async def contains(body: AddIn, account: CurrentAccount, db: DbDep) -> ContainsOut:
+    """Which albums the photos are in already: for marking them where photos are put in."""
+    rows = await db.execute(
+        select(AssetAlbum.album_id, func.count())
+        .join(Asset, Asset.id == AssetAlbum.asset_id)
+        .where(Asset.account_id == account.id, AssetAlbum.asset_id.in_(body.ids))
+        .group_by(AssetAlbum.album_id)
+    )
+    return ContainsOut(counts={row[0]: row[1] for row in rows})
 
 
 @router.post("")

@@ -908,6 +908,9 @@ export interface AlbumAdded {
 }
 
 export const getAlbums = () => request<AlbumList>('GET', '/api/albums');
+/** Album id -> how many of the photos are in it already (albums with none left out). */
+export const albumsContaining = (ids: string[]) =>
+	request<{ counts: Record<string, number> }>('POST', '/api/albums/contains', { ids });
 export const createAlbum = (name: string, ids: string[] = []) =>
 	request<AlbumAdded>('POST', '/api/albums', { name, ids });
 export const addToAlbum = (albumId: string, ids: string[]) =>

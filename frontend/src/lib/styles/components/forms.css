@@ -158,6 +158,27 @@
 	color: var(--color-text-disabled);
 	cursor: not-allowed;
 }
+/* The same box shown only, where a checkbox may not be (inside a button): data-state "all" or
+   "some", as checked and indeterminate. */
+.st-check__box {
+	display: inline-block;
+	flex-shrink: 0;
+	width: 1rem;
+	height: 1rem;
+	border: 1.5px solid var(--color-border-input);
+	border-radius: var(--radius-xs);
+	background: var(--color-surface) center/0.75rem no-repeat;
+}
+.st-check__box[data-state='all'] {
+	background-color: var(--color-accent);
+	border-color: var(--color-accent);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+.st-check__box[data-state='some'] {
+	background-color: var(--color-accent);
+	border-color: var(--color-accent);
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
 .st-check__meta {
 	color: var(--color-text-muted);
 	font-variant-numeric: tabular-nums;

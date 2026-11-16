@@ -3,7 +3,7 @@
      add to (the ones changed lately first), which also names a new album. Arrows move, Enter
      picks. Closes once Immich has the photos; the notice that follows can undo it. -->
 <script lang="ts">
-	import { getAlbums, type Album, type AlbumList } from '#lib/api.js';
+	import { albumsContaining, getAlbums, type Album, type AlbumList } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { foldText, matches } from '#lib/search.js';
@@ -24,6 +24,8 @@
 	} = $props();
 
 	let list = $state<AlbumList | null>(null);
+	// Album id -> how many of the photos are in it already.
+	let counts = $state<Record<string, number>>({});
 	let query = $state('');
 	let active = $state(0);
 	let busy = $state(false);
@@ -33,6 +35,10 @@
 		getAlbums()
 			.then((result) => (list = result))
 			.catch((e) => (error = errorMessage(e)));
+		// Only marks: the list works without them.
+		albumsContaining(ids)
+			.then((result) => (counts = result.counts))
+			.catch(() => (counts = {}));
 	});
 
 	const canAdd = $derived(list?.allowed.add ?? false);
@@ -83,6 +89,13 @@
 		}
 	}
 
+	/** Whether the photos are in the album: all of them, some, or none. */
+	function inAlbum(album: Album): 'all' | 'some' | null {
+		const count = counts[album.id] ?? 0;
+		if (!count) return null;
+		return count >= ids.length ? 'all' : 'some';
+	}
+
 	function period(album: Album): string | null {
 		if (!album.start_date) return null;
 		const year = (date: string) => new Date(date).getUTCFullYear();
@@ -126,13 +139,23 @@
 					onclick={() => pick(row)}
 				>
 					{#if 'album' in row}
+						{@const state = inAlbum(row.album)}
 						<Icon name={row.album.shared ? 'users' : 'images'} size={16} />
 						<span class="st-menu__label">{row.album.name}</span>
 						<span class="st-menu__hint">
-							{[period(row.album), m.album_photos({ count: row.album.count })]
+							{[
+								state === 'all'
+									? m.album_has_all()
+									: state === 'some'
+										? m.album_has_some({ count: counts[row.album.id], total: ids.length })
+										: period(row.album),
+								m.album_photos({ count: row.album.count })
+							]
 								.filter(Boolean)
 								.join(' · ')}
 						</span>
+						{#if state}<span class="st-check__box" data-state={state} aria-hidden="true"
+							></span>{/if}
 					{:else}
 						<Icon name="plus" size={16} />
 						<span class="st-menu__label">{m.album_new({ name: row.name })}</span>

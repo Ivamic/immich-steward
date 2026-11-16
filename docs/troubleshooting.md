@@ -97,6 +97,30 @@ A worker on another computer: see the [table of log messages](workers.md#check-t
 Also look at the switches of the module on the **Processing** page: a worker with the module
 turned off takes none of its jobs.
 
+### `uv sync` asks for Microsoft Visual C++ Build Tools
+
+When installing a [GPU worker](workers.md#a-worker-on-an-nvidia-graphics-card) from source,
+`uv sync` stops with `Microsoft Visual C++ 14.0 or greater is required` (on Linux, a similar
+error about a missing compiler). uv took a newer Python than 3.12, and some libraries have no
+ready-made builds for it yet, so uv tried to build them itself. Stop the worker if it runs, then
+create the environment again for Python 3.12.
+
+On Windows (PowerShell):
+
+```powershell
+cd D:\steward-worker
+Remove-Item -Recurse -Force .venv
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+```
+
+On Linux:
+
+```sh
+cd ~/steward-worker
+rm -rf .venv
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+```
+
 ### A photo card says that no worker runs the module
 
 No worker that runs this module is connected right now, or the module is turned off for the

@@ -7,6 +7,13 @@ between releases.
 
 ## [Unreleased]
 
+### Fixed
+
+- Installing a worker from source could fail with "Microsoft Visual C++ 14.0 or greater is
+  required": uv picked the newest Python, for which some libraries have no ready-made builds.
+  The repository now pins Python 3.12 in `.python-version`, and the commands in
+  [Workers](docs/workers.md) pass `--python 3.12`.
+
 ## [0.11.0] - 2026-11-15
 
 Suggestions of similar photos confirmed by matching details.

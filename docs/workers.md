@@ -214,6 +214,10 @@ What it needs:
 - about 6 GB of disk space: 3.2 GB for the installation and the models (CLIP 1.7 GB, MegaLoc
   0.9 GB), which are downloaded on their first use.
 
+The commands install the worker for Python 3.12, which uv downloads by itself if needed. If
+`uv sync` asks for Microsoft Visual C++ Build Tools, see
+[troubleshooting](troubleshooting.md#uv-sync-asks-for-microsoft-visual-c-build-tools).
+
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
 `your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.11.0` with
 the version of the app on your server (shown in **Settings → Updates**).
@@ -232,7 +236,7 @@ Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 ```powershell
 git clone --branch v0.11.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 Start the worker (every time; it runs while the window is open):
@@ -252,7 +256,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 git clone --branch v0.11.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 Start the worker (every time; it runs while the terminal is open):
@@ -323,7 +327,7 @@ Update to a new version (replace `0.11.0` with the new version), on Windows:
 cd D:\steward-worker
 git fetch --tags
 git checkout v0.11.0
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 On Linux:
@@ -332,7 +336,7 @@ On Linux:
 cd ~/steward-worker
 git fetch --tags
 git checkout v0.11.0
-uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
 ```
 
 Don't skip `uv sync` after `git checkout`: without it the old version keeps running.

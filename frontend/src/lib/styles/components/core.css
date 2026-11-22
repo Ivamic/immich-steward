@@ -70,6 +70,19 @@
 .st-btn--danger:hover {
 	background: var(--color-danger-subtle);
 }
+/* A switch that changes what the page shows in a way to keep in mind (e.g. photos shown turned):
+   orange, and filled while it is on. */
+.st-btn--warning {
+	color: var(--color-warning-text);
+	border-color: color-mix(in oklab, var(--color-warning), transparent 45%);
+}
+.st-btn--warning:hover,
+.st-btn--warning[aria-pressed='true'] {
+	background: var(--color-warning-subtle);
+}
+.st-btn--warning[aria-pressed='true'] {
+	border-color: var(--color-warning);
+}
 .st-btn--sm {
 	min-height: var(--control-sm);
 	padding-inline: var(--space-2);

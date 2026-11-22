@@ -480,8 +480,8 @@ The tab **Turned photos** of the Groups page lists the photos that seem to lie o
 module of a worker looks at every photo once, as Immich shows it. They come in two groups,
 *turn right* and *turn left* (upside down only when turned on in the
 [settings](configuration.md#suggestions)), the surest first, as Immich shows them now.
-**Show after the turn** shows the previews as the photos would look once turned, with a note
-above them; the browser remembers the choice.
+**Show after the turn** (orange) shows the previews as the photos would look once turned, with an
+orange note above them; **Show as in Immich now** goes back. The browser remembers the choice.
 
 Choose photos (as in the gallery, **Choose all** for a group) and:
 

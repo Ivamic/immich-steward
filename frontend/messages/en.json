@@ -656,6 +656,8 @@
 	"turned_after_turn": "Show after the turn",
 	"turned_after_turn_hint": "Show the previews as the photos would look once turned; nothing changes in Immich",
 	"turned_after_turn_note": "The previews show the photos as they would look after the turn. In Immich they are still as before, until you press Turn in Immich.",
+	"turned_as_now": "Show as in Immich now",
+	"turned_as_now_hint": "Back to the previews as Immich shows the photos now",
 	"turned_view_kept": "Kept as they are",
 	"turned_view_kept_hint": "Photos you marked as not turned: they are not offered any more",
 	"turned_kept_intro": "Photos you marked as not turned, as Immich shows them. To have the app offer some of them again, choose them and press Offer again.",

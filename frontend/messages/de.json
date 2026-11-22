@@ -656,6 +656,8 @@
 	"turned_after_turn": "Nach dem Drehen zeigen",
 	"turned_after_turn_hint": "Die Vorschauen so zeigen, wie die Fotos nach dem Drehen aussähen; in Immich ändert sich nichts",
 	"turned_after_turn_note": "Die Vorschauen zeigen die Fotos so, wie sie nach dem Drehen aussähen. In Immich sind sie noch unverändert, bis Sie In Immich drehen drücken.",
+	"turned_as_now": "Wie jetzt in Immich zeigen",
+	"turned_as_now_hint": "Zurück zu den Vorschauen, wie Immich die Fotos jetzt zeigt",
 	"turned_view_kept": "Unverändert gelassen",
 	"turned_view_kept_hint": "Fotos, die Sie als nicht gedreht markiert haben: Sie werden nicht mehr angeboten",
 	"turned_kept_intro": "Fotos, die Sie als nicht gedreht markiert haben, so wie Immich sie zeigt. Damit die App einige davon wieder anbietet, wählen Sie sie aus und drücken Wieder anbieten.",

@@ -656,6 +656,8 @@
 	"turned_after_turn": "Montrer après rotation",
 	"turned_after_turn_hint": "Montrer les aperçus tels que seraient les photos une fois tournées ; rien ne change dans Immich",
 	"turned_after_turn_note": "Les aperçus montrent les photos telles qu'elles seraient après la rotation. Dans Immich elles restent inchangées tant que vous n'appuyez pas sur Tourner dans Immich.",
+	"turned_as_now": "Montrer comme dans Immich",
+	"turned_as_now_hint": "Revenir aux aperçus tels qu'Immich montre les photos maintenant",
 	"turned_view_kept": "Gardées telles quelles",
 	"turned_view_kept_hint": "Photos que vous avez marquées comme pas tournées : elles ne sont plus proposées",
 	"turned_kept_intro": "Photos que vous avez marquées comme pas tournées, telles qu'Immich les montre. Pour que l'application en propose de nouveau, choisissez-les et appuyez sur Proposer de nouveau.",

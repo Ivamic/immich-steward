@@ -299,20 +299,18 @@
 				<span class="sep" aria-hidden="true"></span>
 				<button
 					type="button"
-					class="st-btn st-btn--sm"
-					class:st-btn--secondary={afterTurn}
-					class:st-btn--ghost={!afterTurn}
+					class="st-btn st-btn--sm st-btn--warning"
 					aria-pressed={afterTurn}
-					title={m.turned_after_turn_hint()}
+					title={afterTurn ? m.turned_as_now_hint() : m.turned_after_turn_hint()}
 					onclick={toggleAfterTurn}
 				>
-					<Icon name="rotate-cw" size={14} />
-					{m.turned_after_turn()}
+					<Icon name={afterTurn ? 'rotate-ccw' : 'rotate-cw'} size={14} />
+					{afterTurn ? m.turned_as_now() : m.turned_after_turn()}
 				</button>
 			{/if}
 		</div>
 		{#if afterTurn && !keptView}
-			<div class="st-banner st-banner--info after-turn" role="status">
+			<div class="st-banner st-banner--warning after-turn" role="status">
 				<Icon name="rotate-cw" />
 				<div class="st-banner__body">{m.turned_after_turn_note()}</div>
 			</div>

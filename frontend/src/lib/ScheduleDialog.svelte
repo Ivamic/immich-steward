@@ -35,6 +35,8 @@
 	let error = $state<string | null>(null);
 	// While dragging: whether the cells passed over are painted or cleared.
 	let painting: boolean | null = null;
+	// The cell the drag passed last, as row (in the order shown) and hour.
+	let last: [number, number] | null = null;
 
 	const order = dayOrder(getLocale());
 	const names = weekdayNames(getLocale());
@@ -67,12 +69,29 @@
 		(event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
 		painting = !isOn(day, hour);
 		set(day, hour, painting);
+		last = [order.indexOf(day), hour];
 	}
 
 	function move(event: PointerEvent) {
 		if (painting === null) return;
 		const cell = cellAt(event.clientX, event.clientY);
-		if (cell) set(cell[0], cell[1], painting);
+		if (!cell) return;
+		const to: [number, number] = [order.indexOf(cell[0]), cell[1]];
+		// A quick drag skips cells between two moves: paint the line between them too.
+		for (const [row, hour] of line(last ?? to, to)) set(order[row], hour, painting);
+		last = to;
+	}
+
+	/** The cells on the straight line from one cell to another, both included. */
+	function line(from: [number, number], to: [number, number]): [number, number][] {
+		const steps = Math.max(Math.abs(to[0] - from[0]), Math.abs(to[1] - from[1]));
+		return Array.from({ length: steps + 1 }, (_, i) => {
+			const t = steps ? i / steps : 0;
+			return [
+				Math.round(from[0] + (to[0] - from[0]) * t),
+				Math.round(from[1] + (to[1] - from[1]) * t)
+			];
+		});
 	}
 
 	async function save() {
@@ -88,7 +107,10 @@
 	}
 </script>
 
-<svelte:window onpointerup={() => (painting = null)} onpointercancel={() => (painting = null)} />
+<svelte:window
+	onpointerup={() => ((painting = null), (last = null))}
+	onpointercancel={() => ((painting = null), (last = null))}
+/>
 
 <Dialog title={m.workers_schedule_title({ name: worker.name })} icon="clock" wide {onclose}>
 	<p class="hint">{m.workers_schedule_hint()}</p>

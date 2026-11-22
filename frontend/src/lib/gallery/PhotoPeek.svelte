@@ -4,12 +4,21 @@
      once, in a loop: muted, or with its sound when so set and the browser lets it. -->
 <script lang="ts">
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
-	import { thumbnailUrl, videoUrl, type AssetItem } from '#lib/api.js';
+	import { thumbnailUrl, videoUrl, type AssetItem, type Turn } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { takenTitle } from './month.js';
 
-	let { item, onclose }: { item: AssetItem; onclose: () => void } = $props();
+	let {
+		item,
+		turn = 0,
+		onclose
+	}: {
+		item: AssetItem;
+		/** Show the photo turned this many degrees clockwise (as the page turns it). */
+		turn?: Turn;
+		onclose: () => void;
+	} = $props();
 
 	let loaded = $state(false);
 	let player = $state<HTMLVideoElement>();
@@ -30,7 +39,10 @@
 		});
 	});
 	// Width over height; 4:3 while unknown.
-	const ratio = $derived(item.width && item.height ? item.width / item.height : 4 / 3);
+	const ratio = $derived.by(() => {
+		const shown = item.width && item.height ? item.width / item.height : 4 / 3;
+		return turn === 90 || turn === 270 ? 1 / shown : shown;
+	});
 </script>
 
 <svelte:window
@@ -48,7 +60,7 @@
 <div class="peek" role="dialog" aria-modal="true" aria-label={item.file_name}>
 	<figure>
 		<div class="frame" style:--ratio={ratio}>
-			<img class="small" src={thumbnailUrl(item.id, 'thumbnail', 0, item.version)} alt="" />
+			<img class="small" src={thumbnailUrl(item.id, 'thumbnail', turn, item.version)} alt="" />
 			{#if item.type === 'VIDEO'}
 				<!-- Videos of a library have no captions to offer. -->
 				<!-- svelte-ignore a11y_media_has_caption -->
@@ -73,7 +85,7 @@
 				<img
 					class="large"
 					class:loaded
-					src={thumbnailUrl(item.id, 'preview', 0, item.version)}
+					src={thumbnailUrl(item.id, 'preview', turn, item.version)}
 					alt={item.file_name}
 					onload={() => (loaded = true)}
 				/>

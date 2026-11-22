@@ -15,14 +15,19 @@
 	} from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
+	import { longpress } from '#lib/gallery/longpress.js';
+	import PhotoPeek from '#lib/gallery/PhotoPeek.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
 	import { galleryChanged, Selection } from '#lib/gallery/selection.svelte.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
+	import GroupsTabs from '#lib/groups/GroupsTabs.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	const PAGE = 200;
 
@@ -37,6 +42,18 @@
 	// Photos turned or kept on this page: they leave the list at once.
 	let gone = $state(new Set<string>());
 	const number = new Intl.NumberFormat(getLocale());
+	// The photo of a long press, shown large and already turned.
+	let peek = $state<{ item: AssetItem; group: TurnedGroup } | null>(null);
+	// The filter: all groups, or one turn (in the address, so that it stays on reload).
+	const only = $derived(Number(page.url.searchParams.get('turn')) || null);
+
+	function choose(turn: number | null) {
+		selection.clear();
+		goto(resolve(turn ? `/groups/turned?turn=${turn}` : '/groups/turned'), {
+			replace: true,
+			reset: false
+		});
+	}
 
 	async function load() {
 		try {
@@ -66,6 +83,18 @@
 
 	const left = (group: TurnedGroup) => (shown[group.turn] ?? []).filter((p) => !gone.has(p.id));
 	const total = $derived((answer?.groups ?? []).reduce((sum, g) => sum + g.total, 0) - gone.size);
+	// What a group still counts: less the photos turned or kept on this page.
+	const groupTotal = (group: TurnedGroup) =>
+		group.total - (shown[group.turn] ?? []).filter((p) => gone.has(p.id)).length;
+	const visible = $derived((answer?.groups ?? []).filter((g) => only === null || g.turn === only));
+
+	function filterLabel(group: TurnedGroup): string {
+		return group.turn === 1
+			? m.turned_view_right()
+			: group.turn === 3
+				? m.turned_view_left()
+				: m.turned_view_upside_down();
+	}
 
 	function groupTitle(group: TurnedGroup): string {
 		return group.turn === 1
@@ -128,7 +157,7 @@
 	}
 
 	function onkeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape' && selection.size && !locationOpen) {
+		if (event.key === 'Escape' && selection.size && !locationOpen && !peek) {
 			event.preventDefault();
 			selection.clear();
 		}
@@ -137,12 +166,10 @@
 
 <svelte:window {onkeydown} />
 
-<a class="st-btn st-btn--ghost st-btn--sm back" href={resolve('/groups')}>
-	<Icon name="arrow-left" size={14} />
-	{m.nav_groups()}
-</a>
+<h1>{m.nav_groups()}</h1>
 
-<h1>{m.turned_title()}</h1>
+<GroupsTabs current="turned" turned={answer ? Math.max(0, total) : null} />
+
 <p class="muted">{m.turned_intro()}</p>
 
 {#if error}
@@ -159,13 +186,39 @@
 			text={m.turned_none_text({ count: number.format(answer.checked) })}
 		/>
 	{:else}
-		{#each answer.groups as group (group.turn)}
+		<div class="views">
+			<button
+				type="button"
+				class="st-btn st-btn--sm"
+				class:st-btn--secondary={only === null}
+				class:st-btn--ghost={only !== null}
+				aria-pressed={only === null}
+				onclick={() => choose(null)}
+			>
+				{m.groups_view_all()}
+				<span class="count">{number.format(Math.max(0, total))}</span>
+			</button>
+			{#each answer.groups as group (group.turn)}
+				<button
+					type="button"
+					class="st-btn st-btn--sm"
+					class:st-btn--secondary={only === group.turn}
+					class:st-btn--ghost={only !== group.turn}
+					aria-pressed={only === group.turn}
+					onclick={() => choose(group.turn)}
+				>
+					{filterLabel(group)}
+					<span class="count">{number.format(groupTotal(group))}</span>
+				</button>
+			{/each}
+		</div>
+		{#each visible as group (group.turn)}
 			{@const photos = left(group)}
 			{#if photos.length}
 				<section>
 					<div class="found">
 						<h2>{groupTitle(group)}</h2>
-						<span class="muted">{number.format(group.total)}</span>
+						<span class="muted">{number.format(groupTotal(group))}</span>
 						<button
 							type="button"
 							class="st-btn st-btn--ghost st-btn--sm"
@@ -182,6 +235,7 @@
 									class="st-tile"
 									href={resolve('/photo/[id]', { id: photo.id })}
 									title={photo.file_name}
+									use:longpress={() => (peek = { item: photo, group })}
 									onclick={(event) => clickTile(event, photo, photos)}
 								>
 									<img
@@ -223,6 +277,10 @@
 	</p>
 {/if}
 
+{#if peek}
+	<PhotoPeek item={peek.item} turn={peek.group.fix} onclose={() => (peek = null)} />
+{/if}
+
 {#if selection.size}
 	<SelectionBar {selection} rotation={false} onlocation={() => (locationOpen = true)}>
 		<button type="button" class="st-btn st-btn--primary st-btn--sm" disabled={busy} onclick={turn}>
@@ -249,14 +307,21 @@
 
 <style>
 	h1 {
-		margin: var(--space-3) 0 var(--space-2);
+		margin: 0 0 var(--space-4);
 	}
 	h2 {
 		margin: 0;
 		font-size: var(--text-md);
 	}
-	.back {
-		margin-top: var(--space-1);
+	.views {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-2);
+		margin-bottom: var(--space-4);
+	}
+	.count {
+		color: var(--color-text-muted);
+		font-variant-numeric: tabular-nums;
 	}
 	.muted {
 		margin: 0 0 var(--space-3);

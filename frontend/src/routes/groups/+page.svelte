@@ -7,7 +7,6 @@
 		confirmPhotos,
 		getGroups,
 		getTrashedPhotos,
-		getTurned,
 		isActive,
 		restoreAllPhotos,
 		restorePhotos,
@@ -25,6 +24,7 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import FolderDialog from '#lib/groups/FolderDialog.svelte';
 	import GroupName from '#lib/groups/GroupName.svelte';
+	import GroupsTabs from '#lib/groups/GroupsTabs.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -56,13 +56,6 @@
 	];
 
 	let list = $state.raw<GroupList | null>(null);
-	// Photos that look turned (D-237), for the link to their list; null until known.
-	let turnedCount = $state<number | null>(null);
-	$effect(() => {
-		getTurned(null, 0, 1)
-			.then((answer) => (turnedCount = answer.groups.reduce((sum, g) => sum + g.total, 0)))
-			.catch(() => (turnedCount = null));
-	});
 	let shown = $state.raw<GroupOut[]>([]);
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
@@ -363,9 +356,7 @@
 
 <h1>{m.nav_groups()}</h1>
 
-<nav class="tabs">
-	<a href={resolve('/groups')} aria-current="page">{m.groups_tab_environment()}</a>
-</nav>
+<GroupsTabs current="environment" />
 
 {#if status && working}
 	<p class="status" role="status">
@@ -397,12 +388,6 @@
 				<span class="count">{count(list.counts[item.id])}</span>
 			</button>
 		{/each}
-		<!-- Not groups: the photos that look turned, on a page of their own. -->
-		<a class="st-btn st-btn--sm st-btn--ghost" href={resolve('/groups/turned')}>
-			<Icon name="rotate-cw" size={14} />
-			{m.turned_title()}
-			{#if turnedCount !== null}<span class="count">{count(turnedCount)}</span>{/if}
-		</a>
 		{#if view !== 'dissolved'}
 			<!-- Another kind of filter: how the list is laid out, not which groups. -->
 			<span class="sep" aria-hidden="true"></span>
@@ -767,24 +752,6 @@
 <style>
 	h1 {
 		margin: 0 0 var(--space-4);
-	}
-	.tabs {
-		display: flex;
-		gap: var(--space-4);
-		margin-bottom: var(--space-4);
-		border-bottom: 1px solid var(--color-border);
-	}
-	.tabs a {
-		padding: var(--space-2) var(--space-1);
-		margin-bottom: -1px;
-		border-bottom: 2px solid transparent;
-		color: var(--color-text-muted);
-		text-decoration: none;
-	}
-	.tabs a[aria-current='page'] {
-		border-bottom-color: var(--color-accent);
-		color: var(--color-text);
-		font-weight: var(--weight-medium);
 	}
 	.status {
 		display: flex;

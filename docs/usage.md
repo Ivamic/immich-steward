@@ -479,8 +479,9 @@ whatever holds it together.
 The tab **Turned photos** of the Groups page lists the photos that seem to lie on their side: the orientation
 module of a worker looks at every photo once, as Immich shows it. They come in two groups,
 *turn right* and *turn left* (upside down only when turned on in the
-[settings](configuration.md#suggestions)), the surest first, and the previews show them already
-turned back.
+[settings](configuration.md#suggestions)), the surest first, as Immich shows them now.
+**Show after the turn** shows the previews as the photos would look once turned, with a note
+above them; the browser remembers the choice.
 
 Choose photos (as in the gallery, **Choose all** for a group) and:
 

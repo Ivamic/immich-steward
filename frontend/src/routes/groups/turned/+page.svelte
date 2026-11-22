@@ -32,6 +32,8 @@
 	import { page } from '$app/state';
 
 	const PAGE = 200;
+	// Whether the previews show the photos as they would be after the turn (off: as in Immich).
+	const PREVIEW_KEY = 'steward.turned.preview';
 
 	let answer = $state.raw<TurnedPhotos | null>(null);
 	// The photos of each group loaded so far, by turn.
@@ -44,6 +46,26 @@
 	// Photos turned or kept on this page: they leave the list at once.
 	let gone = $state(new Set<string>());
 	const number = new Intl.NumberFormat(getLocale());
+	let afterTurn = $state(stored());
+
+	function stored(): boolean {
+		try {
+			return localStorage.getItem(PREVIEW_KEY) === 'turned';
+		} catch {
+			return false;
+		}
+	}
+
+	function toggleAfterTurn() {
+		afterTurn = !afterTurn;
+		try {
+			if (afterTurn) localStorage.setItem(PREVIEW_KEY, 'turned');
+			else localStorage.removeItem(PREVIEW_KEY);
+		} catch {
+			// Private mode or blocked storage: the choice lasts for this page only.
+		}
+	}
+
 	// The photo of a long press, shown large (turned as the page offers it).
 	let peek = $state<{ item: AssetItem; turn: Turn } | null>(null);
 	// The filter, in the address so that it stays on reload: all groups, one turn, or the photos
@@ -272,7 +294,29 @@
 					<span class="count">{number.format(keptTotal)}</span>
 				</button>
 			{/if}
+			{#if !keptView}
+				<!-- Another kind of choice: how the photos are shown, not which. -->
+				<span class="sep" aria-hidden="true"></span>
+				<button
+					type="button"
+					class="st-btn st-btn--sm"
+					class:st-btn--secondary={afterTurn}
+					class:st-btn--ghost={!afterTurn}
+					aria-pressed={afterTurn}
+					title={m.turned_after_turn_hint()}
+					onclick={toggleAfterTurn}
+				>
+					<Icon name="rotate-cw" size={14} />
+					{m.turned_after_turn()}
+				</button>
+			{/if}
 		</div>
+		{#if afterTurn && !keptView}
+			<div class="st-banner st-banner--info after-turn" role="status">
+				<Icon name="rotate-cw" />
+				<div class="st-banner__body">{m.turned_after_turn_note()}</div>
+			</div>
+		{/if}
 		{#if keptView}
 			<p class="muted">{m.turned_kept_intro()}</p>
 			{#if kept}
@@ -341,11 +385,16 @@
 									class="st-tile"
 									href={resolve('/photo/[id]', { id: photo.id })}
 									title={photo.file_name}
-									use:longpress={() => (peek = { item: photo, turn: group.fix })}
+									use:longpress={() => (peek = { item: photo, turn: afterTurn ? group.fix : 0 })}
 									onclick={(event) => clickTile(event, photo, photos)}
 								>
 									<img
-										src={thumbnailUrl(photo.id, 'thumbnail', group.fix, photo.version)}
+										src={thumbnailUrl(
+											photo.id,
+											'thumbnail',
+											afterTurn ? group.fix : 0,
+											photo.version
+										)}
 										alt={photo.file_name}
 										loading="lazy"
 										decoding="async"
@@ -440,6 +489,16 @@
 	.count {
 		color: var(--color-text-muted);
 		font-variant-numeric: tabular-nums;
+	}
+	.sep {
+		align-self: center;
+		width: 1px;
+		height: 1.25rem;
+		margin-inline: var(--space-1);
+		background: var(--color-border-strong);
+	}
+	.after-turn {
+		margin-bottom: var(--space-4);
 	}
 	.muted {
 		margin: 0 0 var(--space-3);

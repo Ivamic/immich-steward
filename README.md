@@ -97,7 +97,7 @@ Available modules:
 
 A photo can be rotated in the app for a better look, the modules run on it rotated, and the
 rotation can be saved to Immich. Photos lying on their side are found by a worker module and
-listed together, previews already turned back, to turn in Immich in one step.
+listed together (with a look at how they would be turned), to turn in Immich in one step.
 
 To check a place by eye, satellite imagery can be shown under the map: Sentinel-2 by EOX
 (no key), Esri World Imagery or MapTiler Satellite (with your own key). All of them are off

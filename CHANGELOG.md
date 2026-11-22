@@ -13,7 +13,7 @@ Turned photos found by a new worker module, and schedules for the workers.
 
 - **Turned photos** (Groups → Turned photos): a new worker module, *orientation*, looks at every
   photo once and lists the ones that seem to lie on their side, in two groups (turn right, turn
-  left), with previews already turned back. **Turn in Immich** turns the chosen ones, each by the
+  left); **Show after the turn** shows how they would look turned. **Turn in Immich** turns the chosen ones, each by the
   turn of its group, as the rotate of the gallery does; **Not turned** keeps a photo as it is and
   it is not offered again (the filter *Kept as they are* shows them and can offer them again). Nothing is written to Immich until you press the button. The model is
   an EfficientNetV2-S (MIT, about 80 MB, downloaded from Hugging Face on first use); on a family

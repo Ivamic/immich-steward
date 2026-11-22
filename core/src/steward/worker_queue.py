@@ -62,10 +62,12 @@ FAILURE_CODES = (
     LEASE_EXPIRED,
 )
 
-# Automatic runs keep at most this many background jobs per module queued: enough for a GPU
-# worker (~5 photos/s) between two scheduler ticks (1 min), without queuing the whole library.
+# Automatic runs keep at most this many background jobs per module queued: enough for the
+# workers between two scheduler ticks (1 min), without queuing the whole library. A light module
+# goes fast: orientation ran at ~6 photos/s on two workers (2026-11-22), and 500 left them idle
+# for part of each minute. Every lease looks through the queue of its modules, so not much more.
 # Runs started by hand have a higher priority and never wait behind them.
-AUTO_QUEUE_SIZE = 500
+AUTO_QUEUE_SIZE = 2000
 
 # Photos a sync found within this time count as new (`Asset.added_at`).
 NEW_PHOTO_WINDOW = timedelta(days=2)

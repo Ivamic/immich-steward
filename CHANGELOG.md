@@ -34,7 +34,8 @@ Turned photos found by a new worker module, and schedules for the workers.
   them. A request the app cannot take now says why.
 - The **Add a device** commands for a worker on a graphics card left out matching details.
 - A worker asking for its next job waited seconds on a large library (a lookup without an index):
-  workers now go from one photo to the next at once.
+  workers now go from one photo to the next at once, and the background queue holds enough photos
+  for fast modules (2000 instead of 500).
 - On the Map page, the check marks of the chosen photos no longer scroll over the bar above the
   list (*All in view*, *Choose all*).
 

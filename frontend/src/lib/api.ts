@@ -954,7 +954,16 @@ export interface TurnedPhotos {
 	groups: TurnedGroup[];
 	/** Photos the module has looked at: none yet means no worker runs it. */
 	checked: number;
+	/** Photos kept as they are ("Not turned"). Absent: an older core. */
+	kept?: number;
 }
+
+/** The photos kept as they are, newest first. */
+export const getKeptTurned = (offset = 0, limit = 200) =>
+	request<{ total: number; photos: AssetItem[] }>(
+		'GET',
+		`/api/groups/candidates/turned/kept?offset=${offset}&limit=${limit}`
+	);
 
 export function getTurned(turn: number | null = null, offset = 0, limit = 200) {
 	const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });

@@ -62,6 +62,42 @@ async def photos(
     return [(asset, found) for asset, found in rows.all()]
 
 
+def _kept(account_id: UUID) -> ColumnElement[bool]:
+    return and_(
+        AssetOrientation.asset_id == Asset.id,
+        Asset.account_id == account_id,
+        AssetOrientation.kept.is_(True),
+        Asset.is_trashed.is_(False),
+        locked.shown(),
+    )
+
+
+async def kept_count(db: AsyncSession, account_id: UUID) -> int:
+    """Photos the user kept as they are."""
+    count = await db.scalar(
+        select(func.count())
+        .select_from(AssetOrientation)
+        .join(Asset, Asset.id == AssetOrientation.asset_id)
+        .where(_kept(account_id))
+    )
+    return count or 0
+
+
+async def kept_photos(
+    db: AsyncSession, account_id: UUID, offset: int, limit: int
+) -> list[tuple[Asset, AssetOrientation]]:
+    """Photos the user kept as they are, newest first."""
+    rows = await db.execute(
+        select(Asset, AssetOrientation)
+        .join(AssetOrientation, AssetOrientation.asset_id == Asset.id)
+        .where(_kept(account_id))
+        .order_by(Asset.local_taken_at.desc(), Asset.id)
+        .offset(offset)
+        .limit(limit)
+    )
+    return [(asset, found) for asset, found in rows.all()]
+
+
 async def keep(db: AsyncSession, account_id: UUID, ids: list[UUID], kept: bool) -> int:
     """Marks the photos right as they are (or offers them again); returns how many changed."""
     own = select(Asset.id).where(Asset.account_id == account_id, Asset.id.in_(ids))

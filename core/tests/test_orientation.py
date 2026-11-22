@@ -125,10 +125,14 @@ def test_kept_photos_leave_the_list_and_can_come_back(
     keep = {"ids": [library["a.jpg"]], "kept": True}
     assert signed_in.post(f"{URL}/keep", json=keep).json() == {"changed": 1}
     assert turned(signed_in) == {1: ["b.jpg"], 3: []}
+    assert signed_in.get(URL).json()["kept"] == 1
+    kept = signed_in.get(f"{URL}/kept").json()
+    assert (kept["total"], [p["file_name"] for p in kept["photos"]]) == (1, ["a.jpg"])
 
     again = {"ids": [library["a.jpg"]], "kept": False}
     assert signed_in.post(f"{URL}/keep", json=again).json() == {"changed": 1}
     assert turned(signed_in)[1] == ["b.jpg", "a.jpg"]
+    assert signed_in.get(f"{URL}/kept").json() == {"total": 0, "photos": []}
 
 
 def test_a_turned_photo_is_looked_at_again(library: dict[str, str], signed_in: TestClient) -> None:

@@ -589,6 +589,13 @@ class Turned(BaseModel):
     groups: list[TurnedGroup]
     # Photos the module has looked at: none yet means no worker runs it.
     checked: int
+    # Photos the user kept as they are (`/candidates/turned/kept`).
+    kept: int = 0
+
+
+class KeptTurned(BaseModel):
+    total: int
+    photos: list[AssetItem]
 
 
 class KeepTurned(BaseModel):
@@ -629,7 +636,26 @@ async def turned(
         .join(Asset, Asset.id == AssetOrientation.asset_id)
         .where(Asset.account_id == account.id)
     )
-    return Turned(groups=groups, checked=checked or 0)
+    return Turned(
+        groups=groups,
+        checked=checked or 0,
+        kept=await orientation.kept_count(db, account.id),
+    )
+
+
+@router.get("/candidates/turned/kept")
+async def kept_turned(
+    account: CurrentAccount,
+    db: DbDep,
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=MAX_ASSETS),
+) -> KeptTurned:
+    """Photos the user kept as they are, to look at again or offer again."""
+    found = await orientation.kept_photos(db, account.id, offset, limit)
+    return KeptTurned(
+        total=await orientation.kept_count(db, account.id),
+        photos=[AssetItem.of(asset) for asset, _ in found],
+    )
 
 
 @router.post("/candidates/turned/keep")

@@ -5,11 +5,13 @@
      keeps them as they are. -->
 <script lang="ts">
 	import {
+		getKeptTurned,
 		getTurned,
 		keepTurned,
 		rotateSelection,
 		thumbnailUrl,
 		type AssetItem,
+		type Turn,
 		type TurnedGroup,
 		type TurnedPhotos
 	} from '#lib/api.js';
@@ -42,23 +44,66 @@
 	// Photos turned or kept on this page: they leave the list at once.
 	let gone = $state(new Set<string>());
 	const number = new Intl.NumberFormat(getLocale());
-	// The photo of a long press, shown large and already turned.
-	let peek = $state<{ item: AssetItem; group: TurnedGroup } | null>(null);
-	// The filter: all groups, or one turn (in the address, so that it stays on reload).
-	const only = $derived(Number(page.url.searchParams.get('turn')) || null);
+	// The photo of a long press, shown large (turned as the page offers it).
+	let peek = $state<{ item: AssetItem; turn: Turn } | null>(null);
+	// The filter, in the address so that it stays on reload: all groups, one turn, or the photos
+	// kept as they are.
+	const keptView = $derived(page.url.searchParams.get('view') === 'kept');
+	const only = $derived(keptView ? null : Number(page.url.searchParams.get('turn')) || null);
+	// The photos kept as they are, loaded while that filter is on.
+	let kept = $state.raw<AssetItem[] | null>(null);
+	let keptTotal = $state(0);
 
-	function choose(turn: number | null) {
+	function choose(filter: number | 'kept' | null) {
 		selection.clear();
-		goto(resolve(turn ? `/groups/turned?turn=${turn}` : '/groups/turned'), {
+		const to = {
+			kept: resolve('/groups/turned?view=kept'),
+			1: resolve('/groups/turned?turn=1'),
+			2: resolve('/groups/turned?turn=2'),
+			3: resolve('/groups/turned?turn=3')
+		};
+		goto(filter === null ? resolve('/groups/turned') : to[filter as keyof typeof to], {
 			replace: true,
 			reset: false
 		});
+	}
+
+	async function loadKept(more = false) {
+		try {
+			const answer = await getKeptTurned(more ? (kept ?? []).length : 0, PAGE);
+			kept = more ? [...(kept ?? []), ...answer.photos] : answer.photos;
+			keptTotal = answer.total;
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
+	$effect(() => {
+		if (keptView) loadKept();
+	});
+
+	/** The chosen photos kept as they are go back to the list of turned photos. */
+	async function offerAgain() {
+		busy = true;
+		error = null;
+		try {
+			const ids = selection.ids;
+			const { changed } = await keepTurned(ids, false);
+			selection.clear();
+			bulkNotices.done(m.turned_kept_undone({ count: changed }));
+			await Promise.all([load(), loadKept()]);
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
 	}
 
 	async function load() {
 		try {
 			const result = await getTurned(null, 0, PAGE);
 			answer = result;
+			keptTotal = result.kept ?? 0;
 			shown = Object.fromEntries(result.groups.map((g) => [g.turn, g.photos]));
 			gone = new Set();
 			error = null;
@@ -133,6 +178,8 @@
 			const ids = selection.ids;
 			const { changed } = await keepTurned(ids, true);
 			gone = new Set([...gone, ...ids]);
+			keptTotal = (answer?.kept ?? 0) + changed;
+			if (answer) answer = { ...answer, kept: keptTotal };
 			selection.clear();
 			bulkNotices.undoable(m.turned_kept({ count: changed }), [], async () => {
 				const back = await keepTurned(ids, false);
@@ -179,7 +226,7 @@
 {#if answer}
 	{#if answer.checked === 0}
 		<EmptyState icon="cpu" title={m.turned_not_checked()} text={m.turned_not_checked_text()} />
-	{:else if total <= 0}
+	{:else if total <= 0 && !keptTotal}
 		<EmptyState
 			icon="images"
 			title={m.turned_none()}
@@ -211,8 +258,67 @@
 					<span class="count">{number.format(groupTotal(group))}</span>
 				</button>
 			{/each}
+			{#if keptTotal}
+				<button
+					type="button"
+					class="st-btn st-btn--sm"
+					class:st-btn--secondary={keptView}
+					class:st-btn--ghost={!keptView}
+					aria-pressed={keptView}
+					title={m.turned_view_kept_hint()}
+					onclick={() => choose('kept')}
+				>
+					{m.turned_view_kept()}
+					<span class="count">{number.format(keptTotal)}</span>
+				</button>
+			{/if}
 		</div>
-		{#each visible as group (group.turn)}
+		{#if keptView}
+			<p class="muted">{m.turned_kept_intro()}</p>
+			{#if kept}
+				<div class="st-tile-grid">
+					{#each kept as photo (photo.id)}
+						{@const chosen = chosenIds.has(photo.id)}
+						<div class="st-tile-cell" class:chosen class:choosing={selection.size > 0}>
+							<a
+								class="st-tile"
+								href={resolve('/photo/[id]', { id: photo.id })}
+								title={photo.file_name}
+								use:longpress={() => (peek = { item: photo, turn: 0 })}
+								onclick={(event) => clickTile(event, photo, kept ?? [])}
+							>
+								<img
+									src={thumbnailUrl(photo.id, 'thumbnail', 0, photo.version)}
+									alt={photo.file_name}
+									loading="lazy"
+									decoding="async"
+								/>
+							</a>
+							<button
+								type="button"
+								class="st-tile-check"
+								aria-pressed={chosen}
+								aria-label={m.groups_choose_photo()}
+								title={m.groups_choose_photo()}
+								onclick={() => selection.toggle(photo)}
+							>
+								<Icon name="check" size={12} strokeWidth={3} />
+							</button>
+						</div>
+					{/each}
+				</div>
+				{#if kept.length < keptTotal}
+					<button
+						type="button"
+						class="st-btn st-btn--secondary st-btn--sm"
+						onclick={() => loadKept(true)}
+					>
+						{m.turned_more()}
+					</button>
+				{/if}
+			{/if}
+		{/if}
+		{#each keptView ? [] : visible as group (group.turn)}
 			{@const photos = left(group)}
 			{#if photos.length}
 				<section>
@@ -235,7 +341,7 @@
 									class="st-tile"
 									href={resolve('/photo/[id]', { id: photo.id })}
 									title={photo.file_name}
-									use:longpress={() => (peek = { item: photo, group })}
+									use:longpress={() => (peek = { item: photo, turn: group.fix })}
 									onclick={(event) => clickTile(event, photo, photos)}
 								>
 									<img
@@ -278,10 +384,22 @@
 {/if}
 
 {#if peek}
-	<PhotoPeek item={peek.item} turn={peek.group.fix} onclose={() => (peek = null)} />
+	<PhotoPeek item={peek.item} turn={peek.turn} onclose={() => (peek = null)} />
 {/if}
 
-{#if selection.size}
+{#if selection.size && keptView}
+	<SelectionBar {selection} onlocation={() => (locationOpen = true)}>
+		<button
+			type="button"
+			class="st-btn st-btn--ghost st-btn--sm"
+			disabled={busy}
+			onclick={offerAgain}
+		>
+			<Icon name="undo-2" size={14} />
+			{m.turned_offer_again()}
+		</button>
+	</SelectionBar>
+{:else if selection.size}
 	<SelectionBar {selection} rotation={false} onlocation={() => (locationOpen = true)}>
 		<button type="button" class="st-btn st-btn--primary st-btn--sm" disabled={busy} onclick={turn}>
 			<Icon name="rotate-cw" size={14} />

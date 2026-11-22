@@ -476,7 +476,7 @@ whatever holds it together.
 
 ### Turned photos
 
-**Groups → Turned photos** lists the photos that seem to lie on their side: the orientation
+The tab **Turned photos** of the Groups page lists the photos that seem to lie on their side: the orientation
 module of a worker looks at every photo once, as Immich shows it. They come in two groups,
 *turn right* and *turn left* (upside down only when turned on in the
 [settings](configuration.md#suggestions)), the surest first, and the previews show them already
@@ -489,6 +489,8 @@ Choose photos (as in the gallery, **Choose all** for a group) and:
   the photo leaves the list and the modules look at it again.
 - **Not turned**: the photo is right as it is (a view from above, a reflection, a picture on
   purpose at an angle) and is not offered again, unless its image changes. The notice can undo it.
+  The filter **Kept as they are** shows these photos as Immich has them; **Offer again** puts the
+  chosen ones back in the list.
 
 Nothing is written to Immich until you press **Turn in Immich**.
 

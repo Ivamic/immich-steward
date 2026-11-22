@@ -376,7 +376,11 @@ class ModuleRun(Base):
     """One run of a location module on an asset, and its result."""
 
     __tablename__ = "module_run"
-    __table_args__ = (Index("ix_module_run_asset_module", "asset_id", "module_id"),)
+    __table_args__ = (
+        Index("ix_module_run_asset_module", "asset_id", "module_id"),
+        # The run of a job: looked up for every job a worker may lease (locked photos wait).
+        Index("ix_module_run_job", "job_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset.id", ondelete="CASCADE"))

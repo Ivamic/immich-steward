@@ -15,7 +15,7 @@ Turned photos found by a new worker module, and schedules for the workers.
   photo once and lists the ones that seem to lie on their side, in two groups (turn right, turn
   left), with previews already turned back. **Turn in Immich** turns the chosen ones, each by the
   turn of its group, as the rotate of the gallery does; **Not turned** keeps a photo as it is and
-  it is not offered again. Nothing is written to Immich until you press the button. The model is
+  it is not offered again (the filter *Kept as they are* shows them and can offer them again). Nothing is written to Immich until you press the button. The model is
   an EfficientNetV2-S (MIT, about 80 MB, downloaded from Hugging Face on first use); on a family
   library of 15 000 photos about 98 % of the clear cases it listed were really turned.
   Upside-down photos are listed only with `STEWARD_ORIENTATION_UPSIDE_DOWN=true`: they are rare
@@ -33,6 +33,8 @@ Turned photos found by a new worker module, and schedules for the workers.
   batches of 2000; location suggestions for more than 2000 photos come from an even sample of
   them. A request the app cannot take now says why.
 - The **Add a device** commands for a worker on a graphics card left out matching details.
+- A worker asking for its next job waited seconds on a large library (a lookup without an index):
+  workers now go from one photo to the next at once.
 - On the Map page, the check marks of the chosen photos no longer scroll over the bar above the
   list (*All in view*, *Choose all*).
 

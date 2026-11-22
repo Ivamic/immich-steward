@@ -365,7 +365,11 @@
 			{#if photos.length}
 				<section>
 					<div class="found">
-						<h2>{groupTitle(group)}</h2>
+						<h2>
+							<!-- The icon of the rotate buttons: which way the photos will turn. -->
+							<Icon name={group.turn === 3 ? 'rotate-ccw' : 'rotate-cw'} size={18} />
+							{groupTitle(group)}
+						</h2>
 						<span class="muted">{number.format(groupTotal(group))}</span>
 						<button
 							type="button"
@@ -475,6 +479,9 @@
 		margin: 0 0 var(--space-4);
 	}
 	h2 {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
 		margin: 0;
 		font-size: var(--text-md);
 	}

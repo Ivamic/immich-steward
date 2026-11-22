@@ -11,15 +11,16 @@ Turned photos found by a new worker module, and schedules for the workers.
 
 ### Added
 
-- **Turned photos** (Groups → Turned photos): a new worker module, *orientation*, looks at every
-  photo once and lists the ones that seem to lie on their side, in two groups (turn right, turn
-  left); **Show after the turn** shows how they would look turned. **Turn in Immich** turns the chosen ones, each by the
-  turn of its group, as the rotate of the gallery does; **Not turned** keeps a photo as it is and
-  it is not offered again (the filter *Kept as they are* shows them and can offer them again). Nothing is written to Immich until you press the button. The model is
-  an EfficientNetV2-S (MIT, about 80 MB, downloaded from Hugging Face on first use); on a family
-  library of 15 000 photos about 98 % of the clear cases it listed were really turned.
-  Upside-down photos are listed only with `STEWARD_ORIENTATION_UPSIDE_DOWN=true`: they are rare
-  and often reflections.
+- **Turned photos**, a new tab of Groups: a new worker module, *orientation*, looks at every photo
+  once and lists the ones that seem to lie on their side, in two groups (turn right, turn left),
+  as Immich shows them; **Show after the turn** shows how they would look turned. **Turn in
+  Immich** turns the chosen ones, each by the turn of its group, as the rotate of the gallery
+  does; **Not turned** keeps a photo as it is and it is not offered again (the filter *Kept as
+  they are* shows them and can offer them again). Nothing is written to Immich until you press
+  the button. The model is an EfficientNetV2-S (MIT, about 80 MB, downloaded from Hugging Face on
+  first use); on a family library of 15 000 photos about 98 % of the clear cases it listed were
+  really turned. Upside-down photos are listed only with `STEWARD_ORIENTATION_UPSIDE_DOWN=true`:
+  they are rare and often reflections.
 - **Worker schedules**: on the Processing page, **Schedule** on a worker sets the hours of the
   week it takes background jobs (a grid of days by hours, painted by dragging), e.g. a laptop only
   at night. A job it holds it finishes; what you start yourself it takes at any hour. The hours
@@ -38,6 +39,12 @@ Turned photos found by a new worker module, and schedules for the workers.
   for fast modules (2000 instead of 500).
 - On the Map page, the check marks of the chosen photos no longer scroll over the bar above the
   list (*All in view*, *Choose all*).
+
+### Security
+
+- Dependencies were checked before the release. The moderate minimatch issue in the build tools
+  (the linter, not in the images) is gone with ESLint 10.15 and typescript-eslint 8.73; nothing
+  else was found.
 
 ## [0.12.0] - 2026-11-16
 

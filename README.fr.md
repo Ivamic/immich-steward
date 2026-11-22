@@ -104,7 +104,9 @@ Modules disponibles :
   100. Un clic montre les deux photos côte à côte, avec des lignes entre les détails communs.
 
 Une photo peut être pivotée dans l'application pour mieux la voir ; les modules travaillent sur
-la photo pivotée, et la rotation peut être enregistrée dans Immich.
+la photo pivotée, et la rotation peut être enregistrée dans Immich. Les photos couchées sur le
+côté sont trouvées par un module de worker et listées ensemble, aperçus déjà redressés, pour les
+tourner dans Immich en une seule étape.
 
 Pour vérifier un lieu de ses propres yeux, des images satellite peuvent être affichées sous la
 carte : Sentinel-2 d'EOX (sans clé), Esri World Imagery ou MapTiler Satellite (avec votre propre

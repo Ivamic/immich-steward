@@ -17,11 +17,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import ColumnElement
 
-from steward import embeddings
+from steward import embeddings, schedule
 from steward.errors import ApiError
 from steward.models import (
     Account,
     Asset,
+    AssetOrientation,
     DetailMatch,
     Job,
     LockedFolder,
@@ -291,6 +292,8 @@ async def give_back(db: AsyncSession, leased: Lease, error: str) -> None:
 # Modules that need every photo, not only the ones without a location: the vectors of the photos
 # with a location are what similar photos (M3) are searched among.
 INDEXING_MODULES = ("similar",)
+# Modules about the photo itself, not its place: they run on every photo alike (D-237).
+WHOLE_LIBRARY_MODULES = ("orientation",)
 
 
 # Photos of the locked folder are processed too, but handed to workers only while it is open.
@@ -333,6 +336,8 @@ def _auto_eligible(module_id: str) -> tuple[ColumnElement[bool], ColumnElement[i
         Asset.review_status == "new",
         Asset.visibility.in_(("timeline", "locked")),
     )
+    if module_id in WHOLE_LIBRARY_MODULES:
+        return Asset.visibility.in_(("timeline", "archive", "locked")), literal(0)
     if module_id not in INDEXING_MODULES:
         return needs_location, literal(0)
     # The search index first, so that suggestions have something to be found among.
@@ -636,6 +641,13 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
     module_order = case({module: i for i, module in enumerate(modules)}, value=Job.module_id)
     paused = await paused_modules(db)
     now = datetime.now(UTC)
+    # Outside its hours a worker takes only the jobs started by hand (D-238).
+    zone, _ = schedule.server_zone()
+    in_hours = (
+        true()
+        if schedule.is_open(worker.schedule, now.astimezone(zone))
+        else Job.priority >= PRIORITY_USER
+    )
     worker.last_seen_at = now
     worker.online = True
     while True:
@@ -651,6 +663,7 @@ async def lease(db: AsyncSession, worker: Worker, modules: list[str], lease_s: i
                 ),
                 ~waiting_for_pin(),
                 heavy,
+                in_hours,
             )
             .order_by(Job.priority.desc(), module_order, Job.created_at)
             .limit(1)
@@ -697,6 +710,7 @@ async def complete(
     module_version: str,
     candidates: list[dict[str, Any]],
     embedding: list[float] | None = None,
+    orientation: list[float] | None = None,
 ) -> None:
     leased.run.module_version = module_version
     leased.run.candidates = candidates
@@ -704,6 +718,20 @@ async def complete(
         asset = await db.get(Asset, leased.run.asset_id)
         if asset is not None:
             await embeddings.store(db, leased.run, asset, module_version, embedding)
+    if orientation is not None:
+        turn = max(range(len(orientation)), key=lambda i: orientation[i])
+        await db.merge(
+            AssetOrientation(
+                asset_id=leased.run.asset_id,
+                run_id=leased.run.id,
+                turn=turn,
+                score=orientation[turn],
+                probs=orientation,
+                module_version=module_version,
+                kept=False,
+                created_at=datetime.now(UTC),
+            )
+        )
     _finish(leased.job, leased.run, "done")
     await db.commit()
 

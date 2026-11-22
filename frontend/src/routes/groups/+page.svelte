@@ -7,6 +7,7 @@
 		confirmPhotos,
 		getGroups,
 		getTrashedPhotos,
+		getTurned,
 		isActive,
 		restoreAllPhotos,
 		restorePhotos,
@@ -55,6 +56,13 @@
 	];
 
 	let list = $state.raw<GroupList | null>(null);
+	// Photos that look turned (D-237), for the link to their list; null until known.
+	let turnedCount = $state<number | null>(null);
+	$effect(() => {
+		getTurned(null, 0, 1)
+			.then((answer) => (turnedCount = answer.groups.reduce((sum, g) => sum + g.total, 0)))
+			.catch(() => (turnedCount = null));
+	});
 	let shown = $state.raw<GroupOut[]>([]);
 	let error = $state<string | null>(null);
 	let loadingMore = $state(false);
@@ -389,6 +397,12 @@
 				<span class="count">{count(list.counts[item.id])}</span>
 			</button>
 		{/each}
+		<!-- Not groups: the photos that look turned, on a page of their own. -->
+		<a class="st-btn st-btn--sm st-btn--ghost" href={resolve('/groups/turned')}>
+			<Icon name="rotate-cw" size={14} />
+			{m.turned_title()}
+			{#if turnedCount !== null}<span class="count">{count(turnedCount)}</span>{/if}
+		</a>
 		{#if view !== 'dissolved'}
 			<!-- Another kind of filter: how the list is laid out, not which groups. -->
 			<span class="sep" aria-hidden="true"></span>

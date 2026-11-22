@@ -576,6 +576,19 @@ export interface WorkerInfo {
 	state: WorkerState | null;
 	state_module: string | null;
 	state_since: string | null;
+	/** When it gets background jobs: 7 days (Monday first) of 24 hour bits; null: always.
+	 * Absent: an older core. */
+	schedule?: number[] | null;
+	/** The schedule lets it take background jobs now; and when that changes next. */
+	in_hours?: boolean;
+	hours_change_at?: string | null;
+}
+
+/** The clock schedules go by: the time zone of the server (`TZ`). */
+export interface ServerClock {
+	/** IANA name; null when `TZ` is not set (then usually UTC). */
+	zone: string | null;
+	utc_offset_min: number;
 }
 
 export type WorkerState = 'idle' | 'busy' | 'downloading' | 'loading' | 'working';
@@ -608,6 +621,8 @@ export interface WorkersOverview {
 	/** Indexing module -> photos with a location in its search index, of those it indexes. */
 	index: Record<string, { indexed: number; located: number }>;
 	pause: Pause;
+	/** Absent: an older core. */
+	clock?: ServerClock | null;
 }
 
 /** Paused background runs, for the whole installation: of every module, or of these. */
@@ -737,6 +752,9 @@ export const getWorkerSetup = () => request<WorkerSetup>('GET', '/api/library/wo
 /** Turns a module of a worker on or off; off, it gets no jobs of it. */
 export const switchWorkerModule = (id: string, module: string, enabled: boolean) =>
 	request<void>('PUT', `/api/library/workers/${id}/modules`, { module, enabled });
+/** The hours a worker gets background jobs (`schedule.ts`); every hour on is kept as "always". */
+export const setWorkerSchedule = (id: string, schedule: number[]) =>
+	request<void>('PUT', `/api/library/workers/${id}/schedule`, { schedule });
 
 export const getPause = () => request<Pause>('GET', '/api/library/pause');
 /** Pauses (for `minutes`, or until resumed) or resumes a module; `null`: all modules. */
@@ -918,6 +936,41 @@ export async function setSelectionReview(ids: string[], status: ReviewStatus) {
 export const rotateSelection = (ids: string[], turn: Exclude<Turn, 0>) =>
 	inBatches(ids, (part) => request<Job>('POST', '/api/selection/rotate', { ids: part, turn }));
 export const getSelectionJob = (id: string) => request<Job>('GET', `/api/selection/jobs/${id}`);
+
+/** Photos that look turned the same way (D-237). */
+export interface TurnedGroup {
+	/** Quarter turns counter-clockwise the photos have now: 1 lies on its left side, 2 upside down,
+	 * 3 on its right side. */
+	turn: 1 | 2 | 3;
+	/** Degrees clockwise that turn them right: what `rotateSelection` takes. */
+	fix: Exclude<Turn, 0>;
+	total: number;
+	/** A page of them, the surest first, with how sure the module is of each. */
+	photos: AssetItem[];
+	scores: number[];
+}
+
+export interface TurnedPhotos {
+	groups: TurnedGroup[];
+	/** Photos the module has looked at: none yet means no worker runs it. */
+	checked: number;
+}
+
+export function getTurned(turn: number | null = null, offset = 0, limit = 200) {
+	const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+	if (turn) params.set('turn', String(turn));
+	return request<TurnedPhotos>('GET', `/api/groups/candidates/turned?${params}`);
+}
+/** Right as they are: they leave the list (until their image changes); `kept` false: back. */
+export async function keepTurned(ids: string[], kept = true) {
+	const answers = await inBatches(ids, (part) =>
+		request<{ changed: number }>('POST', '/api/groups/candidates/turned/keep', {
+			ids: part,
+			kept
+		})
+	);
+	return { changed: sum(answers, (a) => a.changed) };
+}
 
 /** An album of Immich: the account's own or one shared with it (D-233). */
 export interface Album {

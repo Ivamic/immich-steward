@@ -94,6 +94,8 @@ export function moduleName(id: string): string {
 			return m.module_similar();
 		case 'details':
 			return m.module_details();
+		case 'orientation':
+			return m.module_orientation();
 		case 'selection':
 			return m.module_selection();
 		case 'group':

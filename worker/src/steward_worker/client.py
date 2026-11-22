@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import httpx2
 
-from steward_worker.modules import Candidate, Embedding, PairMatch
+from steward_worker.modules import Candidate, Embedding, Orientation, PairMatch
 
 # Version of the worker API this worker speaks, and the oldest one of the core it works with.
 # Within a major version of the app the protocol only grows by additions both sides can do
@@ -158,10 +158,12 @@ class CoreClient:
         self,
         job_id: UUID,
         version: str,
-        output: list[Candidate] | Embedding | dict[str, PairMatch],
+        output: list[Candidate] | Embedding | Orientation | dict[str, PairMatch],
     ) -> None:
         body: dict[str, Any] = {"module_version": version, "candidates": []}
-        if isinstance(output, dict):
+        if isinstance(output, Orientation):
+            body["orientation"] = {"probs": list(output.probs), "looks": output.looks}
+        elif isinstance(output, dict):
             body["pairs"] = [{"other": other, **asdict(pair)} for other, pair in output.items()]
         elif isinstance(output, Embedding):
             data = base64.b64encode(output.data).decode("ascii")

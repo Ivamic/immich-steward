@@ -96,7 +96,8 @@ Available modules:
   side, with lines between the details they share.
 
 A photo can be rotated in the app for a better look, the modules run on it rotated, and the
-rotation can be saved to Immich.
+rotation can be saved to Immich. Photos lying on their side are found by a worker module and
+listed together, previews already turned back, to turn in Immich in one step.
 
 To check a place by eye, satellite imagery can be shown under the map: Sentinel-2 by EOX
 (no key), Esri World Imagery or MapTiler Satellite (with your own key). All of them are off
@@ -252,7 +253,7 @@ cd frontend && pnpm install && pnpm dev
 
 # Optional: a worker with GeoCLIP and similar photos (PyTorch for the CPU; --extra cuda for an
 # NVIDIA GPU). The core needs the same STEWARD_WORKER_TOKEN in .env.
-uv sync --all-packages --extra geoclip --extra similar --extra cpu
+uv sync --all-packages --extra geoclip --extra similar --extra details --extra orientation --extra cpu
 STEWARD_WORKER_TOKEN=... uv run python -m steward_worker --core http://127.0.0.1:8080 --modules similar,geoclip
 ```
 

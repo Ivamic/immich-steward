@@ -2,7 +2,7 @@
 """Library overview and synchronization with Immich."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Request
@@ -14,6 +14,7 @@ from steward import (
     details,
     embeddings,
     module_display,
+    schedule,
     worker_queue,
     worker_refusals,
 )
@@ -25,6 +26,7 @@ from steward.immich import ImmichError, ImmichUnreachableError
 from steward.jobs import SIMILAR_HINTS, SYNC, enqueue, last_full_similar_hints
 from steward.models import Account, Job, Worker
 from steward.modules import REMOTE_MODULES
+from steward.schedule import DAYS, FULL_DAY
 from steward.sync import library_counts
 
 router = APIRouter(prefix="/library")
@@ -86,6 +88,21 @@ class WorkerOut(BaseModel):
     state: str | None
     state_module: str | None
     state_since: datetime | None
+    # When it gets background jobs (`steward.schedule`): 7 days of hour bits, Monday first;
+    # None: always.
+    schedule: list[int] | None = None
+    # The schedule lets it take background jobs now; and when that changes next.
+    in_hours: bool = True
+    hours_change_at: datetime | None = None
+
+
+class ServerClock(BaseModel):
+    """The clock schedules go by: the time zone of the server (`TZ`)."""
+
+    # IANA name, e.g. "Europe/Berlin"; None when `TZ` is not set (then usually UTC).
+    zone: str | None
+    # Minutes ahead of UTC now.
+    utc_offset_min: int
 
 
 class RefusedWorkerOut(BaseModel):
@@ -152,6 +169,7 @@ class Workers(BaseModel):
     core_version: str
     # Queued jobs of this account's locked photos: they wait until the folder is opened.
     locked_waiting: int = 0
+    clock: ServerClock | None = None
 
 
 class RerunRequest(BaseModel):
@@ -234,6 +252,9 @@ async def get_workers(
     refusals: worker_refusals.WorkerRefusals = request.app.state.worker_refusals
     since = datetime.now(UTC) - timedelta(minutes=settings.worker_active_minutes)
     workers = await db.scalars(select(Worker).order_by(Worker.last_seen_at.desc()))
+    zone, zone_name = schedule.server_zone()
+    local_now = datetime.now(zone)
+    offset = local_now.utcoffset() or timedelta()
     return Workers(
         workers=[
             WorkerOut(
@@ -248,6 +269,9 @@ async def get_workers(
                 state=w.state if active else None,
                 state_module=w.state_module if active else None,
                 state_since=w.state_since if active else None,
+                schedule=w.schedule,
+                in_hours=schedule.is_open(w.schedule, local_now),
+                hours_change_at=schedule.next_change(w.schedule, local_now),
             )
             for w in workers
         ],
@@ -267,6 +291,7 @@ async def get_workers(
         core_version=__version__,
         worker_recommended=RECOMMENDED_WORKER_VERSION,
         locked_waiting=await worker_queue.waiting_for_pin_count(db, account),
+        clock=ServerClock(zone=zone_name, utc_offset_min=int(offset.total_seconds() // 60)),
     )
 
 
@@ -341,6 +366,26 @@ async def switch_worker_module(
     if not body.enabled:
         disabled.append(body.module)
     worker.disabled_modules = sorted(disabled)
+    await db.commit()
+
+
+class WorkerSchedule(BaseModel):
+    # 7 days, Monday first, of 24 hour bits; None: always.
+    schedule: list[Annotated[int, Field(ge=0, le=FULL_DAY)]] | None = Field(
+        min_length=DAYS, max_length=DAYS
+    )
+
+
+@router.put("/workers/{worker_id}/schedule", status_code=204)
+async def set_worker_schedule(
+    worker_id: UUID, body: WorkerSchedule, account: CurrentAccount, db: DbDep
+) -> None:
+    """The hours a worker gets background jobs, by the clock of the server; jobs started by
+    hand it takes at any hour. Takes effect with its next job, no restart."""
+    worker = await db.get(Worker, worker_id, with_for_update=True)
+    if worker is None:
+        raise ApiError(404, "worker_not_found")
+    worker.schedule = schedule.normalized(body.schedule)
     await db.commit()
 
 

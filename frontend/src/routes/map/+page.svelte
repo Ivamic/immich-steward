@@ -470,7 +470,8 @@
 	.place header {
 		position: sticky;
 		top: 0;
-		z-index: 1;
+		/* Over the marks of the tiles (z-index 1) scrolling under it. */
+		z-index: var(--z-sticky);
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);

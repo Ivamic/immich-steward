@@ -27,12 +27,15 @@
 		selection,
 		onlocation,
 		albumId = null,
+		rotation = true,
 		children
 	}: {
 		selection: Selection;
 		onlocation: () => void;
 		/** The gallery shows this album: the photos can be taken out of it. */
 		albumId?: string | null;
+		/** The buttons that turn the photos; off where the page turns them its own way. */
+		rotation?: boolean;
 		/** Actions of the page, in a group of their own at the end. */
 		children?: Snippet;
 	} = $props();
@@ -187,39 +190,39 @@
 		{/if}
 	</span>
 
-	<span class="group" title={photos ? undefined : m.selection_rotate_videos_only()}>
-		<Tooltip text={m.photo_turn_left()}>
-			<button
-				type="button"
-				class="st-iconbtn st-iconbtn--sm"
-				aria-label={m.photo_turn_left()}
-				disabled={busy || !photos}
-				onclick={() => rotate(270)}
-			>
-				<Icon name="rotate-ccw" />
-			</button>
-		</Tooltip>
-		<Tooltip text={m.photo_turn_right()}>
-			<button
-				type="button"
-				class="st-iconbtn st-iconbtn--sm"
-				aria-label={m.photo_turn_right()}
-				disabled={busy || !photos}
-				onclick={() => rotate(90)}
-			>
-				<Icon name="rotate-cw" />
-			</button>
-		</Tooltip>
-		<Tooltip text={m.selection_turn_180()}>
-			<button
-				type="button"
-				class="st-btn st-btn--ghost st-btn--sm"
-				aria-label={m.selection_turn_180()}
-				disabled={busy || !photos}
-				onclick={() => rotate(180)}>180°</button
-			>
-		</Tooltip>
-	</span>
+	{#if rotation}<span class="group" title={photos ? undefined : m.selection_rotate_videos_only()}>
+			<Tooltip text={m.photo_turn_left()}>
+				<button
+					type="button"
+					class="st-iconbtn st-iconbtn--sm"
+					aria-label={m.photo_turn_left()}
+					disabled={busy || !photos}
+					onclick={() => rotate(270)}
+				>
+					<Icon name="rotate-ccw" />
+				</button>
+			</Tooltip>
+			<Tooltip text={m.photo_turn_right()}>
+				<button
+					type="button"
+					class="st-iconbtn st-iconbtn--sm"
+					aria-label={m.photo_turn_right()}
+					disabled={busy || !photos}
+					onclick={() => rotate(90)}
+				>
+					<Icon name="rotate-cw" />
+				</button>
+			</Tooltip>
+			<Tooltip text={m.selection_turn_180()}>
+				<button
+					type="button"
+					class="st-btn st-btn--ghost st-btn--sm"
+					aria-label={m.selection_turn_180()}
+					disabled={busy || !photos}
+					onclick={() => rotate(180)}>180°</button
+				>
+			</Tooltip>
+		</span>{/if}
 
 	<!-- Actions of the page: what the photos are to other photos, to their group. -->
 	{#if children}

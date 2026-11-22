@@ -16,6 +16,8 @@
 	import StatusBadge from '#lib/ui/StatusBadge.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import AddDeviceDialog from '#lib/AddDeviceDialog.svelte';
+	import ScheduleDialog from '#lib/ScheduleDialog.svelte';
+	import { serverTime } from '#lib/workers/schedule.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { formatUntil, pause } from '#lib/pause.svelte.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -76,6 +78,20 @@
 	}
 
 	let adding = $state(false);
+	// The worker whose schedule is open.
+	let scheduling = $state<WorkerInfo | null>(null);
+
+	/** "Waiting until 23:00" or "Working until 07:00", for a worker with a schedule. */
+	function hoursText(worker: WorkerInfo): string | null {
+		if (!worker.schedule || !overview?.clock) return null;
+		if (!worker.hours_change_at) {
+			return worker.in_hours ? null : m.workers_schedule_never();
+		}
+		const time = serverTime(worker.hours_change_at, overview.clock, getLocale());
+		return worker.in_hours
+			? m.workers_schedule_working_until({ time })
+			: m.workers_schedule_waiting_until({ time });
+	}
 	// "worker:module" of the switch being saved.
 	let switching = $state<string | null>(null);
 
@@ -265,6 +281,23 @@
 								</StatusBadge>
 							</p>
 						{/if}
+						{#if overview.clock}
+							<p class="hours">
+								<button
+									type="button"
+									class="st-btn st-btn--ghost st-btn--sm"
+									onclick={() => (scheduling = worker)}
+								>
+									<Icon name="clock" size={14} />
+									{worker.schedule ? m.workers_schedule() : m.workers_schedule_always_on()}
+								</button>
+								{#if hoursText(worker)}
+									<StatusBadge tone={worker.in_hours ? 'neutral' : 'warning'}>
+										{hoursText(worker)}
+									</StatusBadge>
+								{/if}
+							</p>
+						{/if}
 						<div class="worker-modules" role="group" aria-label={m.workers_modules_label()}>
 							<span class="muted">{m.workers_modules_label()}</span>
 							{#each worker.modules as module (module)}
@@ -423,6 +456,18 @@
 
 {#if adding}
 	<AddDeviceDialog docs={WORKERS_DOCS} onclose={() => (adding = false)} />
+{/if}
+
+{#if scheduling}
+	<ScheduleDialog
+		worker={scheduling}
+		clock={overview?.clock ?? null}
+		onclose={() => (scheduling = null)}
+		onsaved={() => {
+			scheduling = null;
+			load();
+		}}
+	/>
 {/if}
 
 <style>
@@ -622,6 +667,12 @@
 	}
 	p {
 		margin: 0;
+	}
+	.hours {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2);
 	}
 	.waiting {
 		display: flex;

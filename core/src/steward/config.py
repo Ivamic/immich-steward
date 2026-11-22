@@ -108,8 +108,13 @@ class Settings(BaseSettings):
     # similar photos, on the photos with one too (its search index), comma-separated; empty turns
     # automatic runs off. Runs started by hand are always allowed. `details` (matching details,
     # D-225) compares the photos without a location with their most similar photos, by itself
-    # only on workers with a GPU.
-    auto_modules: str = "geoclip,similar,details"
+    # only on workers with a GPU; `orientation` (turned photos, D-237) looks at every photo.
+    auto_modules: str = "geoclip,similar,details,orientation"
+    # Turned photos (D-237): offered when the module is at least this sure (it tops out near
+    # 0.93). Measured on 15 516 photos: from 0.91 about 98 % of the clear cases are really turned.
+    orientation_min_confidence: float = Field(default=0.91, ge=0, le=1)
+    # Upside-down photos are rare and mostly mistaken (reflections): offered only when turned on.
+    orientation_upside_down: bool = False
     # How GeoCLIP results are shown (they are stored in full, so changing these needs no rerun).
     # Measured on 506 photos with GPS: below 25 % a suggestion is rarely right (noise, hidden);
     # 25-50 % often hits the region only (weak, folded); from 75 % it is right about 95 % of the

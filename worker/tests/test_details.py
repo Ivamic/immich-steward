@@ -103,7 +103,9 @@ def test_details_module_is_registered_without_importing_torch() -> None:
 
     assert (module.id, module.version) == ("details", "1")
     assert isinstance(module, PairModule)
-    assert list(AVAILABLE)[-1] == "details"
+    # After the modules that suggest places: it only confirms what they found.
+    order = list(AVAILABLE)
+    assert order.index("details") > max(order.index("similar"), order.index("geoclip"))
 
 
 def test_photo_is_compared_with_the_photos_the_core_names() -> None:

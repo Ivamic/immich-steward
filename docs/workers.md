@@ -236,7 +236,7 @@ Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 ```powershell
 git clone --branch v0.12.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
 ```
 
 Start the worker (every time; it runs while the window is open):
@@ -256,7 +256,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 git clone --branch v0.12.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
 ```
 
 Start the worker (every time; it runs while the terminal is open):
@@ -280,7 +280,7 @@ On Windows, create `D:\steward-worker\start-worker.cmd` (e.g. in Notepad, saved 
 cd /d D:\steward-worker
 set STEWARD_WORKER_TOKEN=your-token
 set STEWARD_CORE_URL=http://192.168.1.10:8780
-set STEWARD_WORKER_MODULES=similar,geoclip,details
+set STEWARD_WORKER_MODULES=similar,geoclip,details,orientation
 set STEWARD_WORKER_NAME=laptop
 .venv\Scripts\steward-worker.exe
 pause
@@ -299,7 +299,7 @@ On Linux, create `~/steward-worker/start-worker.sh`:
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
 export STEWARD_CORE_URL=http://192.168.1.10:8780
-export STEWARD_WORKER_MODULES=similar,geoclip,details
+export STEWARD_WORKER_MODULES=similar,geoclip,details,orientation
 export STEWARD_WORKER_NAME=desktop
 exec .venv/bin/steward-worker
 ```
@@ -327,7 +327,7 @@ Update to a new version (replace `0.12.0` with the new version), on Windows:
 cd D:\steward-worker
 git fetch --tags
 git checkout v0.12.0
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
 ```
 
 On Linux:
@@ -336,7 +336,7 @@ On Linux:
 cd ~/steward-worker
 git fetch --tags
 git checkout v0.12.0
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
 ```
 
 Don't skip `uv sync` after `git checkout`: without it the old version keeps running.
@@ -345,6 +345,14 @@ To remove the worker, delete the folder (`D:\steward-worker` or `~/steward-worke
 downloaded models: the folders `models--openai--clip-vit-large-patch14` and
 `models--gberton--MegaLoc` in `%USERPROFILE%\.cache\huggingface\hub` on Windows or in
 `~/.cache/huggingface/hub` on Linux.
+
+## Schedule
+
+A worker can be given the hours it works in, for example only at night on a laptop or a server that is busy during the day. On the **Processing** page, open **Schedule** on the worker and paint the hours of the week (drag across the grid): painted hours it takes jobs, the others it waits. **Always** paints every hour, **Clear** none.
+
+- Outside its hours the worker gets no background jobs; a job it already has it finishes. What you start yourself (**Run** in a photo card, a rotation) it still takes at once.
+- The hours are those of the server's clock. The window shows the time zone and the time on the server now; set [`TZ`](configuration.md#workers-the-app-side) in `.env` to your zone, otherwise the server counts in UTC.
+- The schedule belongs to the worker's name: it stays after a restart or an update, and is gone if you remove the worker.
 
 ## Security
 

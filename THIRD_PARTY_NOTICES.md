@@ -61,7 +61,9 @@ The image contains no NVIDIA libraries. The CLIP ViT-L/14 model (MIT) and the Me
 (MIT, [gberton/MegaLoc](https://huggingface.co/gberton/MegaLoc)) are not part of the image: the
 worker downloads them from Hugging Face on first use. The same goes for the weights of ALIKED
 (BSD-3-Clause, [Shiaoming/ALIKED](https://github.com/Shiaoming/ALIKED)) and LightGlue (Apache-2.0,
-[cvg/LightGlue](https://github.com/cvg/LightGlue)), downloaded from GitHub.
+[cvg/LightGlue](https://github.com/cvg/LightGlue)), downloaded from GitHub, and of the orientation
+model (MIT, [DuarteBarbosa/deep-image-orientation-detection](https://huggingface.co/DuarteBarbosa/deep-image-orientation-detection),
+an EfficientNetV2-S of torchvision fine-tuned by Duarte Barbosa), downloaded from Hugging Face.
 
 ## Full list
 

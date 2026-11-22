@@ -8,10 +8,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward import view_groups
+from steward import orientation, view_groups
 from steward.api.assets import AssetItem, _immich
 from steward.api.library import JobOut
 from steward.deps import CurrentAccount, DbDep, ImmichFactoryDep, SecretBoxDep, SettingsDep
@@ -19,7 +19,7 @@ from steward.embeddings import is_located
 from steward.errors import ApiError
 from steward.immich import ImmichError
 from steward.jobs import ACTIVE_STATUSES, enqueue
-from steward.models import Account, Job, ViewFolder, ViewGroup
+from steward.models import Account, Asset, AssetOrientation, Job, ViewFolder, ViewGroup
 from steward.modules.time_neighbors import distance_m
 from steward.view_groups import Summary
 
@@ -570,6 +570,73 @@ async def confirm_trash_photos(
     await view_groups.confirm_photos(db, account.id, body.ids)
     await _rebuild_soon(db, account)
     return await _trashed(db, account)
+
+
+class TurnedGroup(BaseModel):
+    """Photos that look turned the same way (D-237)."""
+
+    # Quarter turns counter-clockwise the photos have now, and the degrees clockwise that turn
+    # them right (what the selection rotate takes).
+    turn: int
+    fix: int
+    total: int
+    # A page of them, the surest first, with how sure the module is of each.
+    photos: list[AssetItem]
+    scores: list[float]
+
+
+class Turned(BaseModel):
+    groups: list[TurnedGroup]
+    # Photos the module has looked at: none yet means no worker runs it.
+    checked: int
+
+
+class KeepTurned(BaseModel):
+    ids: Annotated[list[UUID], Field(min_length=1, max_length=MAX_ASSETS)]
+    # True: right as they are, not offered again; False: offered again.
+    kept: bool = True
+
+
+@router.get("/candidates/turned")
+async def turned(
+    account: CurrentAccount,
+    db: DbDep,
+    settings: SettingsDep,
+    turn: int | None = Query(default=None, ge=1, le=3),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=200, ge=1, le=MAX_ASSETS),
+) -> Turned:
+    """Photos that look turned, by how (only `turn`, if given): to turn back in Immich with the
+    selection rotate, or to keep as they are."""
+    counts = await orientation.counts(db, account.id, settings)
+    groups = []
+    for each in orientation.offered(settings):
+        if turn is not None and each != turn:
+            continue
+        found = await orientation.photos(db, account.id, settings, each, offset, limit)
+        groups.append(
+            TurnedGroup(
+                turn=each,
+                fix=orientation.FIX[each],
+                total=counts.get(each, 0),
+                photos=[AssetItem.of(asset) for asset, _ in found],
+                scores=[round(answer.score, 3) for _, answer in found],
+            )
+        )
+    checked = await db.scalar(
+        select(func.count())
+        .select_from(AssetOrientation)
+        .join(Asset, Asset.id == AssetOrientation.asset_id)
+        .where(Asset.account_id == account.id)
+    )
+    return Turned(groups=groups, checked=checked or 0)
+
+
+@router.post("/candidates/turned/keep")
+async def keep_turned(body: KeepTurned, account: CurrentAccount, db: DbDep) -> dict[str, int]:
+    """Marks photos right as they are (they leave the list until their image changes), or
+    offers them again (the undo)."""
+    return {"changed": await orientation.keep(db, account.id, body.ids, body.kept)}
 
 
 class Candidates(BaseModel):

@@ -9,7 +9,9 @@ const SLOTS: Record<string, number> = {
 	// The chosen photos' own locations (several photos at once, D-149).
 	selection: 4,
 	// Matching details: no markers of its own, the color is for the Processing page.
-	details: 5
+	details: 5,
+	// Turned photos (D-237): no place at all, the color is for the Processing page.
+	orientation: 7
 };
 
 /** Palette slot of a module (1–8), or null for a module without one. */

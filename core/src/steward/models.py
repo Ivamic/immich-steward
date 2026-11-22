@@ -250,6 +250,10 @@ class Worker(Base):
         JSON().with_variant(JSONB(), "postgresql"), default=list, server_default="[]"
     )
 
+    # When it gets background jobs (`steward.schedule`): 7 days of 24 hour bits, Monday first,
+    # by the clock of the server; None: always.
+    schedule: Mapped[list[int] | None] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+
     @property
     def enabled_modules(self) -> list[str]:
         """The modules it runs and may get jobs of."""
@@ -402,6 +406,28 @@ class ModuleRun(Base):
     )
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
     finished_at: Mapped[datetime | None]
+
+
+class AssetOrientation(Base):
+    """How a photo looks turned, by the `orientation` module of a worker (D-237): the latest
+    answer for its image as Immich shows it. Goes with its run: when the image changes (turned in
+    Immich or here), the runs are dropped and this with them."""
+
+    __tablename__ = "asset_orientation"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("module_run.id", ondelete="CASCADE"))
+    # The turn the photo has now, in quarter turns counter-clockwise (1: it needs 90 degrees
+    # clockwise), and how sure the module is of it; with the chance of each of the four.
+    turn: Mapped[int] = mapped_column(Integer)
+    score: Mapped[float] = mapped_column(Float)
+    probs: Mapped[list[float]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    module_version: Mapped[str] = mapped_column(String(32))
+    # The user said it is right as it is: not offered again (until the image changes).
+    kept: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
 
 
 class DetailMatch(Base):

@@ -39,6 +39,8 @@ REMOTE_MODULES: dict[str, RemoteModule] = {
         "similar", color="#1a7f37", shape="diamond", embedding_dim=EMBEDDING_DIM
     ),
     "details": RemoteModule("details", color="#bf8700", shape="triangle", suggests=False),
+    # Turned photos (D-237): no place, only how the photo is turned.
+    "orientation": RemoteModule("orientation", color="#6e40c9", shape="circle", suggests=False),
 }
 # Those with a block of suggestions in the card.
 SUGGESTING_MODULES = {key: module for key, module in REMOTE_MODULES.items() if module.suggests}

@@ -132,6 +132,13 @@ class PairIn(BaseModel):
     lines: list[tuple[float, float, float, float]] = Field(default_factory=list, max_length=200)
 
 
+class OrientationIn(BaseModel):
+    # The chance of each turn the photo has now: 0, 90 degrees counter-clockwise, 180, 90 clockwise.
+    probs: list[float] = Field(min_length=4, max_length=4)
+    # How many turns of the photo the module looked at.
+    looks: int = Field(default=1, ge=1, le=4)
+
+
 class ResultRequest(BaseModel):
     module_version: str = Field(min_length=1, max_length=32)
     candidates: list[CandidateIn] = Field(max_length=MAX_CANDIDATES)
@@ -139,6 +146,8 @@ class ResultRequest(BaseModel):
     embedding: EmbeddingIn | None = None
     # From pair modules (`details`) instead of candidates.
     pairs: list[PairIn] | None = Field(default=None, max_length=worker_queue.MAX_OTHERS)
+    # From the `orientation` module instead of candidates.
+    orientation: OrientationIn | None = None
 
 
 class FailRequest(BaseModel):
@@ -358,7 +367,15 @@ async def result(job_id: UUID, body: ResultRequest, worker: WorkerDep, db: DbDep
             vector = embeddings.decode(body.embedding.data, body.embedding.dim)
         except embeddings.InvalidEmbedding as exc:
             raise ApiError(422, "embedding_invalid", expected=expected) from exc
-    await worker_queue.complete(db, leased, body.module_version, candidates, vector)
+    orientation = None
+    if leased.job.module_id in worker_queue.WHOLE_LIBRARY_MODULES:
+        probs = body.orientation.probs if body.orientation else None
+        if probs is None or not all(0 <= p <= 1 for p in probs):
+            raise ApiError(422, "orientation_invalid")
+        orientation = probs
+    await worker_queue.complete(
+        db, leased, body.module_version, candidates, vector, orientation=orientation
+    )
 
 
 @router.post("/jobs/{job_id}/fail", status_code=204)

@@ -474,6 +474,24 @@ Mark what tells nothing, not everything with a pet in it: a pet that lives at on
 what tells the place. If the photos with a location of a group agree on a spot, the group is useful,
 whatever holds it together.
 
+### Turned photos
+
+**Groups → Turned photos** lists the photos that seem to lie on their side: the orientation
+module of a worker looks at every photo once, as Immich shows it. They come in two groups,
+*turn right* and *turn left* (upside down only when turned on in the
+[settings](configuration.md#suggestions)), the surest first, and the previews show them already
+turned back.
+
+Choose photos (as in the gallery, **Choose all** for a group) and:
+
+- **Turn in Immich**: each photo is turned by the turn of its group, the same way as the rotate
+  of the gallery (it keeps your other edits in Immich). Once Immich has made the new preview,
+  the photo leaves the list and the modules look at it again.
+- **Not turned**: the photo is right as it is (a view from above, a reflection, a picture on
+  purpose at an angle) and is not offered again, unless its image changes. The notice can undo it.
+
+Nothing is written to Immich until you press **Turn in Immich**.
+
 ### Folders
 
 A folder keeps groups together: one place seen from many sides (yard, kitchen, street of a house), or
@@ -538,8 +556,10 @@ The **Processing** page shows how the work goes:
   is not given to that worker (e.g. GeoCLIP only on the computer with a graphics card), from its
   next job on, without a restart. **Add a device** shows the commands to start a worker on another
   computer, with the address and the name filled in; the worker token only for administrators of
-  Immich. A worker that has not been seen for a while can be removed from the list.
-- **Modules**: for GeoCLIP, similar photos and matching details, how many photos are done,
+  Immich. A worker that has not been seen for a while can be removed from the list. **Schedule**
+  sets the hours of the week the worker takes background jobs, e.g. only at night
+  ([workers](workers.md#schedule)).
+- **Modules**: for GeoCLIP, similar photos, matching details and orientation, how many photos are done,
   running, queued and failed (for matching details, *done* also counts the photos that had
   nothing to be compared with). Failures are grouped by reason; **Show** opens those photos in the gallery and **Run
   again** queues them once more.

@@ -20,7 +20,7 @@
 - **Address search** sends the typed text and the approximate map position from the app server to
   the public Photon geocoder (`photon.komoot.io`). Set `STEWARD_GEOCODER_URL=` (empty) to turn the
   search off, or point it to your own Photon.
-- **The models** of GeoCLIP and of similar photos (MegaLoc) are downloaded from Hugging Face
+- **The models** of GeoCLIP, of similar photos (MegaLoc) and of turned photos are downloaded from Hugging Face
   (`huggingface.co`) when a worker loads them for the first time; later loads only check for
   updates there. Those of matching details (ALIKED and LightGlue) are downloaded once from
   GitHub (`github.com`) and checked against their checksums.

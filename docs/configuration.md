@@ -176,6 +176,8 @@ source is marked in Settings and over the map, and **Auto** takes the next sourc
 | `STEWARD_SIMILAR_WEAK_BELOW` | `0.5` | |
 | `STEWARD_SIMILAR_CONFIDENT_FROM` | `0.8` | Also the limit of the purple badge and the gallery filter *Similar photo with a location*. |
 | `STEWARD_SIMILAR_INCLUDE_ESTIMATED` | `true` | Similar photos also searches among the photos whose location you set in the app. `false`: only among locations recorded by cameras. |
+| `STEWARD_ORIENTATION_MIN_CONFIDENCE` | `0.91` | [Turned photos](usage.md#turned-photos) are listed from this confidence of the orientation module (it rarely goes above 0.93). On a family library of 15 000 photos, from 0.91 about 98 % of the clear cases were really turned; lower finds a few more and more mistakes. |
+| `STEWARD_ORIENTATION_UPSIDE_DOWN` | `false` | Also list the photos that look upside down. They are rare, and the module mistakes reflections (a view and its reflection in water) for them, so they are off by default. |
 
 These only change what is shown: the modules keep their full results, so a change applies at once,
 without running anything again.
@@ -189,7 +191,8 @@ many photos a photo is compared with are personal, in **Settings** of the app
 | Setting | Default | Meaning |
 |---|---|---|
 | `STEWARD_WORKER_TOKEN` | empty | The shared secret of the [workers](workers.md) (`openssl rand -hex 32`). Empty: workers are turned off. Every worker, on the server or elsewhere, must use the same value. |
-| `STEWARD_AUTO_MODULES` | `geoclip,similar,details` | Modules that run automatically in the background on the photos without a location (similar photos also on the ones with a location: they are its search index, and go first; matching details only on a worker with a graphics card). Empty: modules run only when started with **Run** in a photo card. If you have set this yourself, add `details` to it. |
+| `TZ` | empty (UTC) | The time zone of the server, an IANA name such as `Europe/Berlin` or `America/New_York`. The [worker schedules](workers.md#schedule) go by this clock, and the schedule window shows which zone is used. Empty: UTC, as containers run by default. |
+| `STEWARD_AUTO_MODULES` | `geoclip,similar,details,orientation` | Modules that run automatically in the background on the photos without a location (similar photos also on the ones with a location: they are its search index, and go first; matching details only on a worker with a graphics card). Orientation looks at every photo once, to find the [turned ones](usage.md#turned-photos). Empty: modules run only when started with **Run** in a photo card. If you have set this yourself, add `details` and `orientation` to it. |
 
 ## Worker on the server
 
@@ -197,7 +200,7 @@ These apply to the worker started with `docker compose --profile worker up -d`.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `STEWARD_WORKER_MODULES` | `similar,geoclip,details` | Modules this worker runs; the photos of the first one go first (photos you start a module on from a card always go first). |
+| `STEWARD_WORKER_MODULES` | `similar,geoclip,details,orientation` | Modules this worker runs; the photos of the first one go first (photos you start a module on from a card always go first). |
 | `STEWARD_WORKER_THREADS` | `2` | CPU threads for the models. More is faster but leaves less for Immich. |
 | `STEWARD_WORKER_MAX_LOAD` | empty | E.g. `0.8`: the worker waits while the server is busy (the load average per CPU is above 0.8), for instance while Immich converts videos. |
 | `STEWARD_WORKER_ONE_MODEL` | `false` | `true`: one model in memory at a time. The worker then finishes one module's photos before it loads the other model; a memory limit of `4g` is enough. |
@@ -214,7 +217,7 @@ A worker started with `docker run` or from source is configured with environment
 | `STEWARD_CORE_URL` | `--core` | — | The address of the app, e.g. `http://192.168.1.10:8780`. Required. |
 | `STEWARD_WORKER_TOKEN` | — | — | The worker token from the server's `.env`. Required. Only as a variable, so that it does not show in the list of processes. |
 | `STEWARD_WORKER_NAME` | `--name` | the computer's name | The name shown on the **Processing** page. Every worker needs its own. |
-| `STEWARD_WORKER_MODULES` | `--modules` | `similar,geoclip,details` | Modules to run; the photos of the first one go first. |
+| `STEWARD_WORKER_MODULES` | `--modules` | `similar,geoclip,details,orientation` | Modules to run; the photos of the first one go first. |
 | `STEWARD_WORKER_THREADS` | `--threads` | `2` | CPU threads for the models. |
 | `STEWARD_WORKER_MAX_LOAD` | `--max-load` | empty | Wait while the computer is busy (Linux only). |
 | `STEWARD_WORKER_ONE_MODEL` | `--one-model` | `false` | One model in memory at a time. |

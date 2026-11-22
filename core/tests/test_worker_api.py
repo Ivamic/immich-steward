@@ -9,9 +9,10 @@ from conftest import WORKER_TOKEN, FakeImmich, run_jobs, sync
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
-from steward import __version__, worker_queue
+from steward import __version__, schedule, worker_queue
 from steward.api.worker import PROTOCOL_VERSION, RECOMMENDED_WORKER_VERSION
 from steward.models import Asset, Job, ModuleRun, Worker
+from steward.schedule import FULL_DAY
 from steward.updates import is_newer, version_key
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
@@ -506,3 +507,40 @@ def test_the_recommended_worker_fits_the_release() -> None:
         assert version_key(RECOMMENDED_WORKER_VERSION)[3] == 1, (
             f"set RECOMMENDED_WORKER_VERSION to a release, e.g. {__version__}"
         )
+
+
+def test_a_worker_on_a_schedule(photos: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(schedule, "server_zone", lambda: (UTC, "UTC"))
+    worker = register(photos, "laptop")
+    worker_id = worker["X-Worker-Id"]
+    hour = datetime.now(UTC).hour
+    # Every hour but this one.
+    closed = [FULL_DAY & ~(1 << hour)] * 7
+    enqueue(photos, "test")
+
+    response = photos.put(f"/api/library/workers/{worker_id}/schedule", json={"schedule": closed})
+    assert response.status_code == 204
+    data = photos.get("/api/library/workers").json()
+    listed = data["workers"][0]
+    assert listed["schedule"] == closed
+    assert listed["in_hours"] is False
+    assert listed["hours_change_at"] is not None
+    assert data["clock"] == {"zone": "UTC", "utc_offset_min": 0}
+    # Background jobs wait for its hours; a job started by hand goes at once.
+    assert lease(photos, worker).status_code == 204
+    enqueue(photos, "test", priority=worker_queue.PRIORITY_USER, index=1)
+    assert lease(photos, worker).status_code == 200
+
+    always = {"schedule": [FULL_DAY] * 7}
+    assert photos.put(f"/api/library/workers/{worker_id}/schedule", json=always).status_code == 204
+    listed = photos.get("/api/library/workers").json()["workers"][0]
+    assert listed["schedule"] is None
+    assert listed["in_hours"] is True
+    assert lease(photos, worker).status_code == 200
+
+
+def test_a_schedule_must_be_a_week_of_hours(signed_in: TestClient) -> None:
+    url = f"/api/library/workers/{uuid.uuid4()}/schedule"
+    assert signed_in.put(url, json={"schedule": [0] * 6}).status_code == 422
+    assert signed_in.put(url, json={"schedule": [1 << 24] * 7}).status_code == 422
+    assert signed_in.put(url, json={"schedule": None}).status_code == 404

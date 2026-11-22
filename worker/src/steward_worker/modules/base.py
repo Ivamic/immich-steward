@@ -46,6 +46,16 @@ class PairMatch:
     lines: list[tuple[float, float, float, float]] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class Orientation:
+    """How the photo is turned (the `orientation` module): the chance of each turn it has now,
+    0, 90 degrees counter-clockwise, 180, 90 degrees clockwise."""
+
+    probs: tuple[float, float, float, float]
+    # How many turns of the photo were looked at: 1, or 4 when the first look said "turned".
+    looks: int = 1
+
+
 class PermanentError(Exception):
     """Running the job again cannot help (e.g. the image cannot be decoded)."""
 
@@ -65,8 +75,9 @@ class WorkerModule(Protocol):
     def unload(self) -> None:
         """Frees the memory of the model when the worker has been idle for a while."""
 
-    def run(self, image: bytes) -> list[Candidate] | Embedding:
-        """Candidate locations for one image (JPEG or WebP), or its vector. Runs in a thread."""
+    def run(self, image: bytes) -> list[Candidate] | Embedding | Orientation:
+        """Candidate locations for one image (JPEG or WebP), its vector, or how it is turned.
+        Runs in a thread."""
         ...
 
 

@@ -104,7 +104,9 @@ Verfügbare Module:
   Klick zeigt beide Fotos nebeneinander, mit Linien zwischen den gemeinsamen Details.
 
 Ein Foto lässt sich in der App drehen, um es besser zu sehen; die Module arbeiten mit dem
-gedrehten Foto, und die Drehung kann in Immich gespeichert werden.
+gedrehten Foto, und die Drehung kann in Immich gespeichert werden. Fotos, die auf der Seite
+liegen, findet ein Worker-Modul und listet sie gesammelt auf, die Vorschauen schon zurückgedreht,
+um sie in einem Schritt in Immich zu drehen.
 
 Um einen Ort mit eigenen Augen zu prüfen, lassen sich Satellitenbilder unter der Karte
 anzeigen: Sentinel-2 von EOX (ohne Schlüssel), Esri World Imagery oder MapTiler Satellite (mit

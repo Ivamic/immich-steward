@@ -101,7 +101,8 @@ Moduli disponibili:
   mostra le due foto affiancate, con linee tra i dettagli in comune.
 
 Una foto può essere ruotata nell'app per vederla meglio; i moduli lavorano sulla foto ruotata, e
-la rotazione può essere salvata in Immich.
+la rotazione può essere salvata in Immich. Le foto coricate su un lato le trova un modulo del
+worker e le elenca insieme, con le anteprime già raddrizzate, per ruotarle in Immich in un passo.
 
 Per controllare un luogo con i propri occhi, sotto la mappa si possono mostrare immagini
 satellitari: Sentinel-2 di EOX (senza chiave), Esri World Imagery o MapTiler Satellite (con la

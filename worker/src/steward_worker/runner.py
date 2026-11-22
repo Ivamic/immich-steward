@@ -30,7 +30,14 @@ from steward_worker.client import (
     WorkerUnknown,
 )
 from steward_worker.load import system_busy
-from steward_worker.modules import Embedding, PairMatch, PairModule, PermanentError, WorkerModule
+from steward_worker.modules import (
+    Embedding,
+    Orientation,
+    PairMatch,
+    PairModule,
+    PermanentError,
+    WorkerModule,
+)
 from steward_worker.versions import is_newer, update_hint
 
 log = logging.getLogger(__name__)
@@ -252,7 +259,7 @@ class Worker:
             self._loaded[job.module] = time.monotonic()
             await self._report(WORKING, job.module)
             started = time.monotonic()
-            output: list[Any] | Embedding | dict[str, PairMatch]
+            output: list[Any] | Embedding | Orientation | dict[str, PairMatch]
             if isinstance(module, PairModule):
                 output = await self._compare(job, module, image)
             else:
@@ -265,6 +272,8 @@ class Worker:
                 time.monotonic() - started,
                 f"a vector of {output.dim} numbers"
                 if isinstance(output, Embedding)
+                else f"turn {max(range(4), key=lambda c: output.probs[c]) * 90} deg ccw"
+                if isinstance(output, Orientation)
                 else f"compared with {len(output)} photos"
                 if isinstance(output, dict)
                 else f"{len(output)} candidates",

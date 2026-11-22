@@ -7,6 +7,8 @@ between releases.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-22
+
 Turned photos found by a new worker module, and schedules for the workers.
 
 ### Added
@@ -20,7 +22,8 @@ Turned photos found by a new worker module, and schedules for the workers.
   the button. The model is an EfficientNetV2-S (MIT, about 80 MB, downloaded from Hugging Face on
   first use); on a family library of 15 000 photos about 98 % of the clear cases it listed were
   really turned. Upside-down photos are listed only with `STEWARD_ORIENTATION_UPSIDE_DOWN=true`:
-  they are rare and often reflections.
+  they are rare and often reflections. Each group shows the rotate icon of the way its photos
+  will turn.
 - **Worker schedules**: on the Processing page, **Schedule** on a worker sets the hours of the
   week it takes background jobs (a grid of days by hours, painted by dragging), e.g. a laptop only
   at night. A job it holds it finishes; what you start yourself it takes at any hour. The hours
@@ -842,7 +845,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/Ivamic/immich-steward/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/Ivamic/immich-steward/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Ivamic/immich-steward/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/Ivamic/immich-steward/compare/v0.9.0...v0.10.0

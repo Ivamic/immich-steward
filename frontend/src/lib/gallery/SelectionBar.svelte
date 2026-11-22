@@ -57,10 +57,10 @@
 	async function rotate(turn: 90 | 180 | 270) {
 		await act(async () => {
 			// Videos go too: the core counts them, and leaves them as they are.
-			const job = await rotateSelection(selection.ids, turn);
+			const jobs = await rotateSelection(selection.ids, turn);
 			const images = [...selection.items.values()].filter((item) => item.type !== 'VIDEO');
 			bulkNotices.followRotation(
-				job,
+				jobs,
 				images.map((item) => item.id),
 				photos
 			);

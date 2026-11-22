@@ -45,8 +45,9 @@ export class BulkNotices {
 	busy = new SvelteSet<string>();
 	#nextKey = 1;
 
-	/** Follows a rotation job until it is over; `ids` are the photos it turns (not the videos). */
-	followRotation(job: Job, ids: string[], total: number) {
+	/** Follows the rotation jobs (one per batch of photos) until they are all over, as one
+	 * notice; `ids` are the photos they turn (not the videos). */
+	followRotation(jobs: Job[], ids: string[], total: number) {
 		const notice = this.#add('running', m.rotate_running({ done: 0, total }));
 		notice.progress = { done: 0, total };
 		for (const id of ids) this.busy.add(id);
@@ -55,33 +56,40 @@ export class BulkNotices {
 			this.#finish(notice.key, phase, text, details);
 		};
 		const poll = async () => {
-			let current: Job;
+			let current: Job[];
 			try {
-				current = await getSelectionJob(job.id);
+				current = await Promise.all(jobs.map((job) => getSelectionJob(job.id)));
 			} catch (error) {
 				finish('failed', m.rotate_failed({ error: errorMessage(error) }), []);
 				return;
 			}
-			const progress = current.progress as Progress;
-			if (current.status === 'done') {
+			const failed = current.find((job) => job.status === 'failed');
+			if (failed) {
 				galleryChanged();
-				finish('done', m.rotate_done({ count: progress.done ?? 0 }), [
-					...(progress.videos ? [m.rotate_videos({ count: progress.videos })] : []),
-					...(progress.failed ? [m.rotate_failed_some({ count: progress.failed })] : [])
-				]);
-				return;
-			}
-			if (current.status === 'failed') {
-				galleryChanged();
-				const error = new ApiError(0, current.error ?? '', { permissions: EDIT_PERMISSIONS });
+				const error = new ApiError(0, failed.error ?? '', { permissions: EDIT_PERMISSIONS });
 				finish('failed', m.rotate_failed({ error: errorMessage(error) }), []);
 				return;
 			}
+			const progress = current.map((job) => job.progress as Progress);
+			const sum = (count: (p: Progress) => number | undefined) =>
+				progress.reduce((all, p) => all + (count(p) ?? 0), 0);
+			if (current.every((job) => job.status === 'done')) {
+				galleryChanged();
+				const videos = sum((p) => p.videos);
+				const failedSome = sum((p) => p.failed);
+				finish('done', m.rotate_done({ count: sum((p) => p.done) }), [
+					...(videos ? [m.rotate_videos({ count: videos })] : []),
+					...(failedSome ? [m.rotate_failed_some({ count: failedSome })] : [])
+				]);
+				return;
+			}
 			const item = this.#get(notice.key);
-			if (item && progress.total !== undefined) {
-				const done = progress.done ?? 0;
-				item.text = m.rotate_running({ done, total: progress.total });
-				item.progress = { done, total: progress.total };
+			// The jobs' own total once each has counted its photos; until then the one asked.
+			if (item) {
+				const done = sum((p) => p.done);
+				const all = progress.every((p) => p.total !== undefined) ? sum((p) => p.total) : total;
+				item.text = m.rotate_running({ done, total: all });
+				item.progress = { done, total: all };
 			}
 			setTimeout(poll, POLL_MS);
 		};

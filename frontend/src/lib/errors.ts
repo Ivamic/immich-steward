@@ -9,6 +9,10 @@ export function errorMessage(error: unknown): string {
 	switch (error.code) {
 		case 'core_unreachable':
 			return m.error_core_unreachable();
+		case 'too_many_photos':
+			return m.error_too_many_photos({ max: String(p.max ?? '') });
+		case 'invalid_request':
+			return m.error_invalid_request();
 		case 'server_not_configured':
 			return m.error_server_not_configured();
 		case 'not_authenticated':

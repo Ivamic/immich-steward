@@ -43,8 +43,9 @@ export interface Save {
 	fileName: string;
 	point: LatLon;
 	batch: Batch | null;
-	/** A batch once saved: what to undo, and the photos left as they were. */
-	batchId: string | null;
+	/** A batch once saved: what to undo (a write per batch of `MAX_IDS` photos), and the photos
+	 * left as they were. */
+	batchIds: string[];
 	skipped: number;
 	/** A batch undone: the photos changed since, left as they are. */
 	kept: number;
@@ -60,7 +61,7 @@ interface Api {
 	save: (id: string, point: LatLon, keepalive: boolean) => Promise<AssetDetail>;
 	undo: (id: string) => Promise<AssetDetail>;
 	saveBatch: (batch: Batch, point: LatLon, keepalive: boolean) => Promise<SelectionWritten>;
-	undoBatch: (batchId: string) => Promise<SelectionUndone>;
+	undoBatch: (batchIds: string[]) => Promise<SelectionUndone>;
 }
 
 const realApi: Api = {
@@ -68,7 +69,7 @@ const realApi: Api = {
 	undo: (id) => undoLocation(id),
 	saveBatch: (batch, point, keepalive) =>
 		setSelectionLocation(batch.ids, point, batch.overwrite, keepalive),
-	undoBatch: (batchId) => undoSelectionLocation(batchId)
+	undoBatch: (batchIds) => undoSelectionLocation(batchIds)
 };
 
 export class Saves {
@@ -101,7 +102,7 @@ export class Saves {
 		const save: Save = {
 			key: this.#nextKey++,
 			...fields,
-			batchId: null,
+			batchIds: [],
 			skipped: 0,
 			kept: 0,
 			phase: 'pending',
@@ -151,9 +152,9 @@ export class Saves {
 		try {
 			if (save.batch) {
 				const written = await this.api.saveBatch(save.batch, save.point, keepalive);
-				save.batchId = written.batch_id;
+				save.batchIds = written.batch_ids;
 				save.skipped = written.skipped_located;
-				save.canUndo = written.batch_id !== null;
+				save.canUndo = written.batch_ids.length > 0;
 			} else {
 				save.canUndo = (await this.api.save(save.assetId, save.point, keepalive)).can_undo;
 			}
@@ -171,7 +172,7 @@ export class Saves {
 		if (!save || save.phase !== 'saved' || !save.canUndo) return;
 		this.#clearTimer(key);
 		try {
-			if (save.batchId) save.kept = (await this.api.undoBatch(save.batchId)).changed;
+			if (save.batch) save.kept = (await this.api.undoBatch(save.batchIds)).changed;
 			else await this.api.undo(save.assetId);
 			save.phase = 'undone';
 			this.#markChanged(save.assetId);

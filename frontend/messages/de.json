@@ -35,6 +35,8 @@
 	"auth_help_storage": "Der Schlüssel wird verschlüsselt auf dem Server dieser App gespeichert und nie an den Browser zurückgeschickt.",
 	"error_unexpected": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
 	"error_core_unreachable": "Der Server der App antwortet nicht.",
+	"error_too_many_photos": "Zu viele Fotos auf einmal: Eine Aktion nimmt bis zu {max}. Wähle weniger aus und wiederhole es für den Rest.",
+	"error_invalid_request": "Die Anfrage wurde nicht angenommen. Bitte lade die Seite neu und versuche es erneut.",
 	"error_server_not_configured": "Die App ist noch nicht eingerichtet: Lege auf dem Server die Immich-Adresse und den geheimen Schlüssel fest.",
 	"error_not_authenticated": "Bitte melde dich an.",
 	"error_immich_unreachable": "Der Immich-Server antwortet nicht.",

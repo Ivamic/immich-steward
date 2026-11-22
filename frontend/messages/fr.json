@@ -35,6 +35,8 @@
 	"auth_help_storage": "La clé est stockée chiffrée sur le serveur de cette application et n'est jamais renvoyée au navigateur.",
 	"error_unexpected": "Une erreur s'est produite. Veuillez réessayer.",
 	"error_core_unreachable": "Le serveur de l'application ne répond pas.",
+	"error_too_many_photos": "Trop de photos à la fois : une action en accepte jusqu'à {max}. Sélectionnez-en moins et recommencez pour le reste.",
+	"error_invalid_request": "La requête n'a pas été acceptée. Veuillez recharger la page et réessayer.",
 	"error_server_not_configured": "L'application n'est pas encore configurée : indiquez l'adresse d'Immich et la clé secrète sur le serveur.",
 	"error_not_authenticated": "Veuillez vous connecter.",
 	"error_immich_unreachable": "Le serveur Immich ne répond pas.",

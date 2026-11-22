@@ -819,10 +819,35 @@ export const undoLocation = (id: string, filter: GalleryFilter | null = null) =>
 		'POST',
 		`/api/assets/${id}/location/undo${filter ? filterQuery(filter) : ''}`
 	);
+/** How many photos one request takes (the API's limit): more are sent in batches. */
+export const MAX_IDS = 2000;
+
+/** Sends the photos `MAX_IDS` at a time, one batch after another; the answers in order. */
+async function inBatches<T>(ids: string[], send: (part: string[]) => Promise<T>): Promise<T[]> {
+	const answers: T[] = [];
+	for (let i = 0; i < ids.length; i += MAX_IDS) answers.push(await send(ids.slice(i, i + MAX_IDS)));
+	return answers;
+}
+
+/** A change of all the batches; the answer to the last one, which tells the state after. */
+async function lastOfBatches<T>(ids: string[], send: (part: string[]) => Promise<T>): Promise<T> {
+	const answers = await inBatches(ids, send);
+	return answers.length ? answers[answers.length - 1] : send(ids);
+}
+
+const sum = <T>(answers: T[], count: (answer: T) => number) =>
+	answers.reduce((total, answer) => total + count(answer), 0);
+
+/** At most `MAX_IDS` of the photos, spread evenly over them (they come in the gallery's order). */
+export function spreadSample(ids: string[]): string[] {
+	if (ids.length <= MAX_IDS) return ids;
+	return Array.from({ length: MAX_IDS }, (_, i) => ids[Math.floor((i * ids.length) / MAX_IDS)]);
+}
+
 /** Several photos chosen in the gallery (D-149). */
 export interface SelectionWritten {
-	/** null when nothing was written: all had a location already. */
-	batch_id: string | null;
+	/** What to undo: one per batch that wrote something (none when all had a location). */
+	batch_ids: string[];
 	written: number;
 	skipped_located: number;
 }
@@ -834,37 +859,64 @@ export interface SelectionUndone {
 	failed: number;
 }
 
-/** Suggestions from what is already known for the photos; nothing is run. */
-/** `groupId`: the group the photos were chosen in, whose places are suggested too. */
+/** Suggestions from what is already known for the photos; nothing is run. Past `MAX_IDS`, from
+ * an even sample of them: the places and their shares stay much the same.
+ * `groupId`: the group the photos were chosen in, whose places are suggested too. */
 export const getSelectionSuggestions = (
 	ids: string[],
 	groupId: string | null = null,
 	folderId: string | null = null
 ) =>
 	request<ModuleSuggestions[]>('POST', '/api/selection/suggestions', {
-		ids,
+		ids: spreadSample(ids),
 		group_id: groupId,
 		folder_id: folderId
 	});
-export const setSelectionLocation = (
+export async function setSelectionLocation(
 	ids: string[],
 	point: { lat: number; lon: number },
 	overwrite: boolean,
 	keepalive = false
-) =>
-	request<SelectionWritten>(
-		'POST',
-		'/api/selection/location',
-		{ ids, latitude: point.lat, longitude: point.lon, overwrite },
-		keepalive
+): Promise<SelectionWritten> {
+	const answers = await inBatches(ids, (part) =>
+		request<{ batch_id: string | null; written: number; skipped_located: number }>(
+			'POST',
+			'/api/selection/location',
+			{ ids: part, latitude: point.lat, longitude: point.lon, overwrite },
+			keepalive
+		)
 	);
-export const undoSelectionLocation = (batchId: string) =>
-	request<SelectionUndone>('POST', '/api/selection/location/undo', { batch_id: batchId });
-export const setSelectionReview = (ids: string[], status: ReviewStatus) =>
-	request<{ changed: number }>('PUT', '/api/selection/review', { ids, status });
-/** Turns the photos in Immich in the background; the job tells the progress. */
+	return {
+		batch_ids: answers.flatMap((a) => (a.batch_id ? [a.batch_id] : [])),
+		written: sum(answers, (a) => a.written),
+		skipped_located: sum(answers, (a) => a.skipped_located)
+	};
+}
+/** Undoes the writes of all the batches of one save. */
+export async function undoSelectionLocation(batchIds: string[]): Promise<SelectionUndone> {
+	const answers: SelectionUndone[] = [];
+	for (const batchId of batchIds) {
+		answers.push(
+			await request<SelectionUndone>('POST', '/api/selection/location/undo', {
+				batch_id: batchId
+			})
+		);
+	}
+	return {
+		undone: sum(answers, (a) => a.undone),
+		changed: sum(answers, (a) => a.changed),
+		failed: sum(answers, (a) => a.failed)
+	};
+}
+export async function setSelectionReview(ids: string[], status: ReviewStatus) {
+	const answers = await inBatches(ids, (part) =>
+		request<{ changed: number }>('PUT', '/api/selection/review', { ids: part, status })
+	);
+	return { changed: sum(answers, (a) => a.changed) };
+}
+/** Turns the photos in Immich in the background: a job per batch, which tells its progress. */
 export const rotateSelection = (ids: string[], turn: Exclude<Turn, 0>) =>
-	request<Job>('POST', '/api/selection/rotate', { ids, turn });
+	inBatches(ids, (part) => request<Job>('POST', '/api/selection/rotate', { ids: part, turn }));
 export const getSelectionJob = (id: string) => request<Job>('GET', `/api/selection/jobs/${id}`);
 
 /** An album of Immich: the account's own or one shared with it (D-233). */
@@ -911,18 +963,69 @@ export interface AlbumAdded {
 
 export const getAlbums = () => request<AlbumList>('GET', '/api/albums');
 /** Album id -> how many of the photos are in it already (albums with none left out). */
-export const albumsContaining = (ids: string[]) =>
-	request<{ counts: Record<string, number> }>('POST', '/api/albums/contains', { ids });
-export const createAlbum = (name: string, ids: string[] = []) =>
-	request<AlbumAdded>('POST', '/api/albums', { name, ids });
-export const addToAlbum = (albumId: string, ids: string[]) =>
-	request<AlbumAdded>('PUT', `/api/albums/${albumId}/assets`, { ids });
-export const removeFromAlbum = (albumId: string, ids: string[]) =>
-	request<{ album: Album; removed: number; removed_ids: string[]; failed: number }>(
-		'POST',
-		`/api/albums/${albumId}/assets/remove`,
-		{ ids }
+export async function albumsContaining(ids: string[]) {
+	const answers = await inBatches(ids, (part) =>
+		request<{ counts: Record<string, number> }>('POST', '/api/albums/contains', { ids: part })
 	);
+	const counts: Record<string, number> = {};
+	for (const answer of answers) {
+		for (const [album, count] of Object.entries(answer.counts)) {
+			counts[album] = (counts[album] ?? 0) + count;
+		}
+	}
+	return { counts };
+}
+
+/** The answers of all the batches as one; `created` as the first one tells. */
+function addedTogether(answers: AlbumAdded[]): AlbumAdded {
+	return {
+		album: answers[answers.length - 1].album,
+		added: answers.flatMap((a) => a.added),
+		already: sum(answers, (a) => a.already),
+		skipped_locked: sum(answers, (a) => a.skipped_locked),
+		failed: sum(answers, (a) => a.failed),
+		created: answers[0].created
+	};
+}
+
+const addBatch = (albumId: string, ids: string[]) =>
+	request<AlbumAdded>('PUT', `/api/albums/${albumId}/assets`, { ids });
+
+/** A new album with the photos; past the first batch they are added to it. */
+export async function createAlbum(name: string, ids: string[] = []) {
+	const first = await request<AlbumAdded>('POST', '/api/albums', {
+		name,
+		ids: ids.slice(0, MAX_IDS)
+	});
+	const rest = await inBatches(ids.slice(MAX_IDS), (part) => addBatch(first.album.id, part));
+	return addedTogether([first, ...rest]);
+}
+
+export async function addToAlbum(albumId: string, ids: string[]) {
+	const answers = await inBatches(ids, (part) => addBatch(albumId, part));
+	return answers.length ? addedTogether(answers) : addBatch(albumId, ids);
+}
+
+export interface AlbumRemoved {
+	album: Album;
+	removed: number;
+	/** The photos taken out now: what an undo puts back. */
+	removed_ids: string[];
+	failed: number;
+}
+
+export async function removeFromAlbum(albumId: string, ids: string[]): Promise<AlbumRemoved> {
+	const send = (part: string[]) =>
+		request<AlbumRemoved>('POST', `/api/albums/${albumId}/assets/remove`, { ids: part });
+	const answers = await inBatches(ids, send);
+	if (!answers.length) return send(ids);
+	return {
+		album: answers[answers.length - 1].album,
+		removed: sum(answers, (a) => a.removed),
+		removed_ids: answers.flatMap((a) => a.removed_ids),
+		failed: sum(answers, (a) => a.failed)
+	};
+}
 export const renameAlbum = (albumId: string, name: string) =>
 	request<Album>('PATCH', `/api/albums/${albumId}`, { name });
 export const deleteAlbum = (albumId: string) => request<void>('DELETE', `/api/albums/${albumId}`);
@@ -1102,7 +1205,9 @@ export const getGroupParts = (id: string, level: number) =>
 	);
 /** Photos that show nothing of the place: out of the suggestions and of the groups. */
 export const trashPhotos = (id: string, ids: string[]) =>
-	request<GroupDetail>('POST', `/api/groups/${id}/trash`, { ids });
+	lastOfBatches(ids, (part) =>
+		request<GroupDetail>('POST', `/api/groups/${id}/trash`, { ids: part })
+	);
 /** Who set a mark "no sign of a place": the user or the app. */
 export type MarkSource = 'user' | 'auto';
 export interface TrashedPhotos {
@@ -1124,7 +1229,9 @@ export const getTrashedPhotos = (offset: number, limit: number, source?: MarkSou
 	);
 /** Marks photos from anywhere: out of the suggestions and of the groups. */
 export const markPhotos = (ids: string[]) =>
-	request<TrashedPhotos>('POST', '/api/groups/trash-photos', { ids });
+	lastOfBatches(ids, (part) =>
+		request<TrashedPhotos>('POST', '/api/groups/trash-photos', { ids: part })
+	);
 /** Photos that may show no sign of a place (A1.3). */
 export interface Candidates {
 	photos: AssetItem[];
@@ -1142,9 +1249,13 @@ export const getScatteredCandidates = () =>
 	request<Candidates>('GET', '/api/groups/candidates/scattered');
 /** Marks the app set become the user's own. */
 export const confirmPhotos = (ids: string[]) =>
-	request<TrashedPhotos>('POST', '/api/groups/trash-photos/confirm', { ids });
+	lastOfBatches(ids, (part) =>
+		request<TrashedPhotos>('POST', '/api/groups/trash-photos/confirm', { ids: part })
+	);
 export const restorePhotos = (ids: string[]) =>
-	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore', { ids });
+	lastOfBatches(ids, (part) =>
+		request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore', { ids: part })
+	);
 /** All of them, also those no page has shown. */
 export const restoreAllPhotos = () =>
 	request<TrashedPhotos>('POST', '/api/groups/trash-photos/restore-all');
@@ -1152,9 +1263,13 @@ export const restoreAllPhotos = () =>
 export const dissolveGroup = (id: string) => request<Job>('POST', `/api/groups/${id}/dissolve`);
 export const bringBackGroup = (id: string) => request<Job>('POST', `/api/groups/${id}/bring-back`);
 export const excludeFromGroup = (id: string, ids: string[]) =>
-	request<GroupDetail>('POST', `/api/groups/${id}/exclude`, { ids });
+	lastOfBatches(ids, (part) =>
+		request<GroupDetail>('POST', `/api/groups/${id}/exclude`, { ids: part })
+	);
 export const includeInGroup = (id: string, ids: string[]) =>
-	request<GroupDetail>('POST', `/api/groups/${id}/include`, { ids });
+	lastOfBatches(ids, (part) =>
+		request<GroupDetail>('POST', `/api/groups/${id}/include`, { ids: part })
+	);
 export const refreshGroups = () => request<Job>('POST', '/api/groups/refresh');
 /** Drops the groups with their names and all that was done to them, and builds them anew. */
 export const resetGroups = () => request<Job>('POST', '/api/groups/reset');

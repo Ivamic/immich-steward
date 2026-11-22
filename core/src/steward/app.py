@@ -12,6 +12,7 @@ from pathlib import Path
 
 import httpx2
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
@@ -36,7 +37,7 @@ from steward.api import settings as settings_api
 from steward.config import Settings, environment_warnings, get_settings
 from steward.db import create_engine
 from steward.deps import ImmichClientFactory
-from steward.errors import ApiError, api_error_handler
+from steward.errors import ApiError, api_error_handler, validation_error_handler
 from steward.immich import ImmichClient
 from steward.immich.thumbnails import ThumbnailFetcher
 from steward.immich.videos import VideoStreamer
@@ -120,6 +121,7 @@ def create_app(
     # GitHub for the update check; tests replace it with a fake.
     app.state.update_transport = None
     app.add_exception_handler(ApiError, api_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.include_router(health.router, prefix="/api")
     app.include_router(auth.router, prefix="/api")
     app.include_router(library.router, prefix="/api")

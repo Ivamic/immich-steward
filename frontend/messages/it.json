@@ -35,6 +35,8 @@
 	"auth_help_storage": "La chiave è conservata cifrata sul server di questa app e non viene mai rimandata al browser.",
 	"error_unexpected": "Qualcosa è andato storto. Riprova.",
 	"error_core_unreachable": "Il server dell'app non risponde.",
+	"error_too_many_photos": "Troppe foto in una volta: un'azione ne accetta fino a {max}. Selezionane meno e ripeti per le altre.",
+	"error_invalid_request": "La richiesta non è stata accettata. Ricarica la pagina e riprova.",
 	"error_server_not_configured": "L'app non è ancora configurata: imposta sul server l'indirizzo di Immich e la chiave segreta.",
 	"error_not_authenticated": "Accedi, per favore.",
 	"error_immich_unreachable": "Il server Immich non risponde.",

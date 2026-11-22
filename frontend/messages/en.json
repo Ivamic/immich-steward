@@ -35,6 +35,8 @@
 	"auth_help_storage": "The key is stored encrypted on the server of this app and is never sent back to the browser.",
 	"error_unexpected": "Something went wrong. Please try again.",
 	"error_core_unreachable": "The app server does not respond.",
+	"error_too_many_photos": "Too many photos at once: one action takes up to {max}. Choose fewer and repeat for the rest.",
+	"error_invalid_request": "The request was not accepted. Please reload the page and try again.",
 	"error_server_not_configured": "The app is not configured yet: set the Immich address and the secret key on the server.",
 	"error_not_authenticated": "Please sign in.",
 	"error_immich_unreachable": "The Immich server does not respond.",

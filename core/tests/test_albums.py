@@ -291,3 +291,21 @@ def test_the_albums_page_shows_albums_as_immich_has_them_now(
     assert set(names) == {"Trip 2024", "Made in Immich"}
     assert names["Trip 2024"]["start_date"].startswith("2024-05-01")
     assert (names["Made in Immich"]["own_count"], names["Made in Immich"]["has_cover"]) == (1, True)
+
+
+def test_too_many_photos_at_once_says_how_many_fit(
+    signed_in: TestClient, photos: dict[str, tuple[str, str]]
+) -> None:
+    trip = album(signed_in, "Trip")
+    ids = [str(uuid.uuid4()) for _ in range(2001)]
+
+    for response in (
+        signed_in.put(f"/api/albums/{trip['id']}/assets", json={"ids": ids}),
+        signed_in.post("/api/albums/contains", json={"ids": ids}),
+    ):
+        assert response.status_code == 422
+        assert response.json() == {"code": "too_many_photos", "params": {"max": 2000}}
+
+    broken = signed_in.put(f"/api/albums/{trip['id']}/assets", json={"ids": ["not an id"]})
+    assert broken.status_code == 422
+    assert broken.json() == {"code": "invalid_request", "params": {}}

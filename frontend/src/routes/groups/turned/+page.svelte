@@ -32,6 +32,10 @@
 	import { page } from '$app/state';
 
 	const PAGE = 200;
+	// The most one request gives (the API's limit).
+	const MAX_PAGE = 2000;
+	// A group with fewer photos left on the page than this gets its next ones by itself.
+	const REFILL_BELOW = 40;
 	// Whether the previews show the photos as they would be after the turn (off: as in Immich).
 	const PREVIEW_KEY = 'steward.turned.preview';
 
@@ -127,7 +131,8 @@
 			answer = result;
 			keptTotal = result.kept ?? 0;
 			shown = Object.fromEntries(result.groups.map((g) => [g.turn, g.photos]));
-			gone = new Set();
+			// Photos turned here stay hidden: the core lists them until Immich has made their new
+			// previews.
 			error = null;
 		} catch (e) {
 			error = errorMessage(e);
@@ -138,13 +143,33 @@
 		load();
 	});
 
-	async function more(group: TurnedGroup) {
+	/** The first `size` photos of the group, read anew: the photos kept as they are have left
+	 * the list of the core meanwhile, so an offset would skip some. */
+	async function refill(group: TurnedGroup, size: number) {
 		try {
-			const loaded = shown[group.turn] ?? [];
-			const next = await getTurned(group.turn, loaded.length, PAGE);
-			shown[group.turn] = [...loaded, ...(next.groups[0]?.photos ?? [])];
+			const next = await getTurned(group.turn, 0, Math.min(size, MAX_PAGE));
+			const fresh = next.groups[0];
+			if (!fresh || !answer) return;
+			shown[group.turn] = fresh.photos;
+			answer = {
+				...answer,
+				groups: answer.groups.map((g) => (g.turn === fresh.turn ? fresh : g)),
+				kept: next.kept ?? answer.kept
+			};
 		} catch (e) {
 			error = errorMessage(e);
+		}
+	}
+
+	const more = (group: TurnedGroup) => refill(group, (shown[group.turn] ?? []).length + PAGE);
+
+	/** After photos left the list: the groups running short get their next photos. */
+	async function topUp() {
+		for (const group of answer?.groups ?? []) {
+			const loaded = shown[group.turn] ?? [];
+			if (left(group).length < REFILL_BELOW && loaded.length < group.total) {
+				await refill(group, loaded.filter((p) => gone.has(p.id)).length + PAGE);
+			}
 		}
 	}
 
@@ -185,6 +210,7 @@
 				gone = new Set([...gone, ...ids]);
 			}
 			selection.clear();
+			await topUp();
 		} catch (e) {
 			error = errorMessage(e);
 		} finally {
@@ -203,8 +229,11 @@
 			keptTotal = (answer?.kept ?? 0) + changed;
 			if (answer) answer = { ...answer, kept: keptTotal };
 			selection.clear();
+			await topUp();
 			bulkNotices.undoable(m.turned_kept({ count: changed }), [], async () => {
 				const back = await keepTurned(ids, false);
+				const returned = new Set(ids);
+				gone = new Set([...gone].filter((id) => !returned.has(id)));
 				await load();
 				return m.turned_kept_undone({ count: back.changed });
 			});
@@ -362,7 +391,7 @@
 		{/if}
 		{#each keptView ? [] : visible as group (group.turn)}
 			{@const photos = left(group)}
-			{#if photos.length}
+			{#if photos.length || groupTotal(group) > 0}
 				<section>
 					<div class="found">
 						<h2>

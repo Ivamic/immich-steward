@@ -1,6 +1,7 @@
 # Workers
 
-Three modules are neural networks: **GeoCLIP**, **similar photos** and **matching details**. They run in a
+Four modules are neural networks: **GeoCLIP**, **similar photos**, **matching details** and
+**orientation**. They run in a
 separate program, the *worker*, which takes photos one by one in the background and sends the
 results to the app. The worker is optional: without it the app still suggests places from the
 photos taken shortly before and after, and you can pick points on the map yourself.
@@ -17,6 +18,9 @@ photos taken shortly before and after, and you can pick points on the map yourse
   similar photos point by point ([usage](usage.md#confirmed-by-details)). It suggests no
   places itself. By itself it runs only on a worker with a graphics card; a comparison
   started from a photo card runs on any worker.
+- **Orientation** finds the photos that lie on their side, for the tab **Turned photos** of the
+  Groups page ([usage](usage.md#turned-photos)). It looks at every photo once and is light: a
+  fraction of a second per photo, also on a CPU.
 
 Photos never leave your home network: the worker gets them from the app, not from the internet.
 
@@ -130,7 +134,7 @@ reboot, until you stop it.
 - `STEWARD_WORKER_THREADS` is the number of CPU threads for the models: more is faster, but leaves
   less for other programs on that computer.
 - The volume `steward-models` keeps the models, so they are downloaded only once.
-- The worker runs both modules, the photos of similar photos first;
+- The worker runs all its modules, the photos of similar photos first;
   `-e STEWARD_WORKER_MODULES=geoclip,similar` changes the order, `geoclip` alone limits it to one
   module. On a computer short of memory, add `-e STEWARD_WORKER_ONE_MODEL=true`. Without a
   restart, the **Processing** page turns a module of a worker off and on (its switches): e.g.
@@ -172,13 +176,7 @@ Start it again:
 docker start steward-worker
 ```
 
-Update it to a new version: download the new image, remove the container, then run the
-`docker run` command above again. The models stay in the volume.
-
-```sh
-docker pull ghcr.io/ivamic/immich-steward-worker:0
-docker rm -f steward-worker
-```
+To update it, see [Updating a worker](#updating-a-worker).
 
 Remove it completely, together with the downloaded models:
 
@@ -187,11 +185,7 @@ docker rm -f steward-worker
 docker volume rm steward-models
 ```
 
-The image tag `0` follows the newest 0.x release, as the app on the server does. Within a major
-version an older worker keeps working with a newer app. When a release changes the worker, the
-**Processing** page marks older workers with "version … available" and they say so in their log;
-releases that do not change the worker ask nothing. A worker that must be updated is shown there
-as not connected, with the reason.
+The image tag `0` follows the newest 0.x release, as the app on the server does.
 
 ## A worker on an NVIDIA graphics card
 
@@ -321,7 +315,63 @@ driver with `nvidia-smi`). The other messages are the same as in the
 Stop the worker with **Ctrl+C**. Its current photo goes back to the queue, and the **Processing**
 page shows the worker as not connected right away.
 
-Update to a new version (replace `0.13.0` with the new version), on Windows:
+To update it, see [Updating a worker](#updating-a-worker).
+
+To remove the worker, delete the folder (`D:\steward-worker` or `~/steward-worker`) and the
+downloaded models: the folders `models--openai--clip-vit-large-patch14` and
+`models--gberton--MegaLoc` in `%USERPROFILE%\.cache\huggingface\hub` on Windows or in
+`~/.cache/huggingface/hub` on Linux.
+
+## Updating a worker
+
+**When.** Within a major version an older worker keeps working with a newer app, but it does not
+have what the new release brought (e.g. a new module). When a release changes the worker, the
+**Processing** page marks older workers with "version … available", and they say so in their
+log; releases that do not change the worker ask nothing. A worker that is too old for the app is
+shown there as not connected, with the reason.
+
+**The worker on the server** is updated together with the app, by the same commands
+([Updating](updating.md)):
+
+```sh
+docker compose --profile worker pull
+docker compose --profile worker up -d
+```
+
+**A worker in Docker on another computer.** Download the new image and remove the container, then
+start it again with the same `docker run` command as the first time (with your address, token
+and name). The models stay in the volume `steward-models`. On Linux:
+
+```sh
+docker pull ghcr.io/ivamic/immich-steward-worker:0
+docker rm -f steward-worker
+docker run -d --name steward-worker --restart unless-stopped \
+  -e STEWARD_CORE_URL=http://192.168.1.10:8780 \
+  -e STEWARD_WORKER_TOKEN=your-token \
+  -e STEWARD_WORKER_NAME=desktop \
+  -e STEWARD_WORKER_THREADS=4 \
+  -v steward-models:/models \
+  ghcr.io/ivamic/immich-steward-worker:0
+```
+
+On Windows (PowerShell, Docker Desktop):
+
+```powershell
+docker pull ghcr.io/ivamic/immich-steward-worker:0
+docker rm -f steward-worker
+docker run -d --name steward-worker --restart unless-stopped `
+  -e STEWARD_CORE_URL=http://192.168.1.10:8780 `
+  -e STEWARD_WORKER_TOKEN=your-token `
+  -e STEWARD_WORKER_NAME=desktop `
+  -e STEWARD_WORKER_THREADS=4 `
+  -v steward-models:/models `
+  ghcr.io/ivamic/immich-steward-worker:0
+```
+
+**A worker on a graphics card (from source).** Stop it (**Ctrl+C** in its window), check out the
+new version, install it with `uv sync`, then start it as before (e.g. with
+[`start-worker.cmd`](#start-the-gpu-worker-with-one-file)). Replace `0.13.0` with the version of
+the app: the page **About** (the **ⓘ** icon in the header) shows it. On Windows:
 
 ```powershell
 cd D:\steward-worker
@@ -339,12 +389,27 @@ git checkout v0.13.0
 uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
 ```
 
-Don't skip `uv sync` after `git checkout`: without it the old version keeps running.
+Don't skip `uv sync` after `git checkout`: without it the old version keeps running. A new
+release may add an `--extra` (a new module): take the command from this page of the new version.
 
-To remove the worker, delete the folder (`D:\steward-worker` or `~/steward-worker`) and the
-downloaded models: the folders `models--openai--clip-vit-large-patch14` and
-`models--gberton--MegaLoc` in `%USERPROFILE%\.cache\huggingface\hub` on Windows or in
-`~/.cache/huggingface/hub` on Linux.
+If `git checkout` says *pathspec … did not match* or `git fetch` says *refusing to merge
+unrelated histories*, the folder was cloned with a short history (`--depth 1`) and fetches only
+the version it was made from. Fetch the new version by its name, then go on with `uv sync` as
+above. On Windows:
+
+```powershell
+cd D:\steward-worker
+git fetch --depth 1 origin tag v0.13.0
+git checkout v0.13.0
+```
+
+On Linux:
+
+```sh
+cd ~/steward-worker
+git fetch --depth 1 origin tag v0.13.0
+git checkout v0.13.0
+```
 
 ## Schedule
 

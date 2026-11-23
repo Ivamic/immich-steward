@@ -73,6 +73,8 @@ oder Downloads aus Messengern, die ihre Metadaten verloren haben.
 
 ## Idee
 
+### Den Ort finden
+
 Die App vereint mehrere unabhängige **Module zur Standortbestimmung**. Jedes Modul schlägt einen
 oder mehrere mögliche Orte vor, und alle Vorschläge werden zusammen auf einer Karte gezeigt,
 farblich nach Modul und nummeriert nach Rang. Du siehst sie dir an, wählst einen aus oder setzt
@@ -103,19 +105,9 @@ Verfügbare Module:
   Familienmediathek lag ein solcher Vorschlag in 95 von 100 Fällen auf 1 km genau richtig. Ein
   Klick zeigt beide Fotos nebeneinander, mit Linien zwischen den gemeinsamen Details.
 
-Ein Foto lässt sich in der App drehen, um es besser zu sehen; die Module arbeiten mit dem
-gedrehten Foto, und die Drehung kann in Immich gespeichert werden. Fotos, die auf der Seite
-liegen, findet ein Worker-Modul und listet sie gesammelt auf (auf Wunsch so gezeigt, wie sie
-gedreht aussähen), um sie in einem Schritt in Immich zu drehen.
-
 Um einen Ort mit eigenen Augen zu prüfen, lassen sich Satellitenbilder unter der Karte
 anzeigen: Sentinel-2 von EOX (ohne Schlüssel), Esri World Imagery oder MapTiler Satellite (mit
 eigenem Schlüssel). Alle sind aus, bis du einen einschaltest.
-
-Die Galerie zeigt deine Fotos nach Monat und Tag und markiert die mit einer leichten Antwort: ein
-Foto mit Standort wenige Minuten davor oder danach, eine sichere GeoCLIP-Schätzung, ein ähnliches
-Foto mit Standort. Videos spielen in der Galerie und in der Fotokarte. Alles funktioniert auch
-auf dem Handy.
 
 **Gruppen** fassen Fotos derselben Ansicht von selbst zusammen, mit und ohne Standort: Liegen die
 Fotos mit Standort an einer Stelle, lässt sich dieser Ort in einem Schritt auf die übrigen
@@ -125,8 +117,20 @@ Ordner zusammenhalten. Fotos ohne Ortsmerkmale (ein Haustier, ein Dokument) lass
 damit sie nichts vorschlagen; die App markiert auch solche, die deinen Markierungen ähneln, und
 findet weitere zum Ansehen, nach einer Beschreibung über die intelligente Suche von Immich.
 
+Die Galerie zeigt deine Fotos nach Monat und Tag und markiert die mit einer leichten Antwort: ein
+Foto mit Standort wenige Minuten davor oder danach, eine sichere GeoCLIP-Schätzung, ein ähnliches
+Foto mit Standort. Videos spielen in der Galerie und in der Fotokarte. Alles funktioniert auch
+auf dem Handy.
+
 Die Seite **Karte** zeigt deine Fotos mit Standort, auf dem Server nach Orten gezählt; aus der Nähe
 zeigen die Orte ein Foto, und die Fotos im Ausschnitt stehen neben der Karte.
+
+### Fotos bearbeiten
+
+Ein Foto lässt sich in der App drehen, um es besser zu sehen; die Module arbeiten mit dem
+gedrehten Foto, und die Drehung kann in Immich gespeichert werden. Fotos, die auf der Seite
+liegen, findet ein Worker-Modul und listet sie gesammelt auf (auf Wunsch so gezeigt, wie sie
+gedreht aussähen), um sie in einem Schritt in Immich zu drehen.
 
 **Alben** von Immich lassen sich aus der Galerie füllen: Wähle Fotos mit beliebigen Filtern und in
 beliebiger Reihenfolge (alle Videos einiger Jahre, älteste zuerst) und füge sie einem vorhandenen
@@ -134,12 +138,14 @@ oder neuen Album hinzu, in einem Schritt, der sich rückgängig machen lässt. D
 zeigt deine und die geteilten Alben; ein Album öffnet sich in der Galerie mit all ihren Filtern,
 eigene lassen sich umbenennen oder löschen.
 
+### Außerdem
+
 Auch Fotos im **gesperrten Ordner** von Immich können mitmachen: einmal mit deinem Immich-Passwort
 verbunden, öffnet sich der Ordner in der App mit deiner PIN; seine Fotos werden nur angezeigt und
 verarbeitet, solange er offen ist. Jeder Punkt öffnet sich mit einem Klick in **Google Maps**
 (Satellit oder Street View).
 
-Geplant:
+### Geplant
 
 - **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.
 - **Schlussfolgern mit einem LLM** (im Stil von Img2Loc) — ein Bild-Sprach-Modell denkt über das

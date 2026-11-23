@@ -71,6 +71,8 @@ digitali senza GPS o foto scaricate dalle app di messaggistica che hanno perso i
 
 ## L'idea
 
+### Trovare il luogo
+
 L'app unisce diversi **moduli di localizzazione** indipendenti. Ogni modulo propone uno o più
 luoghi possibili, e tutte le proposte vengono mostrate insieme su una mappa, con un colore per
 modulo e un numero secondo il loro rango. Tu le esamini, ne scegli una o metti un punto a mano.
@@ -100,18 +102,9 @@ Moduli disponibili:
   libreria di famiglia un suggerimento così era giusto entro 1 km 95 volte su 100. Un clic
   mostra le due foto affiancate, con linee tra i dettagli in comune.
 
-Una foto può essere ruotata nell'app per vederla meglio; i moduli lavorano sulla foto ruotata, e
-la rotazione può essere salvata in Immich. Le foto coricate su un lato le trova un modulo del
-worker e le elenca insieme (a scelta come sarebbero raddrizzate), per ruotarle in Immich in un passo.
-
 Per controllare un luogo con i propri occhi, sotto la mappa si possono mostrare immagini
 satellitari: Sentinel-2 di EOX (senza chiave), Esri World Imagery o MapTiler Satellite (con la
 tua chiave). Sono tutte disattivate finché non ne attivi una.
-
-La galleria mostra le foto per mese e per giorno e segna quelle con una risposta facile: una foto
-con posizione scattata pochi minuti prima o dopo, una stima GeoCLIP affidabile, una foto simile
-con posizione. I video si riproducono nella galleria e nella scheda della foto. Tutto funziona
-anche sul telefono.
 
 **I gruppi** riuniscono da soli le foto di una stessa vista, con o senza posizione: quando le foto
 con posizione stanno nello stesso punto, quel luogo si applica alle altre in un solo passo, dopo
@@ -121,8 +114,19 @@ cartella. Le foto senza indizi di luogo (un animale, un documento) si possono se
 suggeriscano nulla; l'app segna anche quelle simili ai tuoi segni e ne trova altre da guardare, in
 base a una descrizione, con la ricerca intelligente di Immich.
 
+La galleria mostra le foto per mese e per giorno e segna quelle con una risposta facile: una foto
+con posizione scattata pochi minuti prima o dopo, una stima GeoCLIP affidabile, una foto simile
+con posizione. I video si riproducono nella galleria e nella scheda della foto. Tutto funziona
+anche sul telefono.
+
 La pagina **Mappa** mostra le tue foto con posizione, contate per luogo sul server; da vicino i
 luoghi mostrano una foto, e le foto inquadrate sono elencate accanto alla mappa.
+
+### Lavorare con le foto
+
+Una foto può essere ruotata nell'app per vederla meglio; i moduli lavorano sulla foto ruotata, e
+la rotazione può essere salvata in Immich. Le foto coricate su un lato le trova un modulo del
+worker e le elenca insieme (a scelta come sarebbero raddrizzate), per ruotarle in Immich in un passo.
 
 Gli **album** di Immich si possono riempire dalla galleria: scegli le foto con qualsiasi filtro e
 in qualsiasi ordine (tutti i video di qualche anno, prima i più vecchi) e aggiungile a un album,
@@ -130,12 +134,14 @@ esistente o nuovo, in un solo passo che si può annullare. La pagina **Album** m
 quelli condivisi; un album si apre nella galleria con tutti i suoi filtri, e i tuoi si possono
 rinominare o eliminare.
 
+### Inoltre
+
 Anche le foto nella **cartella bloccata** di Immich possono partecipare: collegata una volta con la
 tua password di Immich, la cartella si apre nell'app con il tuo PIN; le sue foto sono mostrate ed
 elaborate solo mentre è aperta. Ogni punto si apre con un clic in **Google Maps** (satellite o
 Street View).
 
-In programma:
+### In programma
 
 - **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.
 - **Ragionamento con un LLM** (sul modello di Img2Loc) — un modello visione-linguaggio ragiona

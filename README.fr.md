@@ -73,6 +73,8 @@ numériques sans GPS ou des photos reçues par messagerie qui ont perdu leurs m�
 
 ## Le principe
 
+### Trouver le lieu
+
 L'application réunit plusieurs **modules de localisation** indépendants. Chaque module propose un
 ou plusieurs lieux possibles, et toutes les propositions sont affichées ensemble sur une carte,
 avec une couleur par module et un numéro selon leur rang. Vous les examinez, en choisissez une
@@ -103,19 +105,9 @@ Modules disponibles :
   une vraie photothèque familiale, une telle suggestion était juste à 1 km près 95 fois sur
   100. Un clic montre les deux photos côte à côte, avec des lignes entre les détails communs.
 
-Une photo peut être pivotée dans l'application pour mieux la voir ; les modules travaillent sur
-la photo pivotée, et la rotation peut être enregistrée dans Immich. Les photos couchées sur le
-côté sont trouvées par un module de worker et listées ensemble (avec, au choix, leur aspect une
-fois redressées), pour les tourner dans Immich en une seule étape.
-
 Pour vérifier un lieu de ses propres yeux, des images satellite peuvent être affichées sous la
 carte : Sentinel-2 d'EOX (sans clé), Esri World Imagery ou MapTiler Satellite (avec votre propre
 clé). Toutes sont désactivées tant que vous n'en activez pas une.
-
-La galerie montre vos photos par mois et par jour et marque celles dont la réponse est facile :
-une photo avec un lieu prise quelques minutes avant ou après, une estimation GeoCLIP sûre, une
-photo similaire avec un lieu. Les vidéos se lisent dans la galerie et dans la fiche photo. Tout
-fonctionne aussi sur un téléphone.
 
 **Les groupes** rassemblent d'eux-mêmes les photos d'une même vue, avec ou sans lieu : quand les
 photos avec un lieu se trouvent au même endroit, ce lieu s'applique aux autres en une fois, après
@@ -125,8 +117,20 @@ un dossier. Les photos sans indice de lieu (un animal, un document) peuvent êtr
 plus rien suggérer ; l'application marque aussi celles qui ressemblent à vos marques et en trouve
 d'autres à examiner, d'après une description, grâce à la recherche intelligente d'Immich.
 
+La galerie montre vos photos par mois et par jour et marque celles dont la réponse est facile :
+une photo avec un lieu prise quelques minutes avant ou après, une estimation GeoCLIP sûre, une
+photo similaire avec un lieu. Les vidéos se lisent dans la galerie et dans la fiche photo. Tout
+fonctionne aussi sur un téléphone.
+
 La page **Carte** montre vos photos avec un lieu, comptées par endroit sur le serveur ; de près, les
 endroits montrent une photo, et les photos à l'écran sont listées à côté de la carte.
+
+### Travailler les photos
+
+Une photo peut être pivotée dans l'application pour mieux la voir ; les modules travaillent sur
+la photo pivotée, et la rotation peut être enregistrée dans Immich. Les photos couchées sur le
+côté sont trouvées par un module de worker et listées ensemble (avec, au choix, leur aspect une
+fois redressées), pour les tourner dans Immich en une seule étape.
 
 Les **albums** d'Immich se remplissent depuis la galerie : choisissez des photos avec n'importe
 quels filtres et dans l'ordre voulu (toutes les vidéos de quelques années, les plus anciennes
@@ -134,12 +138,14 @@ d'abord) et ajoutez-les à un album, existant ou nouveau, en une étape qui peut
 page **Albums** montre vos albums et ceux partagés avec vous ; un album s'ouvre dans la galerie
 avec tous ses filtres, et les vôtres peuvent être renommés ou supprimés.
 
+### Et aussi
+
 Les photos du **dossier verrouillé** d'Immich peuvent aussi en profiter : connecté une fois avec
 votre mot de passe Immich, le dossier s'ouvre dans l'application avec votre code PIN ; ses photos ne
 sont affichées et traitées que tant qu'il est ouvert. Tout point s'ouvre d'un clic dans **Google
 Maps** (satellite ou Street View).
 
-Prévu :
+### Prévu
 
 - **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.
 - **Raisonnement par LLM** (dans l'esprit d'Img2Loc) — un modèle vision-langage raisonne sur la

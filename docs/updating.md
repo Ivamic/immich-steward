@@ -30,8 +30,9 @@ This works because `compose.yaml` asks for the images of the **major version** (
 new services come as optional profiles. A change that needs more than `pull` comes only with a
 new major version, and its release notes say what to do.
 
-Workers on other computers are updated separately, see [Workers](workers.md). A worker that
-must be updated shows up on the **Processing** page.
+Workers on other computers are updated separately, see
+[Updating a worker](workers.md#updating-a-worker). A worker that must be updated shows up on the
+**Processing** page.
 
 Old images take disk space; remove them afterwards with:
 

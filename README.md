@@ -67,6 +67,8 @@ without GPS, or messenger downloads that lost their metadata.
 
 ## Idea
 
+### Finding the location
+
 The app combines several independent **location detection modules**. Each module
 proposes one or more candidate locations, and all candidates are shown together on a
 map, color-coded by module and numbered by rank. You review them, pick one, or place a
@@ -95,17 +97,9 @@ Available modules:
   suggestion was right within 1 km 95 times out of 100. A click shows the two photos side by
   side, with lines between the details they share.
 
-A photo can be rotated in the app for a better look, the modules run on it rotated, and the
-rotation can be saved to Immich. Photos lying on their side are found by a worker module and
-listed together (with a look at how they would be turned), to turn in Immich in one step.
-
 To check a place by eye, satellite imagery can be shown under the map: Sentinel-2 by EOX
 (no key), Esri World Imagery or MapTiler Satellite (with your own key). All of them are off
 until you switch one on.
-
-The gallery shows your photos by month and day and marks the ones with an easy answer: a photo
-with a location taken minutes before or after, a confident GeoCLIP guess, a similar photo with a
-location. Videos play in the gallery and in the photo card. Everything works on a phone too.
 
 **Groups** gather the photos of one view by themselves, with a location or without: when the photos
 with a location agree on a spot, the place can be set on the others in one step, after a look at
@@ -114,19 +108,31 @@ out, and groups of one place can be kept together in a folder. Photos that tell 
 (a pet, a document) can be marked, so that they suggest nothing; the app marks those alike your
 marks too, and finds more to look at, by a description through the smart search of Immich.
 
+The gallery shows your photos by month and day and marks the ones with an easy answer: a photo
+with a location taken minutes before or after, a confident GeoCLIP guess, a similar photo with a
+location. Videos play in the gallery and in the photo card. Everything works on a phone too.
+
 The **Map** page shows your photos with a location, counted by place on the server; close up the
 places show a photo, and the photos in view are listed beside the map.
+
+### Working with photos
+
+A photo can be rotated in the app for a better look, the modules run on it rotated, and the
+rotation can be saved to Immich. Photos lying on their side are found by a worker module and
+listed together (with a look at how they would be turned), to turn in Immich in one step.
 
 **Albums** of Immich can be filled from the gallery: choose photos with any filter and in either
 order (all the videos of a few years, oldest first), and put them into an album, an existing one
 or a new one, in one step that can be undone. The **Albums** page lists your albums and the shared
 ones; an album opens in the gallery with all its filters, and your own can be renamed or deleted.
 
+### Also
+
 Photos in the **locked folder** of Immich can take part too: connected once with your Immich
 password, the folder opens in the app with your PIN code; its photos are shown and processed only
 while it is open. Any point opens in **Google Maps** (satellite or Street View) with a click.
 
-Planned:
+### Planned
 
 - **Street-level panoramas** on the map, to check a place by eye.
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo

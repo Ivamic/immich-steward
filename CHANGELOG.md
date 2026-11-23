@@ -7,6 +7,21 @@ between releases.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-23
+
+### Fixed
+
+- **Turned photos**: once every photo shown in a group was turned or kept, the page stayed empty
+  without **Show more**, and the next photos came only after a reload. A group running short now
+  loads its next photos by itself, **Show more** no longer skips photos kept as they are, and the
+  photos just turned stay hidden until Immich has made their new previews.
+
+### Documentation
+
+- [Workers](docs/workers.md#updating-a-worker): how to update a worker, in Docker or from source,
+  with the commands for each case.
+- The README describes the app in sections: finding the location and working with photos.
+
 ## [0.13.0] - 2026-11-22
 
 Turned photos found by a new worker module, and schedules for the workers.
@@ -845,7 +860,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/Ivamic/immich-steward/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/Ivamic/immich-steward/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/Ivamic/immich-steward/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Ivamic/immich-steward/compare/v0.10.0...v0.11.0

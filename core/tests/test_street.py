@@ -11,7 +11,7 @@ from conftest import WORKER_TOKEN
 from fastapi.testclient import TestClient
 from test_regions import photo
 
-from steward import street
+from steward import street, worker_queue
 from steward.api.worker import PROTOCOL_VERSION
 
 __all__ = ["photo"]
@@ -368,3 +368,27 @@ def test_compare_the_photo_with_the_images(
     ]
     # Not as an ordinary module: it needs the images of the strip.
     assert signed_in.post(f"/api/assets/{asset}/modules/street/run").status_code == 404
+
+
+def test_a_whole_strip_is_compared(
+    signed_in: TestClient, fake: FakeStreet, photo: tuple[str, str]
+) -> None:
+    """As many images as the strip shows: the answer about each of them is taken (once the
+    answer of more than 30 was refused, and the comparison failed after three tries)."""
+    asset, _ = photo
+    fake.panoramax = [
+        panoramax_feature(f"img{n:02d}", (LAT + n * 0.00001, LON + (n % 7) * 0.00012))
+        for n in range(street.NEAR_MOST)
+    ]
+    turn_on(signed_in, "panoramax")
+    keys = [f"{i['source']}:{i['id']}" for i in near(signed_in, radius=300)["images"]]
+    assert len(keys) > worker_queue.MAX_OTHERS
+    worker = street_worker(signed_in)
+    signed_in.post(f"/api/street/compare/{asset}", json={"images": keys})
+    job = signed_in.post("/api/worker/lease", json={"modules": ["street"]}, headers=worker).json()
+    assert len(job["others"]) == len(keys)
+    pairs = [{"other": key, "matches": 0, "inliers": 0, "similarity": 0.1} for key in keys]
+    body = {"module_version": "1", "candidates": [], "pairs": pairs}
+    done = signed_in.post(f"/api/worker/jobs/{job['job_id']}/result", json=body, headers=worker)
+    assert done.status_code == 204
+    assert len(signed_in.get(f"/api/street/compare/{asset}").json()["results"]) == len(keys)

@@ -152,8 +152,10 @@ class ResultRequest(BaseModel):
     candidates: list[CandidateIn] = Field(max_length=MAX_CANDIDATES)
     # From retrieval modules (M3) instead of candidates.
     embedding: EmbeddingIn | None = None
-    # From pair modules (`details`) instead of candidates.
-    pairs: list[PairIn] | None = Field(default=None, max_length=worker_queue.MAX_OTHERS)
+    # From pair modules instead of candidates: as many as a job of either names.
+    pairs: list[PairIn] | None = Field(
+        default=None, max_length=max(worker_queue.MAX_OTHERS, worker_queue.STREET_OTHERS)
+    )
     # From the `orientation` module instead of candidates.
     orientation: OrientationIn | None = None
 

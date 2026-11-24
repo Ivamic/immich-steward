@@ -58,6 +58,10 @@ LOADING = "loading"
 WORKING = "working"
 
 
+# Images to compare with, fetched at the same time.
+OTHERS_AT_ONCE = 6
+
+
 @dataclass
 class WorkerConfig:
     name: str
@@ -310,13 +314,32 @@ class Worker:
         self, job: LeasedJob, module: PairModule, image: bytes
     ) -> dict[str, PairMatch]:
         """The job's photo against the photos the core named; a photo that cannot be had or
-        read is left out, the rest still count."""
-        others: dict[str, bytes] = {}
-        for other in job.others:
-            try:
-                others[other] = await self._client.image(job.job_id, other)
-            except OtherUnavailable:
-                log.info("job %s: photo %s cannot be had, skipping it", job.job_id, other)
+        read is left out, the rest still count. They are fetched a few at a time: street-level
+        images come from their providers through the core, a second or so each."""
+        started = time.monotonic()
+        gate = asyncio.Semaphore(OTHERS_AT_ONCE)
+
+        async def fetch(other: str) -> bytes | None:
+            async with gate:
+                try:
+                    return await self._client.image(job.job_id, other)
+                except OtherUnavailable:
+                    log.info("job %s: %s cannot be had, skipping it", job.job_id, other)
+                    return None
+
+        fetched = await asyncio.gather(*(fetch(other) for other in job.others))
+        others = {
+            other: content
+            for other, content in zip(job.others, fetched, strict=True)
+            if content is not None
+        }
+        log.info(
+            "job %s: %d of %d to compare with fetched in %.1f s",
+            job.job_id,
+            len(others),
+            len(job.others),
+            time.monotonic() - started,
+        )
         pairs = await asyncio.to_thread(module.compare, image, list(others.values()))
         return {other: pair for other, pair in zip(others, pairs, strict=True) if pair is not None}
 

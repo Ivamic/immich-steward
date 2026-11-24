@@ -7,7 +7,7 @@ between releases.
 
 ## [Unreleased]
 
-## [0.14.0] - 2026-11-24
+## [0.14.0] - 2026-11-25
 
 Street-level images next to the photo: compare them with it on a worker, and keep which way the
 camera looked.

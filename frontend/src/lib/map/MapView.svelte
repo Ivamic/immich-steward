@@ -352,7 +352,12 @@
 		});
 		currentMarker = pickedMarker = undefined;
 		map = instance;
+		// The page may change the size of the map without a resize of the window (a strip shown
+		// under it): the canvas follows, else the map is drawn stretched.
+		const resized = new ResizeObserver(() => instance.resize());
+		resized.observe(container);
 		return () => {
+			resized.disconnect();
 			ready = false;
 			instance.remove();
 			map = undefined;

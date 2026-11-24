@@ -938,5 +938,9 @@
 	"street_author": "автор: {author}",
 	"street_open_at": "Открыть в {source}",
 	"street_close": "Закрыть",
+	"street_your_photo": "Ваше фото",
+	"street_previous": "Предыдущий снимок (←)",
+	"street_next": "Следующий снимок (→)",
+	"street_pano_hint": "360°: прокрутите вбок",
 	"street_pick_here": "Поставить точку сюда"
 }

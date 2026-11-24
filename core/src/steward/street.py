@@ -14,6 +14,7 @@ import logging
 import math
 import time
 from collections import OrderedDict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 from uuid import UUID
@@ -34,11 +35,14 @@ Size = Literal["thumb", "large"]
 KEY_PROBLEMS = ("invalid",)
 
 PANORAMAX_SEARCH = "https://api.panoramax.xyz/api/search"
+# Asked directly when the catalog does not answer (it was down on 2026-11-24 while these
+# answered): the largest servers of the federation.
+PANORAMAX_SERVERS = ("https://panoramax.openstreetmap.fr", "https://panoramax.ign.fr")
 MAPILLARY_GRAPH = "https://graph.mapillary.com"
 # The points of a search; the previews are asked for the nearest only.
 MAPILLARY_FIELDS = (
     "id,geometry,computed_geometry,compass_angle,computed_compass_angle,captured_at,creator,"
-    "is_pano,camera_type"
+    "is_pano,camera_type,sequence"
 )
 # The most images a search of Mapillary gives.
 MAPILLARY_POINTS_MOST = 2000
@@ -58,6 +62,12 @@ LINKS_MOST = 20_000
 # A preview larger than this is not passed on.
 IMAGE_MOST_BYTES = 8 * 1024 * 1024
 EARTH_M = 6_371_000.0
+METERS_PER_DEGREE = 111_320.0
+# Thinning: one image per this many metres and this many degrees of the way it looks, and so
+# many of one series at most.
+THIN_CELL_M = 8.0
+THIN_DEGREES = 45
+SERIES_MOST = 4
 
 
 @dataclass(frozen=True)
@@ -113,6 +123,8 @@ class StreetImage:
     license: str | None
     license_url: str | None
     page_url: str
+    # The series it was taken in (a drive, a walk): many images of one lie a few metres apart.
+    sequence: str | None = None
 
 
 @dataclass
@@ -297,12 +309,39 @@ async def near(
     async with _client(transport) as http:
         results = await asyncio.gather(*(ask(http, s) for s in asked))
     await db.commit()
-    found = sorted(
-        (pair for _, images in results for pair in images), key=lambda pair: pair[0].distance_m
-    )[:NEAR_MOST]
+    found = thin(pair for _, images in results for pair in images)[:NEAR_MOST]
     for image, urls in found:
         links.keep(account_id, image.source, image.id, urls)
     return [image for image, _ in found], [answer for answer, _ in results]
+
+
+def thin(
+    pairs: Iterable[tuple[StreetImage, dict[str, str]]],
+) -> list[tuple[StreetImage, dict[str, str]]]:
+    """Nearest first, without near repeats: one image per few metres and way it looks, and a
+    few of one series at most. A dashcam drive gives dozens of frames at one spot; the strip
+    wants the street from its different places and sides."""
+    kept: list[tuple[StreetImage, dict[str, str]]] = []
+    spots: set[tuple[int, int, int]] = set()
+    series: dict[str, int] = {}
+    for image, urls in sorted(pairs, key=lambda pair: pair[0].distance_m):
+        north = round(image.latitude * METERS_PER_DEGREE / THIN_CELL_M)
+        east = round(
+            image.longitude
+            * METERS_PER_DEGREE
+            * math.cos(math.radians(image.latitude))
+            / THIN_CELL_M
+        )
+        way = -1 if image.pano or image.heading is None else int(image.heading // THIN_DEGREES)
+        if (north, east, way) in spots:
+            continue
+        if image.sequence and series.get(image.sequence, 0) >= SERIES_MOST:
+            continue
+        spots.add((north, east, way))
+        if image.sequence:
+            series[image.sequence] = series.get(image.sequence, 0) + 1
+        kept.append((image, urls))
+    return kept
 
 
 class _Refused(Exception):
@@ -318,14 +357,8 @@ async def _panoramax(
     west, south, east, north = bbox(latitude, longitude, radius_m)
 
     async def square(w: float, s: float, e: float, n: float) -> list[dict[str, Any]]:
-        answer = await http.get(
-            PANORAMAX_SEARCH,
-            params={"bbox": f"{w:.6f},{s:.6f},{e:.6f},{n:.6f}", "limit": str(ASK_EACH)},
-            timeout=PANORAMAX_TIMEOUT_S,
-        )
-        answer.raise_for_status()
-        features: list[dict[str, Any]] = answer.json().get("features", [])
-        return features
+        params = {"bbox": f"{w:.6f},{s:.6f},{e:.6f},{n:.6f}", "limit": str(ASK_EACH)}
+        return await _panoramax_search(http, params)
 
     features = await square(west, south, east, north)
     if len(features) >= ASK_EACH:
@@ -352,6 +385,34 @@ async def _panoramax(
         except (KeyError, TypeError, ValueError, IndexError):
             continue  # an image without a point or a preview
     return found
+
+
+async def _panoramax_search(
+    http: httpx2.AsyncClient, params: dict[str, str]
+) -> list[dict[str, Any]]:
+    """A search in the federated catalog of Panoramax; when it does not answer, in the largest
+    servers of the federation directly (their images only, but better than none)."""
+    try:
+        answer = await http.get(PANORAMAX_SEARCH, params=params, timeout=PANORAMAX_TIMEOUT_S)
+        answer.raise_for_status()
+        found: list[dict[str, Any]] = answer.json().get("features", [])
+        return found
+    except (httpx2.HTTPError, ValueError) as exc:
+        log.info("street-level images: the Panoramax catalog did not answer (%r)", exc)
+
+    async def one(server: str) -> list[dict[str, Any]]:
+        answer = await http.get(f"{server}/api/search", params=params, timeout=PANORAMAX_TIMEOUT_S)
+        answer.raise_for_status()
+        features: list[dict[str, Any]] = answer.json().get("features", [])
+        return features
+
+    answers = await asyncio.gather(
+        *(one(server) for server in PANORAMAX_SERVERS), return_exceptions=True
+    )
+    lists = [a for a in answers if isinstance(a, list)]
+    if not lists:
+        raise httpx2.HTTPError("no server of Panoramax answered")
+    return [feature for features in lists for feature in features]
 
 
 def _panoramax_image(
@@ -384,6 +445,7 @@ def _panoramax_image(
         license=props.get("license"),
         license_url=license_link,
         page_url=f"https://api.panoramax.xyz/#focus=pic&pic={feature['id']}",
+        sequence=feature.get("collection"),
     )
     large = assets.get("sd") or assets["thumb"]
     return image, {"thumb": assets["thumb"]["href"], "large": large["href"]}
@@ -415,7 +477,8 @@ async def _mapillary(
             images.append(_mapillary_image(item, latitude, longitude))
         except (KeyError, TypeError, ValueError, IndexError):
             continue
-    nearest = sorted(images, key=lambda image: image.distance_m)[:NEAR_MOST]
+    # Thinned before the nearest are taken: else they could all be frames of one spot.
+    nearest = [image for image, _ in thin((image, {}) for image in images)][:NEAR_MOST]
     if not nearest:
         return []
     previews = await http.get(
@@ -459,6 +522,7 @@ def _mapillary_image(item: dict[str, Any], latitude: float, longitude: float) ->
         license="CC-BY-SA-4.0",
         license_url="https://creativecommons.org/licenses/by-sa/4.0/",
         page_url=f"https://www.mapillary.com/app/?pKey={item['id']}",
+        sequence=item.get("sequence"),
     )
 
 
@@ -507,9 +571,7 @@ async def _lookup(
 ) -> dict[str, str] | None:
     try:
         if found.id == "panoramax":
-            answer = await http.get(PANORAMAX_SEARCH, params={"ids": image_id})
-            answer.raise_for_status()
-            features = answer.json().get("features", [])
+            features = await _panoramax_search(http, {"ids": image_id})
             if not features or not features[0].get("assets", {}).get("thumb"):
                 return None
             assets = features[0]["assets"]

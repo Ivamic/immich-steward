@@ -672,6 +672,7 @@
 				</div>
 				<StreetStrip
 					point={picked ?? current}
+					photo={asset ? thumbnailUrl(id, 'preview', turn, version) : null}
 					bind:active={streetActive}
 					bind:marks={streetMarks}
 					onpick={(point) => {

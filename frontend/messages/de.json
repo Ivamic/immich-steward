@@ -938,5 +938,9 @@
 	"street_author": "von {author}",
 	"street_open_at": "Bei {source} öffnen",
 	"street_close": "Schließen",
+	"street_your_photo": "Ihr Foto",
+	"street_previous": "Vorheriges Bild (←)",
+	"street_next": "Nächstes Bild (→)",
+	"street_pano_hint": "360°: seitlich scrollen",
 	"street_pick_here": "Punkt hierher setzen"
 }

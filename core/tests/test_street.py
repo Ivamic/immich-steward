@@ -62,6 +62,9 @@ class FakeStreet:
     panoramax: list[dict[str, Any]] = field(default_factory=list)
     mapillary: list[dict[str, Any]] = field(default_factory=list)
     down: bool = False
+    # The federated catalog of Panoramax fails; its servers answer (with these).
+    catalog_down: bool = False
+    servers: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     asked: list[httpx2.Request] = field(default_factory=list)
 
     def handler(self, request: httpx2.Request) -> httpx2.Response:
@@ -70,9 +73,12 @@ class FakeStreet:
         if self.down:
             return httpx2.Response(503)
         if url.startswith(street.PANORAMAX_SEARCH):
-            ids = request.url.params.get("ids")
-            found = [f for f in self.panoramax if ids is None or f["id"] == ids]
-            return httpx2.Response(200, json={"type": "FeatureCollection", "features": found})
+            if self.catalog_down:
+                return httpx2.Response(502, text="Bad Gateway")
+            return self.features(self.panoramax, request)
+        for server, features in self.servers.items():
+            if url.startswith(f"{server}/api/search"):
+                return self.features(features, request)
         if url.startswith(street.MAPILLARY_GRAPH):
             if request.headers.get("Authorization") != f"OAuth {TOKEN}":
                 return httpx2.Response(401, json={"error": {"message": "Invalid OAuth"}})
@@ -99,6 +105,12 @@ class FakeStreet:
         if url.startswith(("https://storage.example.org/", "https://scontent.example.org/")):
             return httpx2.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
         return httpx2.Response(404)
+
+    @staticmethod
+    def features(features: list[dict[str, Any]], request: httpx2.Request) -> httpx2.Response:
+        ids = request.url.params.get("ids")
+        found = [f for f in features if ids is None or f["id"] == ids]
+        return httpx2.Response(200, json={"type": "FeatureCollection", "features": found})
 
     def outside(self) -> list[str]:
         """Hosts asked, without the images: what left the server besides previews."""
@@ -211,15 +223,52 @@ def test_the_square_stays_within_mapillary_limit() -> None:
 
 
 def test_the_nearest_of_a_busy_street(signed_in: TestClient, fake: FakeStreet) -> None:
-    """Mapillary gives the points of a whole square: the nearest 40 are picked, not the first."""
+    """Mapillary gives the points of a whole square: the nearest are picked, not the first, and
+    a drive with a frame every metre is thinned to one image per few metres."""
     fake.mapillary = [
         mapillary_item(str(1000 + n), (LAT + 0.00085 - n * 0.00001, LON)) for n in range(120)
     ]
     turn_on(signed_in, "mapillary", api_key=TOKEN)
     found = near(signed_in)["images"]
-    assert len(found) == street.NEAR_MOST
     assert found[0]["distance_m"] < 2
     assert all(a["distance_m"] <= b["distance_m"] for a, b in pairwise(found))
+    # About 200 m of street, one image per 8 m: some 25, not a hundred frames.
+    assert 15 <= len(found) <= 30
+
+
+def test_a_series_does_not_fill_the_strip(signed_in: TestClient, fake: FakeStreet) -> None:
+    """A dashcam drive: frames a few metres apart looking the same way, of one series; a single
+    image of another series further away still makes it in."""
+    drive = [
+        mapillary_item(str(2000 + n), (LAT + n * 0.0001, LON)) | {"sequence": "drive"}
+        for n in range(8)
+    ]
+    other = mapillary_item("3000", (LAT, LON + 0.0009)) | {"sequence": "walk"}
+    fake.mapillary = [*drive, other]
+    turn_on(signed_in, "mapillary", api_key=TOKEN)
+    found = [i["id"] for i in near(signed_in)["images"]]
+    assert len([i for i in found if i.startswith("2")]) == street.SERIES_MOST
+    assert "3000" in found
+
+
+def test_panoramax_servers_when_the_catalog_is_down(
+    signed_in: TestClient, fake: FakeStreet
+) -> None:
+    fake.catalog_down = True
+    first, second = street.PANORAMAX_SERVERS
+    fake.servers = {
+        first: [panoramax_feature("osm", NEAR)],
+        second: [panoramax_feature("ign", MIDDLE)],
+    }
+    turn_on(signed_in, "panoramax")
+    found = near(signed_in)
+    assert [i["id"] for i in found["images"]] == ["osm", "ign"]
+    assert found["sources"] == [{"id": "panoramax", "status": "ok", "count": 2}]
+    # A preview asked after a restart is found there too.
+    signed_in.app.state.street_links = street.Links()  # type: ignore[attr-defined]
+    assert signed_in.get("/api/street/image/panoramax/ign").status_code == 200
+    fake.servers = {}
+    assert near(signed_in)["sources"][0]["status"] == "unavailable"
 
 
 def test_one_source_at_a_time(signed_in: TestClient, fake: FakeStreet) -> None:

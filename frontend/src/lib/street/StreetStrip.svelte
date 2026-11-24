@@ -24,6 +24,7 @@
 
 	let {
 		point,
+		photo,
 		active = $bindable(null),
 		// eslint-disable-next-line no-useless-assignment -- bound: the map of the card reads it
 		marks = $bindable([]),
@@ -31,6 +32,8 @@
 	}: {
 		/** Where to look: the picked point, else the location of the photo. */
 		point: LatLon | null;
+		/** The photo of the card as shown there, beside the image opened large; null: none. */
+		photo: string | null;
 		/** The image picked ("source:id"), also on the map. */
 		active?: string | null;
 		/** The images as the map shows them. */
@@ -146,6 +149,22 @@
 		opened = image;
 	}
 
+	const openedIndex = $derived(opened ? images.findIndex((i) => key(i) === key(opened!)) : -1);
+
+	/** The next or the previous image of the strip, in the window. */
+	function step(by: number) {
+		if (openedIndex < 0 || !images.length) return;
+		open(images[(openedIndex + by + images.length) % images.length]);
+	}
+
+	function onkeydown(event: KeyboardEvent) {
+		if (!opened) return;
+		if (event.key === 'ArrowRight') step(1);
+		else if (event.key === 'ArrowLeft') step(-1);
+		else return;
+		event.preventDefault();
+	}
+
 	function pickHere(image: StreetImage) {
 		onpick({ lat: image.latitude, lon: image.longitude });
 		opened = null;
@@ -211,8 +230,9 @@
 	{#if error}
 		<p class="error" role="alert">{error}</p>
 	{/if}
-	{#if shown && images.length}
-		<ul class="strip" class:loading>
+	{#if shown && point && !noSource}
+		<!-- Its place is kept while it waits: the map above keeps its size. -->
+		<ul class="strip" class:loading class:empty={!images.length}>
 			{#each images as image (key(image))}
 				<li>
 					<button
@@ -243,6 +263,8 @@
 	{/if}
 </section>
 
+<svelte:window {onkeydown} />
+
 {#if opened}
 	{@const image = opened}
 	<Dialog
@@ -251,23 +273,57 @@
 		full
 		onclose={() => (opened = null)}
 	>
-		<div class="large" class:pano={image.pano}>
-			<img src={streetImageUrl(image, 'large')} alt={m.street_image_alt()} />
-		</div>
-		<p class="credits">
-			{#if image.author}{m.street_author({ author: image.author })} ·{/if}
-			{#if image.license}
-				{#if image.license_url}
-					<a href={image.license_url} target="_blank" rel="noopener">{image.license}</a>
-				{:else}{image.license}{/if}
-				·
+		<div class="compare" class:alone={!photo}>
+			{#if photo}
+				<figure class="side">
+					<img src={photo} alt={m.street_your_photo()} />
+					<figcaption>{m.street_your_photo()}</figcaption>
+				</figure>
 			{/if}
-			<a href={image.page_url} target="_blank" rel="noopener">
-				{m.street_open_at({ source: sourceName(image.source) })}
-			</a>
-			· {m.street_distance({ meters: meters.format(image.distance_m) })}
-		</p>
+			<figure class="side" class:pano={image.pano}>
+				<div class="frame">
+					<img src={streetImageUrl(image, 'large')} alt={m.street_image_alt()} />
+				</div>
+				<figcaption>
+					{#if image.author}{m.street_author({ author: image.author })} ·{/if}
+					{#if image.license}
+						{#if image.license_url}
+							<a href={image.license_url} target="_blank" rel="noopener">{image.license}</a>
+						{:else}{image.license}{/if}
+						·
+					{/if}
+					<a href={image.page_url} target="_blank" rel="noopener">
+						{m.street_open_at({ source: sourceName(image.source) })}
+					</a>
+					· {m.street_distance({ meters: meters.format(image.distance_m) })}
+					{#if image.pano}· {m.street_pano_hint()}{/if}
+				</figcaption>
+			</figure>
+		</div>
 		{#snippet footer()}
+			<span class="stepper">
+				<button
+					type="button"
+					class="st-iconbtn"
+					aria-label={m.street_previous()}
+					title={m.street_previous()}
+					disabled={images.length < 2}
+					onclick={() => step(-1)}
+				>
+					<Icon name="chevron-left" />
+				</button>
+				<span class="count">{openedIndex + 1} / {images.length}</span>
+				<button
+					type="button"
+					class="st-iconbtn"
+					aria-label={m.street_next()}
+					title={m.street_next()}
+					disabled={images.length < 2}
+					onclick={() => step(1)}
+				>
+					<Icon name="chevron-right" />
+				</button>
+			</span>
 			<button type="button" class="st-btn st-btn--secondary" onclick={() => (opened = null)}>
 				{m.street_close()}
 			</button>
@@ -317,6 +373,10 @@
 	.strip.loading {
 		opacity: 0.6;
 	}
+	/* The height of a row of images: kept while there are none yet. */
+	.strip.empty {
+		min-height: calc(6rem + 1.75rem);
+	}
 	.shot {
 		display: flex;
 		flex-direction: column;
@@ -352,28 +412,57 @@
 	.pano {
 		font-weight: var(--weight-medium);
 	}
-	.large {
-		display: flex;
-		justify-content: center;
+	.compare {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-3);
 	}
-	.large img {
-		max-width: 100%;
-		max-height: 70vh;
+	.compare.alone {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.side {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin: 0;
+		min-width: 0;
+	}
+	.side img {
+		display: block;
+		width: 100%;
+		max-height: 65vh;
 		object-fit: contain;
+		background: var(--color-stage);
+		border-radius: var(--radius-md);
 	}
 	/* A 360-degree panorama: as wide as it is, scrolled sideways. */
-	.large.pano {
-		justify-content: flex-start;
+	.side.pano .frame {
 		overflow-x: auto;
 	}
-	.large.pano img {
+	.side.pano img {
+		width: auto;
 		max-width: none;
-		height: 60vh;
+		height: 50vh;
 		max-height: none;
 	}
-	.credits {
-		margin: var(--space-2) 0 0;
+	figcaption {
 		font-size: var(--text-sm);
 		color: var(--color-text-muted);
+	}
+	.stepper {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-1);
+		margin-right: auto;
+	}
+	.count {
+		font-size: var(--text-sm);
+		font-variant-numeric: tabular-nums;
+		color: var(--color-text-muted);
+	}
+	@media (max-width: 50rem) {
+		.compare {
+			grid-template-columns: minmax(0, 1fr);
+		}
 	}
 </style>

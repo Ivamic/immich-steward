@@ -155,10 +155,12 @@
 			});
 	});
 
-	// Asked again while a worker is at it.
+	// Asked again while a worker is at it. Each answer starts the next wait: the effect reads the
+	// comparison itself, not only whether it is going on, which stays the same between answers.
 	$effect(() => {
 		const id = assetId;
-		if (!id || !comparing) return;
+		const current = comparison;
+		if (!id || !(current?.status === 'queued' || current?.status === 'running')) return;
 		const timer = setTimeout(async () => {
 			try {
 				const found = await getStreetComparison(id);

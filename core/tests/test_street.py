@@ -69,6 +69,8 @@ class FakeStreet:
     down: bool = False
     # The federated catalog of Panoramax fails; its servers answer (with these).
     catalog_down: bool = False
+    # The storage gives its images without saying they are (as one of Panoramax does).
+    untyped: bool = False
     servers: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     asked: list[httpx2.Request] = field(default_factory=list)
 
@@ -108,7 +110,8 @@ class FakeStreet:
             item = next((i for i in self.mapillary if i["id"] == image_id), None)
             return httpx2.Response(200, json=item) if item else httpx2.Response(404)
         if url.startswith(("https://storage.example.org/", "https://scontent.example.org/")):
-            return httpx2.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
+            kind = "binary/octet-stream" if self.untyped else "image/jpeg"
+            return httpx2.Response(200, content=JPEG, headers={"content-type": kind})
         return httpx2.Response(404)
 
     @staticmethod
@@ -299,6 +302,21 @@ def street_worker(client: TestClient) -> dict[str, str]:
     }
     worker_id = client.post("/api/worker/register", json=body, headers=AUTH).json()["worker_id"]
     return AUTH | {"X-Worker-Id": worker_id}
+
+
+def test_an_image_served_untyped_is_still_an_image(signed_in: TestClient, fake: FakeStreet) -> None:
+    """A storage of Panoramax gives its JPEGs as "binary/octet-stream": told by their bytes. Not
+    an image stays refused."""
+    turn_on(signed_in, "panoramax")
+    near(signed_in)
+    fake.untyped = True
+    preview = signed_in.get("/api/street/image/panoramax/near")
+    assert (preview.status_code, preview.headers["content-type"]) == (200, "image/jpeg")
+    assert street._image_kind(b"<html>", "text/html") is None
+    png = b"\x89PNG\r\n\x1a\nrest"
+    assert street._image_kind(png, "binary/octet-stream") == "image/png"
+    webp = b"RIFF\x00\x00\x00\x00WEBPVP8 "
+    assert street._image_kind(webp, "") == "image/webp"
 
 
 def test_compare_the_photo_with_the_images(

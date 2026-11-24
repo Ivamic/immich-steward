@@ -558,12 +558,27 @@ async def image(
             answer = await http.get(url)
         except httpx2.HTTPError as exc:
             raise ApiError(502, "street_unavailable") from exc
-    kind = answer.headers.get("content-type", "").split(";")[0].strip()
-    if answer.status_code != 200 or not kind.startswith("image/"):
+    kind = _image_kind(answer.content, answer.headers.get("content-type", ""))
+    if answer.status_code != 200 or kind is None:
         raise ApiError(502, "street_unavailable")
     if len(answer.content) > IMAGE_MOST_BYTES:
         raise ApiError(502, "street_unavailable")
     return answer.content, kind
+
+
+def _image_kind(content: bytes, declared: str) -> str | None:
+    """The type of an image as the provider says it, else as its first bytes tell: a storage of
+    Panoramax serves its JPEGs as "binary/octet-stream". None: no image."""
+    kind = declared.split(";")[0].strip().lower()
+    if kind.startswith("image/"):
+        return kind
+    if content.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    return None
 
 
 async def _lookup(

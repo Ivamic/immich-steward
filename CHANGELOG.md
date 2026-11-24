@@ -9,7 +9,7 @@ between releases.
 
 ### Added
 
-- **Street-level images** in the photo card: turn on **Street-level images** under the map to see
+- **Street-level images** in the photo card (*beta*, marked so in the card and the settings): turn on **Street-level images** under the map to see
   photos of the street within 100 m of the point (the one you put, or the location of the photo),
   nearest first, from Panoramax and Mapillary, to compare with your photo by eye. Each shows how
   far it is and which way it looks, and lies on the map as a point with its view; a click shows it
@@ -34,7 +34,8 @@ between releases.
   image looks, about the way the photo looks if it shows the same view (±30°; not from a 360°
   panorama). It is saved with the location and shown as a cone on the map and as *Direction* in
   the card (north-east, 48° ±30°), where it can be forgotten. It is kept in the app only: Immich
-  has no field for it.
+  has no field for it. Moved more than 100 m, the photo loses its direction, found at another
+  place; the card says so before the point is saved.
 
 - **Reset the found turns**, on **Turned photos** and at the *orientation* module on
   **Processing**: forgets what the module found, so that it looks at the photos again, newest

@@ -976,5 +976,8 @@
 	"street_search_here_hint": "Trova le immagini entro {radius} m da questa; il punto della foto resta dov’è",
 	"street_around": "intorno a un’immagine a {meters} m dal punto",
 	"street_around_back": "Torna al punto",
-	"street_compare_all_done": "Tutte le immagini mostrate sono confrontate"
+	"street_compare_all_done": "Tutte le immagini mostrate sono confrontate",
+	"photo_direction_will_drop": "La direzione verrà rimossa al salvataggio del punto: è a più di {meters} m dal luogo in cui è stata trovata",
+	"beta": "beta",
+	"beta_hint": "Una nuova funzione ancora in prova: può cambiare e sbaglia più spesso"
 }

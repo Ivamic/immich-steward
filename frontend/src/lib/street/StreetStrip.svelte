@@ -25,6 +25,7 @@
 	import type { StreetMark } from '#lib/map/markers.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale } from '#lib/paraglide/runtime.js';
+	import BetaBadge from '#lib/ui/BetaBadge.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import PairView from '#lib/ui/PairView.svelte';
@@ -373,6 +374,7 @@
 			<Icon name="camera" size={14} />
 			{m.street_toggle()}
 		</button>
+		<BetaBadge />
 		{#if shown && assetId && images.length}
 			<button
 				type="button"

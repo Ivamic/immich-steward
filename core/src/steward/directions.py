@@ -6,6 +6,8 @@ the user put the point on (its heading as it is, wide); later the match of the p
 an image (narrow), the compass in the original file, by hand.
 """
 
+import math
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
@@ -17,6 +19,25 @@ from steward.models import AssetDirection
 
 Source = Literal["street", "street_match"]
 SOURCES: tuple[str, ...] = ("street", "street_match")
+
+# A place moved further than this is another place: the direction found at the old one is
+# dropped. Nearer, the camera still looked the same way (D-246); as far as the strip of
+# street-level images reaches.
+MOVED_FAR_M = 100.0
+
+
+def moved_far(
+    old_lat: float | None, old_lon: float | None, lat: float | None, lon: float | None
+) -> bool:
+    """Whether a photo moved from one place to another far from it; from or to no place: no."""
+    if old_lat is None or old_lon is None or lat is None or lon is None:
+        return False
+    rad = math.pi / 180
+    h = (
+        math.sin((lat - old_lat) * rad / 2) ** 2
+        + math.cos(old_lat * rad) * math.cos(lat * rad) * math.sin((lon - old_lon) * rad / 2) ** 2
+    )
+    return 2 * 6_371_000 * math.asin(min(1.0, math.sqrt(h))) > MOVED_FAR_M
 
 
 async def get(db: AsyncSession, asset_id: UUID) -> AssetDirection | None:
@@ -42,6 +63,12 @@ async def keep(
     found.source_ref = source_ref
     found.created_at = datetime.now(UTC)
     return found
+
+
+async def forget_many(db: AsyncSession, asset_ids: Collection[UUID]) -> None:
+    """Drops the directions of the photos (not committed)."""
+    if asset_ids:
+        await db.execute(delete(AssetDirection).where(AssetDirection.asset_id.in_(asset_ids)))
 
 
 async def forget(db: AsyncSession, asset_id: UUID) -> bool:

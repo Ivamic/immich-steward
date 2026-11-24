@@ -134,7 +134,14 @@
 		/** A click on a street-level image. */
 		onstreet?: (key: string) => void;
 		/** Which way the camera looked from the point (D-245): a cone as wide as it may be off. */
-		direction?: { lat: number; lon: number; heading: number; accuracy: number } | null;
+		/** `faded`: shown, but it goes when the point is saved. */
+		direction?: {
+			lat: number;
+			lon: number;
+			heading: number;
+			accuracy: number;
+			faded?: boolean;
+		} | null;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -607,13 +614,26 @@
 			id: DIRECTION,
 			type: 'fill',
 			source: DIRECTION,
-			paint: { 'fill-color': DIRECTION_COLOR, 'fill-opacity': 0.3 }
+			paint: {
+				'fill-color': DIRECTION_COLOR,
+				'fill-opacity': ['case', ['==', ['get', 'faded'], 1], 0.08, 0.3]
+			}
 		});
 		instance.addLayer({
 			id: `${DIRECTION}-edge`,
 			type: 'line',
 			source: DIRECTION,
-			paint: { 'line-color': DIRECTION_COLOR, 'line-width': 2, 'line-opacity': 0.9 }
+			paint: {
+				'line-color': DIRECTION_COLOR,
+				'line-width': 2,
+				'line-opacity': ['case', ['==', ['get', 'faded'], 1], 0.4, 0.9],
+				'line-dasharray': [
+					'case',
+					['==', ['get', 'faded'], 1],
+					['literal', [2, 2]],
+					['literal', [1, 0]]
+				]
+			}
 		});
 	}
 
@@ -678,7 +698,7 @@
 					type: 'Polygon',
 					coordinates: [sector(d.lat, d.lon, d.heading, half, DIRECTION_PX * perPixel)]
 				},
-				properties: {}
+				properties: { faded: d.faded ? 1 : 0 }
 			});
 		}
 		(map.getSource(DIRECTION) as GeoJSONSource | undefined)?.setData({

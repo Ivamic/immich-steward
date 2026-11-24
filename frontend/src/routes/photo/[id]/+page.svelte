@@ -37,7 +37,7 @@
 	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
 	import { albumGalleryQuery, takeOutOfAlbum } from '#lib/albums/albums.js';
 	import Dialog from '#lib/ui/Dialog.svelte';
-	import { formatCoordinates, parseCoordinates, type LatLon } from '#lib/coords.js';
+	import { formatCoordinates, metersBetween, parseCoordinates, type LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import { locked } from '#lib/locked.svelte.js';
@@ -144,8 +144,23 @@
 	const cone = $derived.by(() => {
 		const at = picked ?? current;
 		const shown = (picked && pendingDirection) || asset?.direction;
-		return at && shown ? { ...at, heading: shown.heading, accuracy: shown.accuracy } : null;
+		return at && shown
+			? { ...at, heading: shown.heading, accuracy: shown.accuracy, faded: directionDropped }
+			: null;
 	});
+	// The point put far from the place of the photo: saved there, the direction kept goes (the
+	// core drops it, D-246), as it was found at the old place.
+	const MOVED_FAR_M = 100;
+	// Worked out when read: `current` is declared further down.
+	const directionDropped = $derived.by(() =>
+		Boolean(
+			picked &&
+			!pendingDirection &&
+			asset?.direction &&
+			current &&
+			metersBetween(current, picked) > MOVED_FAR_M
+		)
+	);
 
 	async function takeTheDirection(direction: Direction) {
 		if (!asset || busy) return;
@@ -786,6 +801,10 @@
 						{#if picked && pendingDirection}
 							<p class="direction-note">
 								{m.photo_direction_with_point({ direction: directionText(pendingDirection) })}
+							</p>
+						{:else if directionDropped}
+							<p class="direction-note">
+								{m.photo_direction_will_drop({ meters: MOVED_FAR_M })}
 							</p>
 						{/if}
 						<!-- Re-created for every new point, so that it catches the eye each time. -->

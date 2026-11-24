@@ -21,7 +21,7 @@ photos taken shortly before and after, and you can pick points on the map yourse
 - **Orientation** finds the photos that lie on their side, for the tab **Turned photos** of the
   Groups page ([usage](usage.md#turned-photos)). It looks at every photo once and is light: a
   fraction of a second per photo, also on a CPU.
-- **Street-level images** compares a photo with the street-level images shown under its map
+- **Street-level images** (*beta*) compares a photo with the street-level images shown under its map
   ([usage](usage.md#street-level-images)): which of them look most like it, and which show the
   very same scene, point by point. It runs only when you press **Compare with the photo**; the
   images come to the worker through the app. A few seconds on a graphics card, about a minute

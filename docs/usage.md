@@ -167,6 +167,10 @@ The choice is remembered in the browser. In the dark theme the imagery is not di
 
 ### Street-level images
 
+*Beta:* the feature is new and still being tried out on real libraries; it may change, and its
+matches and directions are wrong more often than the rest of the app. It is marked **beta** in the
+card and in the settings.
+
 Photos of the street taken by other people (Panoramax, Mapillary) help to tell whether a point is
 the right one. Switch the sources on in **Settings → Street-level images** first (Mapillary needs
 your own access token), then press **Street-level images** under the map: the images within 100 m
@@ -301,7 +305,9 @@ The details below the photo show when it was taken, the camera, its albums, its
 [group](#groups) with a link, whether it is marked as showing no sign of a place (by you or by the
 app, with **Take the mark off**), its current location and, when known, its **direction**: which
 way the camera looked, as a cone on the map (from a [street-level image](#street-level-images);
-kept in the app only, **Forget** drops it). **No sign of a place** under the
+kept in the app only, **Forget** drops it). The point moved a little, the direction stays: the
+camera still looked the same way. Moved more than 100 m (by any means, also by undo), it is another
+place, and the direction goes when the point is saved; the card says so beforehand. **No sign of a place** under the
 actions marks the photo. **Open in Immich** (the arrow in the top right corner) opens the photo in Immich in a
 new tab.
 

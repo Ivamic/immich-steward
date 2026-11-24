@@ -20,7 +20,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward import embeddings
+from steward import directions, embeddings
 from steward.errors import ApiError
 from steward.immich import ImmichClient, ImmichError
 from steward.immich.models import ImmichAsset
@@ -73,7 +73,8 @@ async def write_location(
         status="applied",
     )
     db.add(change)
-    _set_local_location(asset, latitude, longitude)
+    if _set_local_location(asset, latitude, longitude):
+        await directions.forget_many(db, [asset.id])
     # A located photo is no longer skipped or "not applicable".
     asset.review_status = "new"
     await embeddings.refresh_located(db, asset_id=asset.id)
@@ -110,7 +111,8 @@ async def undo_last(db: AsyncSession, client: ImmichClient, asset: Asset, *, tag
 
     change.status = "undone"
     change.undone_at = datetime.now(UTC)
-    _set_local_location(asset, change.prev_latitude, change.prev_longitude)
+    if _set_local_location(asset, change.prev_latitude, change.prev_longitude):
+        await directions.forget_many(db, [asset.id])
     await embeddings.refresh_located(db, asset_id=asset.id)
     await db.commit()
 
@@ -151,6 +153,7 @@ async def write_batch(
         tagged = await _change_tags(client, tag, [a.immich_id for a in targets], add=True)
 
     result.batch_id = uuid.uuid4()
+    far: list[UUID] = []
     for asset in targets:
         exif = current[asset.immich_id].exif_info
         db.add(
@@ -166,9 +169,11 @@ async def write_batch(
                 batch_id=result.batch_id,
             )
         )
-        _set_local_location(asset, latitude, longitude)
+        if _set_local_location(asset, latitude, longitude):
+            far.append(asset.id)
         # A located photo is no longer skipped or "not applicable".
         asset.review_status = "new"
+    await directions.forget_many(db, far)
     result.written = len(targets)
     await embeddings.refresh_located(db, account_id=targets[0].account_id)
     await db.commit()
@@ -245,10 +250,13 @@ async def undo_batch(
         await _change_tags(client, tag, untag, add=False)
 
     now = datetime.now(UTC)
+    far: list[UUID] = []
     for change, asset in done:
         change.status = "undone"
         change.undone_at = now
-        _set_local_location(asset, change.prev_latitude, change.prev_longitude)
+        if _set_local_location(asset, change.prev_latitude, change.prev_longitude):
+            far.append(asset.id)
+    await directions.forget_many(db, far)
     result.undone = len(done)
     await embeddings.refresh_located(db, account_id=account_id)
     await db.commit()
@@ -366,11 +374,15 @@ async def _change_tag(client: ImmichClient, tag: str, asset_id: UUID, *, add: bo
         return False
 
 
-def _set_local_location(asset: Asset, latitude: float | None, longitude: float | None) -> None:
+def _set_local_location(asset: Asset, latitude: float | None, longitude: float | None) -> bool:
+    """Keeps the new place of the photo here; True when it moved far, its direction no longer
+    holds (D-246)."""
+    far = directions.moved_far(asset.latitude, asset.longitude, latitude, longitude)
     asset.latitude = latitude
     asset.longitude = longitude
     # Immich recomputes the place name in the background; the next sync brings it in.
     asset.city = asset.state = asset.country = None
+    return far
 
 
 def _same(a: float | None, b: float) -> bool:

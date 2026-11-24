@@ -976,5 +976,8 @@
 	"street_search_here_hint": "Trouver les images à moins de {radius} m de celle-ci ; le point de la photo reste où il est",
 	"street_around": "autour d’une image à {meters} m du point",
 	"street_around_back": "Revenir au point",
-	"street_compare_all_done": "Toutes les images affichées sont comparées"
+	"street_compare_all_done": "Toutes les images affichées sont comparées",
+	"photo_direction_will_drop": "La direction sera supprimée à l’enregistrement du point : il est à plus de {meters} m du lieu où elle a été trouvée",
+	"beta": "bêta",
+	"beta_hint": "Une nouvelle fonction encore à l’essai : elle peut changer et se trompe plus souvent"
 }

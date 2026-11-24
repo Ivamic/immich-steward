@@ -25,9 +25,35 @@ def test_a_direction_kept_with_the_location(
     assert (exif["latitude"], exif["longitude"]) == (42.43, 18.7)
     assert "direction" not in str(fake_immich.assets[immich_id])
 
-    # Saved again without one: the direction stays.
-    body = {"latitude": 42.44, "longitude": 18.7}
+    # Moved a little without one: the camera still looked the same way, the direction stays.
+    body = {"latitude": 42.4305, "longitude": 18.7}
     assert signed_in.put(f"/api/assets/{asset}/location", json=body).json()["direction"] == STREET
+
+
+def test_moved_far_the_direction_is_dropped(signed_in: TestClient, photo: tuple[str, str]) -> None:
+    """Over 100 m away it is another place: the direction found at the old one no longer
+    holds (D-246), whichever way the photo moved."""
+    asset, _ = photo
+    url = f"/api/assets/{asset}"
+
+    def place(lat: float, lon: float, direction: dict[str, object] | None = None) -> object:
+        body = {"latitude": lat, "longitude": lon} | ({"direction": direction} if direction else {})
+        return signed_in.put(f"{url}/location", json=body).json()["direction"]
+
+    assert place(-33.8688, 151.2093, STREET) == STREET
+    # 50 m north: kept.
+    assert place(-33.86835, 151.2093) == STREET
+    # 2 km away: dropped; a new direction with the new place is kept.
+    assert place(-33.85, 151.2093) is None
+    assert place(-33.86, 151.2093, STREET) == STREET
+    # Undone to the place 1 km back: dropped as well.
+    assert signed_in.post(f"{url}/location/undo").json()["direction"] is None
+
+    # Several photos at once, the same rule.
+    signed_in.put(f"{url}/direction", json=STREET)
+    body = {"ids": [asset], "latitude": 40.7128, "longitude": -74.006, "overwrite": True}
+    assert signed_in.post("/api/selection/location", json=body).status_code == 200
+    assert signed_in.get(url).json()["direction"] is None
 
 
 def test_set_and_forget(signed_in: TestClient, photo: tuple[str, str]) -> None:

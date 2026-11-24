@@ -6,6 +6,7 @@
 	import { getStreetSources, updateStreetSource, type StreetSource } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
+	import BetaBadge from '#lib/ui/BetaBadge.svelte';
 
 	let sources = $state<StreetSource[]>([]);
 	let busy = $state<string | null>(null);
@@ -55,7 +56,7 @@
 
 <!-- eslint-disable svelte/no-navigation-without-resolve -- links to the providers -->
 <section>
-	<h2>{m.street_heading()}</h2>
+	<h2>{m.street_heading()} <BetaBadge /></h2>
 	<p class="hint">{m.street_hint()}</p>
 	{#each sources as source (source.id)}
 		<article class="source" aria-busy={busy === source.id}>

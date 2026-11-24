@@ -24,6 +24,10 @@ export interface StreetMark {
 	/** A 360-degree panorama: a ring, no sector. */
 	pano: boolean;
 	active: boolean;
+	/** Compared with the photo: 2 the very same scene, 1 maybe, 0 not (or not compared). */
+	match?: 0 | 1 | 2;
+	/** Compared and no match, while others matched: drawn faint. */
+	faded?: boolean;
 }
 
 /** Photos gathered on the server into a cell of the map (the page "Map", D-207). */

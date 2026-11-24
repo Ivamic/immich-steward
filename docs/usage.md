@@ -179,7 +179,9 @@ on the map as green points with the way each looks. The app remembers the button
   panorama, takes the way it looks as the [direction](#the-photo) of the photo (±30°).
 - **Compare with the photo** has a [worker](workers.md) look which images show the place of the
   photo: the most alike go first, the very same scene is marked ✓ with the number of points both
-  show (from 100; *maybe* from 50), and the window draws lines between those points. The direction
+  show (from 100; *maybe* from 50), and the window draws lines between those points. Matched images
+  are framed in the strip and coloured on the map (violet: the same scene, amber: maybe); the others
+  fade. The direction
   then comes from the points themselves, by all the matched images together (an image alone is
   right only if the photo was taken where it was), and is said over the strip, with a warning when
   the images disagree. **Take the direction** keeps it and leaves the point where it is; **Put the

@@ -167,6 +167,9 @@
 	const DIRECTION_PX = 90;
 	const STREET_COLOR = '#1a7f37';
 	const STREET_ACTIVE_COLOR = '#bc4c00';
+	// Images that show the scene of the photo (the marks of the strip: ✓, maybe).
+	const STREET_SURE_COLOR = '#8250df';
+	const STREET_MAYBE_COLOR = '#9a6700';
 	// The sector of a street-level image on the map: its width and length.
 	const VIEW_DEGREES = 60;
 	const VIEW_M = 14;
@@ -561,29 +564,27 @@
 	}
 
 	function addStreetLayers(instance: MapLibreMap) {
-		instance.addSource(DIRECTION, { type: 'geojson', data: EMPTY });
-		instance.addLayer({
-			id: DIRECTION,
-			type: 'fill',
-			source: DIRECTION,
-			paint: { 'fill-color': DIRECTION_COLOR, 'fill-opacity': 0.25 }
-		});
-		instance.addLayer({
-			id: `${DIRECTION}-edge`,
-			type: 'line',
-			source: DIRECTION,
-			paint: { 'line-color': DIRECTION_COLOR, 'line-width': 1.5, 'line-opacity': 0.8 }
-		});
 		instance.addSource(STREETS, { type: 'geojson', data: EMPTY });
 		const active: ExpressionSpecification = ['==', ['get', 'active'], 1];
+		const faded: ExpressionSpecification = ['==', ['get', 'faded'], 1];
+		const color: ExpressionSpecification = [
+			'case',
+			active,
+			STREET_ACTIVE_COLOR,
+			['==', ['get', 'match'], 2],
+			STREET_SURE_COLOR,
+			['==', ['get', 'match'], 1],
+			STREET_MAYBE_COLOR,
+			STREET_COLOR
+		];
 		instance.addLayer({
 			id: STREET_VIEWS,
 			type: 'fill',
 			source: STREETS,
 			filter: ['==', ['geometry-type'], 'Polygon'],
 			paint: {
-				'fill-color': ['case', active, STREET_ACTIVE_COLOR, STREET_COLOR],
-				'fill-opacity': ['case', active, 0.45, 0.22]
+				'fill-color': color,
+				'fill-opacity': ['case', active, 0.45, ['>', ['get', 'match'], 0], 0.35, faded, 0.08, 0.22]
 			}
 		});
 		instance.addLayer({
@@ -592,11 +593,27 @@
 			source: STREETS,
 			filter: ['==', ['geometry-type'], 'Point'],
 			paint: {
-				'circle-color': ['case', active, STREET_ACTIVE_COLOR, STREET_COLOR],
-				'circle-radius': ['case', active, 6, 4],
+				'circle-color': color,
+				'circle-opacity': ['case', faded, 0.45, 1],
+				'circle-stroke-opacity': ['case', faded, 0.45, 1],
+				'circle-radius': ['case', active, 6, ['>', ['get', 'match'], 0], 5.5, 4],
 				'circle-stroke-color': '#ffffff',
 				'circle-stroke-width': ['case', ['==', ['get', 'pano'], 1], 3, 1.5]
 			}
+		});
+		// Over the images: among their sectors the cone of the photo stays in sight.
+		instance.addSource(DIRECTION, { type: 'geojson', data: EMPTY });
+		instance.addLayer({
+			id: DIRECTION,
+			type: 'fill',
+			source: DIRECTION,
+			paint: { 'fill-color': DIRECTION_COLOR, 'fill-opacity': 0.3 }
+		});
+		instance.addLayer({
+			id: `${DIRECTION}-edge`,
+			type: 'line',
+			source: DIRECTION,
+			paint: { 'line-color': DIRECTION_COLOR, 'line-width': 2, 'line-opacity': 0.9 }
 		});
 	}
 
@@ -617,9 +634,17 @@
 		return {
 			type: 'Feature',
 			geometry: { type: 'Polygon', coordinates: [ring] },
-			properties: { key: mark.key, active: mark.active ? 1 : 0 }
+			properties: streetProperties(mark)
 		};
 	}
+
+	const streetProperties = (mark: StreetMark) => ({
+		key: mark.key,
+		active: mark.active ? 1 : 0,
+		pano: mark.pano ? 1 : 0,
+		match: mark.match ?? 0,
+		faded: mark.faded ? 1 : 0
+	});
 
 	/** A sector around `heading`, `half` degrees each way, `length` metres long. */
 	function sector(lat: number, lon: number, heading: number, half: number, length: number) {
@@ -663,15 +688,17 @@
 	});
 
 	$effect(() => {
+		// The matched ones last: drawn over the rest.
+		const marks = [...streets].sort((a, b) => (a.match ?? 0) - (b.match ?? 0));
 		const features: Feature[] = [
-			...streets.flatMap((mark) => {
+			...marks.flatMap((mark) => {
 				const sector = viewSector(mark);
 				return sector ? [sector] : [];
 			}),
-			...streets.map((mark): Feature => ({
+			...marks.map((mark): Feature => ({
 				type: 'Feature',
 				geometry: { type: 'Point', coordinates: [mark.lon, mark.lat] },
-				properties: { key: mark.key, active: mark.active ? 1 : 0, pano: mark.pano ? 1 : 0 }
+				properties: streetProperties(mark)
 			}))
 		];
 		if (!map || !ready) return;

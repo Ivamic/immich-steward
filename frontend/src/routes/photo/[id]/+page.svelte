@@ -139,11 +139,12 @@
 	// Which way the camera looked, from the street-level image the point was put on: saved with
 	// the location (D-245).
 	let pendingDirection = $state<Direction | null>(null);
-	// The cone on the map: of the point put, else of the location of the photo.
+	// The cone on the map: at the point put, else at the location of the photo; the direction
+	// that comes with the point, else the one kept.
 	const cone = $derived.by(() => {
-		if (picked) return pendingDirection ? { ...picked, ...pendingDirection } : null;
-		const kept = asset?.direction;
-		return kept && current ? { ...current, heading: kept.heading, accuracy: kept.accuracy } : null;
+		const at = picked ?? current;
+		const shown = (picked && pendingDirection) || asset?.direction;
+		return at && shown ? { ...at, heading: shown.heading, accuracy: shown.accuracy } : null;
 	});
 
 	async function takeTheDirection(direction: Direction) {

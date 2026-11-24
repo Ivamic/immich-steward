@@ -232,6 +232,12 @@
 	const maybeCount = $derived(images.filter((i) => maybe(matchOf.get(key(i)))).length);
 	const loading = $derived(waiting.length > 0);
 
+	const matchLevel = (image: StreetImage): 0 | 1 | 2 => {
+		const r = matchOf.get(key(image));
+		return sure(r) ? 2 : maybe(r) ? 1 : 0;
+	};
+	const anyMatch = $derived(sureCount + maybeCount > 0);
+
 	$effect(() => {
 		marks = images.map((image) => ({
 			key: key(image),
@@ -239,7 +245,9 @@
 			lon: image.longitude,
 			heading: image.heading,
 			pano: image.pano,
-			active: key(image) === active
+			active: key(image) === active,
+			match: matchLevel(image),
+			faded: anyMatch && matchLevel(image) === 0
 		}));
 	});
 
@@ -460,6 +468,8 @@
 						id="street-{key(image)}"
 						class="shot"
 						class:active={active === key(image)}
+						class:sure={sure(found)}
+						class:maybe={maybe(found)}
 						title={image.author
 							? `${sourceName(image.source)} · ${image.author}`
 							: sourceName(image.source)}
@@ -636,6 +646,13 @@
 		background: none;
 		cursor: pointer;
 	}
+	/* Matched with the photo: in the colours of the map. */
+	.shot.sure {
+		border-color: #8250df;
+	}
+	.shot.maybe {
+		border-color: #9a6700;
+	}
 	.shot.active {
 		border-color: #bc4c00;
 	}
@@ -658,8 +675,9 @@
 		font-weight: var(--weight-medium);
 		color: #ffffff;
 	}
+	/* The colours of the matched images on the map. */
 	.mark.sure {
-		background: #1a7f37;
+		background: #8250df;
 	}
 	.mark.maybe {
 		background: #9a6700;

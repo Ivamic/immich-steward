@@ -962,6 +962,15 @@ export interface TurnedPhotos {
 	kept?: number;
 }
 
+/** How many photos the orientation module would look at again after a reset. */
+export const getTurnedReset = (keepKept: boolean) =>
+	request<{ photos: number }>('GET', `/api/groups/candidates/turned/reset?keep_kept=${keepKept}`);
+/** Forgets the turns found: the module looks at the photos again by itself. */
+export const resetTurned = (keepKept: boolean) =>
+	request<{ photos: number }>('POST', '/api/groups/candidates/turned/reset', {
+		keep_kept: keepKept
+	});
+
 /** The photos kept as they are, newest first. */
 export const getKeptTurned = (offset = 0, limit = 200) =>
 	request<{ total: number; photos: AssetItem[] }>(

@@ -4,13 +4,15 @@ user to turn back in Immich or keep as they are. Nothing is written to Immich he
 
 from uuid import UUID
 
-from sqlalchemy import and_, func, select, update
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 
-from steward import locked, rotation
+from steward import locked, rotation, worker_queue
 from steward.config import Settings
-from steward.models import Asset, AssetOrientation
+from steward.models import Asset, AssetOrientation, ModuleRun
+
+MODULE_ID = "orientation"
 
 # Quarter turns counter-clockwise the photo has now -> degrees clockwise that make it right
 # (as `steward.rotation` and the selection rotate take them).
@@ -110,3 +112,44 @@ async def keep(db: AsyncSession, account_id: UUID, ids: list[UUID], kept: bool) 
     )
     await db.commit()
     return int(result.rowcount or 0)  # type: ignore[attr-defined]
+
+
+def _to_look_again(account_id: UUID, keep_kept: bool) -> list[ColumnElement[bool]]:
+    """The finished runs of the module a reset drops: the photos the list can show (not those
+    of the closed locked folder), not those being turned now, with `keep_kept` not those kept
+    as they are. Runs still queued or running are left alone."""
+    photos = select(Asset.id).where(
+        Asset.account_id == account_id, rotation.not_turning(), locked.shown()
+    )
+    conditions = [
+        ModuleRun.module_id == MODULE_ID,
+        ModuleRun.status.not_in(worker_queue.ACTIVE),
+        ModuleRun.asset_id.in_(photos),
+    ]
+    if keep_kept:
+        kept = select(AssetOrientation.asset_id).where(AssetOrientation.kept.is_(True))
+        conditions.append(ModuleRun.asset_id.not_in(kept))
+    return conditions
+
+
+async def reset_count(db: AsyncSession, account_id: UUID, keep_kept: bool) -> int:
+    """How many photos a reset would have the module look at again."""
+    count = await db.scalar(
+        select(func.count(func.distinct(ModuleRun.asset_id))).where(
+            *_to_look_again(account_id, keep_kept)
+        )
+    )
+    return count or 0
+
+
+async def reset(db: AsyncSession, account_id: UUID, keep_kept: bool) -> int:
+    """Forgets what the module found, so that the automatic runs look at the photos again (the
+    answers go with their runs); returns how many photos."""
+    count = await reset_count(db, account_id, keep_kept)
+    await db.execute(
+        delete(ModuleRun)
+        .where(*_to_look_again(account_id, keep_kept))
+        .execution_options(synchronize_session=False)
+    )
+    await db.commit()
+    return count

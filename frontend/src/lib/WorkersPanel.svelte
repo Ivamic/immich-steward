@@ -17,6 +17,7 @@
 	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import AddDeviceDialog from '#lib/AddDeviceDialog.svelte';
 	import ScheduleDialog from '#lib/ScheduleDialog.svelte';
+	import TurnedReset from '#lib/groups/TurnedReset.svelte';
 	import { serverTime } from '#lib/workers/schedule.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { formatUntil, pause } from '#lib/pause.svelte.js';
@@ -43,6 +44,9 @@
 	// "module:code" of the rerun in progress, and the outcome of the last one (per module).
 	let rerunning = $state<string | null>(null);
 	let rerunNotice = $state<{ module: string; text: string } | null>(null);
+	// The reset of the turns found by the orientation module: its window, and what it did.
+	let resettingTurns = $state(false);
+	let resetNotice = $state<string | null>(null);
 	let pausing = $state(false);
 	let forgetting = $state<string | null>(null);
 
@@ -131,6 +135,12 @@
 		} finally {
 			rerunning = null;
 		}
+	}
+
+	async function afterTurnsReset(photos: number) {
+		resettingTurns = false;
+		resetNotice = m.turned_reset_done({ count: number.format(photos) });
+		await load();
 	}
 
 	// Most frequent reason first.
@@ -448,11 +458,32 @@
 							{/if}
 						</div>
 					{/if}
+
+					{#if module.id === 'orientation' && sum}
+						<div class="reset-turns">
+							<button
+								type="button"
+								class="st-btn st-btn--sm"
+								title={m.turned_reset_button_hint()}
+								onclick={() => (resettingTurns = true)}
+							>
+								<Icon name="rotate-ccw" size={14} />
+								{m.turned_reset_button()}
+							</button>
+							{#if resetNotice}
+								<p class="muted" role="status">{resetNotice}</p>
+							{/if}
+						</div>
+					{/if}
 				</article>
 			{/each}
 		</div>
 	{/if}
 </section>
+
+{#if resettingTurns}
+	<TurnedReset onclose={() => (resettingTurns = false)} ondone={afterTurnsReset} />
+{/if}
 
 {#if adding}
 	<AddDeviceDialog docs={WORKERS_DOCS} onclose={() => (adding = false)} />
@@ -471,6 +502,12 @@
 {/if}
 
 <style>
+	.reset-turns {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-3);
+	}
 	section {
 		display: flex;
 		flex-direction: column;

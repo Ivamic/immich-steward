@@ -665,6 +665,26 @@ async def keep_turned(body: KeepTurned, account: CurrentAccount, db: DbDep) -> d
     return {"changed": await orientation.keep(db, account.id, body.ids, body.kept)}
 
 
+class TurnedReset(BaseModel):
+    # Leave the photos kept as they are ("Not turned") with their answers.
+    keep_kept: bool = True
+
+
+@router.get("/candidates/turned/reset")
+async def turned_reset_count(
+    account: CurrentAccount, db: DbDep, keep_kept: bool = True
+) -> dict[str, int]:
+    """How many photos the orientation module would look at again after a reset."""
+    return {"photos": await orientation.reset_count(db, account.id, keep_kept)}
+
+
+@router.post("/candidates/turned/reset")
+async def reset_turned(body: TurnedReset, account: CurrentAccount, db: DbDep) -> dict[str, int]:
+    """Forgets the turns the orientation module found: it looks at the photos again by itself,
+    newest first."""
+    return {"photos": await orientation.reset(db, account.id, body.keep_kept)}
+
+
 class Candidates(BaseModel):
     """Photos that may show no sign of a place, for the user to mark (A1.3)."""
 

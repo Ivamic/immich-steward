@@ -200,6 +200,37 @@ def test_a_photo_being_turned_back_is_not_offered_again(
     assert (progress["done"], progress["skipped"]) == (0, 1)
 
 
+def test_a_reset_has_every_photo_looked_at_again(
+    library: dict[str, str], signed_in: TestClient
+) -> None:
+    worker = start_worker(signed_in)
+    schedule(signed_in)
+    answer_all(signed_in, worker, {library["a.jpg"]: LEFT, library["b.jpg"]: LEFT})
+    keep = {"ids": [library["b.jpg"]], "kept": True}
+    signed_in.post(f"{URL}/keep", json=keep)
+    # 7 photos looked at; the one kept as it is stays by default.
+    assert signed_in.get(f"{URL}/reset").json() == {"photos": 6}
+    assert signed_in.get(f"{URL}/reset", params={"keep_kept": False}).json() == {"photos": 7}
+
+    assert signed_in.post(f"{URL}/reset", json={}).json() == {"photos": 6}
+    assert turned(signed_in)[1] == []
+    assert signed_in.get(URL).json()["checked"] == 1
+    assert [p["file_name"] for p in signed_in.get(f"{URL}/kept").json()["photos"]] == ["b.jpg"]
+
+    # The automatic runs take the photos again; this time a looks right.
+    schedule(signed_in)
+    answer_all(signed_in, worker, {})
+    assert signed_in.get(URL).json()["checked"] == 7
+    assert turned(signed_in)[1] == []
+
+    # Without keeping: the kept one is looked at anew too, and offered when it still looks turned.
+    assert signed_in.post(f"{URL}/reset", json={"keep_kept": False}).json() == {"photos": 7}
+    schedule(signed_in)
+    answer_all(signed_in, worker, {library["b.jpg"]: LEFT})
+    assert turned(signed_in)[1] == ["b.jpg"]
+    assert signed_in.get(URL).json()["kept"] == 0
+
+
 def test_an_answer_must_be_four_chances(library: dict[str, str], signed_in: TestClient) -> None:
     worker = start_worker(signed_in)
     schedule(signed_in)

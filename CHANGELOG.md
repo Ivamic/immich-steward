@@ -7,6 +7,14 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Reset the found turns**, on **Turned photos** and at the *orientation* module on
+  **Processing**: forgets what the module found, so that it looks at the photos again, newest
+  first (for instance after a new version of its model). The photos marked **Not turned** are left
+  alone unless you untick the option; photos being turned right now are left out. The window says
+  how many photos the module will look at. Nothing changes in Immich.
+
 ## [0.13.2] - 2026-11-24
 
 ### Fixed

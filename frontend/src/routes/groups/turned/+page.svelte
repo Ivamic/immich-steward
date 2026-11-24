@@ -27,6 +27,7 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import GroupsTabs from '#lib/groups/GroupsTabs.svelte';
+	import TurnedReset from '#lib/groups/TurnedReset.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -46,6 +47,7 @@
 	let error = $state<string | null>(null);
 	let busy = $state(false);
 	let locationOpen = $state(false);
+	let resetOpen = $state(false);
 	const selection = new Selection();
 	const chosenIds = $derived(new Set(selection.ids));
 	// Photos turned or kept on this page: they leave the list at once.
@@ -249,6 +251,16 @@
 		}
 	}
 
+	/** After a reset: the module looks at the photos again, the list starts anew. */
+	async function afterReset(photos: number) {
+		resetOpen = false;
+		selection.clear();
+		gone = new Set();
+		bulkNotices.done(m.turned_reset_done({ count: number.format(photos) }));
+		await load();
+		if (keptView) await loadKept();
+	}
+
 	function clickTile(event: MouseEvent, photo: AssetItem, photos: AssetItem[]) {
 		if (event.shiftKey && selection.anchor) {
 			event.preventDefault();
@@ -269,6 +281,18 @@
 
 <svelte:window {onkeydown} />
 
+{#snippet resetButton()}
+	<button
+		type="button"
+		class="st-btn st-btn--sm st-btn--ghost"
+		title={m.turned_reset_button_hint()}
+		onclick={() => (resetOpen = true)}
+	>
+		<Icon name="rotate-ccw" size={14} />
+		{m.turned_reset_button()}
+	</button>
+{/snippet}
+
 <h1>{m.nav_groups()}</h1>
 
 <GroupsTabs current="turned" turned={answer ? Math.max(0, total) : null} />
@@ -288,6 +312,7 @@
 			title={m.turned_none()}
 			text={m.turned_none_text({ count: number.format(answer.checked) })}
 		/>
+		<div class="reset-alone">{@render resetButton()}</div>
 	{:else}
 		<div class="views">
 			<button
@@ -342,6 +367,7 @@
 					{afterTurn ? m.turned_as_now() : m.turned_after_turn()}
 				</button>
 			{/if}
+			<span class="reset">{@render resetButton()}</span>
 		</div>
 		{#if afterTurn && !keptView}
 			<div class="st-banner st-banner--warning after-turn" role="status">
@@ -508,7 +534,18 @@
 	/>
 {/if}
 
+{#if resetOpen}
+	<TurnedReset onclose={() => (resetOpen = false)} ondone={afterReset} />
+{/if}
+
 <style>
+	.reset {
+		margin-left: auto;
+	}
+	.reset-alone {
+		display: flex;
+		justify-content: center;
+	}
 	h1 {
 		margin: 0 0 var(--space-4);
 	}

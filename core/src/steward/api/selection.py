@@ -9,7 +9,16 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from steward import details, jobs, locations, locked, module_display, selection, view_groups
+from steward import (
+    details,
+    jobs,
+    locations,
+    locked,
+    module_display,
+    rotation,
+    selection,
+    view_groups,
+)
 from steward.api.assets import (
     CandidateItem,
     ModuleSuggestions,
@@ -85,6 +94,8 @@ class SelectionRotate(BaseModel):
     ids: AssetIds
     # Clockwise, on top of how each photo is shown now.
     turn: Literal[90, 180, 270]
+    # From the list of turned photos: each is turned only while the list offers it with this turn.
+    turned: bool = False
 
 
 async def _own_assets(db: DbDep, account: CurrentAccount, ids: list[UUID]) -> list[Asset]:
@@ -225,15 +236,23 @@ async def set_review(body: SelectionReview, account: CurrentAccount, db: DbDep) 
 @router.post("/rotate", dependencies=[Depends(get_secret_box)])
 async def rotate(body: SelectionRotate, account: CurrentAccount, db: DbDep) -> JobOut:
     """Turns the chosen photos in Immich in the background (videos are left as they are); the
-    job tells the progress."""
+    job tells the progress. Photos already in a rotate job are left out (`busy`): turns would
+    add up."""
     assets = await _own_assets(db, account, body.ids)
-    job = await jobs.add(
-        db,
-        jobs.ROTATE,
-        account.id,
-        {"asset_ids": [str(a.id) for a in assets], "turn": body.turn},
+    ids = [a.id for a in assets]
+    job = Job(
+        kind=jobs.ROTATE,
+        account_id=account.id,
+        payload={"asset_ids": [str(i) for i in ids], "turn": body.turn, "claimed": True},
         priority=PRIORITY_USER,
     )
+    db.add(job)
+    await db.flush()
+    # One transaction with the job: the runner never sees it before its photos are claimed.
+    images = {a.id for a in assets if a.type == "IMAGE"}
+    claimed = await rotation.claim(db, job, [i for i in ids if i in images])
+    job.payload = job.payload | {"busy": len(images - claimed), "turned": body.turned}
+    await db.commit()
     return JobOut.of(job)
 
 

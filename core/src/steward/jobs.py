@@ -18,7 +18,16 @@ import httpx2
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from steward import details, locked, rotation, similar_hints, updates, view_groups, worker_queue
+from steward import (
+    details,
+    locked,
+    orientation,
+    rotation,
+    similar_hints,
+    updates,
+    view_groups,
+    worker_queue,
+)
 from steward.config import Settings
 from steward.crypto import SecretBox
 from steward.deps import ImmichClientFactory
@@ -29,13 +38,13 @@ from steward.immich import (
     ImmichPermissionError,
     ImmichUnreachableError,
 )
-from steward.models import Account, Asset, Job, LockedFolder
+from steward.models import Account, Asset, AssetOrientation, Job, LockedFolder
 from steward.sync import sync_account
 
 log = logging.getLogger(__name__)
 
 SYNC = "sync"
-ROTATE = "rotate"
+ROTATE = rotation.JOB_KIND
 SIMILAR_HINTS = "similar_hints"
 # A full pass of the similar-photos badge once a day (new locations change it for other photos).
 SIMILAR_HINTS_FULL_EVERY = timedelta(hours=24)
@@ -133,8 +142,11 @@ ROTATE_CHUNK = 8
 async def run_rotate(ctx: JobContext) -> dict[str, Any]:
     """Turns the photos of the payload in Immich (`rotation`); videos are left as they are.
 
-    The progress keeps the photos already turned: a job run again after a restart does not turn
-    them twice.
+    Only the photos the job claimed are turned: one already in another rotate job is left out
+    (`busy`), so that two turns never add up. The progress keeps the photos already turned and the
+    one being turned with its rotation from before: a job run again after a restart does not turn
+    any of them twice. A job from the list of turned photos (`turned`) turns a photo only while the
+    list still offers it with that turn (`skipped` otherwise).
     """
     settings = ctx.settings
     if settings.immich_url is None or settings.secret_key is None:
@@ -142,24 +154,38 @@ async def run_rotate(ctx: JobContext) -> dict[str, Any]:
     account = await ctx.db.get(Account, ctx.job.account_id)
     if account is None:
         raise JobError("account_not_found")
-    turn = int(ctx.job.payload["turn"])
-    ids = [UUID(i) for i in ctx.job.payload["asset_ids"]]
+    payload = ctx.job.payload
+    turn = int(payload["turn"])
+    ids = [UUID(i) for i in payload["asset_ids"]]
     done_before = set(ctx.job.progress.get("done_ids", []))
+    pending = ctx.job.progress.get("pending")
     assets = {
         a.id: a
         for a in await ctx.db.scalars(
             select(Asset).where(Asset.id.in_(ids), Asset.account_id == account.id)
         )
     }
-    photos = [assets[i] for i in ids if i in assets and assets[i].type == "IMAGE"]
+    # Jobs queued before 0.13.2 claimed nothing: they turn all their photos, as then.
+    legacy = "claimed" not in payload
+    photos = [
+        assets[i]
+        for i in ids
+        if i in assets
+        and assets[i].type == "IMAGE"
+        and (legacy or assets[i].turning_job_id == ctx.job.id or str(i) in done_before)
+    ]
+    offered = await _offered_turns(ctx.db, photos) if payload.get("turned") else None
     progress: dict[str, Any] = {
         "total": len(photos),
         "videos": sum(1 for a in assets.values() if a.type != "IMAGE"),
         "missing": len(ids) - len(assets),
+        # Chosen, but in another rotate job already (counted when the job was queued).
+        "busy": int(payload.get("busy", 0)),
         "failed": 0,
+        "skipped": int(ctx.job.progress.get("skipped", 0)),
         "done_ids": sorted(done_before),
     }
-    progress["done"] = len(progress["done_ids"])
+    progress["done"] = len(progress["done_ids"]) - progress["skipped"]
     await ctx.report(progress)
     todo = [a for a in photos if str(a.id) not in done_before]
     box = SecretBox(settings.secret_key.get_secret_value())
@@ -168,21 +194,54 @@ async def run_rotate(ctx: JobContext) -> dict[str, Any]:
         immich = await locked.client_for(ctx.db, box, ctx.immich_factory, settings, account, todo)
     except ApiError as exc:
         raise JobError(exc.code) from exc
+
+    async def leave(asset: Asset) -> None:
+        """The photo is through with this job: free for other turns again."""
+        if asset.turning_job_id == ctx.job.id:
+            asset.turning_job_id = None
+        await ctx.db.commit()
+
     try:
         async with immich as client:
             for start in range(0, len(todo), ROTATE_CHUNK):
                 before: dict[Asset, str | None] = {}
                 for asset in todo[start : start + ROTATE_CHUNK]:
+                    # The photo being turned when the core stopped: its rotation tells whether
+                    # Immich took the turn.
+                    resumed = pending is not None and pending.get("id") == str(asset.id)
+                    if not resumed and offered is not None and offered.get(asset.id) != turn:
+                        # Turned or kept meanwhile, or looked at anew: the list no longer offers it.
+                        progress["skipped"] += 1
+                        progress["done_ids"].append(str(asset.id))
+                        await leave(asset)
+                        await ctx.report(progress)
+                        continue
                     try:
-                        before[asset] = await rotation.apply_turn(ctx.db, client, asset, turn)
+                        edits = await client.asset_edits(asset.immich_id)
+                        angle = rotation.angle_of(edits)
+                        if resumed and pending is not None and pending.get("angle") != angle:
+                            # Turned just before the core stopped: not again.
+                            await rotation.drop_orientation(ctx.db, asset)
+                            before[asset] = None
+                        else:
+                            progress["pending"] = {"id": str(asset.id), "angle": angle}
+                            await ctx.report(progress)
+                            before[asset] = await rotation.apply_turn(
+                                ctx.db, client, asset, turn, edits
+                            )
                     except (ImmichAuthError, ImmichPermissionError, ImmichUnreachableError):
                         raise
                     except ImmichError:
                         log.warning("could not turn asset %s", asset.id, exc_info=True)
                         progress["failed"] += 1
+                        progress.pop("pending", None)
+                        await leave(asset)
+                        await ctx.report(progress)
                         continue
+                    progress.pop("pending", None)
                     progress["done_ids"].append(str(asset.id))
                     progress["done"] += 1
+                    await leave(asset)
                     await ctx.report(progress)
                 if before:
                     await rotation.await_thumbnails(ctx.db, client, before)
@@ -193,6 +252,21 @@ async def run_rotate(ctx: JobContext) -> dict[str, Any]:
     except ImmichUnreachableError as exc:
         raise JobError("immich_unreachable") from exc
     return progress
+
+
+async def _offered_turns(db: AsyncSession, photos: list[Asset]) -> dict[UUID, int]:
+    """Photo -> the turn the list of turned photos offers for it now (degrees clockwise)."""
+    rows = await db.execute(
+        select(AssetOrientation.asset_id, AssetOrientation.turn).where(
+            AssetOrientation.asset_id.in_([a.id for a in photos]),
+            AssetOrientation.kept.is_(False),
+        )
+    )
+    return {
+        asset_id: orientation.FIX[quarter]
+        for asset_id, quarter in rows
+        if quarter in orientation.FIX
+    }
 
 
 class JobError(Exception):

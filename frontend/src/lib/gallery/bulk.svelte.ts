@@ -37,6 +37,10 @@ interface Progress {
 	done?: number;
 	videos?: number;
 	failed?: number;
+	/** Chosen, but in another rotate job already: left out, so that turns do not add up. */
+	busy?: number;
+	/** From the list of turned photos, which no longer offered them. */
+	skipped?: number;
 }
 
 export class BulkNotices {
@@ -77,8 +81,12 @@ export class BulkNotices {
 				galleryChanged();
 				const videos = sum((p) => p.videos);
 				const failedSome = sum((p) => p.failed);
+				const busy = sum((p) => p.busy);
+				const skipped = sum((p) => p.skipped);
 				finish('done', m.rotate_done({ count: sum((p) => p.done) }), [
 					...(videos ? [m.rotate_videos({ count: videos })] : []),
+					...(busy ? [m.rotate_busy({ count: busy })] : []),
+					...(skipped ? [m.rotate_skipped({ count: skipped })] : []),
 					...(failedSome ? [m.rotate_failed_some({ count: failedSome })] : [])
 				]);
 				return;

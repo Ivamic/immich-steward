@@ -4,10 +4,10 @@
 from typing import Any
 
 import pytest
-from conftest import WORKER_TOKEN, FakeImmich, sync
+from conftest import WORKER_TOKEN, FakeImmich, run_jobs, sync
 from fastapi.testclient import TestClient
 
-from steward import worker_queue
+from steward import rotation, worker_queue
 from steward.api.worker import PROTOCOL_VERSION
 
 AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
@@ -153,6 +153,51 @@ def test_a_turned_photo_is_looked_at_again(library: dict[str, str], signed_in: T
     schedule(signed_in)
     answer_all(signed_in, worker, {})
     assert signed_in.get(URL).json()["checked"] == 7
+
+
+def turn_back(client: TestClient, ids: list[str], turn: int = 90) -> dict[str, Any]:
+    """The rotate of the list of turned photos."""
+    body = {"ids": ids, "turn": turn, "turned": True}
+    response = client.post("/api/selection/rotate", json=body)
+    assert response.status_code == 200
+    job: dict[str, Any] = response.json()
+    return job
+
+
+def test_a_photo_being_turned_back_is_not_offered_again(
+    library: dict[str, str],
+    signed_in: TestClient,
+    fake_immich: FakeImmich,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Turned from the list and the page opened again before Immich made the new thumbnails: the
+    photo used to be offered once more, and a second turn put it upside down (0.13.2)."""
+    monkeypatch.setattr(rotation, "THUMBNAIL_POLL_S", 0.0)
+    fake_immich.edit_thumbnails_late = True
+    worker = start_worker(signed_in)
+    schedule(signed_in)
+    answer_all(signed_in, worker, {library["a.jpg"]: LEFT, library["b.jpg"]: LEFT})
+    immich_a = next(k for k, v in fake_immich.assets.items() if v["originalFileName"] == "a.jpg")
+
+    turn_back(signed_in, [library["a.jpg"]])
+    # Queued: out of the list at once, for any page that asks.
+    assert turned(signed_in)[1] == ["b.jpg"]
+    assert signed_in.get(URL).json()["groups"][0]["total"] == 1
+    # The same photo once more (another tab): not taken.
+    again = turn_back(signed_in, [library["a.jpg"]])
+    run_jobs(signed_in)
+    assert fake_immich.edits[immich_a] == [{"action": "rotate", "parameters": {"angle": 90}}]
+    progress = signed_in.get(f"/api/selection/jobs/{again['id']}").json()["progress"]
+    assert (progress["done"], progress["busy"]) == (0, 1)
+
+    # Turned, the new thumbnails still not there: the old answer is gone with the turn.
+    assert turned(signed_in)[1] == ["b.jpg"]
+    # Asked once more from a page loaded before: the list no longer offers it, nothing is turned.
+    late = turn_back(signed_in, [library["a.jpg"]])
+    run_jobs(signed_in)
+    assert fake_immich.edits[immich_a] == [{"action": "rotate", "parameters": {"angle": 90}}]
+    progress = signed_in.get(f"/api/selection/jobs/{late['id']}").json()["progress"]
+    assert (progress["done"], progress["skipped"]) == (0, 1)
 
 
 def test_an_answer_must_be_four_chances(library: dict[str, str], signed_in: TestClient) -> None:

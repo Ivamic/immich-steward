@@ -119,6 +119,7 @@ class Asset(Base):
     __table_args__ = (
         UniqueConstraint("account_id", "immich_id"),
         Index("ix_asset_account_local_taken_at", "account_id", "local_taken_at"),
+        Index("ix_asset_turning_job", "turning_job_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -157,6 +158,11 @@ class Asset(Base):
     added_at: Mapped[datetime | None]
     # The user's decision about this asset; not touched by sync. See REVIEW_STATUSES.
     review_status: Mapped[str] = mapped_column(String(16), default="new", server_default="new")
+    # The rotate job that turns the photo in Immich: while it is queued or running, the photo is
+    # taken into no other turn and leaves the list of turned photos (`steward.rotation`).
+    turning_job_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("job.id", ondelete="SET NULL")
+    )
 
 
 # new: waiting for a location; skipped: "come back later"; not_applicable: a location makes no

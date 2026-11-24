@@ -9,16 +9,66 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from steward import worker_queue
 from steward.errors import ApiError
 from steward.immich import ImmichClient
-from steward.models import Asset
+from steward.models import Asset, AssetOrientation, Job
+
+JOB_KIND = "rotate"
+# The jobs that no longer turn their photos.
+FINISHED = ("done", "failed")
 
 # Waiting for Immich to make the new thumbnails: up to 10 s.
 THUMBNAIL_POLL_S = 0.5
 THUMBNAIL_ATTEMPTS = 20
+
+
+def turning() -> ColumnElement[bool]:
+    """The photo waits for a rotate job, or is being turned by one: a turn on top of it would
+    add up with the first (two quarter turns put the photo upside down)."""
+    return Asset.turning_job_id.in_(
+        select(Job.id).where(Job.kind == JOB_KIND, Job.status.in_(worker_queue.ACTIVE))
+    )
+
+
+def not_turning() -> ColumnElement[bool]:
+    """The opposite of `turning`, for lists (without a job the comparison would be NULL)."""
+    return or_(Asset.turning_job_id.is_(None), ~turning())
+
+
+def free_to_turn() -> ColumnElement[bool]:
+    """The opposite of `turning`, as a claim can check it: a job still invisible to a request
+    running at the same time is not finished either, so two requests never take one photo."""
+    return or_(
+        Asset.turning_job_id.is_(None),
+        Asset.turning_job_id.in_(select(Job.id).where(Job.status.in_(FINISHED))),
+    )
+
+
+async def claim(db: AsyncSession, job: Job, ids: list[UUID]) -> set[UUID]:
+    """Gives the photos free to turn to the job (not committed); returns them."""
+    claimed = await db.scalars(
+        update(Asset)
+        .where(Asset.id.in_(ids), free_to_turn())
+        .values(turning_job_id=job.id)
+        .returning(Asset.id)
+        .execution_options(synchronize_session=False)
+    )
+    return set(claimed)
+
+
+async def is_turning(db: AsyncSession, asset: Asset) -> bool:
+    return bool(await db.scalar(select(Asset.id).where(Asset.id == asset.id, turning())))
+
+
+def angle_of(edits: list[dict[str, Any]]) -> int:
+    """The rotation in the edits of a photo (0: none). Every turn changes it."""
+    found = next((e for e in edits if e["action"] == "rotate"), None)
+    return int(found["parameters"]["angle"]) % 360 if found else 0
 
 
 def with_turn(edits: list[dict[str, Any]], turn: int) -> list[dict[str, Any]]:
@@ -51,20 +101,39 @@ async def save_turn(db: AsyncSession, client: ImmichClient, asset: Asset, turn: 
     return asset.id in await await_thumbnails(db, client, {asset: before})
 
 
-async def apply_turn(db: AsyncSession, client: ImmichClient, asset: Asset, turn: int) -> str | None:
-    """Turns the photo in Immich, keeping its other edits; returns its thumbhash from before, for
-    `await_thumbnails`."""
+async def apply_turn(
+    db: AsyncSession,
+    client: ImmichClient,
+    asset: Asset,
+    turn: int,
+    edits: list[dict[str, Any]] | None = None,
+) -> str | None:
+    """Turns the photo in Immich, keeping its other edits (`edits`: as just read from Immich);
+    returns its thumbhash from before, for `await_thumbnails`.
+
+    The answer of the orientation module goes at once: it was about the image before the turn,
+    and the list of turned photos must not offer the photo again until the module has looked at
+    the new one.
+    """
     if asset.type != "IMAGE":
         raise ApiError(422, "rotate_not_supported")
     before = (await client.asset(asset.immich_id)).thumbhash
-    edits = with_turn(await client.asset_edits(asset.immich_id), turn)
+    if edits is None:
+        edits = await client.asset_edits(asset.immich_id)
+    edits = with_turn(edits, turn)
     if edits:
         await client.set_asset_edits(asset.immich_id, edits)
     else:
         await client.remove_asset_edits(asset.immich_id)
     asset.is_edited = bool(edits)
+    await drop_orientation(db, asset)
     await db.commit()
     return before
+
+
+async def drop_orientation(db: AsyncSession, asset: Asset) -> None:
+    """The answer of the orientation module was about the image before the turn (not committed)."""
+    await db.execute(delete(AssetOrientation).where(AssetOrientation.asset_id == asset.id))
 
 
 async def await_thumbnails(

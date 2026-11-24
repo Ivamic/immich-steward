@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 
-from steward import locked
+from steward import locked, rotation
 from steward.config import Settings
 from steward.models import Asset, AssetOrientation
 
@@ -31,6 +31,8 @@ def _turned(account_id: UUID, settings: Settings) -> ColumnElement[bool]:
         AssetOrientation.kept.is_(False),
         Asset.is_trashed.is_(False),
         Asset.type == "IMAGE",
+        # Being turned now: offered again it could be turned twice.
+        rotation.not_turning(),
         locked.shown(),
     )
 

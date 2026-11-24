@@ -932,9 +932,13 @@ export async function setSelectionReview(ids: string[], status: ReviewStatus) {
 	);
 	return { changed: sum(answers, (a) => a.changed) };
 }
-/** Turns the photos in Immich in the background: a job per batch, which tells its progress. */
-export const rotateSelection = (ids: string[], turn: Exclude<Turn, 0>) =>
-	inBatches(ids, (part) => request<Job>('POST', '/api/selection/rotate', { ids: part, turn }));
+/** Turns the photos in Immich in the background: a job per batch, which tells its progress.
+ * Photos already being turned are left out. `turned`: from the list of turned photos, where a
+ * photo is turned only while the list still offers it so. */
+export const rotateSelection = (ids: string[], turn: Exclude<Turn, 0>, turned = false) =>
+	inBatches(ids, (part) =>
+		request<Job>('POST', '/api/selection/rotate', { ids: part, turn, turned })
+	);
 export const getSelectionJob = (id: string) => request<Job>('GET', `/api/selection/jobs/${id}`);
 
 /** Photos that look turned the same way (D-237). */

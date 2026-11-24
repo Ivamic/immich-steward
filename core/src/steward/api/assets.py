@@ -1003,6 +1003,9 @@ async def rotate(
 ) -> AssetDetail:
     """Saves the photo rotated in Immich (as an edit; the original file is not changed)."""
     asset = await _own_asset(db, account, asset_id)
+    if await rotation.is_turning(db, asset):
+        # A turn of the selection is on its way: this one would add to it.
+        raise ApiError(409, "rotate_in_progress")
     try:
         async with _immich(settings, factory, box, account, db, [asset]) as client:
             await rotation.save_turn(db, client, asset, body.turn)

@@ -88,6 +88,8 @@ async def undo_last(db: AsyncSession, client: ImmichClient, asset: Asset, *, tag
         .where(LocationChange.asset_id == asset.id, LocationChange.status == "applied")
         .order_by(LocationChange.created_at.desc())
         .limit(1)
+        # A second undo at the same moment waits, then finds the change undone.
+        .with_for_update()
     )
     if change is None:
         raise ApiError(409, "location_nothing_to_undo")
@@ -195,6 +197,8 @@ async def undo_batch(
                 LocationChange.status == "applied",
                 Asset.account_id == account_id,
             )
+            # A second undo of the batch at the same moment waits, then finds it undone.
+            .with_for_update(of=LocationChange)
         )
     ).all()
     if not rows:

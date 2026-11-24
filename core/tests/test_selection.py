@@ -202,6 +202,87 @@ def test_rotation_without_the_edit_permissions_fails_the_job(
     assert (done["status"], done["error"]) == ("failed", "immich_missing_permissions")
 
 
+def job_of(client: TestClient, job: dict[str, Any]) -> dict[str, Any]:
+    found: dict[str, Any] = client.get(f"/api/selection/jobs/{job['id']}").json()
+    return found
+
+
+def test_a_photo_on_its_way_is_not_turned_twice(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    first = rotate(signed_in, ids(photos, "a"))
+    # Chosen again before the first turn is through: left out, not turned on top of it.
+    second = rotate(signed_in, ids(photos, "a", "b"))
+    # The card does not turn it either.
+    response = signed_in.post(f"/api/assets/{photos['a'][0]}/rotate", json={"turn": 90})
+    assert (response.status_code, response.json()["code"]) == (409, "rotate_in_progress")
+    run_jobs(signed_in)
+
+    assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
+    assert fake_immich.edits[photos["b"][1]] == [ROTATE_90]
+    assert job_of(signed_in, first)["progress"]["done"] == 1
+    progress = job_of(signed_in, second)["progress"]
+    assert (progress["total"], progress["done"], progress["busy"]) == (1, 1, 1)
+
+    # Through: the photo can be turned again.
+    rotate(signed_in, ids(photos, "a"))
+    run_jobs(signed_in)
+    assert fake_immich.edits[photos["a"][1]] == [{"action": "rotate", "parameters": {"angle": 180}}]
+    card = signed_in.post(f"/api/assets/{photos['a'][0]}/rotate", json={"turn": 180})
+    assert card.status_code == 200
+
+
+def test_a_failed_job_leaves_its_photos_free(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    fake_immich.can_edit = False
+    rotate(signed_in, ids(photos, "a"))
+    run_jobs(signed_in)
+    fake_immich.can_edit = True
+    # The photo still names the failed job: a job that no longer runs holds nothing.
+    job = rotate(signed_in, ids(photos, "a"))
+    run_jobs(signed_in)
+    assert job_of(signed_in, job)["progress"]["busy"] == 0
+    assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
+
+
+def stopped_while_turning(
+    client: TestClient, job: dict[str, Any], asset_id: str, angle: int
+) -> None:
+    """As if the core stopped while it turned the photo (its rotation from before: `angle`)."""
+    runner = client.app.state.job_runner  # type: ignore[attr-defined]
+
+    async def go() -> None:
+        async with runner._sessionmaker() as db:
+            found = await db.get(Job, job["id"])
+            found.progress = {"done_ids": [], "pending": {"id": asset_id, "angle": angle}}
+            await db.commit()
+
+    client.portal.call(go)  # type: ignore[union-attr]
+
+
+def test_a_turn_taken_before_a_restart_is_not_made_again(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    job = rotate(signed_in, ids(photos, "a", "b"))
+    # Immich took the turn of a (no rotation before, 90 now), the core did not note it.
+    fake_immich.edits[photos["a"][1]] = [ROTATE_90]
+    stopped_while_turning(signed_in, job, photos["a"][0], 0)
+    run_jobs(signed_in)
+    assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
+    assert fake_immich.edits[photos["b"][1]] == [ROTATE_90]
+    assert job_of(signed_in, job)["progress"]["done"] == 2
+
+
+def test_a_turn_not_taken_before_a_restart_is_made(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    job = rotate(signed_in, ids(photos, "a"))
+    stopped_while_turning(signed_in, job, photos["a"][0], 0)
+    run_jobs(signed_in)
+    assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
+
+
 def blocks(client: TestClient, asset_ids: list[str]) -> dict[str, dict[str, Any]]:
     response = client.post("/api/selection/suggestions", json={"ids": asset_ids})
     assert response.status_code == 200

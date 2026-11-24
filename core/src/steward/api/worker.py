@@ -138,6 +138,8 @@ class PairIn(BaseModel):
     view: int | None = Field(default=None, ge=0, le=64)
     offset: float | None = Field(default=None, ge=-180, le=180)
     spread: float | None = Field(default=None, ge=0, le=180)
+    # The width of view of the photo the offset was worked out with (found from the points).
+    fov: float | None = Field(default=None, ge=1, le=180)
 
 
 class OrientationIn(BaseModel):

@@ -9,6 +9,7 @@
 	import {
 		ApiError,
 		forgetDirection,
+		setDirection,
 		getAsset,
 		getMapConfig,
 		getPhotoGroup,
@@ -145,6 +146,17 @@
 		return kept && current ? { ...current, heading: kept.heading, accuracy: kept.accuracy } : null;
 	});
 
+	async function takeTheDirection(direction: Direction) {
+		if (!asset || busy) return;
+		busy = true;
+		try {
+			asset = await setDirection(asset.id, direction, filter);
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
 	async function forgetTheDirection() {
 		if (!asset || busy) return;
 		busy = true;
@@ -704,6 +716,7 @@
 					photo={asset ? thumbnailUrl(id, 'preview', turn, version) : null}
 					bind:active={streetActive}
 					bind:marks={streetMarks}
+					ondirection={takeTheDirection}
 					onpick={(point, direction) => {
 						pick(point);
 						pendingDirection = direction;

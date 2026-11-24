@@ -19,7 +19,8 @@
 		type StreetNear
 	} from '#lib/api.js';
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
-	import type { LatLon } from '#lib/coords.js';
+	import { metersBetween, type LatLon } from '#lib/coords.js';
+	import { commonHeading, directionText } from '#lib/direction.js';
 	import { errorMessage } from '#lib/errors.js';
 	import type { StreetMark } from '#lib/map/markers.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -35,7 +36,8 @@
 		active = $bindable(null),
 		// eslint-disable-next-line no-useless-assignment -- bound: the map of the card reads it
 		marks = $bindable([]),
-		onpick
+		onpick,
+		ondirection
 	}: {
 		/** The photo of the card, compared with the images on a worker; null: none yet. */
 		assetId: string | null;
@@ -49,6 +51,8 @@
 		marks?: StreetMark[];
 		/** "Put the point here", with the way the image looks (null: a panorama, or unknown). */
 		onpick: (point: LatLon, direction: Direction | null) => void;
+		/** "Take the direction": the way the photo looks by the images matched, the point kept. */
+		ondirection?: (direction: Direction) => void;
 	} = $props();
 
 	// Asked once the point stopped moving for this long.
@@ -76,6 +80,12 @@
 	let opened = $state<StreetImage | null>(null);
 	// The latest search: an answer to an older one is dropped.
 	let asked = 0;
+	// Searched around an image instead of the point (D-246): its key and place; the point of the
+	// photo stays where it is. Back to the point when the point moves.
+	let center = $state<{ key: string; at: LatLon } | null>(null);
+	// Every image found for this photo, also by the searches before: an image matched with the
+	// photo stays in the strip when the search moves on.
+	let seen = $state.raw<Map<string, StreetImage>>(new Map());
 	const meters = new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 0 });
 	const dates = new Intl.DateTimeFormat(getLocale(), { year: 'numeric', month: 'short' });
 
@@ -90,8 +100,15 @@
 
 	// Each source is asked on its own: its images show as soon as it answers, a slow one holds
 	// up only itself.
+	// By value: the card gives a new object for the same point when the photo is saved.
+	const pointKey = $derived(point ? `${point.lat},${point.lon}` : '');
 	$effect(() => {
-		const at = point;
+		void pointKey;
+		center = null;
+	});
+
+	$effect(() => {
+		const at = center?.at ?? point;
 		const ids = enabled;
 		if (!shown || !at || ids === null) {
 			parts = {};
@@ -106,6 +123,7 @@
 					.then((found) => {
 						if (search !== asked) return;
 						parts = { ...parts, [id]: found };
+						seen = new Map([...seen, ...found.images.map((i) => [key(i), i] as const)]);
 						error = null;
 					})
 					.catch((e) => {
@@ -123,20 +141,33 @@
 		return () => clearTimeout(timer);
 	});
 
-	const images = $derived(
-		Object.values(parts)
+	// Metres from the point of the photo, also when searched around an image.
+	const distanceOf = (image: StreetImage) =>
+		point ? metersBetween(point, { lat: image.latitude, lon: image.longitude }) : image.distance_m;
+	// Those of the latest search, and the ones matched by the searches before.
+	const images = $derived.by(() => {
+		const near = Object.values(parts)
 			.flatMap((part) => part.images)
 			.sort((a, b) => a.distance_m - b.distance_m)
-			.slice(0, NEAR_MOST)
-	);
+			.slice(0, NEAR_MOST);
+		const keys = new Set(near.map(key));
+		const earlier = [...seen.values()].filter((image) => {
+			const r = matchOf.get(key(image));
+			return !keys.has(key(image)) && r?.checked && r.inliers >= MAYBE;
+		});
+		return [...near, ...earlier].sort((a, b) => distanceOf(a) - distanceOf(b));
+	});
 	const answers = $derived(Object.values(parts).flatMap((part) => part.sources));
 
 	// The comparison of the photo with the images, on a worker (D-244).
 	let comparison = $state.raw<StreetComparison | null>(null);
 	const comparing = $derived(comparison?.status === 'queued' || comparison?.status === 'running');
-	const matchOf = $derived(
-		new Map((comparison?.status === 'done' ? comparison.results : []).map((r) => [r.key, r]))
-	);
+	// The answers kept: while a worker compares new images, those about the earlier ones stay.
+	let lastDone = $state.raw<StreetComparison | null>(null);
+	$effect(() => {
+		if (comparison?.status === 'done') lastDone = comparison;
+	});
+	const matchOf = $derived(new Map((lastDone?.results ?? []).map((r) => [r.key, r])));
 	const sure = (r: StreetMatch | undefined) => Boolean(r?.checked && r.inliers >= SURE);
 	const maybe = (r: StreetMatch | undefined) =>
 		Boolean(r?.checked && r.inliers >= MAYBE && r.inliers < SURE);
@@ -145,6 +176,8 @@
 	$effect(() => {
 		const id = assetId;
 		comparison = null;
+		lastDone = null;
+		seen = new Map();
 		if (!id || !shown) return;
 		getStreetComparison(id)
 			.then((found) => {
@@ -172,10 +205,13 @@
 		return () => clearTimeout(timer);
 	});
 
+	// Not compared yet: only these go to the worker, the answers about the rest are kept.
+	const fresh = $derived(images.filter((image) => !matchOf.has(key(image))));
+
 	async function startCompare() {
-		if (!assetId || !images.length) return;
+		if (!assetId || !fresh.length) return;
 		try {
-			comparison = await compareStreet(assetId, images.map(key));
+			comparison = await compareStreet(assetId, fresh.map(key));
 			error = null;
 		} catch (e) {
 			error = errorMessage(e);
@@ -245,27 +281,53 @@
 		event.preventDefault();
 	}
 
-	/** Which way the photo looks, put on this image: from the points both show when they were
-	 * matched (narrow), else the way the image looks (wide, not from a panorama). */
+	// The way the photo looks by each image matched with it: the image's own heading turned by
+	// as much as the points both show tell.
+	const headings = $derived(
+		images.flatMap((image) => {
+			const r = matchOf.get(key(image));
+			if (image.heading === null || !r?.checked || r.inliers < MAYBE || r.offset === null)
+				return [];
+			return [
+				{
+					heading: (((image.heading + r.offset) % 360) + 360) % 360,
+					weight: r.inliers,
+					accuracy: Math.min(45, Math.max(5, 2 * (r.spread ?? 10) + (image.pano ? 10 : 12))),
+					key: key(image)
+				}
+			];
+		})
+	);
+	// By all of them together (D-246): one image alone is right only if the photo was taken
+	// where it was.
+	const common = $derived(commonHeading(headings));
+	const commonDirection = $derived<Direction | null>(
+		common
+			? {
+					heading: common.heading,
+					accuracy: common.accuracy,
+					source: 'street_match',
+					source_ref: common.key
+				}
+			: null
+	);
+
+	/** Which way the photo looks, put on this image: by the images matched with the photo when
+	 * there are any (narrow), else the way this image looks (wide, not from a panorama). */
 	function directionFrom(image: StreetImage): Direction | null {
-		if (image.heading === null) return null;
-		const r = matchOf.get(key(image));
-		if (r?.checked && r.inliers >= MAYBE && r.offset !== null) {
-			const spread = r.spread ?? 10;
-			return {
-				heading: (((image.heading + r.offset) % 360) + 360) % 360,
-				accuracy: Math.round(Math.min(45, Math.max(5, 2 * spread + (image.pano ? 10 : 12)))),
-				source: 'street_match',
-				source_ref: key(image)
-			};
-		}
-		if (image.pano) return null;
+		if (commonDirection) return commonDirection;
+		if (image.heading === null || image.pano) return null;
 		return {
 			heading: image.heading,
 			accuracy: STREET_ACCURACY,
 			source: 'street',
 			source_ref: key(image)
 		};
+	}
+
+	function searchAround(image: StreetImage) {
+		center = { key: key(image), at: { lat: image.latitude, lon: image.longitude } };
+		opened = null;
 	}
 
 	function pickHere(image: StreetImage) {
@@ -307,8 +369,8 @@
 			<button
 				type="button"
 				class="st-btn st-btn--sm st-btn--secondary"
-				disabled={comparing}
-				title={m.street_compare_hint()}
+				disabled={comparing || !fresh.length}
+				title={fresh.length ? m.street_compare_hint() : m.street_compare_all_done()}
 				onclick={startCompare}
 			>
 				<Icon name="scan-search" size={14} />
@@ -329,6 +391,16 @@
 				{:else}
 					{m.street_none({ radius: RADIUS_M })}
 				{/if}
+				{#if point && center}
+					<span>
+						{m.street_around({ meters: meters.format(metersBetween(point, center.at)) })}
+						<button
+							type="button"
+							class="st-btn st-btn--ghost st-btn--sm"
+							onclick={() => (center = null)}>{m.street_around_back()}</button
+						>
+					</span>
+				{/if}
 				{#if loading && images.length}
 					<span>{m.street_waiting({ sources: waiting.map(sourceName).join(', ') })}</span>
 				{/if}
@@ -340,6 +412,28 @@
 					<span class="problem">{m.street_compare_failed()}</span>
 				{:else if matchOf.size}
 					<span>{m.street_compare_done({ sure: sureCount, maybe: maybeCount })}</span>
+				{/if}
+				{#if !comparing && commonDirection && common}
+					<span>
+						{m.street_direction_found({
+							count: common.used,
+							direction: directionText(commonDirection)
+						})}
+						{#if common.disagree}
+							<span class="problem">{m.street_direction_disagree()}</span>
+						{/if}
+						{#if ondirection}
+							<button
+								type="button"
+								class="st-btn st-btn--ghost st-btn--sm"
+								title={m.street_direction_take_hint()}
+								onclick={() => ondirection(commonDirection)}
+							>
+								<Icon name="compass" size={14} />
+								{m.street_direction_take()}
+							</button>
+						{/if}
+					</span>
 				{/if}
 				{#each problems as found (found.id)}
 					<span class="problem">
@@ -385,7 +479,7 @@
 								>
 							{/if}
 							{#if image.pano}<span class="pano">360°</span>{/if}
-							{m.street_distance({ meters: meters.format(image.distance_m) })}
+							{m.street_distance({ meters: meters.format(distanceOf(image)) })}
 						</span>
 					</button>
 				</li>
@@ -407,7 +501,7 @@
 	<a href={image.page_url} target="_blank" rel="noopener">
 		{m.street_open_at({ source: sourceName(image.source) })}
 	</a>
-	· {m.street_distance({ meters: meters.format(image.distance_m) })}
+	· {m.street_distance({ meters: meters.format(distanceOf(image)) })}
 	{#if image.pano}· 360°{/if}
 {/snippet}
 
@@ -470,6 +564,17 @@
 			<button type="button" class="st-btn st-btn--secondary" onclick={() => (opened = null)}>
 				{m.street_close()}
 			</button>
+			{#if center?.key !== key(image)}
+				<button
+					type="button"
+					class="st-btn st-btn--secondary"
+					title={m.street_search_here_hint({ radius: RADIUS_M })}
+					onclick={() => searchAround(image)}
+				>
+					<Icon name="crosshair" size={16} />
+					{m.street_search_here()}
+				</button>
+			{/if}
 			<button type="button" class="st-btn st-btn--primary" onclick={() => pickHere(image)}>
 				<Icon name="map-pin" size={16} />
 				{m.street_pick_here()}

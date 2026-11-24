@@ -183,6 +183,8 @@ class StreetMatchOut(BaseModel):
     view: int | None
     offset: float | None
     spread: float | None
+    # The width of view of the photo the worker found from the points.
+    fov: float | None = None
 
 
 class CompareOut(BaseModel):
@@ -219,6 +221,7 @@ async def _comparison(db: DbDep, settings: SettingsDep, asset_id: UUID) -> Compa
             view=pair.get("view"),
             offset=pair.get("offset"),
             spread=pair.get("spread"),
+            fov=pair.get("fov"),
         )
         for pair in (run.candidates or [])
         if run.status == "done"

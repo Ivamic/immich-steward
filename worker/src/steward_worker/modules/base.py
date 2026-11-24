@@ -62,6 +62,8 @@ class StreetMatch(PairMatch):
     # the points spread around that; None when too few points fit.
     offset: float | None = None
     spread: float | None = None
+    # The width of view of the photo the offset was worked out with (found from the points).
+    fov: float | None = None
 
 
 @dataclass(frozen=True)

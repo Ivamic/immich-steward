@@ -967,5 +967,14 @@
 	"street_match_sure": "✓ {count}",
 	"street_match_maybe": "peut-être",
 	"street_match_note": "{count} points d’une même scène dans les deux",
-	"street_similarity": "Ressemblance : {percent} %"
+	"street_similarity": "Ressemblance : {percent} %",
+	"street_direction_found": "D’après {count} images, la photo regarde vers {direction}",
+	"street_direction_disagree": "les images ne concordent pas",
+	"street_direction_take": "Prendre la direction",
+	"street_direction_take_hint": "Garder cette direction pour la photo ; le point reste où il est",
+	"street_search_here": "Chercher autour de cette image",
+	"street_search_here_hint": "Trouver les images à moins de {radius} m de celle-ci ; le point de la photo reste où il est",
+	"street_around": "autour d’une image à {meters} m du point",
+	"street_around_back": "Revenir au point",
+	"street_compare_all_done": "Toutes les images affichées sont comparées"
 }

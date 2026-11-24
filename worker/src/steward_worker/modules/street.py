@@ -7,7 +7,9 @@ reaches the providers. MegaLoc (as "similar photos") ranks them by how alike the
 degree panorama is cut into views around the horizon first, and its best view counts. The most
 alike are then matched point by point with ALIKED and LightGlue (as "matching details"). From
 the points that fit, the module also tells which way the photo looks compared with the image:
-the points seen in both lie at the same bearing from two cameras close to each other.
+the points seen in both lie at the same bearing from two cameras close to each other. The width
+of view of the photo is not known (Immich tells no 35 mm focal length): it is the one under which
+the points of all images agree best, a panorama counting most, as its angles are known exactly.
 
 Needs the extras `street` and `cpu` or `cuda`; uses the weights of both modules above.
 """
@@ -38,6 +40,14 @@ CHECKED = 10
 # its own here (a phone takes about 65-70 degrees, a dashcam more).
 PHOTO_FOV = 65.0
 IMAGE_FOV = 70.0
+# The widths of view of the photo tried, from a short tele to a wide angle; the one found is
+# kept only when the points agree clearly better under it than under PHOTO_FOV.
+PHOTO_FOVS = range(40, 101)
+FOV_GAIN = 0.85
+# The part of the width of the photo the points of an image have to cover to tell its width.
+FOV_SPAN = 0.4
+# A panorama tells the width of view this many times better than an ordinary image.
+PANO_WEIGHT = 3
 # Fewer points that fit tell nothing about the direction.
 OFFSET_FROM = 20
 
@@ -51,10 +61,26 @@ class _View:
     view: int | None = None
 
 
+@dataclass
+class _Matched:
+    """An image matched point by point, before the way the photo looks is worked out."""
+
+    index: int
+    view: _View
+    similarity: float
+    matches: int
+    inliers: int
+    lines: list[tuple[float, float, float, float]]
+    # Of the points that fit (none when too few): across the photo (0..1), and degrees to the
+    # right of the middle of the image.
+    photo_x: Any
+    image_angles: Any
+
+
 class StreetModule:
     id = "street"
     # Bump when the views, the models or the way of matching change.
-    version = "1"
+    version = "2"
 
     def __init__(self, options: ModuleOptions) -> None:
         self._similar = SimilarModule(options)
@@ -114,22 +140,37 @@ class StreetModule:
         checked = set(order[:CHECKED])
         photo_points = self._details.features_of(photo) if checked else None
         results: list[StreetMatch | None] = []
+        matched: list[_Matched] = []
         for i, (entry, found) in enumerate(zip(read, best, strict=True)):
             if entry is None or found is None:
                 results.append(None)
                 continue
             similarity, view = found
-            if i not in checked:
-                results.append(
-                    StreetMatch(matches=0, inliers=0, similarity=similarity, view=view.view)
-                )
-                continue
-            results.append(self._match(photo, photo_points, entry[0], view, similarity))
+            results.append(StreetMatch(matches=0, inliers=0, similarity=similarity, view=view.view))
+            if i in checked:
+                matched.append(self._match(i, photo_points, view, similarity))
+
+        fov = photo_fov(
+            [(m.photo_x, m.image_angles, _weight(m)) for m in matched if len(m.photo_x)]
+        )
+        for m in matched:
+            offset = spread = None
+            if len(m.photo_x):
+                offset, spread = _offset(m.photo_x, m.image_angles, fov)
+            results[m.index] = StreetMatch(
+                matches=m.matches,
+                inliers=m.inliers,
+                lines=m.lines,
+                similarity=m.similarity,
+                checked=True,
+                view=m.view.view,
+                offset=offset,
+                spread=spread,
+                fov=fov if offset is not None else None,
+            )
         return results
 
-    def _match(
-        self, photo: Any, photo_points: Any, image: Any, view: _View, similarity: float
-    ) -> StreetMatch:
+    def _match(self, index: int, photo_points: Any, view: _View, similarity: float) -> _Matched:
         import numpy as np
 
         other = self._details.features_of(view.rgb)
@@ -146,26 +187,59 @@ class StreetModule:
             else:
                 px, py = view_to_pano(float(xb / wb), float(yb / hb), view.view)
                 lines.append((float(xa / wa), float(ya / ha), px, py))
-        offset = spread = None
-        if len(fitting) >= OFFSET_FROM:
-            photo_angles = _angles(a[fitting, 0] / wa, PHOTO_FOV)
-            if view.view is None:
-                image_angles = _angles(b[fitting, 0] / wb, IMAGE_FOV)
-            else:
-                image_angles = _angles(b[fitting, 0] / wb, PANO_FOV) + view.view * 360 / PANO_VIEWS
-            differences = (image_angles - photo_angles + 180) % 360 - 180
-            offset = float(np.median(differences))
-            spread = float(np.median(np.abs(differences - offset)))
-        return StreetMatch(
+        # Fewer points that fit tell nothing about the direction.
+        told = fitting if len(fitting) >= OFFSET_FROM else fitting[:0]
+        if view.view is None:
+            image_angles = _angles(b[told, 0] / wb, IMAGE_FOV)
+        else:
+            image_angles = _angles(b[told, 0] / wb, PANO_FOV) + view.view * 360 / PANO_VIEWS
+        return _Matched(
+            index=index,
+            view=view,
+            similarity=similarity,
             matches=len(a),
             inliers=int(agree.sum()),
             lines=lines,
-            similarity=similarity,
-            checked=True,
-            view=view.view,
-            offset=offset,
-            spread=spread,
+            photo_x=a[told, 0] / wa,
+            image_angles=image_angles,
         )
+
+
+def _weight(matched: _Matched) -> float:
+    return len(matched.photo_x) * (PANO_WEIGHT if matched.view.view is not None else 1)
+
+
+def _offset(photo_x: Any, image_angles: Any, fov: float) -> tuple[float, float]:
+    """Degrees the photo looks to the right of the image, and how far the points spread around
+    that."""
+    import numpy as np
+
+    differences = (image_angles - _angles(photo_x, fov) + 180) % 360 - 180
+    offset = float(np.median(differences))
+    return offset, float(np.median(np.abs(differences - offset)))
+
+
+def photo_fov(images: Sequence[tuple[Any, Any, float]]) -> float:
+    """The width of view of the photo under which the points of the images agree best (each
+    image: across the photo, degrees to the right of the image, weight); PHOTO_FOV when none
+    tells it clearly."""
+    import numpy as np
+
+    # Points near the middle only look alike under any width: such images do not count.
+    images = [
+        (x, angles, weight)
+        for x, angles, weight in images
+        if np.percentile(x, 90) - np.percentile(x, 10) >= FOV_SPAN
+    ]
+    if not images:
+        return PHOTO_FOV
+    total = sum(weight for _, _, weight in images)
+
+    def disagreement(fov: float) -> float:
+        return sum(weight * _offset(x, angles, fov)[1] for x, angles, weight in images) / total
+
+    found = min(PHOTO_FOVS, key=disagreement)
+    return float(found) if disagreement(found) < FOV_GAIN * disagreement(PHOTO_FOV) else PHOTO_FOV
 
 
 def _read(image: bytes) -> Any:

@@ -13,7 +13,9 @@ from steward_worker.modules.street import (
     PANO_VIEWS,
     StreetModule,
     _angles,
+    _offset,
     pano_views,
+    photo_fov,
     view_to_pano,
 )
 
@@ -84,3 +86,19 @@ def test_alike_first_and_the_way_the_photo_looks() -> None:
     assert found_alike.checked and found_alike.inliers == 40 and found_alike.lines
     assert found_alike.offset == pytest.approx(-20, abs=0.5)
     assert found_alike.spread == pytest.approx(0, abs=0.5)
+    assert found_alike.fov == 65
+
+
+def test_the_width_of_view_of_the_photo_is_found() -> None:
+    # The points of a photo taken with 50 degrees across: under the 65 assumed they spread.
+    xs = np.linspace(0.05, 0.95, 60)
+    photo_angles = np.degrees(np.arctan((xs * 2 - 1) * np.tan(np.radians(25))))
+    image_angles = photo_angles + 30
+    assert photo_fov([(xs, image_angles, 60)]) == pytest.approx(50)
+    offset, spread = _offset(xs, image_angles, 50)
+    assert offset == pytest.approx(30, abs=0.1) and spread == pytest.approx(0, abs=0.1)
+    # Points near the middle tell nothing about the width: the assumed one stays.
+    middle = np.linspace(0.48, 0.52, 30)
+    near = np.degrees(np.arctan((middle * 2 - 1) * np.tan(np.radians(25))))
+    assert photo_fov([(middle, near + np.random.default_rng(1).normal(0, 2, 30), 30)]) == 65
+    assert photo_fov([]) == 65

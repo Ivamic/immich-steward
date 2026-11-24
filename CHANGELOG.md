@@ -23,8 +23,12 @@ between releases.
   a 360° panorama is cut into views around the horizon) and matches the most alike point by point
   (ALIKED + LightGlue, as matching details). Images that show the very same scene go first, marked
   ✓ with the number of points (from 100; *maybe* from 50); the window draws lines between those
-  points. **Put the point here** on such an image takes the direction from the points themselves,
-  much narrower than the way the image looks. The images reach the worker through the app server;
+  points. The direction comes from the points themselves, by all the matched images together, and
+  is said over the strip (with a warning when they disagree); **Take the direction** keeps it
+  without moving the point, **Put the point here** takes it with the point. The width of view of
+  the photo is found from the points as well, not assumed. **Search around this image**
+  looks for more images around a match, the point staying where it is; the matches found before
+  stay, and only the new images are compared. The images reach the worker through the app server;
   the photo does not leave the home network. Runs only when asked.
 - **Direction of a photo**: **Put the point here** on a street-level image also takes the way the
   image looks, about the way the photo looks if it shows the same view (±30°; not from a 360°

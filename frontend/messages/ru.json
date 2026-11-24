@@ -967,5 +967,14 @@
 	"street_match_sure": "✓ {count}",
 	"street_match_maybe": "возможно",
 	"street_match_note": "Общих точек одной сцены: {count}",
-	"street_similarity": "Похожесть: {percent} %"
+	"street_similarity": "Похожесть: {percent} %",
+	"street_direction_found": "По снимкам ({count}) фото смотрит на {direction}",
+	"street_direction_disagree": "снимки расходятся",
+	"street_direction_take": "Взять направление",
+	"street_direction_take_hint": "Сохранить это направление для фото, точка остаётся на месте",
+	"street_search_here": "Искать вокруг этого снимка",
+	"street_search_here_hint": "Найти снимки в {radius} м от этого, точка фото остаётся на месте",
+	"street_around": "вокруг снимка в {meters} м от точки",
+	"street_around_back": "Вернуться к точке",
+	"street_compare_all_done": "Все показанные снимки уже сравнены"
 }

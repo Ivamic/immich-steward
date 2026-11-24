@@ -345,6 +345,7 @@ def test_compare_the_photo_with_the_images(
                 "view": 2,
                 "offset": -20.5,
                 "spread": 3.0,
+                "fov": 52.0,
             },
             {"other": "panoramax:far", "matches": 1, "inliers": 1},
         ],
@@ -364,6 +365,7 @@ def test_compare_the_photo_with_the_images(
             "view": 2,
             "offset": -20.5,
             "spread": 3.0,
+            "fov": 52.0,
         }
     ]
     # Not as an ordinary module: it needs the images of the strip.
@@ -392,3 +394,39 @@ def test_a_whole_strip_is_compared(
     done = signed_in.post(f"/api/worker/jobs/{job['job_id']}/result", json=body, headers=worker)
     assert done.status_code == 204
     assert len(signed_in.get(f"/api/street/compare/{asset}").json()["results"]) == len(keys)
+
+
+def test_comparisons_add_up(
+    signed_in: TestClient, fake: FakeStreet, photo: tuple[str, str]
+) -> None:
+    """Searched around a matched image, only the new images are compared: the answers about the
+    earlier ones stay (D-246); those of another version of the module do not."""
+    asset, _ = photo
+    fake.panoramax = [
+        panoramax_feature(name, (LAT + n * 0.0001, LON)) for n, name in enumerate("abc")
+    ]
+    turn_on(signed_in, "panoramax")
+    worker = street_worker(signed_in)
+
+    def compare(keys: list[str], version: str, inliers: int) -> list[dict[str, object]]:
+        signed_in.post(f"/api/street/compare/{asset}", json={"images": keys})
+        job = signed_in.post(
+            "/api/worker/lease", json={"modules": ["street"]}, headers=worker
+        ).json()
+        pairs = [{"other": key, "matches": inliers, "inliers": inliers} for key in keys]
+        body = {"module_version": version, "candidates": [], "pairs": pairs}
+        done = signed_in.post(f"/api/worker/jobs/{job['job_id']}/result", json=body, headers=worker)
+        assert done.status_code == 204
+        results = signed_in.get(f"/api/street/compare/{asset}").json()["results"]
+        return sorted(results, key=lambda r: str(r["key"]))
+
+    first = compare(["panoramax:a", "panoramax:b"], "2", 10)
+    assert [r["key"] for r in first] == ["panoramax:a", "panoramax:b"]
+    second = compare(["panoramax:b", "panoramax:c"], "2", 20)
+    assert [(r["key"], r["inliers"]) for r in second] == [
+        ("panoramax:a", 10),
+        ("panoramax:b", 20),
+        ("panoramax:c", 20),
+    ]
+    newer = compare(["panoramax:c"], "3", 30)
+    assert [(r["key"], r["inliers"]) for r in newer] == [("panoramax:c", 30)]

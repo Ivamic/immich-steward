@@ -162,6 +162,8 @@ PAIR_MODULES = ("details", "street")
 STREET_MODULE = "street"
 # The most street-level images one comparison takes (as many as the card shows).
 STREET_OTHERS = 40
+# The most answers kept for a photo, from all its comparisons together.
+STREET_KEPT = 200
 # Photos one job compares its photo with, at most.
 MAX_OTHERS = 30
 
@@ -767,7 +769,25 @@ async def complete_pairs(
     card that asked (D-244)."""
     named = set(others_of(leased.job))
     if leased.job.module_id == STREET_MODULE:
-        leased.run.candidates = [pair for pair in pairs if pair["other"] in named]
+        # Added to the answers of the comparisons before (searched around a matched image,
+        # D-246): only the images not compared yet are sent. Answers of another version of the
+        # module are dropped.
+        before = await db.scalar(
+            select(ModuleRun)
+            .where(
+                ModuleRun.asset_id == leased.run.asset_id,
+                ModuleRun.module_id == STREET_MODULE,
+                ModuleRun.status == "done",
+                ModuleRun.module_version == module_version,
+                ModuleRun.id != leased.run.id,
+                whole_photo(),
+            )
+            .order_by(ModuleRun.finished_at.desc())
+            .limit(1)
+        )
+        kept = {pair["other"]: pair for pair in (before.candidates if before else None) or []}
+        kept.update({pair["other"]: pair for pair in pairs if pair["other"] in named})
+        leased.run.candidates = list(kept.values())[-STREET_KEPT:]
         leased.run.module_version = module_version
         _finish(leased.job, leased.run, "done")
         await db.commit()

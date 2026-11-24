@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { formatCoordinates, parseCoordinates } from './coords';
+import { formatCoordinates, metersBetween, parseCoordinates } from './coords';
 
 describe('parseCoordinates', () => {
 	it.each([
@@ -31,4 +31,16 @@ describe('parseCoordinates', () => {
 
 it('formats with six decimals', () => {
 	expect(formatCoordinates({ lat: 42.42492, lon: -18.7713332 })).toBe('42.424920, -18.771333');
+});
+
+describe('metersBetween', () => {
+	it('is about 111 km for a degree of latitude and nothing for one point', () => {
+		expect(metersBetween({ lat: 10, lon: 20 }, { lat: 11, lon: 20 })).toBeCloseTo(111_195, -2);
+		expect(metersBetween({ lat: 10, lon: 20 }, { lat: 10, lon: 20 })).toBe(0);
+	});
+
+	it('shrinks a degree of longitude away from the equator', () => {
+		const at60 = metersBetween({ lat: 60, lon: 0 }, { lat: 60, lon: 0.001 });
+		expect(at60).toBeCloseTo(55.6, 0);
+	});
 });

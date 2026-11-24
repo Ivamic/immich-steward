@@ -844,6 +844,9 @@ export const setLocation = (
 		{ latitude: point.lat, longitude: point.lon, ...(direction ? { direction } : {}) },
 		keepalive
 	);
+/** Keeps which way the camera looked (in the app only), the place as it is. */
+export const setDirection = (id: string, direction: Direction, filter: GalleryFilter) =>
+	request<AssetDetail>('PUT', `/api/assets/${id}/direction${filterQuery(filter)}`, direction);
 /** Forgets which way the camera looked (kept in the app only). */
 export const forgetDirection = (id: string, filter: GalleryFilter) =>
 	request<AssetDetail>('DELETE', `/api/assets/${id}/direction${filterQuery(filter)}`);
@@ -1467,6 +1470,8 @@ export interface StreetMatch {
 	/** Degrees the photo looks to the right of the image, and how far the points spread. */
 	offset: number | null;
 	spread: number | null;
+	/** The width of view of the photo found from the points; absent from older workers. */
+	fov?: number | null;
 }
 
 export interface StreetComparison {

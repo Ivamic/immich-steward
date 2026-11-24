@@ -9,6 +9,7 @@
 	import GroupsPanel from '#lib/GroupsPanel.svelte';
 	import LockedFolderPanel from '#lib/LockedFolderPanel.svelte';
 	import MapSourcesPanel from '#lib/MapSourcesPanel.svelte';
+	import StreetSourcesPanel from '#lib/StreetSourcesPanel.svelte';
 	import ModuleDisplayPanel from '#lib/ModuleDisplayPanel.svelte';
 	import UpdatesPanel from '#lib/UpdatesPanel.svelte';
 
@@ -17,6 +18,7 @@
 		{ id: 'groups', label: m.groups_settings_heading },
 		{ id: 'suggestions', label: m.display_heading },
 		{ id: 'maps', label: m.mapsrc_heading },
+		{ id: 'street', label: m.street_heading },
 		{ id: 'locked', label: m.locked_heading },
 		{ id: 'updates', label: m.updates_heading }
 	];
@@ -72,6 +74,7 @@
 		<div id="groups"><GroupsPanel /></div>
 		<div id="suggestions"><ModuleDisplayPanel /><DetailsPanel /></div>
 		<div id="maps"><MapSourcesPanel /></div>
+		<div id="street"><StreetSourcesPanel /></div>
 		<div id="locked"><LockedFolderPanel /></div>
 		<div id="updates"><UpdatesPanel /></div>
 	</div>

@@ -35,7 +35,7 @@
 		type TrackPoint
 	} from '#lib/api.js';
 	import type { LatLon } from '#lib/coords.js';
-	import type { MapCell, MapDot, MapViewState } from './markers.js';
+	import type { MapCell, MapDot, MapViewState, StreetMark } from './markers.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import {
 		formatDelta,
@@ -93,7 +93,9 @@
 		oncell = () => {},
 		onview = () => {},
 		startView = null,
-		pictures = false
+		pictures = false,
+		streets = [],
+		onstreet = () => {}
 	}: {
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
@@ -126,6 +128,10 @@
 		startView?: { lat: number; lon: number; zoom: number } | null;
 		/** The cells as pictures of their newest photo (with their number) instead of circles. */
 		pictures?: boolean;
+		/** Street-level images near the point (D-244): where each was taken and which way it looks. */
+		streets?: StreetMark[];
+		/** A click on a street-level image. */
+		onstreet?: (key: string) => void;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -149,6 +155,14 @@
 	const CELLS = 'steward-cells';
 	const CELL_CIRCLES = 'steward-cell-circles';
 	const CELL_COUNTS = 'steward-cell-counts';
+	const STREETS = 'steward-streets';
+	const STREET_VIEWS = 'steward-street-views';
+	const STREET_POINTS = 'steward-street-points';
+	const STREET_COLOR = '#1a7f37';
+	const STREET_ACTIVE_COLOR = '#bc4c00';
+	// The sector of a street-level image on the map: its width and length.
+	const VIEW_DEGREES = 60;
+	const VIEW_M = 14;
 	const DOT_COLOR = '#0969da';
 	const DOT_CHOSEN_COLOR = '#bc4c00';
 	const DOT_APART_COLOR = '#8250df';
@@ -301,6 +315,12 @@
 			instance.getCanvas().style.cursor = 'pointer';
 		});
 		instance.on('mouseleave', CELL_CIRCLES, () => {
+			instance.getCanvas().style.cursor = '';
+		});
+		instance.on('mouseenter', STREET_POINTS, () => {
+			instance.getCanvas().style.cursor = 'pointer';
+		});
+		instance.on('mouseleave', STREET_POINTS, () => {
 			instance.getCanvas().style.cursor = '';
 		});
 		instance.on('mouseenter', DOT_CIRCLES, () => {
@@ -525,7 +545,75 @@
 			paint: { 'line-color': '#ffffff', 'line-width': 2, 'line-dasharray': [2, 2] }
 		});
 		addDotLayers(instance);
+		addStreetLayers(instance);
 	}
+
+	function addStreetLayers(instance: MapLibreMap) {
+		instance.addSource(STREETS, { type: 'geojson', data: EMPTY });
+		const active: ExpressionSpecification = ['==', ['get', 'active'], 1];
+		instance.addLayer({
+			id: STREET_VIEWS,
+			type: 'fill',
+			source: STREETS,
+			filter: ['==', ['geometry-type'], 'Polygon'],
+			paint: {
+				'fill-color': ['case', active, STREET_ACTIVE_COLOR, STREET_COLOR],
+				'fill-opacity': ['case', active, 0.45, 0.22]
+			}
+		});
+		instance.addLayer({
+			id: STREET_POINTS,
+			type: 'circle',
+			source: STREETS,
+			filter: ['==', ['geometry-type'], 'Point'],
+			paint: {
+				'circle-color': ['case', active, STREET_ACTIVE_COLOR, STREET_COLOR],
+				'circle-radius': ['case', active, 6, 4],
+				'circle-stroke-color': '#ffffff',
+				'circle-stroke-width': ['case', ['==', ['get', 'pano'], 1], 3, 1.5]
+			}
+		});
+	}
+
+	/** The sector a street-level image looks into, as a polygon around its point. */
+	function viewSector(mark: StreetMark): Feature | null {
+		if (mark.heading === null || mark.pano) return null;
+		const metersLat = 111_320;
+		const metersLon = metersLat * Math.cos((mark.lat * Math.PI) / 180);
+		const ring: [number, number][] = [[mark.lon, mark.lat]];
+		for (let step = 0; step <= 6; step++) {
+			const angle = ((mark.heading - VIEW_DEGREES / 2 + (VIEW_DEGREES * step) / 6) * Math.PI) / 180;
+			ring.push([
+				mark.lon + (Math.sin(angle) * VIEW_M) / metersLon,
+				mark.lat + (Math.cos(angle) * VIEW_M) / metersLat
+			]);
+		}
+		ring.push([mark.lon, mark.lat]);
+		return {
+			type: 'Feature',
+			geometry: { type: 'Polygon', coordinates: [ring] },
+			properties: { key: mark.key, active: mark.active ? 1 : 0 }
+		};
+	}
+
+	$effect(() => {
+		const features: Feature[] = [
+			...streets.flatMap((mark) => {
+				const sector = viewSector(mark);
+				return sector ? [sector] : [];
+			}),
+			...streets.map((mark): Feature => ({
+				type: 'Feature',
+				geometry: { type: 'Point', coordinates: [mark.lon, mark.lat] },
+				properties: { key: mark.key, active: mark.active ? 1 : 0, pano: mark.pano ? 1 : 0 }
+			}))
+		];
+		if (!map || !ready) return;
+		(map.getSource(STREETS) as GeoJSONSource | undefined)?.setData({
+			type: 'FeatureCollection',
+			features
+		});
+	});
 
 	function addDotLayers(instance: MapLibreMap) {
 		instance.addSource(DOTS, {
@@ -943,6 +1031,13 @@
 	}
 
 	function onclick(instance: MapLibreMap, event: MapMouseEvent) {
+		if (streets.length) {
+			const [street] = instance.queryRenderedFeatures(event.point, { layers: [STREET_POINTS] });
+			if (street) {
+				onstreet(street.properties.key as string);
+				return;
+			}
+		}
 		if (cells.length) {
 			const [feature] = instance.queryRenderedFeatures(event.point, { layers: [CELL_CIRCLES] });
 			const cell = feature ? cells[feature.properties.index as number] : undefined;

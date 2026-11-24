@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Street-level images near a point (D-244): sources, search, previews through the core."""
+
+from dataclasses import dataclass, field
+from typing import Any
+
+import httpx2
+import pytest
+from fastapi.testclient import TestClient
+
+from steward import street
+
+TOKEN = "MLY|123|good"
+# A point in a city; the images around it, about 10, 40 and 250 m away.
+LAT, LON = 48.8535, 2.348
+NEAR = (48.85359, 2.348)
+MIDDLE = (48.8535, 2.34855)
+FAR = (48.85575, 2.348)
+JPEG = b"\xff\xd8\xff\xe0fake-jpeg"
+
+
+def panoramax_feature(
+    image_id: str, point: tuple[float, float], pano: bool = False
+) -> dict[str, Any]:
+    lat, lon = point
+    host = f"https://storage.example.org/{image_id}"
+    return {
+        "id": image_id,
+        "geometry": {"type": "Point", "coordinates": [lon, lat]},
+        "properties": {
+            "datetime": "2024-05-01T10:00:00+00:00",
+            "view:azimuth": 90,
+            "license": "CC-BY-SA-4.0",
+            "geovisio:producer": "someone",
+            "pers:interior_orientation": {"field_of_view": 360 if pano else 70},
+        },
+        "assets": {"thumb": {"href": f"{host}/thumb.jpg"}, "sd": {"href": f"{host}/sd.jpg"}},
+        "links": [{"rel": "license", "href": "https://creativecommons.org/licenses/by-sa/4.0/"}],
+        "providers": [{"name": "someone", "roles": ["producer"]}],
+    }
+
+
+def mapillary_item(image_id: str, point: tuple[float, float]) -> dict[str, Any]:
+    lat, lon = point
+    return {
+        "id": image_id,
+        "computed_geometry": {"type": "Point", "coordinates": [lon, lat]},
+        "computed_compass_angle": 370.0,
+        "captured_at": 1714557600000,
+        "creator": {"username": "mapper", "id": "1"},
+        "is_pano": False,
+        "thumb_512_url": f"https://scontent.example.org/{image_id}-512.jpg",
+        "thumb_2048_url": f"https://scontent.example.org/{image_id}-2048.jpg",
+    }
+
+
+@dataclass
+class FakeStreet:
+    """Panoramax and Mapillary as the core asks them."""
+
+    panoramax: list[dict[str, Any]] = field(default_factory=list)
+    mapillary: list[dict[str, Any]] = field(default_factory=list)
+    down: bool = False
+    asked: list[httpx2.Request] = field(default_factory=list)
+
+    def handler(self, request: httpx2.Request) -> httpx2.Response:
+        self.asked.append(request)
+        url = str(request.url)
+        if self.down:
+            return httpx2.Response(503)
+        if url.startswith(street.PANORAMAX_SEARCH):
+            ids = request.url.params.get("ids")
+            found = [f for f in self.panoramax if ids is None or f["id"] == ids]
+            return httpx2.Response(200, json={"type": "FeatureCollection", "features": found})
+        if url.startswith(street.MAPILLARY_GRAPH):
+            if request.headers.get("Authorization") != f"OAuth {TOKEN}":
+                return httpx2.Response(401, json={"error": {"message": "Invalid OAuth"}})
+            if request.url.path == "/images":
+                return httpx2.Response(200, json={"data": self.mapillary})
+            image_id = request.url.path.strip("/")
+            item = next((i for i in self.mapillary if i["id"] == image_id), None)
+            return httpx2.Response(200, json=item) if item else httpx2.Response(404)
+        if url.startswith(("https://storage.example.org/", "https://scontent.example.org/")):
+            return httpx2.Response(200, content=JPEG, headers={"content-type": "image/jpeg"})
+        return httpx2.Response(404)
+
+    def outside(self) -> list[str]:
+        """Hosts asked, without the images: what left the server besides previews."""
+        return [r.url.host for r in self.asked if not r.url.path.endswith(".jpg")]
+
+
+@pytest.fixture
+def fake(signed_in: TestClient) -> FakeStreet:
+    found = FakeStreet(
+        panoramax=[
+            panoramax_feature("far", FAR),
+            panoramax_feature("near", NEAR, pano=True),
+        ],
+        mapillary=[mapillary_item("111", MIDDLE)],
+    )
+    signed_in.app.state.map_transport = httpx2.MockTransport(found.handler)  # type: ignore[attr-defined]
+    signed_in.app.state.street_links = street.Links()  # type: ignore[attr-defined]
+    return found
+
+
+def turn_on(client: TestClient, source_id: str, **body: Any) -> dict[str, Any]:
+    response = client.put(f"/api/street/sources/{source_id}", json={"enabled": True, **body})
+    assert response.status_code == 200
+    found: dict[str, Any] = response.json()
+    return found
+
+
+def near(client: TestClient, **params: Any) -> dict[str, Any]:
+    response = client.get("/api/street/near", params={"lat": LAT, "lon": LON, **params})
+    assert response.status_code == 200
+    found: dict[str, Any] = response.json()
+    return found
+
+
+def test_nothing_leaves_until_a_source_is_on(signed_in: TestClient, fake: FakeStreet) -> None:
+    sources = {s["id"]: s for s in signed_in.get("/api/street/sources").json()}
+    assert not sources["panoramax"]["enabled"] and not sources["mapillary"]["enabled"]
+    assert sources["mapillary"]["needs_key"] and not sources["panoramax"]["needs_key"]
+    assert near(signed_in) == {"images": [], "sources": []}
+    assert fake.asked == []
+    # The card shows them only when the user turned them on.
+    assert signed_in.get("/api/settings").json()["street_shown"] is False
+
+
+def test_images_near_the_point_nearest_first(signed_in: TestClient, fake: FakeStreet) -> None:
+    turn_on(signed_in, "panoramax")
+    mapillary = turn_on(signed_in, "mapillary", api_key=TOKEN)
+    assert mapillary["has_key"] and mapillary["key_problem"] is None
+    found = near(signed_in)
+    # The one 250 m away is outside the 100 m.
+    assert [(i["source"], i["id"]) for i in found["images"]] == [
+        ("panoramax", "near"),
+        ("mapillary", "111"),
+    ]
+    first, second = found["images"]
+    assert first["pano"] and first["heading"] == 90 and first["author"] == "someone"
+    assert 5 < first["distance_m"] < 15
+    assert second["heading"] == 10 and second["taken_at"] == "2024-05-01T10:00:00Z"
+    assert second["license"] == "CC-BY-SA-4.0" and "pKey=111" in second["page_url"]
+    assert {s["id"]: (s["status"], s["count"]) for s in found["sources"]} == {
+        "panoramax": ("ok", 1),
+        "mapillary": ("ok", 1),
+    }
+    assert [i["id"] for i in near(signed_in, radius=300)["images"]] == ["near", "111", "far"]
+    # Only the providers' APIs: the point, never a photo.
+    assert set(fake.outside()) == {"api.panoramax.xyz", "graph.mapillary.com"}
+
+
+def test_previews_come_through_the_core(signed_in: TestClient, fake: FakeStreet) -> None:
+    turn_on(signed_in, "panoramax")
+    near(signed_in)
+    preview = signed_in.get("/api/street/image/panoramax/near", params={"size": "large"})
+    assert (preview.status_code, preview.content) == (200, JPEG)
+    assert preview.headers["content-type"] == "image/jpeg"
+    assert fake.asked[-1].url.path == "/near/sd.jpg"
+
+    # After a restart of the core: the provider is asked for the image by its id.
+    signed_in.app.state.street_links = street.Links()  # type: ignore[attr-defined]
+    assert signed_in.get("/api/street/image/panoramax/near").status_code == 200
+    # Never an address from the browser, nor an image of a source that is off.
+    assert signed_in.get("/api/street/image/panoramax/unknown").status_code == 404
+    assert signed_in.get("/api/street/image/mapillary/111").status_code == 404
+    assert signed_in.get("/api/street/image/panoramax/..%2Fx").status_code in (404, 422)
+
+
+def test_a_refused_token(signed_in: TestClient, fake: FakeStreet) -> None:
+    bad = turn_on(signed_in, "mapillary", api_key="MLY|1|bad")
+    assert bad["key_problem"] == "invalid"
+    assert near(signed_in)["sources"] == [{"id": "mapillary", "status": "invalid_key", "count": 0}]
+    no_key = turn_on(signed_in, "mapillary", api_key="")
+    assert not no_key["has_key"] and no_key["key_problem"] is None
+    assert near(signed_in)["sources"] == [{"id": "mapillary", "status": "no_key", "count": 0}]
+    assert turn_on(signed_in, "mapillary", api_key=TOKEN)["key_problem"] is None
+
+
+def test_a_source_down_leaves_the_others(signed_in: TestClient, fake: FakeStreet) -> None:
+    turn_on(signed_in, "panoramax")
+    fake.down = True
+    assert near(signed_in) == {
+        "images": [],
+        "sources": [{"id": "panoramax", "status": "unavailable", "count": 0}],
+    }
+    response = signed_in.get("/api/street/near", params={"lat": 91, "lon": 0})
+    assert response.status_code == 422
+
+
+def test_the_square_stays_within_mapillary_limit() -> None:
+    west, south, east, north = street.bbox(60.0, 10.0, street.MOST_RADIUS_M)
+    assert (east - west) * (north - south) < 0.01

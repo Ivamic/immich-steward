@@ -43,6 +43,10 @@ DEFAULTS: dict[str, Any] = {
     # comparison takes a couple of seconds).
     "details_candidates_auto": 20,
     "details_candidates_manual": 5,
+    # Street-level images near the point in the photo card (`steward.street`, D-244): shown, and
+    # so asked from the switched-on sources, only while this is on. Off by default: nothing
+    # leaves the server until the user turns it on.
+    "street_shown": False,
 }
 # Settings whose change rebuilds the groups.
 GROUP_RULE = (

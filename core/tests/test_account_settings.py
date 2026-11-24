@@ -14,6 +14,7 @@ DEFAULTS = {
     "details_first": True,
     "details_candidates_auto": 20,
     "details_candidates_manual": 5,
+    "street_shown": False,
 }
 
 

@@ -726,6 +726,8 @@ export interface AccountSettings {
 	/** Photos a photo is compared with: by itself, and when started by hand. */
 	details_candidates_auto: number;
 	details_candidates_manual: number;
+	/** Street-level images near the point in the photo card (D-244). */
+	street_shown: boolean;
 }
 
 export const DETAILS_MODULE = 'details';
@@ -1375,3 +1377,54 @@ export const openLocked = (pinCode: string) =>
 export const closeLocked = () => request<LockedState>('POST', '/api/locked/close');
 /** A click or key press: keeps an open folder open (sent at most once a minute). */
 export const lockedActivity = () => request<LockedState>('POST', '/api/locked/activity');
+
+/** A source of street-level images as the account set it up (D-244). */
+export interface StreetSource {
+	id: 'panoramax' | 'mapillary';
+	name: string;
+	enabled: boolean;
+	needs_key: boolean;
+	has_key: boolean;
+	/** "invalid": the provider refused the token. */
+	key_problem: string | null;
+	site_url: string;
+	terms_url: string;
+	key_url: string | null;
+}
+
+export const getStreetSources = () => request<StreetSource[]>('GET', '/api/street/sources');
+/** Only what is given changes; an empty token deletes it (a new one is checked at once). */
+export const updateStreetSource = (id: string, change: { enabled?: boolean; api_key?: string }) =>
+	request<StreetSource>('PUT', `/api/street/sources/${id}`, change);
+
+/** A street-level image near the point. */
+export interface StreetImage {
+	source: 'panoramax' | 'mapillary';
+	id: string;
+	latitude: number;
+	longitude: number;
+	distance_m: number;
+	/** Degrees clockwise from north the camera looked; null: unknown. */
+	heading: number | null;
+	/** A 360-degree panorama. */
+	pano: boolean;
+	taken_at: string | null;
+	author: string | null;
+	license: string | null;
+	license_url: string | null;
+	page_url: string;
+}
+
+export interface StreetNear {
+	images: StreetImage[];
+	/** How each switched-on source answered: ok, no_key, invalid_key or unavailable. */
+	sources: { id: string; status: 'ok' | 'no_key' | 'invalid_key' | 'unavailable'; count: number }[];
+}
+
+/** The images of the switched-on sources around the point, nearest first: the point goes to them. */
+export const getStreetNear = (lat: number, lon: number, radius = 100) =>
+	request<StreetNear>('GET', `/api/street/near?lat=${lat}&lon=${lon}&radius=${radius}`);
+
+/** A preview of a street-level image, through the core. */
+export const streetImageUrl = (image: StreetImage, size: 'thumb' | 'large' = 'thumb') =>
+	`/api/street/image/${image.source}/${encodeURIComponent(image.id)}?size=${size}`;

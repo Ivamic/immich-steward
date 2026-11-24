@@ -9,6 +9,16 @@ between releases.
 
 ### Added
 
+- **Street-level images** in the photo card: turn on **Street-level images** under the map to see
+  photos of the street within 100 m of the point (the one you put, or the location of the photo),
+  nearest first, from Panoramax and Mapillary, to compare with your photo by eye. Each shows how
+  far it is and which way it looks, and lies on the map as a point with its view; a click shows it
+  large, with its author and license, and **Put the point here** moves the point to where it was
+  taken. 360° panoramas scroll sideways. Sources are switched on in **Settings → Street-level
+  images** (Mapillary needs your own access token); only the coordinates of the point go to them,
+  the images come through the app server and are not stored
+  ([privacy](docs/privacy.md#what-leaves-your-server)).
+
 - **Reset the found turns**, on **Turned photos** and at the *orientation* module on
   **Processing**: forgets what the module found, so that it looks at the photos again, newest
   first (for instance after a new version of its model). The photos marked **Not turned** are left

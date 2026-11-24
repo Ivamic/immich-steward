@@ -320,6 +320,24 @@ class MapSourceSetting(Base):
     provider_usage: Mapped[dict[str, Any] | None]
 
 
+class StreetSourceSetting(Base):
+    """A source of street-level images as an account set it up (`steward.street`): switched on
+    (= the account agrees that the coordinates of the point it looks at go to the provider) and
+    its access token, where the provider needs one."""
+
+    __tablename__ = "street_source_setting"
+
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("account.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Encrypted with steward.crypto.SecretBox, like the Immich key.
+    api_key_encrypted: Mapped[str | None] = mapped_column(Text)
+    # `street.KEY_PROBLEMS`, as the provider answered the last time.
+    key_problem: Mapped[str | None] = mapped_column(String(16))
+
+
 class MapTileUsage(Base):
     """Tiles of a source the browsers of an account loaded, per day (the own count, D-146)."""
 

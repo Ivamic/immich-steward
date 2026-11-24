@@ -23,6 +23,7 @@ class AccountSettings(BaseModel):
     details_first: bool
     details_candidates_auto: int
     details_candidates_manual: int
+    street_shown: bool
 
 
 class AccountSettingsIn(BaseModel):
@@ -41,6 +42,7 @@ class AccountSettingsIn(BaseModel):
     details_first: bool | None = None
     details_candidates_auto: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
     details_candidates_manual: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
+    street_shown: bool | None = None
 
 
 @router.get("")

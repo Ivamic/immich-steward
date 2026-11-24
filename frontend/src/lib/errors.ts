@@ -76,6 +76,8 @@ export function errorMessage(error: unknown): string {
 			return m.error_location_nothing_to_undo();
 		case 'rotate_not_supported':
 			return m.error_rotate_not_supported();
+		case 'street_unavailable':
+			return m.street_problem_unavailable();
 		case 'rotate_in_progress':
 			return m.error_rotate_in_progress();
 		case 'album_read_only':

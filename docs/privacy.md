@@ -13,6 +13,13 @@
   own key. No photos are sent, the app server neither relays nor stores the tiles, and the tiles
   are not used by any module. The app server contacts the provider itself only to check a key when
   you save it and, if you gave a MapTiler service token, to read the usage.
+- **Street-level images** (Panoramax, Mapillary) are off until you switch a source on in
+  **Settings → Street-level images** and turn on **Street-level images** under the map of a photo.
+  Then the app server sends the coordinates of the point you look at (the point you put, or the
+  location of the photo) to the sources switched on, to find their images within 100 m; Mapillary
+  also gets your own access token. The previews come through the app server, so the providers see
+  the server, not your browser; they are not stored. No photos are sent. Turned off, nothing goes
+  to them.
 - **Google Maps** opens only when you click **Google satellite** or **Street View nearby** next to
   the coordinates of a photo: your browser opens google.com in a new tab with the coordinates of
   that point, without telling Google the address of the app or which photo it is. Nothing is sent

@@ -20,6 +20,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from steward import __version__
+from steward import street as street_links
 from steward.api import (
     albums,
     assets,
@@ -29,6 +30,7 @@ from steward.api import (
     library,
     maps,
     selection,
+    street,
     updates,
     worker,
 )
@@ -118,6 +120,8 @@ def create_app(
     app.state.immich_factory = immich_factory
     # Satellite map providers (key checks, usage); tests replace them with a fake.
     app.state.map_transport = None
+    # Street-level images: where the previews of the images just shown are (`steward.street`).
+    app.state.street_links = street_links.Links()
     # GitHub for the update check; tests replace it with a fake.
     app.state.update_transport = None
     app.add_exception_handler(ApiError, api_error_handler)
@@ -129,6 +133,7 @@ def create_app(
     app.include_router(assets.router, prefix="/api")
     app.include_router(albums.router, prefix="/api")
     app.include_router(maps.router, prefix="/api")
+    app.include_router(street.router, prefix="/api")
     app.include_router(selection.router, prefix="/api")
     app.include_router(worker.router, prefix="/api")
     app.include_router(updates.router, prefix="/api")

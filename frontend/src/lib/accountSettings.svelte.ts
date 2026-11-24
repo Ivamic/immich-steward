@@ -14,7 +14,8 @@ const DEFAULTS: AccountSettings = {
 	details_confirmed_from: 100,
 	details_first: true,
 	details_candidates_auto: 20,
-	details_candidates_manual: 5
+	details_candidates_manual: 5,
+	street_shown: false
 };
 
 class AccountSettingsState {

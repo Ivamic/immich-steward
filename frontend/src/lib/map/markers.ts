@@ -13,6 +13,19 @@ export interface MapDot {
 	color?: string;
 }
 
+/** A street-level image on the map (D-244): its point, which way it looks, the one picked. */
+export interface StreetMark {
+	/** "source:id". */
+	key: string;
+	lat: number;
+	lon: number;
+	/** Degrees clockwise from north; null: unknown. */
+	heading: number | null;
+	/** A 360-degree panorama: a ring, no sector. */
+	pano: boolean;
+	active: boolean;
+}
+
 /** Photos gathered on the server into a cell of the map (the page "Map", D-207). */
 export interface MapCell {
 	lat: number;

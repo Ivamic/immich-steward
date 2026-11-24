@@ -40,6 +40,8 @@
 	import { locked } from '#lib/locked.svelte.js';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import { backPath } from '#lib/backTo.js';
+	import StreetStrip from '#lib/street/StreetStrip.svelte';
+	import type { StreetMark } from '#lib/map/markers.js';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import { galleryChanges } from '#lib/gallery/selection.svelte.js';
 	import KeysDialog from '#lib/KeysDialog.svelte';
@@ -127,6 +129,9 @@
 	let currentCoords = $state<HTMLElement>();
 	let coordinatesInvalid = $state(false);
 	let mapView = $state<ReturnType<typeof MapView>>();
+	// Street-level images near the point (D-244): the one picked, and the images on the map.
+	let streetActive = $state<string | null>(null);
+	let streetMarks = $state<StreetMark[]>([]);
 	let viewerOpen = $state(false);
 	let albumOpen = $state(false);
 	// The album to take the photo out of, while asking whether to; and why it failed.
@@ -658,9 +663,20 @@
 						{highlight}
 						onhighlight={(h) => (highlight = h)}
 						scrollingPage
+						streets={streetMarks}
+						onstreet={(key) => (streetActive = key)}
 					/>
 				{/if}
 			</div>
+			<StreetStrip
+				point={picked ?? current}
+				bind:active={streetActive}
+				bind:marks={streetMarks}
+				onpick={(point) => {
+					pick(point);
+					mapView?.flyTo(point);
+				}}
+			/>
 
 			<div class="tabs st-tabs" role="tablist">
 				<button

@@ -925,6 +925,7 @@
 	"street_toggle_hint": "Montrer des photos de la rue près du point. Les coordonnées du point vont aux sources activées dans les réglages.",
 	"street_no_point": "Placez un point sur la carte pour voir les images autour.",
 	"street_loading": "Recherche d’images…",
+	"street_waiting": "{sources} : recherche en cours…",
 	"street_no_source": "Aucune source n’est activée.",
 	"street_settings_link": "Réglages",
 	"street_found": "{count} images à moins de {radius} m",

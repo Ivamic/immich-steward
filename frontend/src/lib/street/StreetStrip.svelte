@@ -6,7 +6,13 @@
      license, and can put the point where it was taken. -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { getStreetNear, streetImageUrl, type StreetImage, type StreetNear } from '#lib/api.js';
+	import {
+		getStreetNear,
+		getStreetSources,
+		streetImageUrl,
+		type StreetImage,
+		type StreetNear
+	} from '#lib/api.js';
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
 	import type { LatLon } from '#lib/coords.js';
 	import { errorMessage } from '#lib/errors.js';
@@ -36,12 +42,17 @@
 	// Asked once the point stopped moving for this long.
 	const WAIT_MS = 600;
 	const RADIUS_M = 100;
+	// As many as the core gives for all sources together.
+	const NEAR_MOST = 40;
 
 	// The card may be the first page opened: the personal settings are loaded here too.
 	accountSettings.load();
 	const shown = $derived(accountSettings.values.street_shown);
-	let answer = $state.raw<StreetNear | null>(null);
-	let loading = $state(false);
+	// The sources switched on in the settings (asked once the images are shown).
+	let enabled = $state.raw<string[] | null>(null);
+	// The answer of each source to the latest search; the sources still asked.
+	let parts = $state.raw<Record<string, StreetNear>>({});
+	let waiting = $state.raw<string[]>([]);
 	let error = $state<string | null>(null);
 	let opened = $state<StreetImage | null>(null);
 	// The latest search: an answer to an older one is dropped.
@@ -52,30 +63,58 @@
 	const key = (image: StreetImage) => `${image.source}:${image.id}`;
 
 	$effect(() => {
+		if (!shown || enabled !== null) return;
+		getStreetSources()
+			.then((sources) => (enabled = sources.filter((s) => s.enabled).map((s) => s.id)))
+			.catch((e) => (error = errorMessage(e)));
+	});
+
+	// Each source is asked on its own: its images show as soon as it answers, a slow one holds
+	// up only itself.
+	$effect(() => {
 		const at = point;
-		if (!shown || !at) {
-			answer = null;
+		const ids = enabled;
+		if (!shown || !at || ids === null) {
+			parts = {};
+			waiting = [];
 			return;
 		}
 		const search = ++asked;
-		const timer = setTimeout(async () => {
-			loading = true;
-			try {
-				const found = await getStreetNear(at.lat, at.lon, RADIUS_M);
-				if (search !== asked) return;
-				answer = found;
-				error = null;
-			} catch (e) {
-				if (search === asked) error = errorMessage(e);
-			} finally {
-				if (search === asked) loading = false;
+		const timer = setTimeout(() => {
+			waiting = [...ids];
+			for (const id of ids) {
+				getStreetNear(at.lat, at.lon, RADIUS_M, id)
+					.then((found) => {
+						if (search !== asked) return;
+						parts = { ...parts, [id]: found };
+						error = null;
+					})
+					.catch((e) => {
+						if (search !== asked) return;
+						const rest = { ...parts };
+						delete rest[id];
+						parts = rest;
+						error = errorMessage(e);
+					})
+					.finally(() => {
+						if (search === asked) waiting = waiting.filter((w) => w !== id);
+					});
 			}
 		}, WAIT_MS);
 		return () => clearTimeout(timer);
 	});
 
+	const images = $derived(
+		Object.values(parts)
+			.flatMap((part) => part.images)
+			.sort((a, b) => a.distance_m - b.distance_m)
+			.slice(0, NEAR_MOST)
+	);
+	const answers = $derived(Object.values(parts).flatMap((part) => part.sources));
+	const loading = $derived(waiting.length > 0);
+
 	$effect(() => {
-		marks = (answer?.images ?? []).map((image) => ({
+		marks = images.map((image) => ({
 			key: key(image),
 			lat: image.latitude,
 			lon: image.longitude,
@@ -113,8 +152,8 @@
 	}
 
 	const sourceName = (id: string) => (id === 'mapillary' ? 'Mapillary' : 'Panoramax');
-	const problems = $derived((answer?.sources ?? []).filter((s) => s.status !== 'ok'));
-	const noSource = $derived(answer !== null && answer.sources.length === 0);
+	const problems = $derived(answers.filter((s) => s.status !== 'ok'));
+	const noSource = $derived(enabled !== null && enabled.length === 0);
 
 	function problem(status: string): string {
 		if (status === 'no_key') return m.street_problem_no_key();
@@ -145,15 +184,18 @@
 			<span class="status" role="status">
 				{#if !point}
 					{m.street_no_point()}
-				{:else if loading && !answer}
-					{m.street_loading()}
 				{:else if noSource}
 					{m.street_no_source()}
 					<a href={resolve('/settings#street')}>{m.street_settings_link()}</a>
-				{:else if answer}
-					{answer.images.length
-						? m.street_found({ count: answer.images.length, radius: RADIUS_M })
-						: m.street_none({ radius: RADIUS_M })}
+				{:else if images.length}
+					{m.street_found({ count: images.length, radius: RADIUS_M })}
+				{:else if loading || enabled === null}
+					{m.street_loading()}
+				{:else}
+					{m.street_none({ radius: RADIUS_M })}
+				{/if}
+				{#if loading && images.length}
+					<span>{m.street_waiting({ sources: waiting.map(sourceName).join(', ') })}</span>
 				{/if}
 				{#each problems as found (found.id)}
 					<span class="problem">
@@ -169,9 +211,9 @@
 	{#if error}
 		<p class="error" role="alert">{error}</p>
 	{/if}
-	{#if shown && answer?.images.length}
+	{#if shown && images.length}
 		<ul class="strip" class:loading>
-			{#each answer.images as image (key(image))}
+			{#each images as image (key(image))}
 				<li>
 					<button
 						type="button"

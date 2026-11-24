@@ -2,6 +2,7 @@
 """Street-level images near a point (D-244): sources, search, previews through the core."""
 
 from dataclasses import dataclass, field
+from itertools import pairwise
 from typing import Any
 
 import httpx2
@@ -76,7 +77,22 @@ class FakeStreet:
             if request.headers.get("Authorization") != f"OAuth {TOKEN}":
                 return httpx2.Response(401, json={"error": {"message": "Invalid OAuth"}})
             if request.url.path == "/images":
-                return httpx2.Response(200, json={"data": self.mapillary})
+                # Points only: the previews are asked for the nearest ones by their ids.
+                points = [
+                    {k: v for k, v in i.items() if not k.startswith("thumb_")}
+                    for i in self.mapillary
+                ]
+                return httpx2.Response(200, json={"data": points})
+            if ids := request.url.params.get("ids"):
+                wanted = ids.split(",")
+                return httpx2.Response(
+                    200,
+                    json={
+                        i["id"]: {k: v for k, v in i.items() if k.startswith("thumb_")}
+                        for i in self.mapillary
+                        if i["id"] in wanted
+                    },
+                )
             image_id = request.url.path.strip("/")
             item = next((i for i in self.mapillary if i["id"] == image_id), None)
             return httpx2.Response(200, json=item) if item else httpx2.Response(404)
@@ -192,3 +208,25 @@ def test_a_source_down_leaves_the_others(signed_in: TestClient, fake: FakeStreet
 def test_the_square_stays_within_mapillary_limit() -> None:
     west, south, east, north = street.bbox(60.0, 10.0, street.MOST_RADIUS_M)
     assert (east - west) * (north - south) < 0.01
+
+
+def test_the_nearest_of_a_busy_street(signed_in: TestClient, fake: FakeStreet) -> None:
+    """Mapillary gives the points of a whole square: the nearest 40 are picked, not the first."""
+    fake.mapillary = [
+        mapillary_item(str(1000 + n), (LAT + 0.00085 - n * 0.00001, LON)) for n in range(120)
+    ]
+    turn_on(signed_in, "mapillary", api_key=TOKEN)
+    found = near(signed_in)["images"]
+    assert len(found) == street.NEAR_MOST
+    assert found[0]["distance_m"] < 2
+    assert all(a["distance_m"] <= b["distance_m"] for a, b in pairwise(found))
+
+
+def test_one_source_at_a_time(signed_in: TestClient, fake: FakeStreet) -> None:
+    turn_on(signed_in, "panoramax")
+    turn_on(signed_in, "mapillary", api_key=TOKEN)
+    only = near(signed_in, source="mapillary")
+    assert [s["id"] for s in only["sources"]] == ["mapillary"]
+    assert {i["source"] for i in only["images"]} == {"mapillary"}
+    response = signed_in.get("/api/street/near", params={"lat": LAT, "lon": LON, "source": "x"})
+    assert response.status_code == 404

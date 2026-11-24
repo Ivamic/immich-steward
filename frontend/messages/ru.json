@@ -925,6 +925,7 @@
 	"street_toggle_hint": "Показать фото улицы рядом с точкой. Координаты точки уходят во включённые в настройках источники.",
 	"street_no_point": "Поставьте точку на карте, чтобы увидеть снимки вокруг.",
 	"street_loading": "Ищу снимки…",
+	"street_waiting": "{sources}: ещё ищу…",
 	"street_no_source": "Ни один источник не включён.",
 	"street_settings_link": "Настройки",
 	"street_found": "Снимков в {radius} м: {count}",

@@ -648,35 +648,38 @@
 		{/if}
 
 		<div class="card" class:show-info={tab === 'info'}>
-			<div class="map">
-				{#if mapConfig}
-					<MapView
-						bind:this={mapView}
-						styleUrl={mapConfig.style_url}
-						styleUrlDark={mapConfig.style_url_dark}
-						sources={mapConfig.sources}
-						auto={mapConfig.auto}
-						{current}
-						{picked}
-						suggestions={shown}
-						onpick={pick}
-						{highlight}
-						onhighlight={(h) => (highlight = h)}
-						scrollingPage
-						streets={streetMarks}
-						onstreet={(key) => (streetActive = key)}
-					/>
-				{/if}
+			<!-- The map with the street-level images under it, in one cell of the card. -->
+			<div class="map-area">
+				<div class="map">
+					{#if mapConfig}
+						<MapView
+							bind:this={mapView}
+							styleUrl={mapConfig.style_url}
+							styleUrlDark={mapConfig.style_url_dark}
+							sources={mapConfig.sources}
+							auto={mapConfig.auto}
+							{current}
+							{picked}
+							suggestions={shown}
+							onpick={pick}
+							{highlight}
+							onhighlight={(h) => (highlight = h)}
+							scrollingPage
+							streets={streetMarks}
+							onstreet={(key) => (streetActive = key)}
+						/>
+					{/if}
+				</div>
+				<StreetStrip
+					point={picked ?? current}
+					bind:active={streetActive}
+					bind:marks={streetMarks}
+					onpick={(point) => {
+						pick(point);
+						mapView?.flyTo(point);
+					}}
+				/>
 			</div>
-			<StreetStrip
-				point={picked ?? current}
-				bind:active={streetActive}
-				bind:marks={streetMarks}
-				onpick={(point) => {
-					pick(point);
-					mapView?.flyTo(point);
-				}}
-			/>
 
 			<div class="tabs st-tabs" role="tablist">
 				<button
@@ -1225,8 +1228,15 @@
 		flex: 1;
 		min-height: 30rem;
 	}
-	.map {
+	.map-area {
 		grid-area: map;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+		min-height: 0;
+	}
+	.map {
+		flex: 1;
 		min-height: 0;
 		overflow: hidden;
 		border-radius: var(--radius-lg);
@@ -1296,6 +1306,7 @@
 			height: auto;
 		}
 		.map {
+			flex: none;
 			height: 55vh;
 		}
 		.tabs {
@@ -1324,7 +1335,7 @@
 		.keys {
 			display: none;
 		}
-		.map,
+		.map-area,
 		.panel {
 			order: 1;
 		}

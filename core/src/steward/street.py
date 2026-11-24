@@ -9,6 +9,8 @@ kept in memory for a while, so that the previews of what the browser was just sh
 fetched by their id alone.
 """
 
+import asyncio
+import logging
 import math
 import time
 from collections import OrderedDict
@@ -25,16 +27,21 @@ from steward.crypto import SecretBox
 from steward.errors import ApiError
 from steward.models import StreetSourceSetting
 
+log = logging.getLogger(__name__)
+
 Size = Literal["thumb", "large"]
 # `key_problem`: the provider refused the token.
 KEY_PROBLEMS = ("invalid",)
 
 PANORAMAX_SEARCH = "https://api.panoramax.xyz/api/search"
 MAPILLARY_GRAPH = "https://graph.mapillary.com"
+# The points of a search; the previews are asked for the nearest only.
 MAPILLARY_FIELDS = (
     "id,geometry,computed_geometry,compass_angle,computed_compass_angle,captured_at,creator,"
-    "is_pano,camera_type,thumb_512_url,thumb_2048_url"
+    "is_pano,camera_type"
 )
+# The most images a search of Mapillary gives.
+MAPILLARY_POINTS_MOST = 2000
 # Mapillary allows a bounding box below 0.01 square degrees (2026-01); 300 m is about 0.006.
 MOST_RADIUS_M = 300
 DEFAULT_RADIUS_M = 100
@@ -42,6 +49,9 @@ DEFAULT_RADIUS_M = 100
 ASK_EACH = 100
 NEAR_MOST = 40
 TIMEOUT_S = 15.0
+# The federated catalog of Panoramax answers in half a second, or in 20-30 s when busy
+# (2026-11-24): not waited for that long.
+PANORAMAX_TIMEOUT_S = 10.0
 # Previews: what the browser was shown stays fetchable this long; no more than this many links.
 LINKS_FOR_S = 3600.0
 LINKS_MOST = 20_000
@@ -239,10 +249,15 @@ async def near(
     longitude: float,
     radius_m: float = DEFAULT_RADIUS_M,
     transport: httpx2.AsyncBaseTransport | None = None,
+    only: str | None = None,
 ) -> tuple[list[StreetImage], list[SourceAnswer]]:
-    """The images of the switched-on sources within `radius_m` of the point, nearest first."""
+    """The images of the switched-on sources (`only`: of that one) within `radius_m` of the
+    point, nearest first. The sources are asked at the same time: a slow one holds up only its
+    own answer."""
     if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
         raise ApiError(422, "street_point_invalid")
+    if only is not None:
+        source(only)
     radius_m = min(max(radius_m, 10.0), MOST_RADIUS_M)
     rows = {
         row.source_id: row
@@ -253,40 +268,41 @@ async def near(
             )
         )
     }
-    found: list[tuple[StreetImage, dict[str, str]]] = []
-    answers: list[SourceAnswer] = []
+    asked = [s for s in SOURCES if s.id in rows and (only is None or s.id == only)]
+
+    async def ask(
+        http: httpx2.AsyncClient, s: Source
+    ) -> tuple[SourceAnswer, list[tuple[StreetImage, dict[str, str]]]]:
+        row = rows[s.id]
+        key = box.decrypt(row.api_key_encrypted) if row.api_key_encrypted else None
+        if s.needs_key and not key:
+            return SourceAnswer(s.id, "no_key"), []
+        try:
+            if s.id == "panoramax":
+                images = await _panoramax(http, latitude, longitude, radius_m)
+            else:
+                assert key is not None
+                images = await _mapillary(http, key, latitude, longitude, radius_m)
+        except _Refused:
+            row.key_problem = "invalid"
+            return SourceAnswer(s.id, "invalid_key"), []
+        except (httpx2.HTTPError, ValueError, KeyError, TypeError) as exc:
+            log.warning("street-level images: %s did not answer: %r", s.id, exc)
+            return SourceAnswer(s.id, "unavailable"), []
+        if s.needs_key and row.key_problem:
+            row.key_problem = None
+        inside = [(i, u) for i, u in images if i.distance_m <= radius_m]
+        return SourceAnswer(s.id, "ok", len(inside)), inside
+
     async with _client(transport) as http:
-        for s in SOURCES:
-            row = rows.get(s.id)
-            if row is None:
-                continue
-            key = box.decrypt(row.api_key_encrypted) if row.api_key_encrypted else None
-            if s.needs_key and not key:
-                answers.append(SourceAnswer(s.id, "no_key"))
-                continue
-            try:
-                if s.id == "panoramax":
-                    images = await _panoramax(http, latitude, longitude, radius_m)
-                else:
-                    assert key is not None
-                    images = await _mapillary(http, key, latitude, longitude, radius_m)
-            except _Refused:
-                row.key_problem = "invalid"
-                answers.append(SourceAnswer(s.id, "invalid_key"))
-                continue
-            except (httpx2.HTTPError, ValueError, KeyError, TypeError):
-                answers.append(SourceAnswer(s.id, "unavailable"))
-                continue
-            if s.needs_key and row.key_problem:
-                row.key_problem = None
-            inside = [(i, u) for i, u in images if i.distance_m <= radius_m]
-            answers.append(SourceAnswer(s.id, "ok", len(inside)))
-            found += inside
+        results = await asyncio.gather(*(ask(http, s) for s in asked))
     await db.commit()
-    found.sort(key=lambda pair: pair[0].distance_m)
-    for image, urls in found[:NEAR_MOST]:
+    found = sorted(
+        (pair for _, images in results for pair in images), key=lambda pair: pair[0].distance_m
+    )[:NEAR_MOST]
+    for image, urls in found:
         links.keep(account_id, image.source, image.id, urls)
-    return [image for image, _ in found[:NEAR_MOST]], answers
+    return [image for image, _ in found], [answer for answer, _ in results]
 
 
 class _Refused(Exception):
@@ -296,17 +312,46 @@ class _Refused(Exception):
 async def _panoramax(
     http: httpx2.AsyncClient, latitude: float, longitude: float, radius_m: float
 ) -> list[tuple[StreetImage, dict[str, str]]]:
+    """The images in the square around the point. The catalog gives the first `ASK_EACH` of a
+    square, not the nearest: when it gives that many, the four quarters are asked too, so that
+    a busy street on one side does not hide the rest."""
     west, south, east, north = bbox(latitude, longitude, radius_m)
-    answer = await http.get(
-        PANORAMAX_SEARCH,
-        params={"bbox": f"{west},{south},{east},{north}", "limit": str(ASK_EACH)},
-    )
-    answer.raise_for_status()
-    return [
-        _panoramax_image(feature, latitude, longitude)
-        for feature in answer.json().get("features", [])
-        if feature.get("geometry") and feature.get("assets", {}).get("thumb")
-    ]
+
+    async def square(w: float, s: float, e: float, n: float) -> list[dict[str, Any]]:
+        answer = await http.get(
+            PANORAMAX_SEARCH,
+            params={"bbox": f"{w:.6f},{s:.6f},{e:.6f},{n:.6f}", "limit": str(ASK_EACH)},
+            timeout=PANORAMAX_TIMEOUT_S,
+        )
+        answer.raise_for_status()
+        features: list[dict[str, Any]] = answer.json().get("features", [])
+        return features
+
+    features = await square(west, south, east, north)
+    if len(features) >= ASK_EACH:
+        mid_lon, mid_lat = (west + east) / 2, (south + north) / 2
+        quarters = await asyncio.gather(
+            square(west, south, mid_lon, mid_lat),
+            square(mid_lon, south, east, mid_lat),
+            square(west, mid_lat, mid_lon, north),
+            square(mid_lon, mid_lat, east, north),
+            return_exceptions=True,
+        )
+        for quarter in quarters:
+            if isinstance(quarter, list):
+                features += quarter
+    seen: set[str] = set()
+    found = []
+    for feature in features:
+        image_id = str(feature.get("id"))
+        if image_id in seen:
+            continue
+        seen.add(image_id)
+        try:
+            found.append(_panoramax_image(feature, latitude, longitude))
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue  # an image without a point or a preview
+    return found
 
 
 def _panoramax_image(
@@ -347,33 +392,57 @@ def _panoramax_image(
 async def _mapillary(
     http: httpx2.AsyncClient, key: str, latitude: float, longitude: float, radius_m: float
 ) -> list[tuple[StreetImage, dict[str, str]]]:
+    """The images in the square around the point: their points first (up to the most a search
+    gives, not the first hundred, which lie anywhere in the square), then the previews of the
+    nearest ones only."""
     west, south, east, north = bbox(latitude, longitude, radius_m)
+    headers = {"Authorization": f"OAuth {key}"}
     answer = await http.get(
         f"{MAPILLARY_GRAPH}/images",
         params={
-            "bbox": f"{west},{south},{east},{north}",
-            "limit": str(ASK_EACH),
+            "bbox": f"{west:.6f},{south:.6f},{east:.6f},{north:.6f}",
+            "limit": str(MAPILLARY_POINTS_MOST),
             "fields": MAPILLARY_FIELDS,
         },
-        headers={"Authorization": f"OAuth {key}"},
+        headers=headers,
     )
     if answer.status_code in (401, 403):
         raise _Refused
     answer.raise_for_status()
+    images = []
+    for item in answer.json().get("data", []):
+        try:
+            images.append(_mapillary_image(item, latitude, longitude))
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+    nearest = sorted(images, key=lambda image: image.distance_m)[:NEAR_MOST]
+    if not nearest:
+        return []
+    previews = await http.get(
+        MAPILLARY_GRAPH,
+        params={"ids": ",".join(i.id for i in nearest), "fields": "thumb_512_url,thumb_2048_url"},
+        headers=headers,
+    )
+    previews.raise_for_status()
+    urls: dict[str, Any] = previews.json()
     return [
-        _mapillary_image(item, latitude, longitude)
-        for item in answer.json().get("data", [])
-        if (item.get("computed_geometry") or item.get("geometry")) and item.get("thumb_512_url")
+        (
+            image,
+            {
+                "thumb": urls[image.id]["thumb_512_url"],
+                "large": urls[image.id].get("thumb_2048_url") or urls[image.id]["thumb_512_url"],
+            },
+        )
+        for image in nearest
+        if (urls.get(image.id) or {}).get("thumb_512_url")
     ]
 
 
-def _mapillary_image(
-    item: dict[str, Any], latitude: float, longitude: float
-) -> tuple[StreetImage, dict[str, str]]:
+def _mapillary_image(item: dict[str, Any], latitude: float, longitude: float) -> StreetImage:
     lon, lat = (item.get("computed_geometry") or item["geometry"])["coordinates"][:2]
     heading = item.get("computed_compass_angle", item.get("compass_angle"))
     taken = item.get("captured_at")
-    image = StreetImage(
+    return StreetImage(
         source="mapillary",
         id=str(item["id"]),
         latitude=float(lat),
@@ -391,10 +460,6 @@ def _mapillary_image(
         license_url="https://creativecommons.org/licenses/by-sa/4.0/",
         page_url=f"https://www.mapillary.com/app/?pKey={item['id']}",
     )
-    return image, {
-        "thumb": item["thumb_512_url"],
-        "large": item.get("thumb_2048_url") or item["thumb_512_url"],
-    }
 
 
 async def image(

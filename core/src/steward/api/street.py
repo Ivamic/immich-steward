@@ -125,10 +125,13 @@ async def near(
     lat: float = Query(ge=-90, le=90),
     lon: float = Query(ge=-180, le=180),
     radius: float = Query(default=street.DEFAULT_RADIUS_M, ge=10, le=street.MOST_RADIUS_M),
+    source: str | None = None,
 ) -> StreetNear:
-    """The images of the switched-on sources around the point, nearest first. Only the point
-    leaves the server."""
-    images, answers = await street.near(db, box, account.id, links, lat, lon, radius, transport)
+    """The images of the switched-on sources (`source`: of that one) around the point, nearest
+    first. Only the point leaves the server."""
+    images, answers = await street.near(
+        db, box, account.id, links, lat, lon, radius, transport, only=source
+    )
     return StreetNear(
         images=[StreetImageOut(**vars(image)) for image in images],
         sources=[SourceAnswerOut(**vars(answer)) for answer in answers],

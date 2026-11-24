@@ -1422,8 +1422,12 @@ export interface StreetNear {
 }
 
 /** The images of the switched-on sources around the point, nearest first: the point goes to them. */
-export const getStreetNear = (lat: number, lon: number, radius = 100) =>
-	request<StreetNear>('GET', `/api/street/near?lat=${lat}&lon=${lon}&radius=${radius}`);
+export const getStreetNear = (lat: number, lon: number, radius = 100, source?: string) =>
+	request<StreetNear>(
+		'GET',
+		`/api/street/near?lat=${lat}&lon=${lon}&radius=${radius}` +
+			(source ? `&source=${encodeURIComponent(source)}` : '')
+	);
 
 /** A preview of a street-level image, through the core. */
 export const streetImageUrl = (image: StreetImage, size: 'thumb' | 'large' = 'thumb') =>

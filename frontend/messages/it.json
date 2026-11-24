@@ -925,6 +925,7 @@
 	"street_toggle_hint": "Mostra foto della strada vicino al punto. Le coordinate del punto vanno alle fonti attivate nelle impostazioni.",
 	"street_no_point": "Metti un punto sulla mappa per vedere le immagini intorno.",
 	"street_loading": "Ricerca delle immagini…",
+	"street_waiting": "{sources}: ancora in ricerca…",
 	"street_no_source": "Nessuna fonte è attivata.",
 	"street_settings_link": "Impostazioni",
 	"street_found": "{count} immagini entro {radius} m",

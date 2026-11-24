@@ -925,6 +925,7 @@
 	"street_toggle_hint": "Fotos der Straße in der Nähe des Punkts zeigen. Die Koordinaten des Punkts gehen an die in den Einstellungen eingeschalteten Quellen.",
 	"street_no_point": "Setzen Sie einen Punkt auf die Karte, um die Bilder ringsum zu sehen.",
 	"street_loading": "Bilder werden gesucht…",
+	"street_waiting": "{sources}: wird noch gesucht…",
 	"street_no_source": "Keine Quelle ist eingeschaltet.",
 	"street_settings_link": "Einstellungen",
 	"street_found": "{count} Bilder im Umkreis von {radius} m",

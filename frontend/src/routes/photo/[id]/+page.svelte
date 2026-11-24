@@ -39,6 +39,7 @@
 	import EmptyState from '#lib/ui/EmptyState.svelte';
 	import { locked } from '#lib/locked.svelte.js';
 	import PauseBar from '#lib/PauseBar.svelte';
+	import { backPath } from '#lib/backTo.js';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
 	import { galleryChanges } from '#lib/gallery/selection.svelte.js';
 	import KeysDialog from '#lib/KeysDialog.svelte';
@@ -84,7 +85,11 @@
 	const fromMap = $derived(page.url.searchParams.get('map'));
 	// Opened from a folder: back there.
 	const fromFolder = $derived(page.url.searchParams.get('folder'));
+	// Opened from turned photos, the trash or the candidates: back there.
+	const fromPage = $derived(page.url.searchParams.get('from'));
+	const pageBack = $derived(backPath(fromPage));
 	const stepQuery = $derived.by((): `?${string}` => {
+		if (pageBack) return `${query}&from=${encodeURIComponent(fromPage ?? '')}`;
 		if (fromMap) return `${query}&map=${encodeURIComponent(fromMap)}`;
 		if (fromFolder) return `${query}&folder=${encodeURIComponent(fromFolder)}`;
 		if (!fromGroup) return query;
@@ -93,13 +98,20 @@
 	});
 	// Else back to the gallery at the photo shown now (after stepping through others, too).
 	const backUrl = $derived(
-		fromMap
-			? resolve(`/map${query}&map=${encodeURIComponent(fromMap)}`)
-			: fromFolder
-				? resolve('/groups/folders/[id]', { id: fromFolder })
-				: fromGroup
-					? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
-					: resolve(`/${atPhoto(query, id)}`)
+		pageBack
+			? resolve(pageBack)
+			: fromMap
+				? resolve(`/map${query}&map=${encodeURIComponent(fromMap)}`)
+				: fromFolder
+					? resolve('/groups/folders/[id]', { id: fromFolder })
+					: fromGroup
+						? resolve(`/groups/[id]${groupView}`, { id: fromGroup })
+						: resolve(`/${atPhoto(query, id)}`)
+	);
+
+	// The gallery is named; any other page the photo was opened from, not.
+	const backLabel = $derived(
+		pageBack || fromMap || fromFolder || fromGroup ? m.photo_back_there() : m.photo_back()
 	);
 
 	let asset = $state<AssetDetail | null>(null);
@@ -553,8 +565,8 @@
 <!-- Fills the window under the header: the card takes what the bars above it leave. -->
 <div class="page">
 	<nav class="toolbar" class:bare={lockedClosed}>
-		<Tooltip text={m.photo_back()} keys="Esc" below>
-			<a class="st-iconbtn" href={backUrl} aria-label={m.photo_back()}>
+		<Tooltip text={backLabel} keys="Esc" below>
+			<a class="st-iconbtn" href={backUrl} aria-label={backLabel}>
 				<Icon name="arrow-left" size={18} />
 			</a>
 		</Tooltip>

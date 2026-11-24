@@ -10,6 +10,7 @@
 		thumbnailUrl,
 		type AssetItem
 	} from '#lib/api.js';
+	import { fromQuery } from '#lib/backTo.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
@@ -234,7 +235,10 @@
 				<div class="st-tile-cell" class:chosen class:choosing={selection.size > 0}>
 					<a
 						class="st-tile"
-						href={resolve('/photo/[id]', { id: photo.id })}
+						href={resolve(
+							`/photo/[id]${fromQuery(tab === 'scattered' ? 'candidates:scattered' : 'candidates')}`,
+							{ id: photo.id }
+						)}
 						title={photo.file_name}
 						onclick={(event) => clickTile(event, photo)}
 					>

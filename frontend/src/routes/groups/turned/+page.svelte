@@ -15,6 +15,7 @@
 		type TurnedGroup,
 		type TurnedPhotos
 	} from '#lib/api.js';
+	import { fromQuery, type BackTo } from '#lib/backTo.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
 	import { longpress } from '#lib/gallery/longpress.js';
@@ -76,6 +77,10 @@
 	// kept as they are.
 	const keptView = $derived(page.url.searchParams.get('view') === 'kept');
 	const only = $derived(keptView ? null : Number(page.url.searchParams.get('turn')) || null);
+	// The way back from a photo opened here: this page with its filter.
+	const backTo = $derived<BackTo>(
+		keptView ? 'turned:kept' : only === 1 || only === 2 || only === 3 ? `turned:${only}` : 'turned'
+	);
 	// The photos kept as they are, loaded while that filter is on.
 	let kept = $state.raw<AssetItem[] | null>(null);
 	let keptTotal = $state(0);
@@ -131,8 +136,8 @@
 			answer = result;
 			keptTotal = result.kept ?? 0;
 			shown = Object.fromEntries(result.groups.map((g) => [g.turn, g.photos]));
-			// Photos turned here stay hidden: the core lists them until Immich has made their new
-			// previews.
+			// Photos turned here stay hidden (`gone`) at once; the core leaves out the ones still
+			// being turned, also for a page opened anew.
 			error = null;
 		} catch (e) {
 			error = errorMessage(e);
@@ -205,7 +210,7 @@
 				const photos = left(group).filter((p) => chosenIds.has(p.id) && p.type !== 'VIDEO');
 				if (!photos.length) continue;
 				const ids = photos.map((p) => p.id);
-				const jobs = await rotateSelection(ids, group.fix);
+				const jobs = await rotateSelection(ids, group.fix, true);
 				bulkNotices.followRotation(jobs, ids, ids.length);
 				gone = new Set([...gone, ...ids]);
 			}
@@ -353,7 +358,7 @@
 						<div class="st-tile-cell" class:chosen class:choosing={selection.size > 0}>
 							<a
 								class="st-tile"
-								href={resolve('/photo/[id]', { id: photo.id })}
+								href={resolve(`/photo/[id]${fromQuery(backTo)}`, { id: photo.id })}
 								title={photo.file_name}
 								use:longpress={() => (peek = { item: photo, turn: 0 })}
 								onclick={(event) => clickTile(event, photo, kept ?? [])}
@@ -414,7 +419,7 @@
 							<div class="st-tile-cell" class:chosen class:choosing={selection.size > 0}>
 								<a
 									class="st-tile"
-									href={resolve('/photo/[id]', { id: photo.id })}
+									href={resolve(`/photo/[id]${fromQuery(backTo)}`, { id: photo.id })}
 									title={photo.file_name}
 									use:longpress={() => (peek = { item: photo, turn: afterTurn ? group.fix : 0 })}
 									onclick={(event) => clickTile(event, photo, photos)}

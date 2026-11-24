@@ -18,6 +18,7 @@
 		type TrashedPhotos
 	} from '#lib/api.js';
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
+	import { fromQuery } from '#lib/backTo.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { nearScreen } from '#lib/gallery/nearScreen.js';
 	import { m } from '#lib/paraglide/messages.js';
@@ -494,7 +495,7 @@
 				<div class="cell st-tile-cell" class:chosen class:choosing={chosenTrashed.size > 0}>
 					<a
 						class="st-tile"
-						href={resolve('/photo/[id]', { id: photo.id })}
+						href={resolve(`/photo/[id]${fromQuery('trash')}`, { id: photo.id })}
 						title={photo.file_name}
 						onclick={(event) => clickTrashed(event, photo.id)}
 					>

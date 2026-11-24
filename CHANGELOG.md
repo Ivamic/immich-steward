@@ -7,6 +7,23 @@ between releases.
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-11-24
+
+### Fixed
+
+- **Turned photos**: a photo turned from the list could be offered again when the page was opened
+  anew before Immich had made its new previews, and a second **Turn in Immich** turned it twice
+  (on its side became upside down). A photo being turned now leaves the list at once for every
+  page, and a turn asked from a page loaded earlier leaves the photo alone once the list no longer
+  offers it.
+- **Rotate** in the gallery and on the photo page: a photo still being turned in the background is
+  no longer turned once more on top of it. The selection leaves it out (the notice says how many),
+  the photo page says to wait. A turn interrupted by a restart of the app is not made twice.
+- A photo opened from **Turned photos**, **No sign of a place** or **Maybe no sign of a place**
+  goes back there with **Back** or Esc, with the filter it had, instead of to the gallery. The
+  button says *Back* wherever it leads elsewhere than the gallery.
+- Undoing the same location change twice at the same moment no longer runs both.
+
 ## [0.13.1] - 2026-11-23
 
 ### Fixed
@@ -860,7 +877,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/Ivamic/immich-steward/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/Ivamic/immich-steward/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/Ivamic/immich-steward/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/Ivamic/immich-steward/compare/v0.11.0...v0.12.0

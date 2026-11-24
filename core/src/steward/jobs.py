@@ -457,13 +457,14 @@ class JobRunner:
             if forgotten := await worker_queue.forget_old_workers(db):
                 log.info("forgot %d workers not seen for 30 days", forgotten)
 
-    async def run_once(self, min_priority: int | None = None) -> bool:
-        """Claims and runs the oldest queued job (of at least `min_priority`). Returns False when
-        the queue is empty."""
+    async def run_once(self, user: bool | None = None) -> bool:
+        """Claims and runs the oldest queued job: of those the user waits for (`user`), of the
+        others (False), or of all (None). Returns False when there is none."""
         async with self._sessionmaker() as db:
             among = [Job.status == "queued", Job.kind.in_(self._handlers)]
-            if min_priority is not None:
-                among.append(Job.priority >= min_priority)
+            if user is not None:
+                waited = Job.priority >= worker_queue.PRIORITY_USER
+                among.append(waited if user else ~waited)
             job = await db.scalar(
                 select(Job)
                 .where(*among)
@@ -514,12 +515,12 @@ class JobRunner:
             await updates.check_if_due(db, self._update_transport)
 
     async def run_user_jobs(self, stop: asyncio.Event) -> None:
-        """Jobs the user waits for (a rotate of the chosen photos) beside the main loop: a long
-        background job there (a full pass of the similar badge takes hours) does not hold them
-        up. Both loops claim with SKIP LOCKED, so a job runs once."""
+        """Jobs the user waits for (a rotate of the chosen photos), one after the other in the
+        order asked, beside the main loop: a long background job there (a full pass of the
+        similar badge takes hours) does not hold them up. The main loop leaves them alone."""
         while not stop.is_set():
             try:
-                if await self.run_once(min_priority=worker_queue.PRIORITY_USER):
+                if await self.run_once(user=True):
                     continue
             except Exception:
                 log.exception("job runner iteration (user jobs) failed")
@@ -547,7 +548,7 @@ class JobRunner:
                     await self.check_updates()
                     await self.close_idle_locked()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S
-                if await self.run_once():
+                if await self.run_once(user=False):
                     continue
             except Exception:
                 log.exception("job runner iteration failed")

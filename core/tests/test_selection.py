@@ -11,7 +11,6 @@ from test_module_runs import finish, start_worker
 
 from steward import locations, rotation
 from steward.models import Job
-from steward.worker_queue import PRIORITY_USER
 
 KOTOR = {"latitude": 42.4247, "longitude": 18.7712}
 BUDVA = {"latitude": 42.2864, "longitude": 18.84}
@@ -248,26 +247,35 @@ def test_a_failed_job_leaves_its_photos_free(
     assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
 
 
-def test_a_turn_does_not_wait_for_a_background_job(
+def test_turns_run_beside_the_background_jobs_and_one_after_another(
     signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
 ) -> None:
-    """The loop of the jobs the user waits for takes the turn and leaves the background job
-    (a full pass of the similar badge, hours on a large library) to the main loop."""
+    """The loop of the jobs the user waits for takes the turns, in the order asked, and leaves
+    the background job (a full pass of the similar badge, hours on a large library) to the main
+    loop, which in turn leaves the turns alone: two groups turned one after the other do not run
+    at the same time."""
     background = signed_in.post("/api/library/similar-hints").json()
-    job = rotate(signed_in, ids(photos, "a"))
+    first = rotate(signed_in, ids(photos, "a"))
+    second = rotate(signed_in, ids(photos, "b"))
     runner = signed_in.app.state.job_runner  # type: ignore[attr-defined]
-    user_jobs = partial(runner.run_once, min_priority=PRIORITY_USER)
-    assert signed_in.portal.call(user_jobs)  # type: ignore[union-attr]
-    assert not signed_in.portal.call(user_jobs)  # type: ignore[union-attr]
-    assert job_of(signed_in, job)["status"] == "done"
-    assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
 
-    async def status() -> str:
+    async def status(job: dict[str, Any]) -> str:
         async with runner._sessionmaker() as db:
-            found = await db.get(Job, background["id"])
+            found = await db.get(Job, job["id"])
             return str(found.status)
 
-    assert signed_in.portal.call(status) == "queued"  # type: ignore[union-attr]
+    def state() -> list[str]:
+        return [signed_in.portal.call(status, j) for j in (first, second, background)]  # type: ignore[union-attr]
+
+    assert signed_in.portal.call(partial(runner.run_once, user=True))  # type: ignore[union-attr]
+    assert state() == ["done", "queued", "queued"]
+    # The main loop takes the background job, not the next turn.
+    assert signed_in.portal.call(partial(runner.run_once, user=False))  # type: ignore[union-attr]
+    assert state() == ["done", "queued", "done"]
+    assert not signed_in.portal.call(partial(runner.run_once, user=False))  # type: ignore[union-attr]
+    assert signed_in.portal.call(partial(runner.run_once, user=True))  # type: ignore[union-attr]
+    assert state() == ["done", "done", "done"]
+    assert fake_immich.edits[photos["b"][1]] == [ROTATE_90]
 
 
 def stopped_while_turning(

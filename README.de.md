@@ -109,6 +109,14 @@ Um einen Ort mit eigenen Augen zu prüfen, lassen sich Satellitenbilder unter de
 anzeigen: Sentinel-2 von EOX (ohne Schlüssel), Esri World Imagery oder MapTiler Satellite (mit
 eigenem Schlüssel). Alle sind aus, bis du einen einschaltest.
 
+**Straßenbilder** *(Beta)*: Fotos der Straße von anderen Leuten, von
+[Panoramax](https://panoramax.fr) und [Mapillary](https://www.mapillary.com) (mit eigenem
+Token), im Umkreis von 100 m um den Punkt, in einem Streifen unter der Karte. Nur die Koordinaten
+des Punkts gehen an sie, und erst wenn du eine Quelle einschaltest. Ein Worker vergleicht sie mit
+deinem Foto: Bilder derselben Szene kommen zuerst, mit Linien zwischen den gemeinsamen Details,
+und aus ihnen ermittelt die App, wohin die Kamera blickte, als Kegel auf der Karte. Dein Foto
+bleibt zu Hause.
+
 **Gruppen** fassen Fotos derselben Ansicht von selbst zusammen, mit und ohne Standort: Liegen die
 Fotos mit Standort an einer Stelle, lässt sich dieser Ort in einem Schritt auf die übrigen
 übertragen, nachdem du ihn auf der Karte geprüft hast. Was im Lauf der Jahre umgezogen ist, zeigt
@@ -147,7 +155,8 @@ verarbeitet, solange er offen ist. Jeder Punkt öffnet sich mit einem Klick in *
 
 ### Geplant
 
-- **Straßenpanoramen** auf der Karte, um einen Ort mit eigenen Augen zu prüfen.
+- **Wo genau das Foto aufgenommen wurde**, aus den passenden Straßenbildern: wo sich ihre
+  Blickrichtungen kreuzen.
 - **Schlussfolgern mit einem LLM** (im Stil von Img2Loc) — ein Bild-Sprach-Modell denkt über das
   Foto und die von den anderen Modulen gesammelten Hinweise nach.
 - **Externe Dienste** — optionale Cloud-Erkennung, ein Modul pro Dienst.

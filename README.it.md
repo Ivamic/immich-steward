@@ -106,6 +106,13 @@ Per controllare un luogo con i propri occhi, sotto la mappa si possono mostrare 
 satellitari: Sentinel-2 di EOX (senza chiave), Esri World Imagery o MapTiler Satellite (con la
 tua chiave). Sono tutte disattivate finché non ne attivi una.
 
+**Immagini della strada** *(beta)*: foto della strada scattate da altri, da
+[Panoramax](https://panoramax.fr) e [Mapillary](https://www.mapillary.com) (con il tuo token),
+entro 100 m dal punto, in una striscia sotto la mappa. A loro vanno solo le coordinate del punto,
+e solo dopo che hai attivato una fonte. Un worker le confronta con la tua foto: quelle che
+mostrano la stessa scena vengono prima, con linee tra i dettagli in comune, e da esse l'app ricava
+dove guardava la fotocamera, mostrato come un cono sulla mappa. La tua foto resta a casa.
+
 **I gruppi** riuniscono da soli le foto di una stessa vista, con o senza posizione: quando le foto
 con posizione stanno nello stesso punto, quel luogo si applica alle altre in un solo passo, dopo
 averlo controllato sulla mappa. Un soggetto che ha cambiato posto negli anni si vede mese per mese,
@@ -143,7 +150,8 @@ Street View).
 
 ### In programma
 
-- **Panorami a livello della strada** sulla mappa, per controllare un luogo con i propri occhi.
+- **Dove è stata scattata esattamente la foto**, dalle immagini della strada che corrispondono:
+  dove le loro direzioni si incrociano.
 - **Ragionamento con un LLM** (sul modello di Img2Loc) — un modello visione-linguaggio ragiona
   sulla foto e sugli indizi raccolti dagli altri moduli.
 - **Servizi esterni** — riconoscimento facoltativo nel cloud, un modulo per servizio.

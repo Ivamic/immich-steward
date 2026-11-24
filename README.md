@@ -101,6 +101,13 @@ To check a place by eye, satellite imagery can be shown under the map: Sentinel-
 (no key), Esri World Imagery or MapTiler Satellite (with your own key). All of them are off
 until you switch one on.
 
+**Street-level images** *(beta)*: photos of the street taken by other people, from
+[Panoramax](https://panoramax.fr) and [Mapillary](https://www.mapillary.com) (with your own
+token), within 100 m of the point, in a strip under the map. Only the coordinates of the point go
+to them, and only once you switch a source on. A worker compares them with your photo: the ones
+that show the very same scene go first, with lines between the details they share, and from them
+the app tells which way the camera looked, shown as a cone on the map. Your photo stays at home.
+
 **Groups** gather the photos of one view by themselves, with a location or without: when the photos
 with a location agree on a spot, the place can be set on the others in one step, after a look at
 the map. A subject that moved over the years shows month by month, a spot that does not fit stands
@@ -134,7 +141,8 @@ while it is open. Any point opens in **Google Maps** (satellite or Street View) 
 
 ### Planned
 
-- **Street-level panoramas** on the map, to check a place by eye.
+- **Where exactly the photo was taken**, from the street-level images matched with it: where
+  their views cross.
 - **LLM reasoning** (Img2Loc-style) — a vision-language model reasons over the photo
   plus the evidence collected by the other modules.
 - **External services** — optional cloud recognizers, one module per service.

@@ -109,6 +109,14 @@ Pour vérifier un lieu de ses propres yeux, des images satellite peuvent être a
 carte : Sentinel-2 d'EOX (sans clé), Esri World Imagery ou MapTiler Satellite (avec votre propre
 clé). Toutes sont désactivées tant que vous n'en activez pas une.
 
+**Images de rue** *(bêta)* : des photos de la rue prises par d'autres, depuis
+[Panoramax](https://panoramax.fr) et [Mapillary](https://www.mapillary.com) (avec votre propre
+jeton), à moins de 100 m du point, dans un bandeau sous la carte. Seules les coordonnées du point
+leur sont envoyées, et seulement une fois une source activée. Un worker les compare avec votre
+photo : celles qui montrent la même scène passent en premier, avec des lignes entre les détails
+communs, et l'application en déduit la direction de l'appareil, affichée en cône sur la carte.
+Votre photo reste chez vous.
+
 **Les groupes** rassemblent d'eux-mêmes les photos d'une même vue, avec ou sans lieu : quand les
 photos avec un lieu se trouvent au même endroit, ce lieu s'applique aux autres en une fois, après
 un coup d'œil sur la carte. Un sujet qui a changé d'endroit au fil des ans se voit mois par mois,
@@ -147,7 +155,8 @@ Maps** (satellite ou Street View).
 
 ### Prévu
 
-- **Panoramas au niveau de la rue** sur la carte, pour vérifier un lieu de ses propres yeux.
+- **L'endroit exact de la prise de vue**, d'après les images de rue concordantes : là où leurs
+  directions se croisent.
 - **Raisonnement par LLM** (dans l'esprit d'Img2Loc) — un modèle vision-langage raisonne sur la
   photo et sur les indices rassemblés par les autres modules.
 - **Services externes** — des services de reconnaissance en ligne facultatifs, un module par

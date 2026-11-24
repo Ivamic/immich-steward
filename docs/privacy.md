@@ -49,8 +49,9 @@ where.
 
 Only what you save: the location of a photo (and the tag `steward/estimated`), and the rotation
 of a photo when you press **Save rotation in Immich**. Every location write is kept in the
-history of the photo and can be undone. Groups, their names, folders and the mark "no sign of a
-place" (yours and the app's) stay in the database of the app: Immich does not see them.
+history of the photo and can be undone. Groups, their names, folders, the mark "no sign of a
+place" (yours and the app's) and the direction of a photo stay in the database of the app: Immich
+does not see them.
 
 ## The locked folder
 

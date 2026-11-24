@@ -18,6 +18,11 @@ between releases.
   images** (Mapillary needs your own access token); only the coordinates of the point go to them,
   the images come through the app server and are not stored
   ([privacy](docs/privacy.md#what-leaves-your-server)).
+- **Direction of a photo**: **Put the point here** on a street-level image also takes the way the
+  image looks, about the way the photo looks if it shows the same view (±30°; not from a 360°
+  panorama). It is saved with the location and shown as a cone on the map and as *Direction* in
+  the card (north-east, 48° ±30°), where it can be forgotten. It is kept in the app only: Immich
+  has no field for it.
 
 - **Reset the found turns**, on **Turned photos** and at the *orientation* module on
   **Processing**: forgets what the module found, so that it looks at the photos again, newest

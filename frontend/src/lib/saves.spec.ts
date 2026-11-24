@@ -27,7 +27,7 @@ describe('Saves', () => {
 		await vi.advanceTimersByTimeAsync(GRACE_MS - 1);
 		expect(api.save).not.toHaveBeenCalled();
 		await vi.advanceTimersByTimeAsync(1);
-		expect(api.save).toHaveBeenCalledWith('a', point, false);
+		expect(api.save).toHaveBeenCalledWith('a', point, false, null);
 		expect(saves.items[0].phase).toBe('saved');
 		expect(saves.changed?.assetId).toBe('a');
 
@@ -52,7 +52,16 @@ describe('Saves', () => {
 		saves.schedule('a', 'IMG_1.JPG', { lat: 1, lon: 2 });
 		await vi.advanceTimersByTimeAsync(GRACE_MS);
 		expect(api.save).toHaveBeenCalledTimes(1);
-		expect(api.save).toHaveBeenCalledWith('a', { lat: 1, lon: 2 }, false);
+		expect(api.save).toHaveBeenCalledWith('a', { lat: 1, lon: 2 }, false, null);
+	});
+
+	it('sends the direction with the location', async () => {
+		const api = fakeApi();
+		const saves = new Saves(api);
+		const direction = { heading: 48, accuracy: 30, source: 'street', source_ref: 'mapillary:1' };
+		saves.schedule('a', 'IMG_1.JPG', point, direction);
+		await vi.advanceTimersByTimeAsync(GRACE_MS);
+		expect(api.save).toHaveBeenCalledWith('a', point, false, direction);
 	});
 
 	it('flushes pending saves with keepalive when the page closes', async () => {
@@ -62,7 +71,7 @@ describe('Saves', () => {
 		saves.schedule('b', 'IMG_2.JPG', point);
 		saves.flush();
 		expect(api.save).toHaveBeenCalledTimes(2);
-		expect(api.save).toHaveBeenLastCalledWith('b', point, true);
+		expect(api.save).toHaveBeenLastCalledWith('b', point, true, null);
 		await vi.advanceTimersByTimeAsync(GRACE_MS);
 		expect(api.save).toHaveBeenCalledTimes(2);
 	});

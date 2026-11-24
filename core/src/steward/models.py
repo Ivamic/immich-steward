@@ -320,6 +320,24 @@ class MapSourceSetting(Base):
     provider_usage: Mapped[dict[str, Any] | None]
 
 
+class AssetDirection(Base):
+    """Which way the camera looked when the photo was taken (D-236, D-245): kept here, as Immich
+    has no field for it. Not touched by a sync; the image turned in Immich does not change it."""
+
+    __tablename__ = "asset_direction"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    # Degrees clockwise from true north, and how far off it may be (either way).
+    heading: Mapped[float] = mapped_column(Float)
+    accuracy: Mapped[float] = mapped_column(Float)
+    # Where it comes from (`directions.SOURCES`) and what: "mapillary:123" for a street image.
+    source: Mapped[str] = mapped_column(String(16))
+    source_ref: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+
 class StreetSourceSetting(Base):
     """A source of street-level images as an account set it up (`steward.street`): switched on
     (= the account agrees that the coordinates of the point it looks at go to the provider) and

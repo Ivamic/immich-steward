@@ -263,7 +263,20 @@ export interface LocationChange {
 	status: 'applied' | 'undone';
 }
 
+/** Which way the camera looked (D-245), kept in the app: degrees clockwise from true north,
+ * give or take `accuracy`. */
+export interface Direction {
+	heading: number;
+	accuracy: number;
+	/** street: a street-level image the point was put on; street_match: matched with one. */
+	source: string;
+	/** The image, "mapillary:123". */
+	source_ref: string | null;
+}
+
 export interface AssetDetail {
+	/** Which way the camera looked, if known. Absent: an older core. */
+	direction?: Direction | null;
 	id: string;
 	type: string;
 	file_name: string;
@@ -822,14 +835,18 @@ export const setLocation = (
 	id: string,
 	point: { lat: number; lon: number },
 	filter: GalleryFilter | null = null,
-	keepalive = false
+	keepalive = false,
+	direction: Direction | null = null
 ) =>
 	request<AssetDetail>(
 		'PUT',
 		`/api/assets/${id}/location${filter ? filterQuery(filter) : ''}`,
-		{ latitude: point.lat, longitude: point.lon },
+		{ latitude: point.lat, longitude: point.lon, ...(direction ? { direction } : {}) },
 		keepalive
 	);
+/** Forgets which way the camera looked (kept in the app only). */
+export const forgetDirection = (id: string, filter: GalleryFilter) =>
+	request<AssetDetail>('DELETE', `/api/assets/${id}/direction${filterQuery(filter)}`);
 /** Saves the photo rotated in Immich, on top of how it is shown now (an Immich edit). */
 export const rotateInImmich = (id: string, turn: Turn, filter: GalleryFilter) =>
 	request<AssetDetail>('POST', `/api/assets/${id}/rotate${filterQuery(filter)}`, { turn });

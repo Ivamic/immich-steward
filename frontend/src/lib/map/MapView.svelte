@@ -95,7 +95,8 @@
 		startView = null,
 		pictures = false,
 		streets = [],
-		onstreet = () => {}
+		onstreet = () => {},
+		direction = null
 	}: {
 		styleUrl: string;
 		/** The map style for the dark theme; null: `styleUrl`, dimmed. */
@@ -132,6 +133,8 @@
 		streets?: StreetMark[];
 		/** A click on a street-level image. */
 		onstreet?: (key: string) => void;
+		/** Which way the camera looked from the point (D-245): a cone as wide as it may be off. */
+		direction?: { lat: number; lon: number; heading: number; accuracy: number } | null;
 	} = $props();
 
 	setWorkerUrl(workerUrl);
@@ -158,6 +161,10 @@
 	const STREETS = 'steward-streets';
 	const STREET_VIEWS = 'steward-street-views';
 	const STREET_POINTS = 'steward-street-points';
+	const DIRECTION = 'steward-direction';
+	const DIRECTION_COLOR = '#0969da';
+	// The cone of the photo: this long on screen, at any zoom.
+	const DIRECTION_PX = 90;
 	const STREET_COLOR = '#1a7f37';
 	const STREET_ACTIVE_COLOR = '#bc4c00';
 	// The sector of a street-level image on the map: its width and length.
@@ -554,6 +561,19 @@
 	}
 
 	function addStreetLayers(instance: MapLibreMap) {
+		instance.addSource(DIRECTION, { type: 'geojson', data: EMPTY });
+		instance.addLayer({
+			id: DIRECTION,
+			type: 'fill',
+			source: DIRECTION,
+			paint: { 'fill-color': DIRECTION_COLOR, 'fill-opacity': 0.25 }
+		});
+		instance.addLayer({
+			id: `${DIRECTION}-edge`,
+			type: 'line',
+			source: DIRECTION,
+			paint: { 'line-color': DIRECTION_COLOR, 'line-width': 1.5, 'line-opacity': 0.8 }
+		});
 		instance.addSource(STREETS, { type: 'geojson', data: EMPTY });
 		const active: ExpressionSpecification = ['==', ['get', 'active'], 1];
 		instance.addLayer({
@@ -600,6 +620,47 @@
 			properties: { key: mark.key, active: mark.active ? 1 : 0 }
 		};
 	}
+
+	/** A sector around `heading`, `half` degrees each way, `length` metres long. */
+	function sector(lat: number, lon: number, heading: number, half: number, length: number) {
+		const metersLat = 111_320;
+		const metersLon = metersLat * Math.cos((lat * Math.PI) / 180);
+		const ring: [number, number][] = [[lon, lat]];
+		const steps = 12;
+		for (let step = 0; step <= steps; step++) {
+			const angle = ((heading - half + (2 * half * step) / steps) * Math.PI) / 180;
+			ring.push([
+				lon + (Math.sin(angle) * length) / metersLon,
+				lat + (Math.cos(angle) * length) / metersLat
+			]);
+		}
+		ring.push([lon, lat]);
+		return ring;
+	}
+
+	$effect(() => {
+		const d = direction;
+		const atZoom = zoom;
+		if (!map || !ready) return;
+		const features: Feature[] = [];
+		if (d) {
+			// As long on screen at any zoom: metres per pixel at the point.
+			const perPixel = (156_543.03392 * Math.cos((d.lat * Math.PI) / 180)) / 2 ** atZoom;
+			const half = Math.min(Math.max(d.accuracy, 12), 75);
+			features.push({
+				type: 'Feature',
+				geometry: {
+					type: 'Polygon',
+					coordinates: [sector(d.lat, d.lon, d.heading, half, DIRECTION_PX * perPixel)]
+				},
+				properties: {}
+			});
+		}
+		(map.getSource(DIRECTION) as GeoJSONSource | undefined)?.setData({
+			type: 'FeatureCollection',
+			features
+		});
+	});
 
 	$effect(() => {
 		const features: Feature[] = [

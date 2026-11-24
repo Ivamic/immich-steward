@@ -8,9 +8,10 @@
 <script lang="ts">
 	import {
 		ApiError,
+		forgetDirection,
 		getAsset,
-		getPhotoGroup,
 		getMapConfig,
+		getPhotoGroup,
 		getSuggestions,
 		isComparing,
 		isPending,
@@ -20,10 +21,11 @@
 		runModule,
 		setReview,
 		thumbnailUrl,
-		videoUrl,
 		undoLocation,
+		videoUrl,
 		type AssetDetail,
 		type Candidate,
+		type Direction,
 		type GalleryFilter,
 		type MapConfig,
 		type ModuleSuggestions,
@@ -40,6 +42,7 @@
 	import { locked } from '#lib/locked.svelte.js';
 	import PauseBar from '#lib/PauseBar.svelte';
 	import { backPath } from '#lib/backTo.js';
+	import { directionText } from '#lib/direction.js';
 	import StreetStrip from '#lib/street/StreetStrip.svelte';
 	import type { StreetMark } from '#lib/map/markers.js';
 	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
@@ -132,6 +135,27 @@
 	// Street-level images near the point (D-244): the one picked, and the images on the map.
 	let streetActive = $state<string | null>(null);
 	let streetMarks = $state<StreetMark[]>([]);
+	// Which way the camera looked, from the street-level image the point was put on: saved with
+	// the location (D-245).
+	let pendingDirection = $state<Direction | null>(null);
+	// The cone on the map: of the point put, else of the location of the photo.
+	const cone = $derived.by(() => {
+		if (picked) return pendingDirection ? { ...picked, ...pendingDirection } : null;
+		const kept = asset?.direction;
+		return kept && current ? { ...current, heading: kept.heading, accuracy: kept.accuracy } : null;
+	});
+
+	async function forgetTheDirection() {
+		if (!asset || busy) return;
+		busy = true;
+		try {
+			asset = await forgetDirection(asset.id, filter);
+		} catch (e) {
+			error = errorMessage(e);
+		} finally {
+			busy = false;
+		}
+	}
 	let viewerOpen = $state(false);
 	let albumOpen = $state(false);
 	// The album to take the photo out of, while asking whether to; and why it failed.
@@ -431,12 +455,15 @@
 	}
 
 	function pick(point: LatLon) {
+		// A point put by other means: the way a street-level image looked no longer applies.
+		pendingDirection = null;
 		picked = point;
 		coordinatesText = formatCoordinates(point);
 		coordinatesInvalid = false;
 	}
 
 	function clearPicked() {
+		pendingDirection = null;
 		picked = null;
 		coordinatesText = '';
 	}
@@ -494,7 +521,7 @@
 			error = m.error_location_null_island();
 			return;
 		}
-		saves.schedule(asset.id, asset.file_name, picked);
+		saves.schedule(asset.id, asset.file_name, picked, pendingDirection);
 		if (asset.next_id) open(asset.next_id);
 		else clearPicked();
 	}
@@ -667,6 +694,7 @@
 							scrollingPage
 							streets={streetMarks}
 							onstreet={(key) => (streetActive = key)}
+							direction={cone}
 						/>
 					{/if}
 				</div>
@@ -675,8 +703,9 @@
 					photo={asset ? thumbnailUrl(id, 'preview', turn, version) : null}
 					bind:active={streetActive}
 					bind:marks={streetMarks}
-					onpick={(point) => {
+					onpick={(point, direction) => {
 						pick(point);
+						pendingDirection = direction;
 						mapView?.flyTo(point);
 					}}
 				/>
@@ -738,6 +767,11 @@
 						</label>
 						{#if coordinatesInvalid}
 							<p class="st-field__error">{m.photo_coordinates_invalid()}</p>
+						{/if}
+						{#if picked && pendingDirection}
+							<p class="direction-note">
+								{m.photo_direction_with_point({ direction: directionText(pendingDirection) })}
+							</p>
 						{/if}
 						<!-- Re-created for every new point, so that it catches the eye each time. -->
 						{#key picked}
@@ -1060,6 +1094,18 @@
 									<span class="muted">{m.photo_no_location()}</span>
 								{/if}
 							</dd>
+							{#if asset.direction}
+								<dt>{m.photo_direction()}</dt>
+								<dd>
+									{directionText(asset.direction)}
+									<button
+										type="button"
+										class="st-btn st-btn--ghost st-btn--sm"
+										disabled={busy}
+										onclick={forgetTheDirection}>{m.photo_direction_forget()}</button
+									>
+								</dd>
+							{/if}
 							{#if asset.review_status !== 'new'}
 								<dt>{m.photo_status()}</dt>
 								<dd>
@@ -1228,6 +1274,11 @@
 		gap: var(--space-4);
 		flex: 1;
 		min-height: 30rem;
+	}
+	.direction-note {
+		margin: var(--space-1) 0 0;
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
 	}
 	.map-area {
 		grid-area: map;

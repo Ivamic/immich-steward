@@ -942,5 +942,19 @@
 	"street_previous": "Previous image (←)",
 	"street_next": "Next image (→)",
 	"street_pano_hint": "360°: scroll sideways",
-	"street_pick_here": "Put the point here"
+	"street_pick_here": "Put the point here",
+	"compass_n": "north",
+	"compass_ne": "north-east",
+	"compass_e": "east",
+	"compass_se": "south-east",
+	"compass_s": "south",
+	"compass_sw": "south-west",
+	"compass_w": "west",
+	"compass_nw": "north-west",
+	"direction_text": "{point}, {heading}° ±{accuracy}° ({source})",
+	"direction_source_street": "street-level image",
+	"direction_source_match": "matched with a street-level image",
+	"photo_direction": "Direction",
+	"photo_direction_forget": "Forget",
+	"photo_direction_with_point": "Saved with the point: looks {direction}"
 }

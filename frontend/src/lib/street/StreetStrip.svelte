@@ -10,6 +10,7 @@
 		getStreetNear,
 		getStreetSources,
 		streetImageUrl,
+		type Direction,
 		type StreetImage,
 		type StreetNear
 	} from '#lib/api.js';
@@ -38,13 +39,15 @@
 		active?: string | null;
 		/** The images as the map shows them. */
 		marks?: StreetMark[];
-		/** "Put the point here". */
-		onpick: (point: LatLon) => void;
+		/** "Put the point here", with the way the image looks (null: a panorama, or unknown). */
+		onpick: (point: LatLon, direction: Direction | null) => void;
 	} = $props();
 
 	// Asked once the point stopped moving for this long.
 	const WAIT_MS = 600;
 	const RADIUS_M = 100;
+	// How far off the way an image looks may be from the way the photo looks (D-245).
+	const STREET_ACCURACY = 30;
 	// As many as the core gives for all sources together.
 	const NEAR_MOST = 40;
 
@@ -166,7 +169,18 @@
 	}
 
 	function pickHere(image: StreetImage) {
-		onpick({ lat: image.latitude, lon: image.longitude });
+		// The photo looks about the way the image does, if it shows the same view; a panorama
+		// looks every way.
+		const direction =
+			image.pano || image.heading === null
+				? null
+				: {
+						heading: image.heading,
+						accuracy: STREET_ACCURACY,
+						source: 'street',
+						source_ref: key(image)
+					};
+		onpick({ lat: image.latitude, lon: image.longitude }, direction);
 		opened = null;
 	}
 

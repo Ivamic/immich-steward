@@ -13,6 +13,7 @@ import {
 	undoLocation,
 	undoSelectionLocation,
 	type AssetDetail,
+	type Direction,
 	type PendingPoint,
 	type SelectionUndone,
 	type SelectionWritten
@@ -42,6 +43,8 @@ export interface Save {
 	/** The file name, or "12 photos" for a batch. */
 	fileName: string;
 	point: LatLon;
+	/** Which way the camera looked from there, kept with the location (one photo only). */
+	direction: Direction | null;
 	batch: Batch | null;
 	/** A batch once saved: what to undo (a write per batch of `MAX_IDS` photos), and the photos
 	 * left as they were. */
@@ -58,14 +61,19 @@ export interface Save {
 }
 
 interface Api {
-	save: (id: string, point: LatLon, keepalive: boolean) => Promise<AssetDetail>;
+	save: (
+		id: string,
+		point: LatLon,
+		keepalive: boolean,
+		direction: Direction | null
+	) => Promise<AssetDetail>;
 	undo: (id: string) => Promise<AssetDetail>;
 	saveBatch: (batch: Batch, point: LatLon, keepalive: boolean) => Promise<SelectionWritten>;
 	undoBatch: (batchIds: string[]) => Promise<SelectionUndone>;
 }
 
 const realApi: Api = {
-	save: (id, point, keepalive) => setLocation(id, point, null, keepalive),
+	save: (id, point, keepalive, direction) => setLocation(id, point, null, keepalive, direction),
 	undo: (id) => undoLocation(id),
 	saveBatch: (batch, point, keepalive) =>
 		setSelectionLocation(batch.ids, point, batch.overwrite, keepalive),
@@ -86,19 +94,19 @@ export class Saves {
 	constructor(private readonly api: Api = realApi) {}
 
 	/** Queues a save; a pending save of the same photo is replaced. */
-	schedule(assetId: string, fileName: string, point: LatLon) {
+	schedule(assetId: string, fileName: string, point: LatLon, direction: Direction | null = null) {
 		for (const item of this.items) {
 			if (item.assetId === assetId && item.phase === 'pending') this.cancel(item.key);
 		}
-		this.#add({ assetId, fileName, point, batch: null });
+		this.#add({ assetId, fileName, point, direction, batch: null });
 	}
 
 	/** Queues one location for several photos (`label`: "12 photos"). */
 	scheduleBatch(batch: Batch, label: string, point: LatLon) {
-		this.#add({ assetId: '', fileName: label, point, batch });
+		this.#add({ assetId: '', fileName: label, point, direction: null, batch });
 	}
 
-	#add(fields: Pick<Save, 'assetId' | 'fileName' | 'point' | 'batch'>) {
+	#add(fields: Pick<Save, 'assetId' | 'fileName' | 'point' | 'direction' | 'batch'>) {
 		const save: Save = {
 			key: this.#nextKey++,
 			...fields,
@@ -156,7 +164,9 @@ export class Saves {
 				save.skipped = written.skipped_located;
 				save.canUndo = written.batch_ids.length > 0;
 			} else {
-				save.canUndo = (await this.api.save(save.assetId, save.point, keepalive)).can_undo;
+				save.canUndo = (
+					await this.api.save(save.assetId, save.point, keepalive, save.direction)
+				).can_undo;
 			}
 			save.phase = 'saved';
 			this.#markChanged(save.assetId);

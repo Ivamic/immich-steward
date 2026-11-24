@@ -942,5 +942,19 @@
 	"street_previous": "Предыдущий снимок (←)",
 	"street_next": "Следующий снимок (→)",
 	"street_pano_hint": "360°: прокрутите вбок",
-	"street_pick_here": "Поставить точку сюда"
+	"street_pick_here": "Поставить точку сюда",
+	"compass_n": "север",
+	"compass_ne": "северо-восток",
+	"compass_e": "восток",
+	"compass_se": "юго-восток",
+	"compass_s": "юг",
+	"compass_sw": "юго-запад",
+	"compass_w": "запад",
+	"compass_nw": "северо-запад",
+	"direction_text": "{point}, {heading}° ±{accuracy}° ({source})",
+	"direction_source_street": "снимок улицы",
+	"direction_source_match": "сверено со снимком улицы",
+	"photo_direction": "Направление",
+	"photo_direction_forget": "Забыть",
+	"photo_direction_with_point": "Сохранится вместе с точкой: смотрит на {direction}"
 }

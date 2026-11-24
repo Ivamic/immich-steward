@@ -21,6 +21,7 @@ from starlette.background import BackgroundTask
 from steward import (
     account_settings,
     details,
+    directions,
     locations,
     locked,
     module_display,
@@ -281,6 +282,23 @@ class AlbumRef(BaseModel):
     can_change_photos: bool
 
 
+class DirectionIn(BaseModel):
+    """Which way the camera looked: degrees clockwise from true north, give or take `accuracy`."""
+
+    heading: float = Field(ge=0, lt=360)
+    accuracy: float = Field(ge=1, le=180)
+    source: Literal["street"]
+    # The street-level image it was taken from, "mapillary:123".
+    source_ref: str | None = Field(default=None, max_length=100)
+
+
+class DirectionOut(BaseModel):
+    heading: float
+    accuracy: float
+    source: str
+    source_ref: str | None
+
+
 class AssetDetail(BaseModel):
     id: UUID
     type: str
@@ -313,6 +331,8 @@ class AssetDetail(BaseModel):
     version: str | None = None
     # In the Immich locked folder (reached only while it is open).
     locked: bool = False
+    # Which way the camera looked, as the app keeps it (D-245); None: not known.
+    direction: DirectionOut | None = None
 
 
 class ReviewUpdate(BaseModel):
@@ -322,6 +342,8 @@ class ReviewUpdate(BaseModel):
 class LocationUpdate(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
+    # Which way the camera looked from there, kept with the location (not written to Immich).
+    direction: DirectionIn | None = None
 
 
 class RegionIn(BaseModel):
@@ -675,6 +697,7 @@ async def _detail(
     previous_id, next_id = await neighbors(db, account, filters, asset)
     history = await locations.history(db, asset)
     last_applied = next((c for c in history if c.status == "applied"), None)
+    direction = await directions.get(db, asset.id)
     return AssetDetail(
         id=asset.id,
         type=asset.type,
@@ -707,6 +730,16 @@ async def _detail(
         ),
         version=asset.thumbhash,
         locked=asset.visibility == "locked",
+        direction=(
+            DirectionOut(
+                heading=direction.heading,
+                accuracy=direction.accuracy,
+                source=direction.source,
+                source_ref=direction.source_ref,
+            )
+            if direction
+            else None
+        ),
     )
 
 
@@ -1039,7 +1072,41 @@ async def set_location(
             source="manual",
             tag=settings.estimated_tag,
         )
+    if body.direction is not None:
+        d = body.direction
+        await directions.keep(db, asset.id, d.heading, d.accuracy, d.source, d.source_ref)
+        await db.commit()
     await details.after_location(db, settings, [asset])
+    return await _detail(db, account, asset, filters, settings)
+
+
+@router.put("/{asset_id}/direction")
+async def set_direction(
+    asset_id: UUID,
+    body: DirectionIn,
+    account: CurrentAccount,
+    db: DbDep,
+    filters: FilterDep,
+    settings: SettingsDep,
+) -> AssetDetail:
+    """Keeps which way the camera looked (in the app only: Immich has no field for it)."""
+    asset = await _own_asset(db, account, asset_id)
+    await directions.keep(db, asset.id, body.heading, body.accuracy, body.source, body.source_ref)
+    await db.commit()
+    return await _detail(db, account, asset, filters, settings)
+
+
+@router.delete("/{asset_id}/direction")
+async def forget_direction(
+    asset_id: UUID,
+    account: CurrentAccount,
+    db: DbDep,
+    filters: FilterDep,
+    settings: SettingsDep,
+) -> AssetDetail:
+    asset = await _own_asset(db, account, asset_id)
+    await directions.forget(db, asset.id)
+    await db.commit()
     return await _detail(db, account, asset, filters, settings)
 
 

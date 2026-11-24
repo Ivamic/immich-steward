@@ -439,7 +439,8 @@ async def rerun_failed(
     module_id: str, body: RerunRequest, account: CurrentAccount, db: DbDep, settings: SettingsDep
 ) -> RerunResult:
     """Runs the module again on this library's photos whose latest run of it failed."""
-    if module_id not in REMOTE_MODULES:
+    if module_id not in REMOTE_MODULES or module_id == worker_queue.STREET_MODULE:
+        # Street-level images are compared again from the card, with the images it shows.
         raise ApiError(404, "module_not_found")
     if module_id == details.MODULE_ID:
         queued = await details.rerun_failed(db, account.id, settings, body.code)

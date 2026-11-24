@@ -128,7 +128,7 @@ On Windows (PowerShell):
 ```powershell
 cd D:\steward-worker
 Remove-Item -Recurse -Force .venv
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
 On Linux:
@@ -136,7 +136,7 @@ On Linux:
 ```sh
 cd ~/steward-worker
 rm -rf .venv
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
 ### A photo card says that no worker runs the module

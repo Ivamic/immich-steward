@@ -956,5 +956,16 @@
 	"direction_source_match": "matched with a street-level image",
 	"photo_direction": "Direction",
 	"photo_direction_forget": "Forget",
-	"photo_direction_with_point": "Saved with the point: looks {direction}"
+	"photo_direction_with_point": "Saved with the point: looks {direction}",
+	"module_street": "Street-level images",
+	"street_compare": "Compare with the photo",
+	"street_compare_hint": "A worker looks which of these images show the place of the photo: the most alike first, the very same scene marked. The images go to it through this server; the photo stays at home.",
+	"street_comparing": "Comparing…",
+	"street_compare_no_worker": "Waiting for a worker with the module “Street-level images” (0.14 or newer)",
+	"street_compare_failed": "The comparison failed",
+	"street_compare_done": "Compared: the same scene in {sure}, maybe in {maybe}",
+	"street_match_sure": "✓ {count}",
+	"street_match_maybe": "maybe",
+	"street_match_note": "{count} points of one scene in both",
+	"street_similarity": "Alike: {percent} %"
 }

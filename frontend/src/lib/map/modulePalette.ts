@@ -11,7 +11,9 @@ const SLOTS: Record<string, number> = {
 	// Matching details: no markers of its own, the color is for the Processing page.
 	details: 5,
 	// Turned photos (D-237): no place at all, the color is for the Processing page.
-	orientation: 7
+	orientation: 7,
+	// Street-level images against the photo (D-244): the color is for the Processing page.
+	street: 6
 };
 
 /** Palette slot of a module (1–8), or null for a module without one. */

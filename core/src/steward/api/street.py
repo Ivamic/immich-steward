@@ -2,14 +2,18 @@
 """Street-level images near a point (`steward.street`, D-244): the sources of the account, the
 images near a point and their previews, all through the core."""
 
+from datetime import timedelta
 from typing import Annotated, Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from steward import street
+from steward import street, worker_queue
+from steward.api.assets import _own_asset
 from steward.api.maps import MapTransportDep
-from steward.deps import CurrentAccount, DbDep, SecretBoxDep
+from steward.deps import CurrentAccount, DbDep, SecretBoxDep, SettingsDep
+from steward.errors import ApiError
 
 router = APIRouter(prefix="/street")
 
@@ -154,3 +158,97 @@ async def image(
     )
     # The browser keeps it; nothing is stored on the server.
     return Response(content, media_type=kind, headers={"Cache-Control": "private, max-age=86400"})
+
+
+# "panoramax:<uuid>" or "mapillary:<digits>": an image the card was shown.
+StreetKey = Annotated[str, Field(pattern=r"^(panoramax|mapillary):[A-Za-z0-9-]{1,64}$")]
+
+
+class CompareIn(BaseModel):
+    images: list[StreetKey] = Field(min_length=1, max_length=worker_queue.STREET_OTHERS)
+
+
+class StreetMatchOut(BaseModel):
+    """How a street-level image matches the photo (`steward_worker.modules.street`)."""
+
+    key: str
+    similarity: float | None
+    # Matched point by point (the most alike ones only).
+    checked: bool
+    matches: int
+    inliers: int
+    lines: list[tuple[float, float, float, float]]
+    # The view of a panorama that matched; the degrees the photo looks to the right of the
+    # image, and their spread.
+    view: int | None
+    offset: float | None
+    spread: float | None
+
+
+class CompareOut(BaseModel):
+    # none | queued | running | done | failed
+    status: str
+    error_code: str | None = None
+    # Active workers that run the module now: none, and the comparison waits.
+    workers: int
+    results: list[StreetMatchOut] = Field(default_factory=list)
+
+
+async def _comparison(db: DbDep, settings: SettingsDep, asset_id: UUID) -> CompareOut:
+    runs = await worker_queue.latest_runs(db, asset_id)
+    run = runs.get(worker_queue.STREET_MODULE)
+    active = await worker_queue.active_workers(
+        db, timedelta(minutes=settings.worker_active_minutes)
+    )
+    workers = sum(
+        1
+        for w in active
+        if worker_queue.STREET_MODULE in (w.modules or [])
+        and worker_queue.STREET_MODULE not in (w.disabled_modules or [])
+    )
+    if run is None:
+        return CompareOut(status="none", workers=workers)
+    results = [
+        StreetMatchOut(
+            key=str(pair.get("other")),
+            similarity=pair.get("similarity"),
+            checked=bool(pair.get("checked")),
+            matches=int(pair.get("matches", 0)),
+            inliers=int(pair.get("inliers", 0)),
+            lines=[tuple(line) for line in pair.get("lines", [])],
+            view=pair.get("view"),
+            offset=pair.get("offset"),
+            spread=pair.get("spread"),
+        )
+        for pair in (run.candidates or [])
+        if run.status == "done"
+    ]
+    return CompareOut(
+        status=run.status, error_code=run.error_code, workers=workers, results=results
+    )
+
+
+@router.post("/compare/{asset_id}")
+async def compare(
+    asset_id: UUID,
+    body: CompareIn,
+    account: CurrentAccount,
+    db: DbDep,
+    settings: SettingsDep,
+) -> CompareOut:
+    """Compares the photo with the street-level images the card shows, on a worker (D-244): the
+    images go to it through the core; the photo does not leave the home network."""
+    asset = await _own_asset(db, account, asset_id)
+    enabled = {s.source.id for s in await street.states(db, account.id) if s.enabled}
+    if any(key.partition(":")[0] not in enabled for key in body.images):
+        raise ApiError(409, "street_source_off")
+    await worker_queue.enqueue_street(db, asset, list(body.images))
+    return await _comparison(db, settings, asset.id)
+
+
+@router.get("/compare/{asset_id}")
+async def comparison(
+    asset_id: UUID, account: CurrentAccount, db: DbDep, settings: SettingsDep
+) -> CompareOut:
+    asset = await _own_asset(db, account, asset_id)
+    return await _comparison(db, settings, asset.id)

@@ -1449,3 +1449,36 @@ export const getStreetNear = (lat: number, lon: number, radius = 100, source?: s
 /** A preview of a street-level image, through the core. */
 export const streetImageUrl = (image: StreetImage, size: 'thumb' | 'large' = 'thumb') =>
 	`/api/street/image/${image.source}/${encodeURIComponent(image.id)}?size=${size}`;
+
+/** How a street-level image matches the photo (the `street` module of a worker, D-244). */
+export interface StreetMatch {
+	/** "mapillary:123". */
+	key: string;
+	/** How alike they look (MegaLoc), -1..1. */
+	similarity: number | null;
+	/** Matched point by point (the most alike ones only). */
+	checked: boolean;
+	matches: number;
+	inliers: number;
+	/** x, y in the photo and x, y in the image, 0..1 of their sides. */
+	lines: [number, number, number, number][];
+	/** The view of a panorama that matched. */
+	view: number | null;
+	/** Degrees the photo looks to the right of the image, and how far the points spread. */
+	offset: number | null;
+	spread: number | null;
+}
+
+export interface StreetComparison {
+	status: 'none' | 'queued' | 'running' | 'done' | 'failed';
+	error_code: string | null;
+	/** Active workers that run the module: none, and the comparison waits. */
+	workers: number;
+	results: StreetMatch[];
+}
+
+/** Compares the photo with the street-level images of the strip, on a worker. */
+export const compareStreet = (assetId: string, images: string[]) =>
+	request<StreetComparison>('POST', `/api/street/compare/${assetId}`, { images });
+export const getStreetComparison = (assetId: string) =>
+	request<StreetComparison>('GET', `/api/street/compare/${assetId}`);

@@ -287,7 +287,7 @@ class DirectionIn(BaseModel):
 
     heading: float = Field(ge=0, lt=360)
     accuracy: float = Field(ge=1, le=180)
-    source: Literal["street"]
+    source: Literal["street", "street_match"]
     # The street-level image it was taken from, "mapillary:123".
     source_ref: str | None = Field(default=None, max_length=100)
 
@@ -828,7 +828,8 @@ async def run_module(
             worker_queue.PRIORITY_USER,
         )
         return await _suggestions(db, account, asset, settings, cameras, same_camera_only)
-    if module_id not in REMOTE_MODULES:
+    if module_id not in REMOTE_MODULES or module_id == worker_queue.STREET_MODULE:
+        # Street-level images are compared from their strip, which names them.
         raise ApiError(404, "module_not_found")
     asset = await _own_asset(db, account, asset_id)
     region = body.region.model_dump() if body and body.region else None

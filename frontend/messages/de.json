@@ -956,5 +956,16 @@
 	"direction_source_match": "mit einem Straßenbild abgeglichen",
 	"photo_direction": "Richtung",
 	"photo_direction_forget": "Vergessen",
-	"photo_direction_with_point": "Wird mit dem Punkt gespeichert: Blick nach {direction}"
+	"photo_direction_with_point": "Wird mit dem Punkt gespeichert: Blick nach {direction}",
+	"module_street": "Straßenbilder",
+	"street_compare": "Mit dem Foto vergleichen",
+	"street_compare_hint": "Ein Worker prüft, welche dieser Bilder den Ort des Fotos zeigen: die ähnlichsten zuerst, dieselbe Szene markiert. Die Bilder gehen über diesen Server an ihn; das Foto bleibt zu Hause.",
+	"street_comparing": "Wird verglichen…",
+	"street_compare_no_worker": "Wartet auf einen Worker mit dem Modul „Straßenbilder“ (0.14 oder neuer)",
+	"street_compare_failed": "Der Vergleich ist fehlgeschlagen",
+	"street_compare_done": "Verglichen: dieselbe Szene in {sure}, vielleicht in {maybe}",
+	"street_match_sure": "✓ {count}",
+	"street_match_maybe": "vielleicht",
+	"street_match_note": "{count} Punkte einer Szene in beiden",
+	"street_similarity": "Ähnlich: {percent} %"
 }

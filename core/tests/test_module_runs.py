@@ -185,6 +185,7 @@ def test_workers_overview(library: dict[str, str], signed_in: TestClient) -> Non
         "similar",
         "details",
         "orientation",
+        "street",
     ]
 
 

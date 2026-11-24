@@ -956,5 +956,16 @@
 	"direction_source_match": "сверено со снимком улицы",
 	"photo_direction": "Направление",
 	"photo_direction_forget": "Забыть",
-	"photo_direction_with_point": "Сохранится вместе с точкой: смотрит на {direction}"
+	"photo_direction_with_point": "Сохранится вместе с точкой: смотрит на {direction}",
+	"module_street": "Снимки улиц",
+	"street_compare": "Сравнить с фото",
+	"street_compare_hint": "Воркер проверит, какие из этих снимков показывают место фото: похожие вперёд, та же сцена — со значком. Снимки идут к нему через этот сервер; фото остаётся дома.",
+	"street_comparing": "Сравниваю…",
+	"street_compare_no_worker": "Ждёт воркер с модулем «Снимки улиц» (0.14 или новее)",
+	"street_compare_failed": "Сравнение не удалось",
+	"street_compare_done": "Сравнено: та же сцена — {sure}, возможно — {maybe}",
+	"street_match_sure": "✓ {count}",
+	"street_match_maybe": "возможно",
+	"street_match_note": "Общих точек одной сцены: {count}",
+	"street_similarity": "Похожесть: {percent} %"
 }

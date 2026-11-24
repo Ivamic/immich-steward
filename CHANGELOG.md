@@ -18,6 +18,14 @@ between releases.
   images** (Mapillary needs your own access token); only the coordinates of the point go to them,
   the images come through the app server and are not stored
   ([privacy](docs/privacy.md#what-leaves-your-server)).
+- **Compare with the photo**, over the street-level images: a worker with the new module
+  *street-level images* (worker 0.14) ranks them by how alike they look to the photo (MegaLoc;
+  a 360° panorama is cut into views around the horizon) and matches the most alike point by point
+  (ALIKED + LightGlue, as matching details). Images that show the very same scene go first, marked
+  ✓ with the number of points (from 100; *maybe* from 50); the window draws lines between those
+  points. **Put the point here** on such an image takes the direction from the points themselves,
+  much narrower than the way the image looks. The images reach the worker through the app server;
+  the photo does not leave the home network. Runs only when asked.
 - **Direction of a photo**: **Put the point here** on a street-level image also takes the way the
   image looks, about the way the photo looks if it shows the same view (±30°; not from a 360°
   panorama). It is saved with the location and shown as a cone on the map and as *Direction* in

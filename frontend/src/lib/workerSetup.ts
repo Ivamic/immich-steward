@@ -13,7 +13,7 @@ export const SETUP_WAYS: readonly SetupWay[] = [
 export const WORKER_IMAGE = 'ghcr.io/ivamic/immich-steward-worker:0';
 const REPOSITORY = 'https://github.com/Ivamic/immich-steward.git';
 const SYNC_GPU =
-	'uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda';
+	'uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda';
 /** Shown in place of the token to whoever may not see it. */
 export const TOKEN_PLACEHOLDER = 'your-token';
 

@@ -165,6 +165,26 @@ for the reason (no key, key not accepted, limit used up).
 
 The choice is remembered in the browser. In the dark theme the imagery is not dimmed.
 
+### Street-level images
+
+Photos of the street taken by other people (Panoramax, Mapillary) help to tell whether a point is
+the right one. Switch the sources on in **Settings → Street-level images** first (Mapillary needs
+your own access token), then press **Street-level images** under the map: the images within 100 m
+of the point (the one you put, or the location of the photo) appear under it, nearest first, and
+on the map as green points with the way each looks. The app remembers the button for you.
+
+- A click opens an image beside your photo; the arrow keys step through the strip. Each image says
+  who took it and under which license, and links to it at its source.
+- **Put the point here** moves the point to where the image was taken and, unless it is a 360°
+  panorama, takes the way it looks as the [direction](#the-photo) of the photo (±30°).
+- **Compare with the photo** has a [worker](workers.md) look which images show the place of the
+  photo: the most alike go first, the very same scene is marked ✓ with the number of points both
+  show (from 100; *maybe* from 50), and the window draws lines between those points. Put the point
+  on such an image, and the direction comes from the points themselves, much narrower.
+
+Only the coordinates of the point go to the sources, and only while the images are shown; the
+images come through the app server and are not kept ([privacy](privacy.md)).
+
 ### Save, skip or mark as not applicable
 
 | Button | Key | What it does |
@@ -269,7 +289,9 @@ Saving the rotation needs the API key permissions `asset.edit.get`, `asset.edit.
 
 The details below the photo show when it was taken, the camera, its albums, its
 [group](#groups) with a link, whether it is marked as showing no sign of a place (by you or by the
-app, with **Take the mark off**), and its current location. **No sign of a place** under the
+app, with **Take the mark off**), its current location and, when known, its **direction**: which
+way the camera looked, as a cone on the map (from a [street-level image](#street-level-images);
+kept in the app only, **Forget** drops it). **No sign of a place** under the
 actions marks the photo. **Open in Immich** (the arrow in the top right corner) opens the photo in Immich in a
 new tab.
 

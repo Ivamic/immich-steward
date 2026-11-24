@@ -156,7 +156,12 @@ async def enqueue_module(
 
 
 # Modules that compare the photo of a job with other photos instead of suggesting places for it.
-PAIR_MODULES = ("details",)
+# Modules that compare the photo with others the job names: photos of the library (`details`),
+# street-level images handed over by the core (`street`, D-244).
+PAIR_MODULES = ("details", "street")
+STREET_MODULE = "street"
+# The most street-level images one comparison takes (as many as the card shows).
+STREET_OTHERS = 40
 # Photos one job compares its photo with, at most.
 MAX_OTHERS = 30
 
@@ -190,9 +195,21 @@ def has_gpu(worker: Worker) -> bool:
     return worker.device.startswith("cuda")
 
 
-def others_of(job: Job) -> list[UUID]:
-    """The photos the job compares its photo with."""
-    return [UUID(other) for other in job.payload.get("others") or []]
+def others_of(job: Job) -> list[str]:
+    """What the job compares its photo with: ids of photos, or street-level images
+    ("mapillary:123")."""
+    return [str(other) for other in job.payload.get("others") or []]
+
+
+async def enqueue_street(db: AsyncSession, asset: Asset, images: list[str]) -> ModuleRun:
+    """Queues a comparison of the photo with street-level images the user was shown; one still
+    waiting takes the new list, one running is left as it is."""
+    run = await enqueue_module(db, asset, STREET_MODULE, PRIORITY_USER)
+    job = await db.get(Job, run.job_id) if run.job_id else None
+    if job is not None and job.status == "queued":
+        job.payload = {**job.payload, "others": list(dict.fromkeys(images))[:STREET_OTHERS]}
+        await db.commit()
+    return run
 
 
 async def latest_runs(
@@ -358,6 +375,9 @@ async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     Photos new in the library are queued at once, whatever the size of the queue, and go before
     the rest of it: a photo taken today is not left behind hundreds of old ones.
     """
+    if module_id == STREET_MODULE:
+        # Only by hand from a card, with the images it shows: nothing to compare with otherwise.
+        return 0
     new = Asset.added_at > datetime.now(UTC) - NEW_PHOTO_WINDOW
     count = await _enqueue_eligible(db, module_id, new, PRIORITY_NEW, AUTO_QUEUE_SIZE)
     queued = await db.scalar(
@@ -741,15 +761,28 @@ async def complete(
 async def complete_pairs(
     db: AsyncSession, leased: Lease, module_version: str, pairs: list[dict[str, Any]]
 ) -> None:
-    """Keeps the answers about the photos the job named; answers about any other are dropped."""
+    """Keeps the answers about the photos the job named; answers about any other are dropped.
+
+    Street-level images are no photos of the library: their answers stay with the run, for the
+    card that asked (D-244)."""
     named = set(others_of(leased.job))
+    if leased.job.module_id == STREET_MODULE:
+        leased.run.candidates = [pair for pair in pairs if pair["other"] in named]
+        leased.run.module_version = module_version
+        _finish(leased.job, leased.run, "done")
+        await db.commit()
+        return
     for pair in pairs:
-        if pair["other"] not in named or await db.get(Asset, pair["other"]) is None:
+        try:
+            other = UUID(pair["other"])
+        except ValueError:
+            continue
+        if pair["other"] not in named or await db.get(Asset, other) is None:
             continue
         await db.merge(
             DetailMatch(
                 asset_id=leased.run.asset_id,
-                other_id=pair["other"],
+                other_id=other,
                 matches=pair["matches"],
                 inliers=pair["inliers"],
                 lines=[list(line) for line in pair["lines"]],

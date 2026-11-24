@@ -114,25 +114,32 @@ class DetailsModule:
 
     def features(self, image: bytes) -> dict[str, Any]:
         """The distinctive points of a photo, in the pixels of its copy SIDE long."""
-        import torch
-        import torchvision.transforms.functional as tfm
         from PIL import Image, UnidentifiedImageError
 
-        assert self._extractor is not None, "load() first"
         try:
             with Image.open(io.BytesIO(image), formats=IMAGE_FORMATS) as opened:
                 rgb = opened.convert("RGB")
-                scale = SIDE / max(rgb.size)
-                size = (max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale)))
-                rgb = rgb.resize(size, Image.Resampling.BILINEAR)
         except (UnidentifiedImageError, OSError) as exc:
             raise PermanentError(f"cannot read the image: {exc}") from exc
+        return self.features_of(rgb)
+
+    def features_of(self, rgb: Any) -> dict[str, Any]:
+        """The distinctive points of an image already read (a PIL image in RGB)."""
+        import torch
+        import torchvision.transforms.functional as tfm
+        from PIL import Image
+
+        assert self._extractor is not None, "load() first"
+        scale = SIDE / max(rgb.size)
+        size = (max(1, round(rgb.width * scale)), max(1, round(rgb.height * scale)))
+        rgb = rgb.resize(size, Image.Resampling.BILINEAR)
         with torch.inference_mode():
             found: dict[str, Any] = self._extractor.extract(tfm.to_tensor(rgb).to(self._device))
         return found
 
-    def match(self, first: dict[str, Any], second: dict[str, Any]) -> PairMatch:
-        import numpy as np
+    def match_points(self, first: dict[str, Any], second: dict[str, Any]) -> tuple[Any, Any, Any]:
+        """The points paired up, in the pixels of each copy, and which of the pairs fit one
+        geometry."""
         import torch
 
         from steward_worker.modules.geometry import geometry_inliers
@@ -142,7 +149,12 @@ class DetailsModule:
             pairs = self._matcher({"image0": first, "image1": second})["matches"][0]
         a = first["keypoints"][0][pairs[:, 0]].cpu().numpy()
         b = second["keypoints"][0][pairs[:, 1]].cpu().numpy()
-        agree = geometry_inliers(a, b)
+        return a, b, geometry_inliers(a, b)
+
+    def match(self, first: dict[str, Any], second: dict[str, Any]) -> PairMatch:
+        import numpy as np
+
+        a, b, agree = self.match_points(first, second)
         wa, ha = first["image_size"][0].tolist()
         wb, hb = second["image_size"][0].tolist()
         # The points come sorted by their place in the photo: every n-th of the pairs, so that
@@ -155,7 +167,7 @@ class DetailsModule:
             (float(xa / wa), float(ya / ha), float(xb / wb), float(yb / hb))
             for (xa, ya), (xb, yb) in zip(a[shown], b[shown], strict=True)
         ]
-        return PairMatch(matches=len(pairs), inliers=int(agree.sum()), lines=lines)
+        return PairMatch(matches=len(a), inliers=int(agree.sum()), lines=lines)
 
     def compare(self, image: bytes, others: Sequence[bytes]) -> list[PairMatch | None]:
         """The photo against each of the others; None where the other photo cannot be read."""

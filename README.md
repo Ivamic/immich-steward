@@ -259,7 +259,7 @@ cd frontend && pnpm install && pnpm dev
 
 # Optional: a worker with GeoCLIP and similar photos (PyTorch for the CPU; --extra cuda for an
 # NVIDIA GPU). The core needs the same STEWARD_WORKER_TOKEN in .env.
-uv sync --all-packages --extra geoclip --extra similar --extra details --extra orientation --extra cpu
+uv sync --all-packages --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cpu
 STEWARD_WORKER_TOKEN=... uv run python -m steward_worker --core http://127.0.0.1:8080 --modules similar,geoclip
 ```
 

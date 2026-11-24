@@ -1,7 +1,7 @@
 # Workers
 
-Four modules are neural networks: **GeoCLIP**, **similar photos**, **matching details** and
-**orientation**. They run in a
+Five modules are neural networks: **GeoCLIP**, **similar photos**, **matching details**,
+**orientation** and **street-level images**. They run in a
 separate program, the *worker*, which takes photos one by one in the background and sends the
 results to the app. The worker is optional: without it the app still suggests places from the
 photos taken shortly before and after, and you can pick points on the map yourself.
@@ -21,6 +21,11 @@ photos taken shortly before and after, and you can pick points on the map yourse
 - **Orientation** finds the photos that lie on their side, for the tab **Turned photos** of the
   Groups page ([usage](usage.md#turned-photos)). It looks at every photo once and is light: a
   fraction of a second per photo, also on a CPU.
+- **Street-level images** compares a photo with the street-level images shown under its map
+  ([usage](usage.md#street-level-images)): which of them look most like it, and which show the
+  very same scene, point by point. It runs only when you press **Compare with the photo**; the
+  images come to the worker through the app. A few seconds on a graphics card, about a minute
+  on a CPU.
 
 Photos never leave your home network: the worker gets them from the app, not from the internet.
 
@@ -230,7 +235,7 @@ Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 ```powershell
 git clone --branch v0.13.2 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
 Start the worker (every time; it runs while the window is open):
@@ -238,7 +243,7 @@ Start the worker (every time; it runs while the window is open):
 ```powershell
 cd D:\steward-worker
 $env:STEWARD_WORKER_TOKEN = "your-token"
-.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details --name laptop
+.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details,street --name laptop
 ```
 
 ### GPU worker on Linux (bash)
@@ -250,7 +255,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 git clone --branch v0.13.2 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
 Start the worker (every time; it runs while the terminal is open):
@@ -258,7 +263,7 @@ Start the worker (every time; it runs while the terminal is open):
 ```sh
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
-.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details --name desktop
+.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details,street --name desktop
 ```
 
 ### Start the GPU worker with one file
@@ -377,7 +382,7 @@ the app: the page **About** (the **ⓘ** icon in the header) shows it. On Window
 cd D:\steward-worker
 git fetch --tags
 git checkout v0.13.2
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
 On Linux:
@@ -386,7 +391,7 @@ On Linux:
 cd ~/steward-worker
 git fetch --tags
 git checkout v0.13.2
-uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cuda
+uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
 Don't skip `uv sync` after `git checkout`: without it the old version keeps running. A new

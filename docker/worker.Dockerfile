@@ -18,10 +18,10 @@ WORKDIR /src
 COPY pyproject.toml uv.lock ./
 COPY core/pyproject.toml core/
 COPY worker/pyproject.toml worker/
-RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cpu \
+RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cpu \
     --no-install-workspace
 COPY worker/ worker/
-RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra cpu \
+RUN uv sync --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cpu \
     --no-editable
 
 FROM python:${PYTHON_VERSION}-slim

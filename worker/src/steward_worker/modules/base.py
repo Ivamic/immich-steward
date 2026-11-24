@@ -47,6 +47,24 @@ class PairMatch:
 
 
 @dataclass(frozen=True)
+class StreetMatch(PairMatch):
+    """How a street-level image matches the photo (the `street` module): how alike they look
+    and, for the most alike ones, point by point; with the way the photo looks from it."""
+
+    # Cosine of the MegaLoc vectors of the photo and the image (its best view, for a panorama).
+    similarity: float = 0.0
+    # Compared point by point: `matches`, `inliers` and `lines` are known.
+    checked: bool = False
+    # A 360-degree panorama: which of its views around the horizon looks most like the photo
+    # (0: its middle, then every 360/views degrees to the right).
+    view: int | None = None
+    # Degrees the photo looks to the right of the way the image looks (its middle), and how far
+    # the points spread around that; None when too few points fit.
+    offset: float | None = None
+    spread: float | None = None
+
+
+@dataclass(frozen=True)
 class Orientation:
     """How the photo is turned (the `orientation` module): the chance of each turn it has now,
     0, 90 degrees counter-clockwise, 180, 90 degrees clockwise."""
@@ -93,7 +111,7 @@ class PairModule(Protocol):
 
     def unload(self) -> None: ...
 
-    def compare(self, image: bytes, others: Sequence[bytes]) -> list[PairMatch | None]:
+    def compare(self, image: bytes, others: Sequence[bytes]) -> Sequence[PairMatch | None]:
         """The photo against each of the others, in their order; None where the other photo
         cannot be read. Runs in a thread."""
         ...

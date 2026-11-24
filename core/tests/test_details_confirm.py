@@ -201,7 +201,7 @@ def queue_details(client: TestClient, asset_id: str, limit: int) -> list[str] | 
             return None
         job = await db.get(Job, run.job_id)
         names = dict((await db.execute(select(Asset.id, Asset.original_file_name))).all())
-        return [names[other] for other in worker_queue.others_of(job)]
+        return [names[UUID(other)] for other in worker_queue.others_of(job)]
 
     result: list[str] | None = db_call(client, work)
     return result

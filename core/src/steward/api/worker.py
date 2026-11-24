@@ -12,10 +12,10 @@ from datetime import timedelta
 from typing import Annotated, Any, Literal, NoReturn
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from steward import __version__, embeddings, locked, worker_queue, worker_refusals
+from steward import __version__, embeddings, locked, street, worker_queue, worker_refusals
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
 from steward.images import MAX_SIDE, UnreadableImage, crop, turned
@@ -104,9 +104,10 @@ class LeasedJob(BaseModel):
     asset_id: UUID
     attempt: int
     lease_seconds: int
-    # Jobs of pair modules (`details`): the photos to compare the job's photo with. The worker
-    # asks for each with `image?other=`.
-    others: list[UUID] = Field(default_factory=list)
+    # Jobs of pair modules: what to compare the job's photo with, photos of the library
+    # (`details`) or street-level images, "mapillary:123" (`street`). The worker asks for each
+    # with `image?other=`.
+    others: list[str] = Field(default_factory=list)
 
 
 class CandidateIn(BaseModel):
@@ -125,11 +126,18 @@ class EmbeddingIn(BaseModel):
 
 
 class PairIn(BaseModel):
-    other: UUID
+    other: str = Field(max_length=100)
     matches: int = Field(ge=0, le=100_000)
     inliers: int = Field(ge=0, le=100_000)
     # x, y in the job's photo and x, y in the other, 0..1 of the sides.
     lines: list[tuple[float, float, float, float]] = Field(default_factory=list, max_length=200)
+    # `street` only: how alike (MegaLoc), whether matched point by point, the view of a
+    # panorama, and the degrees the photo looks to the right of the image (with their spread).
+    similarity: float | None = Field(default=None, ge=-1, le=1)
+    checked: bool = False
+    view: int | None = Field(default=None, ge=0, le=64)
+    offset: float | None = Field(default=None, ge=-180, le=180)
+    spread: float | None = Field(default=None, ge=0, le=180)
 
 
 class OrientationIn(BaseModel):
@@ -235,7 +243,7 @@ async def image(
     worker: WorkerDep,
     db: DbDep,
     box: SecretBoxDep,
-    other: UUID | None = None,
+    other: str | None = Query(default=None, max_length=100),
 ) -> Response:
     """The preview of the job's photo (JPEG or WebP, about 1440 px on the long side).
 
@@ -254,8 +262,14 @@ async def image(
     `immich_unreachable`: the worker waits a little.
     """
     leased = await worker_queue.leased_job(db, worker, job_id)
+    if other is not None and leased.job.module_id == worker_queue.STREET_MODULE:
+        return await _street_image(request, db, box, leased, other)
     if other is not None:
-        return await _other_image(request, db, box, worker, leased, other)
+        try:
+            other_id = UUID(other)
+        except ValueError:
+            raise ApiError(404, "other_unavailable") from None
+        return await _other_image(request, db, box, worker, leased, other_id)
     await db.commit()  # releases the row lock while Immich is asked
     asset = await db.get(Asset, leased.run.asset_id)
     account = await db.get(Account, asset.account_id) if asset else None
@@ -313,7 +327,7 @@ async def _other_image(
     other: UUID,
 ) -> Response:
     job_id, account_id = leased.job.id, leased.job.account_id
-    named = other in worker_queue.others_of(leased.job)
+    named = str(other) in worker_queue.others_of(leased.job)
     await db.commit()  # releases the row lock while Immich is asked
     asset = await db.get(Asset, other) if named else None
     account = await db.get(Account, account_id) if account_id else None
@@ -339,6 +353,33 @@ async def _other_image(
     except ImmichError as exc:
         raise ApiError(404, "other_unavailable") from exc
     return Response(content=found.content, media_type=found.media_type)
+
+
+async def _street_image(
+    request: Request, db: DbDep, box: SecretBoxDep, leased: worker_queue.Lease, other: str
+) -> Response:
+    """A street-level image the job compares the photo with, from its provider through the
+    core: only one the job names, of a source the account has switched on."""
+    account_id = leased.job.account_id
+    named = other in worker_queue.others_of(leased.job)
+    await db.commit()  # releases the row lock while the provider is asked
+    source_id, _, image_id = other.partition(":")
+    if not named or account_id is None or not image_id:
+        raise ApiError(404, "other_unavailable")
+    try:
+        content, kind = await street.image(
+            db,
+            box,
+            account_id,
+            request.app.state.street_links,
+            source_id,
+            image_id,
+            "large",
+            request.app.state.map_transport,
+        )
+    except ApiError as exc:
+        raise ApiError(404, "other_unavailable") from exc
+    return Response(content=content, media_type=kind)
 
 
 async def _image_failed(

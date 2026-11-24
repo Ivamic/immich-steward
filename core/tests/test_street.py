@@ -7,9 +7,14 @@ from typing import Any
 
 import httpx2
 import pytest
+from conftest import WORKER_TOKEN
 from fastapi.testclient import TestClient
+from test_regions import photo
 
 from steward import street
+from steward.api.worker import PROTOCOL_VERSION
+
+__all__ = ["photo"]
 
 TOKEN = "MLY|123|good"
 # A point in a city; the images around it, about 10, 40 and 250 m away.
@@ -279,3 +284,87 @@ def test_one_source_at_a_time(signed_in: TestClient, fake: FakeStreet) -> None:
     assert {i["source"] for i in only["images"]} == {"mapillary"}
     response = signed_in.get("/api/street/near", params={"lat": LAT, "lon": LON, "source": "x"})
     assert response.status_code == 404
+
+
+AUTH = {"Authorization": f"Bearer {WORKER_TOKEN}"}
+
+
+def street_worker(client: TestClient) -> dict[str, str]:
+    body = {
+        "name": "laptop",
+        "modules": ["street"],
+        "device": "cuda",
+        "version": "0.14.0",
+        "protocol_version": PROTOCOL_VERSION,
+    }
+    worker_id = client.post("/api/worker/register", json=body, headers=AUTH).json()["worker_id"]
+    return AUTH | {"X-Worker-Id": worker_id}
+
+
+def test_compare_the_photo_with_the_images(
+    signed_in: TestClient, fake: FakeStreet, photo: tuple[str, str]
+) -> None:
+    asset, _ = photo
+    url = f"/api/street/compare/{asset}"
+    assert signed_in.get(url).json() == {
+        "status": "none",
+        "error_code": None,
+        "workers": 0,
+        "results": [],
+    }
+    turn_on(signed_in, "panoramax")
+    keys = [f"{i['source']}:{i['id']}" for i in near(signed_in)["images"]]
+    assert keys == ["panoramax:near"]
+    # Only images of a source switched on.
+    off = signed_in.post(url, json={"images": ["mapillary:111"]})
+    assert (off.status_code, off.json()["code"]) == (409, "street_source_off")
+    assert signed_in.post(url, json={"images": ["../x"]}).status_code == 422
+
+    worker = street_worker(signed_in)
+    asked = signed_in.post(url, json={"images": keys}).json()
+    assert (asked["status"], asked["workers"]) == ("queued", 1)
+    job = signed_in.post("/api/worker/lease", json={"modules": ["street"]}, headers=worker).json()
+    assert job["others"] == keys
+    image = f"/api/worker/jobs/{job['job_id']}/image"
+    got = signed_in.get(image, params={"other": "panoramax:near"}, headers=worker)
+    assert (got.status_code, got.content) == (200, JPEG)
+    # Only an image the job names.
+    unnamed = signed_in.get(image, params={"other": "panoramax:far"}, headers=worker)
+    assert unnamed.status_code == 404
+    result = {
+        "module_version": "1",
+        "candidates": [],
+        "pairs": [
+            {
+                "other": "panoramax:near",
+                "matches": 300,
+                "inliers": 140,
+                "lines": [[0.1, 0.2, 0.3, 0.4]],
+                "similarity": 0.42,
+                "checked": True,
+                "view": 2,
+                "offset": -20.5,
+                "spread": 3.0,
+            },
+            {"other": "panoramax:far", "matches": 1, "inliers": 1},
+        ],
+    }
+    done = signed_in.post(f"/api/worker/jobs/{job['job_id']}/result", json=result, headers=worker)
+    assert done.status_code == 204
+    found = signed_in.get(url).json()
+    assert found["status"] == "done"
+    assert found["results"] == [
+        {
+            "key": "panoramax:near",
+            "similarity": 0.42,
+            "checked": True,
+            "matches": 300,
+            "inliers": 140,
+            "lines": [[0.1, 0.2, 0.3, 0.4]],
+            "view": 2,
+            "offset": -20.5,
+            "spread": 3.0,
+        }
+    ]
+    # Not as an ordinary module: it needs the images of the strip.
+    assert signed_in.post(f"/api/assets/{asset}/modules/street/run").status_code == 404

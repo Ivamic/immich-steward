@@ -41,6 +41,8 @@ REMOTE_MODULES: dict[str, RemoteModule] = {
     "details": RemoteModule("details", color="#bf8700", shape="triangle", suggests=False),
     # Turned photos (D-237): no place, only how the photo is turned.
     "orientation": RemoteModule("orientation", color="#6e40c9", shape="circle", suggests=False),
+    # Street-level images against the photo (D-244): by hand from the card, no place of its own.
+    "street": RemoteModule("street", color="#0a7a6e", shape="circle", suggests=False),
 }
 # Those with a block of suggestions in the card.
 SUGGESTING_MODULES = {key: module for key, module in REMOTE_MODULES.items() if module.suggests}

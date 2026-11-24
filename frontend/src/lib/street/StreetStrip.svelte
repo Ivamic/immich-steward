@@ -7,11 +7,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import {
+		compareStreet,
+		getStreetComparison,
 		getStreetNear,
 		getStreetSources,
 		streetImageUrl,
 		type Direction,
+		type StreetComparison,
 		type StreetImage,
+		type StreetMatch,
 		type StreetNear
 	} from '#lib/api.js';
 	import { accountSettings } from '#lib/accountSettings.svelte.js';
@@ -22,8 +26,10 @@
 	import { getLocale } from '#lib/paraglide/runtime.js';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
+	import PairView from '#lib/ui/PairView.svelte';
 
 	let {
+		assetId,
 		point,
 		photo,
 		active = $bindable(null),
@@ -31,6 +37,8 @@
 		marks = $bindable([]),
 		onpick
 	}: {
+		/** The photo of the card, compared with the images on a worker; null: none yet. */
+		assetId: string | null;
 		/** Where to look: the picked point, else the location of the photo. */
 		point: LatLon | null;
 		/** The photo of the card as shown there, beside the image opened large; null: none. */
@@ -50,6 +58,11 @@
 	const STREET_ACCURACY = 30;
 	// As many as the core gives for all sources together.
 	const NEAR_MOST = 40;
+	// Points that fit one scene: from this many the image shows the very place of the photo,
+	// from the lower number it may (as the details of similar photos, D-225).
+	const SURE = 100;
+	const MAYBE = 50;
+	const COMPARE_POLL_MS = 2500;
 
 	// The card may be the first page opened: the personal settings are loaded here too.
 	accountSettings.load();
@@ -117,6 +130,68 @@
 			.slice(0, NEAR_MOST)
 	);
 	const answers = $derived(Object.values(parts).flatMap((part) => part.sources));
+
+	// The comparison of the photo with the images, on a worker (D-244).
+	let comparison = $state.raw<StreetComparison | null>(null);
+	const comparing = $derived(comparison?.status === 'queued' || comparison?.status === 'running');
+	const matchOf = $derived(
+		new Map((comparison?.status === 'done' ? comparison.results : []).map((r) => [r.key, r]))
+	);
+	const sure = (r: StreetMatch | undefined) => Boolean(r?.checked && r.inliers >= SURE);
+	const maybe = (r: StreetMatch | undefined) =>
+		Boolean(r?.checked && r.inliers >= MAYBE && r.inliers < SURE);
+
+	// A comparison made before for this photo: its answers show on the images still near.
+	$effect(() => {
+		const id = assetId;
+		comparison = null;
+		if (!id || !shown) return;
+		getStreetComparison(id)
+			.then((found) => {
+				if (assetId === id) comparison = found;
+			})
+			.catch(() => {
+				// Not known: the button asks anew.
+			});
+	});
+
+	// Asked again while a worker is at it.
+	$effect(() => {
+		const id = assetId;
+		if (!id || !comparing) return;
+		const timer = setTimeout(async () => {
+			try {
+				const found = await getStreetComparison(id);
+				if (assetId === id) comparison = found;
+			} catch (e) {
+				error = errorMessage(e);
+			}
+		}, COMPARE_POLL_MS);
+		return () => clearTimeout(timer);
+	});
+
+	async function startCompare() {
+		if (!assetId || !images.length) return;
+		try {
+			comparison = await compareStreet(assetId, images.map(key));
+			error = null;
+		} catch (e) {
+			error = errorMessage(e);
+		}
+	}
+
+	// Compared: those showing the very place first, then the most alike; else nearest first.
+	const ordered = $derived.by(() => {
+		if (!matchOf.size) return images;
+		const points = (image: StreetImage) => {
+			const r = matchOf.get(key(image));
+			return r?.checked && r.inliers >= MAYBE ? r.inliers : 0;
+		};
+		const alike = (image: StreetImage) => matchOf.get(key(image))?.similarity ?? -2;
+		return [...images].sort((a, b) => points(b) - points(a) || alike(b) - alike(a));
+	});
+	const sureCount = $derived(images.filter((i) => sure(matchOf.get(key(i)))).length);
+	const maybeCount = $derived(images.filter((i) => maybe(matchOf.get(key(i)))).length);
 	const loading = $derived(waiting.length > 0);
 
 	$effect(() => {
@@ -152,12 +227,12 @@
 		opened = image;
 	}
 
-	const openedIndex = $derived(opened ? images.findIndex((i) => key(i) === key(opened!)) : -1);
+	const openedIndex = $derived(opened ? ordered.findIndex((i) => key(i) === key(opened!)) : -1);
 
 	/** The next or the previous image of the strip, in the window. */
 	function step(by: number) {
-		if (openedIndex < 0 || !images.length) return;
-		open(images[(openedIndex + by + images.length) % images.length]);
+		if (openedIndex < 0 || !ordered.length) return;
+		open(ordered[(openedIndex + by + ordered.length) % ordered.length]);
 	}
 
 	function onkeydown(event: KeyboardEvent) {
@@ -168,18 +243,31 @@
 		event.preventDefault();
 	}
 
+	/** Which way the photo looks, put on this image: from the points both show when they were
+	 * matched (narrow), else the way the image looks (wide, not from a panorama). */
+	function directionFrom(image: StreetImage): Direction | null {
+		if (image.heading === null) return null;
+		const r = matchOf.get(key(image));
+		if (r?.checked && r.inliers >= MAYBE && r.offset !== null) {
+			const spread = r.spread ?? 10;
+			return {
+				heading: (((image.heading + r.offset) % 360) + 360) % 360,
+				accuracy: Math.round(Math.min(45, Math.max(5, 2 * spread + (image.pano ? 10 : 12)))),
+				source: 'street_match',
+				source_ref: key(image)
+			};
+		}
+		if (image.pano) return null;
+		return {
+			heading: image.heading,
+			accuracy: STREET_ACCURACY,
+			source: 'street',
+			source_ref: key(image)
+		};
+	}
+
 	function pickHere(image: StreetImage) {
-		// The photo looks about the way the image does, if it shows the same view; a panorama
-		// looks every way.
-		const direction =
-			image.pano || image.heading === null
-				? null
-				: {
-						heading: image.heading,
-						accuracy: STREET_ACCURACY,
-						source: 'street',
-						source_ref: key(image)
-					};
+		const direction = directionFrom(image);
 		onpick({ lat: image.latitude, lon: image.longitude }, direction);
 		opened = null;
 	}
@@ -213,6 +301,18 @@
 			<Icon name="camera" size={14} />
 			{m.street_toggle()}
 		</button>
+		{#if shown && assetId && images.length}
+			<button
+				type="button"
+				class="st-btn st-btn--sm st-btn--secondary"
+				disabled={comparing}
+				title={m.street_compare_hint()}
+				onclick={startCompare}
+			>
+				<Icon name="scan-search" size={14} />
+				{m.street_compare()}
+			</button>
+		{/if}
 		{#if shown}
 			<span class="status" role="status">
 				{#if !point}
@@ -229,6 +329,15 @@
 				{/if}
 				{#if loading && images.length}
 					<span>{m.street_waiting({ sources: waiting.map(sourceName).join(', ') })}</span>
+				{/if}
+				{#if comparing}
+					<span>
+						{comparison?.workers ? m.street_comparing() : m.street_compare_no_worker()}
+					</span>
+				{:else if comparison?.status === 'failed'}
+					<span class="problem">{m.street_compare_failed()}</span>
+				{:else if matchOf.size}
+					<span>{m.street_compare_done({ sure: sureCount, maybe: maybeCount })}</span>
 				{/if}
 				{#each problems as found (found.id)}
 					<span class="problem">
@@ -247,7 +356,8 @@
 	{#if shown && point && !noSource}
 		<!-- Its place is kept while it waits: the map above keeps its size. -->
 		<ul class="strip" class:loading class:empty={!images.length}>
-			{#each images as image (key(image))}
+			{#each ordered as image (key(image))}
+				{@const found = matchOf.get(key(image))}
 				<li>
 					<button
 						type="button"
@@ -261,6 +371,11 @@
 						onmouseenter={() => (active = key(image))}
 					>
 						<img src={streetImageUrl(image)} alt="" loading="lazy" />
+						{#if sure(found)}
+							<span class="mark sure">{m.street_match_sure({ count: found?.inliers ?? 0 })}</span>
+						{:else if maybe(found)}
+							<span class="mark maybe">{m.street_match_maybe()}</span>
+						{/if}
 						<span class="meta">
 							{#if image.heading !== null && !image.pano}
 								<span class="arrow" style:transform={arrow(image.heading)} aria-hidden="true"
@@ -279,6 +394,21 @@
 
 <svelte:window {onkeydown} />
 
+{#snippet credits(image: StreetImage)}
+	{#if image.author}{m.street_author({ author: image.author })} ·{/if}
+	{#if image.license}
+		{#if image.license_url}
+			<a href={image.license_url} target="_blank" rel="noopener">{image.license}</a>
+		{:else}{image.license}{/if}
+		·
+	{/if}
+	<a href={image.page_url} target="_blank" rel="noopener">
+		{m.street_open_at({ source: sourceName(image.source) })}
+	</a>
+	· {m.street_distance({ meters: meters.format(image.distance_m) })}
+	{#if image.pano}· 360°{/if}
+{/snippet}
+
 {#if opened}
 	{@const image = opened}
 	<Dialog
@@ -287,33 +417,30 @@
 		full
 		onclose={() => (opened = null)}
 	>
-		<div class="compare" class:alone={!photo}>
-			{#if photo}
-				<figure class="side">
-					<img src={photo} alt={m.street_your_photo()} />
-					<figcaption>{m.street_your_photo()}</figcaption>
-				</figure>
-			{/if}
+		{@const found = matchOf.get(key(image))}
+		{#if photo}
+			<PairView
+				first={{ src: photo, alt: m.street_your_photo(), caption: m.street_your_photo() }}
+				second={{ src: streetImageUrl(image, 'large'), alt: m.street_image_alt() }}
+				lines={found?.checked ? found.lines : []}
+			>
+				{#snippet secondCaption()}{@render credits(image)}{/snippet}
+				{#snippet note()}
+					{#if found?.checked}
+						{m.street_match_note({ count: found.inliers })}
+					{:else if found?.similarity != null}
+						{m.street_similarity({ percent: Math.round(Math.max(0, found.similarity) * 100) })}
+					{/if}
+				{/snippet}
+			</PairView>
+		{:else}
 			<figure class="side" class:pano={image.pano}>
 				<div class="frame">
 					<img src={streetImageUrl(image, 'large')} alt={m.street_image_alt()} />
 				</div>
-				<figcaption>
-					{#if image.author}{m.street_author({ author: image.author })} ·{/if}
-					{#if image.license}
-						{#if image.license_url}
-							<a href={image.license_url} target="_blank" rel="noopener">{image.license}</a>
-						{:else}{image.license}{/if}
-						·
-					{/if}
-					<a href={image.page_url} target="_blank" rel="noopener">
-						{m.street_open_at({ source: sourceName(image.source) })}
-					</a>
-					· {m.street_distance({ meters: meters.format(image.distance_m) })}
-					{#if image.pano}· {m.street_pano_hint()}{/if}
-				</figcaption>
+				<figcaption>{@render credits(image)}</figcaption>
 			</figure>
-		</div>
+		{/if}
 		{#snippet footer()}
 			<span class="stepper">
 				<button
@@ -321,18 +448,18 @@
 					class="st-iconbtn"
 					aria-label={m.street_previous()}
 					title={m.street_previous()}
-					disabled={images.length < 2}
+					disabled={ordered.length < 2}
 					onclick={() => step(-1)}
 				>
 					<Icon name="chevron-left" />
 				</button>
-				<span class="count">{openedIndex + 1} / {images.length}</span>
+				<span class="count">{openedIndex + 1} / {ordered.length}</span>
 				<button
 					type="button"
 					class="st-iconbtn"
 					aria-label={m.street_next()}
 					title={m.street_next()}
-					disabled={images.length < 2}
+					disabled={ordered.length < 2}
 					onclick={() => step(1)}
 				>
 					<Icon name="chevron-right" />
@@ -392,6 +519,7 @@
 		min-height: calc(6rem + 1.75rem);
 	}
 	.shot {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-1);
@@ -412,6 +540,23 @@
 		border-radius: var(--radius-sm);
 		background: var(--color-surface-sunken, var(--color-surface));
 	}
+	/* What the comparison found, on the image. */
+	.mark {
+		position: absolute;
+		top: 6px;
+		left: 6px;
+		padding: 0 var(--space-1-5);
+		border-radius: var(--radius-sm);
+		font-size: var(--text-xs, var(--text-sm));
+		font-weight: var(--weight-medium);
+		color: #ffffff;
+	}
+	.mark.sure {
+		background: #1a7f37;
+	}
+	.mark.maybe {
+		background: #9a6700;
+	}
 	.meta {
 		display: inline-flex;
 		align-items: center;
@@ -425,14 +570,6 @@
 	}
 	.pano {
 		font-weight: var(--weight-medium);
-	}
-	.compare {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-3);
-	}
-	.compare.alone {
-		grid-template-columns: minmax(0, 1fr);
 	}
 	.side {
 		display: flex;
@@ -473,10 +610,5 @@
 		font-size: var(--text-sm);
 		font-variant-numeric: tabular-nums;
 		color: var(--color-text-muted);
-	}
-	@media (max-width: 50rem) {
-		.compare {
-			grid-template-columns: minmax(0, 1fr);
-		}
 	}
 </style>

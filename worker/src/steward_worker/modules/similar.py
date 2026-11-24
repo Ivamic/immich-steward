@@ -76,19 +76,31 @@ class SimilarModule:
             torch.cuda.empty_cache()
 
     def run(self, image: bytes) -> Embedding:
-        import torch
-        import torchvision.transforms.functional as tfm
         from PIL import Image, UnidentifiedImageError
 
-        assert self._model is not None, "load() first"
         try:
             with Image.open(io.BytesIO(image), formats=IMAGE_FORMATS) as opened:
-                rgb = opened.convert("RGB").resize(
-                    (INPUT_SIZE, INPUT_SIZE), Image.Resampling.BICUBIC
-                )
+                rgb = opened.convert("RGB")
         except (UnidentifiedImageError, OSError) as exc:
             raise PermanentError(f"cannot read the image: {exc}") from exc
-        pixels = tfm.normalize(tfm.to_tensor(rgb), IMAGENET_MEAN, IMAGENET_STD)
+        return pack(self.vectors([rgb])[0].tolist())
+
+    def vectors(self, images: Sequence[Any]) -> Any:
+        """The vectors of images already read (PIL images in RGB), one row each, as floats."""
+        import torch
+        import torchvision.transforms.functional as tfm
+        from PIL import Image
+
+        assert self._model is not None, "load() first"
+        pixels = torch.stack(
+            [
+                tfm.normalize(
+                    tfm.to_tensor(rgb.resize((INPUT_SIZE, INPUT_SIZE), Image.Resampling.BICUBIC)),
+                    IMAGENET_MEAN,
+                    IMAGENET_STD,
+                )
+                for rgb in images
+            ]
+        )
         with torch.inference_mode():
-            vector = self._model(pixels.unsqueeze(0).to(self._device))[0]
-        return pack(vector.float().cpu().tolist())
+            return self._model(pixels.to(self._device)).float().cpu().numpy()

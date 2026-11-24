@@ -699,6 +699,7 @@
 					{/if}
 				</div>
 				<StreetStrip
+					assetId={asset?.id ?? null}
 					point={picked ?? current}
 					photo={asset ? thumbnailUrl(id, 'preview', turn, version) : null}
 					bind:active={streetActive}

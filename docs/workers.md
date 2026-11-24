@@ -218,7 +218,7 @@ The commands install the worker for Python 3.12, which uv downloads by itself if
 [troubleshooting](troubleshooting.md#uv-sync-asks-for-microsoft-visual-c-build-tools).
 
 In the examples below, replace `192.168.1.10:8780` with the address of your server,
-`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.13.2` with
+`your-token` with the value of `STEWARD_WORKER_TOKEN` from the server's `.env`, and `0.14.0` with
 the version of the app on your server (shown in **Settings → Updates**).
 
 ### GPU worker on Windows (PowerShell)
@@ -233,7 +233,7 @@ winget install --id astral-sh.uv -e
 Close PowerShell and open a new window, so that `git` and `uv` are found. Then:
 
 ```powershell
-git clone --branch v0.13.2 https://github.com/Ivamic/immich-steward.git D:\steward-worker
+git clone --branch v0.14.0 https://github.com/Ivamic/immich-steward.git D:\steward-worker
 cd D:\steward-worker
 uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
@@ -253,7 +253,7 @@ Install once (Git is usually installed already; otherwise `sudo apt install git`
 ```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
-git clone --branch v0.13.2 https://github.com/Ivamic/immich-steward.git ~/steward-worker
+git clone --branch v0.14.0 https://github.com/Ivamic/immich-steward.git ~/steward-worker
 cd ~/steward-worker
 uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
@@ -375,13 +375,13 @@ docker run -d --name steward-worker --restart unless-stopped `
 
 **A worker on a graphics card (from source).** Stop it (**Ctrl+C** in its window), check out the
 new version, install it with `uv sync`, then start it as before (e.g. with
-[`start-worker.cmd`](#start-the-gpu-worker-with-one-file)). Replace `0.13.2` with the version of
+[`start-worker.cmd`](#start-the-gpu-worker-with-one-file)). Replace `0.14.0` with the version of
 the app: the page **About** (the **ⓘ** icon in the header) shows it. On Windows:
 
 ```powershell
 cd D:\steward-worker
 git fetch --tags
-git checkout v0.13.2
+git checkout v0.14.0
 uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
@@ -390,7 +390,7 @@ On Linux:
 ```sh
 cd ~/steward-worker
 git fetch --tags
-git checkout v0.13.2
+git checkout v0.14.0
 uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda
 ```
 
@@ -404,16 +404,16 @@ above. On Windows:
 
 ```powershell
 cd D:\steward-worker
-git fetch --depth 1 origin tag v0.13.2
-git checkout v0.13.2
+git fetch --depth 1 origin tag v0.14.0
+git checkout v0.14.0
 ```
 
 On Linux:
 
 ```sh
 cd ~/steward-worker
-git fetch --depth 1 origin tag v0.13.2
-git checkout v0.13.2
+git fetch --depth 1 origin tag v0.14.0
+git checkout v0.14.0
 ```
 
 ## Schedule

@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-24
+
+Street-level images next to the photo: compare them with it on a worker, and keep which way the
+camera looked.
+
 ### Added
 
 - **Street-level images** in the photo card (*beta*, marked so in the card and the settings): turn on **Street-level images** under the map to see
@@ -36,7 +41,6 @@ between releases.
   the card (north-east, 48° ±30°), where it can be forgotten. It is kept in the app only: Immich
   has no field for it. Moved more than 100 m, the photo loses its direction, found at another
   place; the card says so before the point is saved.
-
 - **Esri's new free plan**: from 2027-02-25 Esri gives a credit of $50 a month for all services
   of the account instead of 2 million basemap tiles, about 333,000 tiles. Settings puts the usage
   against the limit of the day and says when it changes and that the credit is shared.
@@ -46,6 +50,41 @@ between releases.
   first (for instance after a new version of its model). The photos marked **Not turned** are left
   alone unless you untick the option; photos being turned right now are left out. The window says
   how many photos the module will look at. Nothing changes in Immich.
+
+### Fixed
+
+- In the photo card, the keys pressed in a window over it (the matching details of a similar
+  photo) also acted on the card: an arrow opened the next photo, Esc left the card. A window open
+  over the card now keeps its keys.
+
+### Security
+
+- Dependencies were checked before the release (pip-audit, pnpm audit): nothing was found.
+
+### Upgrading
+
+`compose.yaml` did not change since 0.6: as always
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+(with `--profile worker` if you run the worker on the server). The database gets two small
+migrations on the first start. Coming from 0.5 or older, see
+[Updating](https://github.com/Ivamic/immich-steward/blob/main/docs/updating.md#coming-from-05-or-older).
+
+- **Street-level images are off** until you switch a source on in **Settings → Street-level
+  images**; Mapillary needs your own access token there.
+- **Workers changed** (the new module *street-level images*, needed for **Compare with the
+  photo**). The worker in Docker updates with the commands above and runs the new module unless
+  `STEWARD_WORKER_MODULES` names the modules: then add `street`. A worker from source: check out
+  the release and sync with the new extra, e.g.
+  `uv sync --python 3.12 --frozen --no-dev --package steward-worker --extra geoclip --extra similar --extra details --extra orientation --extra street --extra cuda`
+  (see [Workers](https://github.com/Ivamic/immich-steward/blob/main/docs/workers.md)); its
+  `--modules`, if given, need `street` too. The new module uses the weights of *similar photos*
+  and *matching details*, nothing more is downloaded. An older worker keeps working, without
+  the comparison.
 
 ## [0.13.2] - 2026-11-24
 
@@ -921,7 +960,8 @@ taken close in time.
   ([docs/install.md](docs/install.md)).
 - English and Russian user interface.
 
-[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/Ivamic/immich-steward/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/Ivamic/immich-steward/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/Ivamic/immich-steward/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/Ivamic/immich-steward/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/Ivamic/immich-steward/compare/v0.12.0...v0.13.0

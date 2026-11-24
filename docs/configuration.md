@@ -52,7 +52,7 @@ unreadable, so they would have to be entered again.
 | Source | Key | Free | Note |
 |---|---|---|---|
 | Sentinel-2 cloudless (EOX) | none | non-commercial use | 10 m per pixel, a layer per year (2016–2025) |
-| Esri World Imagery | ArcGIS Location Platform | 2 million tiles a month | without pay-as-you-go the access closes until the next month, no bill |
+| Esri World Imagery | ArcGIS Location Platform | 2 million tiles a month; from 2027-02-25 a $50 credit for all services of the account (about 333,000 tiles) | without pay-as-you-go the access closes until the next month, no bill |
 | MapTiler Satellite | MapTiler Cloud | 100,000 requests a month, non-commercial | the service pauses until the next month; the MapTiler logo is shown on the map |
 
 The browser loads the tiles straight from the provider, so **the key is visible in the browser**.
@@ -90,7 +90,12 @@ tiles of the current billing cycle and the share of the free tier used; the **De
 credentials** tab shows them per key. The latest hours may come later. Esri gives no way for the
 app to read these numbers, so Settings shows only the tiles the app itself loaded.
 
-**Over the free 2 million tiles.** Pay-as-you-go is off for a new account and can be turned on
+**The free plan changes on 2027-02-25.** Until then 2 million basemap tiles a month are free.
+From that day Esri gives a credit of $50 a month for all services of the account together: at
+$0.15 per 1,000 tiles about 333,000 tiles, fewer if the account uses other services too. Settings
+shows the limit of the day and says when it changes.
+
+**Over the free tiles.** Pay-as-you-go is off for a new account and can be turned on
 only with a payment method. While it is off there is **no bill**: Esri closes the access to the
 basemaps until the next billing cycle, and the app moves to the next source. If you turn
 pay-as-you-go on, there is no spending cap: tiles over the free amount cost $0.15 per 1,000.

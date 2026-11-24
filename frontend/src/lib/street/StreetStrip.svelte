@@ -346,7 +346,21 @@
 	}
 
 	const sourceName = (id: string) => (id === 'mapillary' ? 'Mapillary' : 'Panoramax');
+	// Mapillary asks for its name and a link to it wherever its images are shown (terms §11);
+	// as text, as in its own tiles: no file of its trademark in the project.
+	const MAPILLARY_URL = 'https://www.mapillary.com/';
+	const anyMapillary = $derived(images.some((image) => image.source === 'mapillary'));
 	const problems = $derived(answers.filter((s) => s.status !== 'ok'));
+	// How many of the images shown each source gave, also none: with more than one source, so
+	// that a source with nothing here is told from one that did not answer.
+	const bySource = $derived.by(() => {
+		const ok = answers.filter((s) => s.status === 'ok');
+		if (ok.length < 2) return [];
+		return ok.map((s) => ({
+			id: s.id,
+			count: images.filter((image) => image.source === s.id).length
+		}));
+	});
 	const noSource = $derived(enabled !== null && enabled.length === 0);
 
 	function problem(status: string): string {
@@ -396,6 +410,13 @@
 					<a href={resolve('/settings#street')}>{m.street_settings_link()}</a>
 				{:else if images.length}
 					{m.street_found({ count: images.length, radius: RADIUS_M })}
+					{#if bySource.length}
+						<span>
+							({bySource
+								.map((s) => m.street_by_source({ source: sourceName(s.id), count: s.count }))
+								.join(' · ')})
+						</span>
+					{/if}
 				{:else if loading || enabled === null}
 					{m.street_loading()}
 				{:else}
@@ -444,6 +465,9 @@
 							</button>
 						{/if}
 					</span>
+				{/if}
+				{#if anyMapillary}
+					<a class="credit" href={MAPILLARY_URL} target="_blank" rel="noopener">© Mapillary</a>
 				{/if}
 				{#each problems as found (found.id)}
 					<span class="problem">
@@ -503,6 +527,9 @@
 <svelte:window {onkeydown} />
 
 {#snippet credits(image: StreetImage)}
+	{#if image.source === 'mapillary'}
+		<a href={MAPILLARY_URL} target="_blank" rel="noopener">© Mapillary</a> ·
+	{/if}
 	{#if image.author}{m.street_author({ author: image.author })} ·{/if}
 	{#if image.license}
 		{#if image.license_url}
@@ -607,6 +634,9 @@
 		align-items: center;
 		flex-wrap: wrap;
 		gap: var(--space-2);
+	}
+	.credit {
+		color: inherit;
 	}
 	.status {
 		display: inline-flex;

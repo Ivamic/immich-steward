@@ -404,7 +404,7 @@
 	"mapsrc_quality_esri": "1 m or better in many places, often much better in towns.",
 	"mapsrc_quality_maptiler": "0.5–2 m: best in Western Europe and the USA, 2 m elsewhere.",
 	"mapsrc_terms_eox": "No key. Free for non-commercial use (2016: CC BY 4.0, later years: CC BY-NC-SA 4.0).",
-	"mapsrc_terms_esri": "Key of an ArcGIS Location Platform account. 2 million tiles a month free; without pay-as-you-go the access just closes until the next month. Do not share the key.",
+	"mapsrc_terms_esri": "Key of an ArcGIS Location Platform account. {quota} tiles a month free; without pay-as-you-go the access just closes until the next month. Do not share the key.",
 	"mapsrc_terms_maptiler": "Key of a MapTiler Cloud account. The free plan is for non-commercial use only: 100,000 requests a month, then the service pauses until the next month. The MapTiler logo is shown on the map.",
 	"mapsrc_terms_link": "Full terms",
 	"mapsrc_site_link": "Website",
@@ -979,5 +979,8 @@
 	"street_compare_all_done": "All the images shown are compared",
 	"photo_direction_will_drop": "The direction goes when the point is saved: it is more than {meters} m from the place it was found at",
 	"beta": "beta",
-	"beta_hint": "A new feature still being tried out: it may change, and is wrong more often"
+	"beta_hint": "A new feature still being tried out: it may change, and is wrong more often",
+	"street_by_source": "{source} — {count}",
+	"mapsrc_quota_next_esri": "From {date} the free plan is a credit of $50 a month for all services of the Esri account together: about {quota} tiles, if nothing else is used.",
+	"mapsrc_quota_shared_esri": "The free credit of $50 a month is shared by all services of the Esri account: other services used, fewer tiles are left."
 }

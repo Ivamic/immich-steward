@@ -2,7 +2,7 @@
 """Map settings for the UI, its satellite imagery sources and address search (proxied to a
 Photon geocoder)."""
 
-from datetime import datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any
 from urllib.parse import urlsplit
 
@@ -128,6 +128,11 @@ class ProviderUsageOut(BaseModel):
     error: str | None
 
 
+class QuotaChangeOut(BaseModel):
+    starts: date
+    quota: int
+
+
 class MapSourceItem(BaseModel):
     """A source in the settings of the account. Keys only masked: they never come back whole."""
 
@@ -146,7 +151,9 @@ class MapSourceItem(BaseModel):
     tiles: int
     counted_since: datetime
     reset_day: int | None
+    # Free tiles a month today, and the next change of the free plan when one is known.
     free_quota: int | None
+    free_quota_next: QuotaChangeOut | None = None
     noncommercial: bool
     years: list[int]
     terms_url: str
@@ -164,6 +171,8 @@ class MapSources(BaseModel):
 
 def _item(state: map_sources.State, key_check: str | None = None) -> MapSourceItem:
     src, usage = state.source, state.provider_usage
+    today = datetime.now(UTC).date()
+    change = src.next_quota(today)
     return MapSourceItem(
         id=src.id,
         name=src.name,
@@ -178,7 +187,8 @@ def _item(state: map_sources.State, key_check: str | None = None) -> MapSourceIt
         tiles=state.tiles,
         counted_since=state.counted_since,
         reset_day=state.reset_day,
-        free_quota=src.free_quota,
+        free_quota=src.quota_on(today),
+        free_quota_next=QuotaChangeOut(starts=change[0], quota=change[1]) if change else None,
         noncommercial=src.noncommercial,
         years=list(src.years),
         terms_url=src.terms_url,

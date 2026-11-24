@@ -114,9 +114,9 @@
 		return source.enabled ? 'st-badge--success' : 'st-badge--outline';
 	}
 
-	function terms(id: string): string {
+	function terms(id: string, quota: number | null): string {
 		if (id === 'eox') return m.mapsrc_terms_eox();
-		if (id === 'esri') return m.mapsrc_terms_esri();
+		if (id === 'esri') return m.mapsrc_terms_esri({ quota: number(quota ?? 0) });
 		if (id === 'maptiler') return m.mapsrc_terms_maptiler();
 		return '';
 	}
@@ -163,7 +163,15 @@
 			</header>
 			<p class="quality">{quality(source.id)}</p>
 			<p class="terms">
-				{terms(source.id)}
+				{terms(source.id, source.free_quota)}
+				{#if source.id === 'esri'}
+					{source.free_quota_next
+						? m.mapsrc_quota_next_esri({
+								date: day(source.free_quota_next.starts),
+								quota: number(source.free_quota_next.quota)
+							})
+						: m.mapsrc_quota_shared_esri()}
+				{/if}
 				<a href={source.terms_url} target="_blank" rel="noopener">{m.mapsrc_terms_link()}</a>
 				· <a href={source.site_url} target="_blank" rel="noopener">{m.mapsrc_site_link()}</a>
 			</p>

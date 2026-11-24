@@ -404,7 +404,7 @@
 	"mapsrc_quality_esri": "1 m o meglio in molti luoghi, spesso molto meglio in città.",
 	"mapsrc_quality_maptiler": "0,5–2 m: il meglio in Europa occidentale e negli Stati Uniti, 2 m altrove.",
 	"mapsrc_terms_eox": "Nessuna chiave. Gratuito per uso non commerciale (2016: CC BY 4.0, anni successivi: CC BY-NC-SA 4.0).",
-	"mapsrc_terms_esri": "Chiave di un account ArcGIS Location Platform. 2 milioni di riquadri al mese gratuiti; senza pagamento a consumo l'accesso viene semplicemente chiuso fino al mese successivo. Non condividere la chiave.",
+	"mapsrc_terms_esri": "Chiave di un account ArcGIS Location Platform. {quota} riquadri al mese gratuiti; senza pagamento a consumo l'accesso viene semplicemente chiuso fino al mese successivo. Non condividere la chiave.",
 	"mapsrc_terms_maptiler": "Chiave di un account MapTiler Cloud. Il piano gratuito è solo per uso non commerciale: 100.000 richieste al mese, poi il servizio si sospende fino al mese successivo. Sulla mappa viene mostrato il logo MapTiler.",
 	"mapsrc_terms_link": "Condizioni complete",
 	"mapsrc_site_link": "Sito web",
@@ -979,5 +979,8 @@
 	"street_compare_all_done": "Tutte le immagini mostrate sono confrontate",
 	"photo_direction_will_drop": "La direzione verrà rimossa al salvataggio del punto: è a più di {meters} m dal luogo in cui è stata trovata",
 	"beta": "beta",
-	"beta_hint": "Una nuova funzione ancora in prova: può cambiare e sbaglia più spesso"
+	"beta_hint": "Una nuova funzione ancora in prova: può cambiare e sbaglia più spesso",
+	"street_by_source": "{source} — {count}",
+	"mapsrc_quota_next_esri": "Dal {date} il piano gratuito è un credito di 50 $ al mese per tutti i servizi dell’account Esri insieme: circa {quota} riquadri, se non si usa altro.",
+	"mapsrc_quota_shared_esri": "Il credito gratuito di 50 $ al mese è condiviso da tutti i servizi dell’account Esri: usandone altri, restano meno riquadri."
 }

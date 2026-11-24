@@ -178,7 +178,9 @@ of the point (the one you put, or the location of the photo) appear under it, ne
 on the map as green points with the way each looks. The app remembers the button for you.
 
 - A click opens an image beside your photo; the arrow keys step through the strip. Each image says
-  who took it and under which license, and links to it at its source.
+  who took it and under which license, and links to it at its source. With more than one source
+  switched on, the status line says how many images each gave (a source with nothing near the
+  point says 0).
 - **Put the point here** moves the point to where the image was taken and, unless it is a 360°
   panorama, takes the way it looks as the [direction](#the-photo) of the photo (±30°).
 - **Compare with the photo** has a [worker](workers.md) look which images show the place of the

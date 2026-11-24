@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward.map_sources import period_start
+from steward.map_sources import period_start, source
 from steward.models import MapSourceSetting
 
 ESRI_KEY = "esri-good-key-1234"
@@ -373,3 +373,16 @@ def test_default_auto_prefers_eox_far_and_a_keyed_source_near(
 
 def test_unknown_source(signed_in: TestClient) -> None:
     assert put(signed_in, "google", enabled=True).status_code == 404
+
+
+def test_the_free_plan_of_esri_changes_on_a_day() -> None:
+    """2 million tiles a month until 2027-02-25, then a shared credit of $50 (~333 000 tiles)."""
+    esri = source("esri")
+    assert esri.quota_on(date(2026, 11, 24)) == 2_000_000
+    assert esri.next_quota(date(2026, 11, 24)) == (date(2027, 2, 25), 333_000)
+    assert esri.quota_on(date(2027, 2, 24)) == 2_000_000
+    assert esri.quota_on(date(2027, 2, 25)) == 333_000
+    assert esri.next_quota(date(2027, 2, 25)) is None
+    maptiler = source("maptiler")
+    assert maptiler.quota_on(date(2030, 1, 1)) == 100_000
+    assert maptiler.next_quota(date(2030, 1, 1)) is None

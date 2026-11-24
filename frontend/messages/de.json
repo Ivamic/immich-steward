@@ -404,7 +404,7 @@
 	"mapsrc_quality_esri": "Vielerorts 1 m oder besser, in Städten oft viel besser.",
 	"mapsrc_quality_maptiler": "0,5–2 m: am besten in Westeuropa und den USA, anderswo 2 m.",
 	"mapsrc_terms_eox": "Kein Schlüssel. Kostenlos für nichtkommerzielle Nutzung (2016: CC BY 4.0, spätere Jahre: CC BY-NC-SA 4.0).",
-	"mapsrc_terms_esri": "Schlüssel eines Kontos der ArcGIS Location Platform. 2 Millionen Kacheln im Monat kostenlos; ohne Pay-as-you-go wird der Zugang einfach bis zum nächsten Monat gesperrt. Gib den Schlüssel nicht weiter.",
+	"mapsrc_terms_esri": "Schlüssel eines Kontos der ArcGIS Location Platform. {quota} Kacheln im Monat kostenlos; ohne Pay-as-you-go wird der Zugang einfach bis zum nächsten Monat gesperrt. Gib den Schlüssel nicht weiter.",
 	"mapsrc_terms_maptiler": "Schlüssel eines MapTiler-Cloud-Kontos. Der kostenlose Tarif gilt nur für nichtkommerzielle Nutzung: 100.000 Anfragen im Monat, danach pausiert der Dienst bis zum nächsten Monat. Das MapTiler-Logo wird auf der Karte angezeigt.",
 	"mapsrc_terms_link": "Vollständige Bedingungen",
 	"mapsrc_site_link": "Website",
@@ -979,5 +979,8 @@
 	"street_compare_all_done": "Alle gezeigten Bilder sind verglichen",
 	"photo_direction_will_drop": "Die Richtung entfällt beim Speichern des Punkts: er liegt mehr als {meters} m von dem Ort entfernt, an dem sie ermittelt wurde",
 	"beta": "Beta",
-	"beta_hint": "Eine neue Funktion in Erprobung: sie kann sich ändern und irrt sich öfter"
+	"beta_hint": "Eine neue Funktion in Erprobung: sie kann sich ändern und irrt sich öfter",
+	"street_by_source": "{source} — {count}",
+	"mapsrc_quota_next_esri": "Ab {date} ist der kostenlose Tarif ein Guthaben von 50 $ im Monat für alle Dienste des Esri-Kontos zusammen: etwa {quota} Kacheln, wenn sonst nichts genutzt wird.",
+	"mapsrc_quota_shared_esri": "Das kostenlose Guthaben von 50 $ im Monat teilen sich alle Dienste des Esri-Kontos: werden andere genutzt, bleiben weniger Kacheln."
 }

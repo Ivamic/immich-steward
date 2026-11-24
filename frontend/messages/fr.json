@@ -404,7 +404,7 @@
 	"mapsrc_quality_esri": "1 m ou mieux à beaucoup d'endroits, souvent bien mieux en ville.",
 	"mapsrc_quality_maptiler": "0,5–2 m : le meilleur en Europe de l'Ouest et aux États-Unis, 2 m ailleurs.",
 	"mapsrc_terms_eox": "Sans clé. Gratuit pour un usage non commercial (2016 : CC BY 4.0, années suivantes : CC BY-NC-SA 4.0).",
-	"mapsrc_terms_esri": "Clé d'un compte ArcGIS Location Platform. 2 millions de tuiles par mois gratuites ; sans paiement à l'usage, l'accès est simplement fermé jusqu'au mois suivant. Ne partagez pas la clé.",
+	"mapsrc_terms_esri": "Clé d'un compte ArcGIS Location Platform. {quota} tuiles par mois gratuites ; sans paiement à l'usage, l'accès est simplement fermé jusqu'au mois suivant. Ne partagez pas la clé.",
 	"mapsrc_terms_maptiler": "Clé d'un compte MapTiler Cloud. L'offre gratuite est réservée à un usage non commercial : 100 000 requêtes par mois, puis le service est suspendu jusqu'au mois suivant. Le logo MapTiler est affiché sur la carte.",
 	"mapsrc_terms_link": "Conditions complètes",
 	"mapsrc_site_link": "Site web",
@@ -979,5 +979,8 @@
 	"street_compare_all_done": "Toutes les images affichées sont comparées",
 	"photo_direction_will_drop": "La direction sera supprimée à l’enregistrement du point : il est à plus de {meters} m du lieu où elle a été trouvée",
 	"beta": "bêta",
-	"beta_hint": "Une nouvelle fonction encore à l’essai : elle peut changer et se trompe plus souvent"
+	"beta_hint": "Une nouvelle fonction encore à l’essai : elle peut changer et se trompe plus souvent",
+	"street_by_source": "{source} — {count}",
+	"mapsrc_quota_next_esri": "À partir du {date}, l’offre gratuite est un crédit de 50 $ par mois pour tous les services du compte Esri ensemble : environ {quota} tuiles si rien d’autre n’est utilisé.",
+	"mapsrc_quota_shared_esri": "Le crédit gratuit de 50 $ par mois est partagé par tous les services du compte Esri : si d’autres sont utilisés, il reste moins de tuiles."
 }

@@ -381,7 +381,10 @@ export interface MapSourceItem {
 	tiles: number;
 	counted_since: string;
 	reset_day: number | null;
+	/** Free tiles a month today. */
 	free_quota: number | null;
+	/** The next change of the free plan, when one is known; absent from older cores. */
+	free_quota_next?: { starts: string; quota: number } | null;
 	noncommercial: boolean;
 	years: number[];
 	terms_url: string;

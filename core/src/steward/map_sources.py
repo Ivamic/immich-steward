@@ -70,6 +70,8 @@ class Source:
     usage_url: str | None = None
     # Tiles (requests) a month on the free plan, to put the provider's usage against.
     free_quota: int | None = None
+    # The free plan changing on a day: from then on this many tiles a month.
+    quota_changes: tuple[tuple[date, int], ...] = ()
     # The free use allows no commercial use.
     noncommercial: bool = False
     logo_url: str | None = None
@@ -82,6 +84,19 @@ class Source:
     # The provider's usage can be read with a token of the account (MapTiler service token).
     usage_token: bool = False
     years: tuple[int, ...] = field(default=())
+
+    def quota_on(self, day: date) -> int | None:
+        """The free tiles a month on that day."""
+        quota = self.free_quota
+        for starts, changed in sorted(self.quota_changes):
+            if day >= starts:
+                quota = changed
+        return quota
+
+    def next_quota(self, day: date) -> tuple[date, int] | None:
+        """The next change of the free plan after that day, if one is known."""
+        later = sorted(change for change in self.quota_changes if change[0] > day)
+        return later[0] if later else None
 
 
 EOX_YEARS = tuple(range(2025, 2015, -1))
@@ -141,6 +156,11 @@ SOURCES: tuple[Source, ...] = (
         key_url="https://location.arcgis.com/",
         usage_url="https://location.arcgis.com/usage/",
         free_quota=2_000_000,
+        # From 2027-02-25 the free plan of ArcGIS Location Platform is no longer a limit for each
+        # service (2 million basemap tiles) but a credit of $50 a month for all services of the
+        # account together (Esri's letter of 2026-11): at $0.15 per 1000 tiles, about 333 000
+        # tiles, if nothing else is used.
+        quota_changes=((date(2027, 2, 25), 333_000),),
         copyright=(
             "Source: Esri, Vantor, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS,"
             " AeroGRID, IGN, and the GIS User Community"

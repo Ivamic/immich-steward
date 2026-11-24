@@ -37,6 +37,10 @@ between releases.
   has no field for it. Moved more than 100 m, the photo loses its direction, found at another
   place; the card says so before the point is saved.
 
+- **Esri's new free plan**: from 2027-02-25 Esri gives a credit of $50 a month for all services
+  of the account instead of 2 million basemap tiles, about 333,000 tiles. Settings puts the usage
+  against the limit of the day and says when it changes and that the credit is shared.
+
 - **Reset the found turns**, on **Turned photos** and at the *orientation* module on
   **Processing**: forgets what the module found, so that it looks at the photos again, newest
   first (for instance after a new version of its model). The photos marked **Not turned** are left

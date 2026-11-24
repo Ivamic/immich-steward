@@ -19,6 +19,9 @@ between releases.
 - **Rotate** in the gallery and on the photo page: a photo still being turned in the background is
   no longer turned once more on top of it. The selection leaves it out (the notice says how many),
   the photo page says to wait. A turn interrupted by a restart of the app is not made twice.
+- **Rotate** no longer waits for a long background job: the daily pass of the *similar photos*
+  badge took hours on a large library, and a turn asked meanwhile started only after it. The
+  jobs you wait for now run beside the background ones.
 - A photo opened from **Turned photos**, **No sign of a place** or **Maybe no sign of a place**
   goes back there with **Back** or Esc, with the filter it had, instead of to the gallery. The
   button says *Back* wherever it leads elsewhere than the gallery.

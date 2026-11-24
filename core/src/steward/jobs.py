@@ -457,12 +457,16 @@ class JobRunner:
             if forgotten := await worker_queue.forget_old_workers(db):
                 log.info("forgot %d workers not seen for 30 days", forgotten)
 
-    async def run_once(self) -> bool:
-        """Claims and runs the oldest queued job. Returns False when the queue is empty."""
+    async def run_once(self, min_priority: int | None = None) -> bool:
+        """Claims and runs the oldest queued job (of at least `min_priority`). Returns False when
+        the queue is empty."""
         async with self._sessionmaker() as db:
+            among = [Job.status == "queued", Job.kind.in_(self._handlers)]
+            if min_priority is not None:
+                among.append(Job.priority >= min_priority)
             job = await db.scalar(
                 select(Job)
-                .where(Job.status == "queued", Job.kind.in_(self._handlers))
+                .where(*among)
                 .order_by(Job.priority.desc(), Job.created_at)
                 .limit(1)
                 .with_for_update(skip_locked=True)
@@ -509,15 +513,31 @@ class JobRunner:
         async with self._sessionmaker() as db:
             await updates.check_if_due(db, self._update_transport)
 
+    async def run_user_jobs(self, stop: asyncio.Event) -> None:
+        """Jobs the user waits for (a rotate of the chosen photos) beside the main loop: a long
+        background job there (a full pass of the similar badge takes hours) does not hold them
+        up. Both loops claim with SKIP LOCKED, so a job runs once."""
+        while not stop.is_set():
+            try:
+                if await self.run_once(min_priority=worker_queue.PRIORITY_USER):
+                    continue
+            except Exception:
+                log.exception("job runner iteration (user jobs) failed")
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), timeout=IDLE_POLL_S)
+
     async def run_forever(self, stop: asyncio.Event) -> None:
         recovered = False
         next_schedule = 0.0
         loop = asyncio.get_running_loop()
+        user_jobs: asyncio.Task[None] | None = None
         while not stop.is_set():
             try:
                 if not recovered:
                     await self.recover()
                     recovered = True
+                    # Only after the recovery: it queues again the jobs left running.
+                    user_jobs = asyncio.create_task(self.run_user_jobs(stop))
                 if loop.time() >= next_schedule:
                     await self.schedule_syncs()
                     await self.schedule_modules()
@@ -533,3 +553,5 @@ class JobRunner:
                 log.exception("job runner iteration failed")
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=IDLE_POLL_S)
+        if user_jobs is not None:
+            await user_jobs

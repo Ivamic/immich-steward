@@ -9,7 +9,7 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, exists, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 
@@ -30,22 +30,25 @@ THUMBNAIL_ATTEMPTS = 20
 def turning() -> ColumnElement[bool]:
     """The photo waits for a rotate job, or is being turned by one: a turn on top of it would
     add up with the first (two quarter turns put the photo upside down)."""
-    return Asset.turning_job_id.in_(
-        select(Job.id).where(Job.kind == JOB_KIND, Job.status.in_(worker_queue.ACTIVE))
+    return exists().where(
+        Job.id == Asset.turning_job_id,
+        Job.kind == JOB_KIND,
+        Job.status.in_(worker_queue.ACTIVE),
     )
 
 
 def not_turning() -> ColumnElement[bool]:
-    """The opposite of `turning`, for lists (without a job the comparison would be NULL)."""
+    """The opposite of `turning`, for lists."""
     return or_(Asset.turning_job_id.is_(None), ~turning())
 
 
 def free_to_turn() -> ColumnElement[bool]:
     """The opposite of `turning`, as a claim can check it: a job still invisible to a request
-    running at the same time is not finished either, so two requests never take one photo."""
+    running at the same time is not finished either, so two requests never take one photo. The
+    job is looked up by its id: the table holds every job of the workers too."""
     return or_(
         Asset.turning_job_id.is_(None),
-        Asset.turning_job_id.in_(select(Job.id).where(Job.status.in_(FINISHED))),
+        exists().where(Job.id == Asset.turning_job_id, Job.status.in_(FINISHED)),
     )
 
 

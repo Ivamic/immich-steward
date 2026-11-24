@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Actions on several photos chosen in the gallery (D-149)."""
 
+from functools import partial
 from typing import Any
 
 import pytest
@@ -10,6 +11,7 @@ from test_module_runs import finish, start_worker
 
 from steward import locations, rotation
 from steward.models import Job
+from steward.worker_queue import PRIORITY_USER
 
 KOTOR = {"latitude": 42.4247, "longitude": 18.7712}
 BUDVA = {"latitude": 42.2864, "longitude": 18.84}
@@ -244,6 +246,28 @@ def test_a_failed_job_leaves_its_photos_free(
     run_jobs(signed_in)
     assert job_of(signed_in, job)["progress"]["busy"] == 0
     assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
+
+
+def test_a_turn_does_not_wait_for_a_background_job(
+    signed_in: TestClient, fake_immich: FakeImmich, photos: dict[str, tuple[str, str]]
+) -> None:
+    """The loop of the jobs the user waits for takes the turn and leaves the background job
+    (a full pass of the similar badge, hours on a large library) to the main loop."""
+    background = signed_in.post("/api/library/similar-hints").json()
+    job = rotate(signed_in, ids(photos, "a"))
+    runner = signed_in.app.state.job_runner  # type: ignore[attr-defined]
+    user_jobs = partial(runner.run_once, min_priority=PRIORITY_USER)
+    assert signed_in.portal.call(user_jobs)  # type: ignore[union-attr]
+    assert not signed_in.portal.call(user_jobs)  # type: ignore[union-attr]
+    assert job_of(signed_in, job)["status"] == "done"
+    assert fake_immich.edits[photos["a"][1]] == [ROTATE_90]
+
+    async def status() -> str:
+        async with runner._sessionmaker() as db:
+            found = await db.get(Job, background["id"])
+            return str(found.status)
+
+    assert signed_in.portal.call(status) == "queued"  # type: ignore[union-attr]
 
 
 def stopped_while_turning(

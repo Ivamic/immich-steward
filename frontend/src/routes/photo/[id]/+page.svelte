@@ -580,6 +580,9 @@
 		if (event.key === 'Tab') pointerControl = null;
 		// The viewer and the windows handle their own keys (Esc closes them).
 		if (viewerOpen || partPicker || keysOpen || albumOpen || leaving) return;
+		// Any other window over the card (a street-level image, the details of a similar photo):
+		// its arrows step through its own images, Esc closes it, not the card.
+		if (document.querySelector('dialog[open]')) return;
 		if (event.ctrlKey || event.metaKey || event.altKey) return;
 		// A focused player keeps its own keys (arrows seek, space plays).
 		if ((event.target as HTMLElement).closest('input, textarea, select, video')) return;

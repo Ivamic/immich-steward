@@ -491,6 +491,10 @@ class MapCell:
     # The newest photo of the cell and the version of its thumbnails: its picture on the map.
     cover_id: UUID
     cover_version: str | None
+    # Where the newest photo was taken: its picture stands there, not on the average of the
+    # cell, which may be tens of metres away when the photos of the cell are spread.
+    cover_latitude: float
+    cover_longitude: float
 
 
 def map_cell_degrees(zoom: float) -> float:
@@ -507,6 +511,10 @@ async def map_cells(
     size = map_cell_degrees(zoom)
     row = func.floor(Asset.latitude / size)
     column = func.floor(Asset.longitude / size)
+
+    def newest(column_: Any) -> Any:
+        return func.array_agg(aggregate_order_by(column_, Asset.local_taken_at.desc(), Asset.id))[1]
+
     rows = await db.execute(
         select(
             row.label("row"),
@@ -514,10 +522,10 @@ async def map_cells(
             func.avg(Asset.latitude),
             func.avg(Asset.longitude),
             func.count(),
-            func.array_agg(aggregate_order_by(Asset.id, Asset.local_taken_at.desc(), Asset.id))[1],
-            func.array_agg(
-                aggregate_order_by(Asset.thumbhash, Asset.local_taken_at.desc(), Asset.id)
-            )[1],
+            newest(Asset.id),
+            newest(Asset.thumbhash),
+            newest(Asset.latitude),
+            newest(Asset.longitude),
         )
         .where(*filter.conditions(account), located(), bounds.condition())
         .group_by(row, column)
@@ -532,8 +540,20 @@ async def map_cells(
             asset_id=cover if count == 1 else None,
             cover_id=cover,
             cover_version=version,
+            cover_latitude=float(cover_latitude),
+            cover_longitude=float(cover_longitude),
         )
-        for r, c, latitude, longitude, count, cover, version in rows
+        for (
+            r,
+            c,
+            latitude,
+            longitude,
+            count,
+            cover,
+            version,
+            cover_latitude,
+            cover_longitude,
+        ) in rows
     ]
 
 

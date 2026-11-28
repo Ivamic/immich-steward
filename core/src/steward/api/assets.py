@@ -557,9 +557,12 @@ class MapCellOut(BaseModel):
     bounds: MapBounds
     # The photo, when it is alone in its cell.
     asset_id: UUID | None
-    # The newest photo of the cell, for its picture on the map close up.
+    # The newest photo of the cell, for its picture on the map close up, and where it was taken
+    # (the picture stands there).
     cover_id: UUID
     cover_version: str | None
+    cover_latitude: float
+    cover_longitude: float
 
 
 class MapCells(BaseModel):
@@ -593,6 +596,8 @@ async def map_cells_of(
                 asset_id=c.asset_id,
                 cover_id=c.cover_id,
                 cover_version=c.cover_version,
+                cover_latitude=c.cover_latitude,
+                cover_longitude=c.cover_longitude,
             )
             for c in cells
         ],

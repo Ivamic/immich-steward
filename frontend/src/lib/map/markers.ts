@@ -41,6 +41,9 @@ export interface MapCell {
 	/** The newest photo of the cell, for its picture close up. */
 	cover_id: string;
 	cover_version: string | null;
+	/** Where the newest photo was taken: its picture stands there, not on the average. */
+	cover_lat: number;
+	cover_lon: number;
 }
 
 export interface MapBounds {

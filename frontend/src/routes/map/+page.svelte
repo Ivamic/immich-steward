@@ -136,7 +136,9 @@
 				bounds: cell.bounds,
 				asset_id: cell.asset_id,
 				cover_id: cell.cover_id,
-				cover_version: cell.cover_version
+				cover_version: cell.cover_version,
+				cover_lat: cell.cover_latitude,
+				cover_lon: cell.cover_longitude
 			}));
 			photosInView = answer.photos;
 			loaded = true;

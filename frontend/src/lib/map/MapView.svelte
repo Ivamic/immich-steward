@@ -868,7 +868,11 @@
 				event.stopPropagation();
 				oncell(cell);
 			});
-			pictureMarkers.push(new Marker({ element }).setLngLat([cell.lon, cell.lat]).addTo(map));
+			// At the place of the photo shown, not on the average of the cell: with the photos of the
+			// cell spread, the average may be tens of metres from where this one was taken.
+			pictureMarkers.push(
+				new Marker({ element }).setLngLat([cell.cover_lon, cell.cover_lat]).addTo(map)
+			);
 		}
 	});
 

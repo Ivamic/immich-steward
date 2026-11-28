@@ -685,6 +685,8 @@ export interface MapCellsAnswer {
 		asset_id: string | null;
 		cover_id: string;
 		cover_version: string | null;
+		cover_latitude: number;
+		cover_longitude: number;
 	}[];
 	photos: number;
 }

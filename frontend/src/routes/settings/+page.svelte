@@ -12,6 +12,7 @@
 	import StreetSourcesPanel from '#lib/StreetSourcesPanel.svelte';
 	import ModuleDisplayPanel from '#lib/ModuleDisplayPanel.svelte';
 	import UpdatesPanel from '#lib/UpdatesPanel.svelte';
+	import BackupsPanel from '#lib/BackupsPanel.svelte';
 
 	const sections = [
 		{ id: 'gallery', label: m.gallery_settings_heading },
@@ -20,6 +21,7 @@
 		{ id: 'maps', label: m.mapsrc_heading },
 		{ id: 'street', label: m.street_heading },
 		{ id: 'locked', label: m.locked_heading },
+		{ id: 'backups', label: m.backups_heading },
 		{ id: 'updates', label: m.updates_heading }
 	];
 
@@ -76,6 +78,7 @@
 		<div id="maps"><MapSourcesPanel /></div>
 		<div id="street"><StreetSourcesPanel /></div>
 		<div id="locked"><LockedFolderPanel /></div>
+		<div id="backups"><BackupsPanel /></div>
 		<div id="updates"><UpdatesPanel /></div>
 	</div>
 </div>

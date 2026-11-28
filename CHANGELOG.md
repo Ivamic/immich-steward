@@ -11,6 +11,11 @@ between releases.
 
 - **Other open-source projects**: a link on the About page to [ivamic.github.io](https://ivamic.github.io),
   the page with all the projects of the author.
+- **Backups** (Settings → Backups): every night a backup of what you decided — the history of the
+  locations written, directions, marks, groups and folders, settings — into the folder `backups`
+  next to `compose.yaml`, the newest of the last days and weeks kept; a download at any time; a
+  restore command (`python -m steward.backup restore`). What the modules computed is not backed
+  up: it is computed again. See [Backup](docs/updating.md#backup).
 
 ### Fixed
 

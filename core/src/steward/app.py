@@ -25,6 +25,7 @@ from steward.api import (
     albums,
     assets,
     auth,
+    backups,
     groups,
     health,
     library,
@@ -137,6 +138,7 @@ def create_app(
     app.include_router(selection.router, prefix="/api")
     app.include_router(worker.router, prefix="/api")
     app.include_router(updates.router, prefix="/api")
+    app.include_router(backups.router, prefix="/api")
     app.include_router(settings_api.router, prefix="/api")
     app.include_router(locked_api.router, prefix="/api")
 

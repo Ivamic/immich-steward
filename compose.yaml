@@ -15,6 +15,10 @@ services:
     ports:
       - "${STEWARD_PORT:-8780}:8080"
     env_file: .env
+    volumes:
+      # Nightly backups of what you decided (Settings → Backups): a folder next to this file.
+      # The app runs as user 1000: mkdir backups && sudo chown 1000:1000 backups
+      - ./backups:/backups
     environment:
       STEWARD_DATABASE_URL: "postgresql+asyncpg://${DB_USER:-steward}:${DB_PASSWORD:?set DB_PASSWORD in .env}@db:5432/${DB_NAME:-steward}"
       STEWARD_IMMICH_URL: "${STEWARD_IMMICH_URL:?set STEWARD_IMMICH_URL in .env}"

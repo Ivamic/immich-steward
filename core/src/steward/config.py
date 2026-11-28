@@ -99,6 +99,12 @@ class Settings(BaseSettings):
     # "a/b" is a nested tag. An empty value disables tagging.
     estimated_tag: str = "steward/estimated"
 
+    # Folder of the nightly backups of what the users decided (`steward.backup`, D-252): a folder
+    # of the host mounted into the container (compose.yaml: `./backups:/backups`). When it is not
+    # there, there are no nightly backups and Settings says how to turn them on; a backup can
+    # still be downloaded there.
+    backup_dir: Path | None = Path("/backups")
+
     # Shared secret of the workers that run ML modules (sent as a bearer token). Empty: the
     # worker API is off.
     worker_token: SecretStr | None = None

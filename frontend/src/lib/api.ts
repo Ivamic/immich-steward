@@ -671,6 +671,36 @@ export const setUpdates = (enabled: boolean) =>
 /** Checks now, also while the automatic check is off. */
 export const checkUpdates = () => request<Updates>('POST', '/api/updates/check');
 
+/** The nightly backup of what the users decided (D-252): for the whole installation. */
+export interface Backups {
+	enabled: boolean;
+	/** Hour of the server's clock it is made at. */
+	hour: number;
+	keep_daily: number;
+	keep_weekly: number;
+	/** The folder for the nightly backups is mounted and writable. */
+	folder_ready: boolean;
+	folder: string | null;
+	/** Why it is not ready: no folder mounted, or the app may not write there. */
+	folder_problem: 'missing' | 'not_writable' | null;
+	time_zone: string | null;
+	last_at: string | null;
+	last_file: string | null;
+	last_size: number | null;
+	/** "no_folder", or the kind of error of the last attempt. */
+	error: string | null;
+	error_at: string | null;
+}
+export type BackupSettings = Pick<Backups, 'enabled' | 'hour' | 'keep_daily' | 'keep_weekly'>;
+
+export const getBackups = () => request<Backups>('GET', '/api/backups');
+export const setBackups = (values: Partial<BackupSettings>) =>
+	request<Backups>('PUT', '/api/backups', values);
+/** Writes a backup into the folder now, also while the nightly one is off. */
+export const runBackup = () => request<Backups>('POST', '/api/backups/run');
+/** A backup made now, as a file to save. */
+export const BACKUP_DOWNLOAD_URL = '/api/backups/download';
+
 /**
  * Where the photos with a location are: latitude, longitude and number of photos per cell, of
  * about 100 m (`coarse`) or 11 m (`fine`, for a close look).

@@ -34,7 +34,13 @@ mkdir immich-steward
 cd immich-steward
 curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
 curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+mkdir backups
+sudo chown 1000:1000 backups
 ```
+
+The folder `backups` is for the nightly backups of what you decide in the app (see
+[Backup](updating.md#backup)). The app runs as user `1000`, so the folder must belong to it;
+without that, Settings → Backups says what to do.
 
 `compose.yaml` says which containers to start; `example.env` is an example of the settings. All
 later commands are run in this folder. `compose.yaml` stays the same within a major version, so
@@ -153,6 +159,7 @@ locations get the tag `steward/estimated` in Immich, so you can always find them
 mkdir immich-steward && cd immich-steward
 curl -L -o compose.yaml https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml
 curl -L -o example.env https://github.com/Ivamic/immich-steward/releases/latest/download/example.env
+mkdir backups && sudo chown 1000:1000 backups
 cp example.env .env      # set STEWARD_IMMICH_URL, STEWARD_SECRET_KEY and DB_PASSWORD
 docker compose up -d
 ```
@@ -168,6 +175,9 @@ Then open `http://<your-server>:8780`. For the worker, set `STEWARD_WORKER_TOKEN
    [compose.yaml](https://github.com/Ivamic/immich-steward/releases/latest/download/compose.yaml).
    Portainer keeps the variables of a stack in a file called `stack.env`, so replace
    `env_file: .env` with `env_file: stack.env` (twice: under `core` and under `worker`).
+   For the nightly backups, replace `./backups` with a folder of the server that belongs to user
+   `1000`, e.g. `/opt/immich-steward/backups:/backups`; otherwise Settings → Backups offers only
+   the download.
 3. Under **Environment variables**, switch to **Advanced mode** and paste the content of
    [example.env](https://github.com/Ivamic/immich-steward/releases/latest/download/example.env).
    Set `STEWARD_IMMICH_URL`, `STEWARD_SECRET_KEY` and `DB_PASSWORD` as described in
@@ -185,6 +195,8 @@ server, delete the line `profiles: [worker]` in the editor.
    into it, and the content of
    [example.env](https://github.com/Ivamic/immich-steward/releases/latest/download/example.env) as
    a file named `.env`, with the values set as described in [Configure](#2-configure).
+   Make a folder `backups` inside it too, for the nightly backups; if Settings → Backups says
+   the app may not write there, run the command it shows over SSH.
 2. In **Container Manager → Project → Create**, choose that folder and **Use existing
    docker-compose.yml**; then **Next** and **Done**.
 3. [Sign in](#4-sign-in) at `http://<address of the NAS>:8780`.

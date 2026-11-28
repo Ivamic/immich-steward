@@ -17,6 +17,8 @@
 	font-weight: var(--weight-medium);
 	line-height: var(--leading-tight);
 	white-space: nowrap;
+	/* Also a link made a button. */
+	text-decoration: none;
 	cursor: pointer;
 	user-select: none;
 	transition:

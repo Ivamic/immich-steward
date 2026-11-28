@@ -19,6 +19,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from steward import (
+    backup,
     details,
     locked,
     orientation,
@@ -514,6 +515,11 @@ class JobRunner:
         async with self._sessionmaker() as db:
             await updates.check_if_due(db, self._update_transport)
 
+    async def back_up(self) -> None:
+        """Writes the nightly backup of what the users decided, when its folder is there."""
+        async with self._sessionmaker() as db:
+            await backup.run_if_due(db, self._settings.backup_dir)
+
     async def run_user_jobs(self, stop: asyncio.Event) -> None:
         """Jobs the user waits for (a rotate of the chosen photos), one after the other in the
         order asked, beside the main loop: a long background job there (a full pass of the
@@ -546,6 +552,7 @@ class JobRunner:
                     await self.schedule_view_groups()
                     await self.forget_old_workers()
                     await self.check_updates()
+                    await self.back_up()
                     await self.close_idle_locked()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S
                 if await self.run_once(user=False):

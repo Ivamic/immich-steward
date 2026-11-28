@@ -98,24 +98,74 @@ names as the published ones; `docker compose pull` replaces them with the publis
 
 ## Backup
 
-The app's own data (accounts, encrypted API keys, the history of written locations, "skipped"
-and "not applicable" marks, the results of the modules) lives in the Docker volume
-`immich-steward_db-data`. The coordinates themselves are stored in Immich, so they are part of
-your Immich backup.
+The locations themselves are written to Immich and are part of your Immich backup. What lives
+only in the app — the history of the locations written (and with it undo), the directions, the
+"skipped" and "not applicable" marks, the photos marked as showing no place, the groups you named
+or changed and their folders, the settings — goes into the app's own backups. What the modules
+computed (vectors, suggestions, comparisons) is not in them: after a restore the modules compute
+it again, which takes hours on a large library but loses nothing.
 
-Make a copy of the app's database:
+### Nightly backups
+
+**Settings → Backups.** Every night the app writes a backup (a `.json.gz` file) into the folder
+`backups` next to `compose.yaml` and keeps the newest of the last 7 days and of the last 4 weeks;
+the hour and how many are kept are set there, and **Back up now** makes one at once. The folder
+is the line `./backups:/backups` under `core` in `compose.yaml`. An installation made before
+0.15.0 has an older `compose.yaml` without it; to turn nightly backups on, add it — in
+`compose.yaml` or in a file `compose.override.yaml` next to it, which updates leave alone:
+
+```yaml
+services:
+  core:
+    volumes:
+      - ./backups:/backups
+```
+
+then, in the folder of `compose.yaml`:
+
+```sh
+mkdir -p backups && sudo chown 1000:1000 backups   # the app runs as user 1000
+docker compose up -d
+```
+
+Copy the folder `backups` off the server from time to time (another disk, a NAS, e.g. with
+`rsync` or `rclone`): a backup on the same disk does not survive the disk.
+
+**Download a backup** in the same place makes one at any time, also without the folder.
+
+Keep `.env` together with the backups: the API keys of map and street-level sources are in them
+encrypted with `STEWARD_SECRET_KEY` and open only with the same key.
+
+### Restore
+
+Into a new installation (or the same one after the database was lost):
+
+1. Install the app and sign in with each account once; let the first sync finish.
+2. Run, in the folder of `compose.yaml`:
+
+   ```sh
+   docker compose exec core python -m steward.backup restore /backups/steward-backup-2026-11-28-0300.json.gz
+   ```
+
+   With a backup that is not in `backups`, copy it into the container first:
+   `docker compose cp steward-backup-….json.gz core:/tmp/` and restore `/tmp/steward-backup-….json.gz`.
+   `--dry-run` says what would be added without writing anything.
+
+The restore adds what the backup holds and the database lacks, and leaves the rest as it is;
+running it again is harmless. It lists what it could not place: accounts not signed in yet,
+photos not found (e.g. still in a closed locked folder). Photos kept "as they are" in the list of
+turned photos wait for the orientation module: run the restore again after it has looked at the
+library.
+
+### The whole database
+
+For a copy of everything, the computed data included:
 
 ```sh
 docker compose exec db pg_dump -U steward steward > steward-backup.sql
 ```
 
-Use your values of `DB_USER` and `DB_NAME` if you changed them. Keep `.env` together with the
-backup: without the same `STEWARD_SECRET_KEY` the stored API keys cannot be decrypted (users would
-simply sign in again).
-
-Losing this database is not a disaster: the locations written to Immich stay there. You would
-lose the history (and with it undo), the skipped and not applicable marks, and the modules would
-process the photos again.
+Use your values of `DB_USER` and `DB_NAME` if you changed them, and keep `.env` with it.
 
 ## Uninstalling
 

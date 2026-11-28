@@ -60,9 +60,14 @@ def test_photos_with_a_location_are_indexed_first(
 ) -> None:
     start_worker(signed_in, ["similar", "geoclip"])
     schedule(signed_in)
-    # The search index first (archived photos too), then the photos to do; never videos or
-    # photos marked "not applicable".
-    assert queued(signed_in, "similar") == ["gps-archived.jpg", "gps.jpg", "todo.jpg"]
+    # The search index first (archived photos and videos too: a video with a location is a sample,
+    # D-251), then the photos to do; never photos marked "not applicable".
+    assert queued(signed_in, "similar") == [
+        "gps-video.mp4",
+        "gps-archived.jpg",
+        "gps.jpg",
+        "todo.jpg",
+    ]
     # GeoCLIP stays with the photos without a location.
     assert queued(signed_in, "geoclip") == ["todo.jpg"]
 
@@ -73,7 +78,21 @@ def test_index_progress(signed_in: TestClient, library: dict[str, str]) -> None:
     gps = next(item["id"] for item in items if item["file_name"] == "gps.jpg")
     run_module(signed_in, worker, gps, {"embedding": encoded(unit())})
     index = signed_in.get("/api/library/workers").json()["index"]
-    assert index == {"similar": {"indexed": 1, "located": 2}}
+    # The video with a location counts too.
+    assert index == {"similar": {"indexed": 1, "located": 3}}
+
+
+def test_a_video_without_a_location_gets_similar_photos(
+    signed_in: TestClient, fake_immich: FakeImmich
+) -> None:
+    """By its preview: similar photos, not GeoCLIP or the orientation (0.15)."""
+    fake_immich.add_asset(taken="2024-05-01T10:00:00", originalFileName="clip.mp4", type="VIDEO")
+    sync(signed_in)
+    start_worker(signed_in, ["similar", "geoclip", "orientation"])
+    schedule(signed_in)
+    assert queued(signed_in, "similar") == ["clip.mp4"]
+    assert queued(signed_in, "geoclip") == []
+    assert queued(signed_in, "orientation") == []
 
 
 def runs(client: TestClient) -> list[tuple[str, str]]:

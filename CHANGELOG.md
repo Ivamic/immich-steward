@@ -16,6 +16,10 @@ between releases.
   with its details and a small map; **Work** is the app as before. Remembered for each account.
 - **Show in the timeline**: a button in the photo card opens the gallery at this photo, with the
   whole library shown (as in Immich).
+- **Hints for videos**: similar photos and matching details now look at videos too, by their
+  preview (the cover frame of Immich); a video with a location is a sample for the photos like it.
+  Measured on 1754 videos with GPS: at equal similarity as reliable as photos. GeoCLIP and the
+  orientation stay with the photos.
 - **Backups** (Settings → Backups): every night a backup of what you decided — the history of the
   locations written, directions, marks, groups and folders, settings — into the folder `backups`
   next to `compose.yaml`, the newest of the last days and weeks kept; a download at any time; a

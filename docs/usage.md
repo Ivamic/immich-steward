@@ -242,6 +242,10 @@ Below the actions the modules list where they think the photo was taken. Every m
 own color and marker shape on the map, and the suggestions are numbered across all of them: the
 number on the map, in the list and the key are the same.
 
+A video gets suggestions too: the time neighbors, and similar photos and matching details by its
+preview (the cover frame Immich shows); a video with a location is found as a similar one for
+other photos and videos. GeoCLIP looks at photos only.
+
 - **Time neighbors** (blue circles): photos with a location taken shortly before and after this
   one, usually during the same trip. The map shows their route: purple before the photo, orange
   after, brighter when closer in time. A suggestion "on the way between" two photos lies on the

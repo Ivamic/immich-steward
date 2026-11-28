@@ -315,6 +315,15 @@ async def give_back(db: AsyncSession, leased: Lease, error: str) -> None:
 INDEXING_MODULES = ("similar",)
 # Modules about the photo itself, not its place: they run on every photo alike (D-237).
 WHOLE_LIBRARY_MODULES = ("orientation",)
+# Modules that run on videos too, by their preview (the cover frame Immich makes, 0.15): similar
+# photos, whose videos with a location are samples like the photos (D-251), and the details
+# (`steward.details`). GeoCLIP and the orientation stay with the photos.
+VIDEO_MODULES = ("similar", "details")
+
+
+def asset_types(module_id: str) -> tuple[str, ...]:
+    """The kinds of assets the module runs on automatically."""
+    return ("IMAGE", "VIDEO") if module_id in VIDEO_MODULES else ("IMAGE",)
 
 
 # Photos of the locked folder are processed too, but handed to workers only while it is open.
@@ -369,10 +378,11 @@ def _auto_eligible(module_id: str) -> tuple[ColumnElement[bool], ColumnElement[i
 async def auto_enqueue(db: AsyncSession, module_id: str) -> int:
     """Tops up the background queue of the module with photos that still need it.
 
-    Photos without a location; for indexing modules also the photos with one, first. Photos only
-    (videos later, D-040), never twice: a photo that already has a run of the module (whatever
-    its result) is not queued again automatically. Accounts take turns, newest photos first
-    within each, so that every user sees progress on their own library.
+    Photos without a location; for indexing modules also the photos with one, first. Videos too
+    for the modules that read their preview (`VIDEO_MODULES`). Never twice: a photo that already
+    has a run of the module (whatever its result) is not queued again automatically. Accounts
+    take turns, newest photos first within each, so that every user sees progress on their own
+    library.
 
     Photos new in the library are queued at once, whatever the size of the queue, and go before
     the rest of it: a photo taken today is not left behind hundreds of old ones.
@@ -414,7 +424,7 @@ async def _enqueue_eligible(
         .where(
             eligible,
             among,
-            Asset.type == "IMAGE",
+            Asset.type.in_(asset_types(module_id)),
             Asset.is_trashed.is_(False),
             ~exists().where(
                 ModuleRun.asset_id == Asset.id, ModuleRun.module_id == module_id, whole_photo()

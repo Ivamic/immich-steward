@@ -388,3 +388,23 @@ def test_without_the_comparison_by_itself_a_location_queues_nothing(
     assert signed_in.put(f"/api/assets/{new}/location", json=ROME).is_success
 
     assert detail_runs(signed_in) == []
+
+
+def test_a_video_waits_for_the_comparison_like_a_photo() -> None:
+    """By its preview (0.15): the details compare videos too; GeoCLIP and the orientation do not."""
+
+    def waiting(kind: str) -> bool:
+        return details._waits(
+            Asset(
+                latitude=None,
+                review_status="new",
+                visibility="timeline",
+                type=kind,
+                is_trashed=False,
+            )
+        )
+
+    assert waiting("IMAGE") and waiting("VIDEO")
+    assert worker_queue.asset_types("details") == ("IMAGE", "VIDEO")
+    assert worker_queue.asset_types("geoclip") == ("IMAGE",)
+    assert worker_queue.asset_types("orientation") == ("IMAGE",)

@@ -117,7 +117,7 @@ async def auto_enqueue(db: AsyncSession, settings: Settings) -> int:
         Asset.latitude.is_(None),
         Asset.review_status == "new",
         Asset.visibility.in_(("timeline", "locked")),
-        Asset.type == "IMAGE",
+        Asset.type.in_(worker_queue.asset_types(MODULE_ID)),
         Asset.is_trashed.is_(False),
         has_run(similar.MODULE_ID, ModuleRun.status == "done"),
     )
@@ -277,7 +277,7 @@ def _waits(asset: Asset) -> bool:
         asset.latitude is None
         and asset.review_status == "new"
         and asset.visibility in ("timeline", "locked")
-        and asset.type == "IMAGE"
+        and asset.type in worker_queue.asset_types(MODULE_ID)
         and not asset.is_trashed
     )
 

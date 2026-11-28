@@ -87,9 +87,11 @@ async def store(
 async def index_counts(db: AsyncSession, account: Account, module_id: str) -> dict[str, int]:
     """How much of the search index is there: of the photos with a location that automatic runs
     index (`worker_queue.auto_enqueue`), how many have their vector."""
+    from steward.worker_queue import asset_types  # worker_queue imports this module
+
     photos = (
         Asset.account_id == account.id,
-        Asset.type == "IMAGE",
+        Asset.type.in_(asset_types(module_id)),
         Asset.visibility.in_(("timeline", "archive", "locked")),
         Asset.is_trashed.is_(False),
         located(),

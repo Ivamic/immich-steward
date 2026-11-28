@@ -1,40 +1,46 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-<!-- Keyboard shortcuts of the photo card (opened with "?"). -->
+<!-- Keyboard shortcuts of the photo card (opened with "?"); while looking at the library
+     (D-254), only those that work then. -->
 <script lang="ts">
 	import { m } from '#lib/paraglide/messages.js';
 	import Dialog from '#lib/ui/Dialog.svelte';
 	import Kbd from '#lib/ui/Kbd.svelte';
+	import { mode } from '#lib/mode.svelte.js';
 
 	let { onclose }: { onclose: () => void } = $props();
 
-	const rows: [string[], () => string][] = [
-		[['1–9'], m.keys_choose],
-		[['Shift', '1–9'], m.keys_locate],
-		[['Enter'], m.keys_save],
-		[['←', '→'], m.keys_previous_next],
-		[['S'], m.keys_skip],
-		[['N'], m.keys_not_applicable],
-		[['U'], m.keys_back_to_todo],
-		[['Z'], m.keys_zoom],
-		[['R'], m.keys_part],
-		[['[', ']'], m.keys_rotate],
-		[['A'], m.keys_album],
-		[['Esc'], m.keys_gallery],
-		[['?'], m.keys_help]
+	// The keys of the work on the place: off while looking at the library.
+	const rows: [string[], () => string, 'work' | 'both'][] = [
+		[['1–9'], m.keys_choose, 'work'],
+		[['Shift', '1–9'], m.keys_locate, 'work'],
+		[['Enter'], m.keys_save, 'work'],
+		[['←', '→'], m.keys_previous_next, 'both'],
+		[['S'], m.keys_skip, 'work'],
+		[['N'], m.keys_not_applicable, 'work'],
+		[['U'], m.keys_back_to_todo, 'work'],
+		[['Z'], m.keys_zoom, 'both'],
+		[['R'], m.keys_part, 'work'],
+		[['[', ']'], m.keys_rotate, 'both'],
+		[['A'], m.keys_album, 'both'],
+		[['Esc'], m.keys_gallery, 'both'],
+		[['?'], m.keys_help, 'both']
 	];
+	const shown = $derived(rows.filter(([, , when]) => when === 'both' || !mode.viewing));
 </script>
 
 <Dialog title={m.photo_keys()} icon="keyboard" {onclose}>
 	<dl>
-		{#each rows as [keys, label] (label)}
+		{#each shown as [keys, label] (label)}
 			<dt>
 				{#each keys as key (key)}<Kbd>{key}</Kbd>{/each}
 			</dt>
 			<dd>{label()}</dd>
 		{/each}
 	</dl>
-	<p class="note">{m.keys_map()}</p>
-	<p class="note">{m.photo_save_note()}</p>
+	{#if !mode.viewing}
+		<p class="note">{m.keys_map()}</p>
+		<p class="note">{m.photo_save_note()}</p>
+	{/if}
 </Dialog>
 
 <style>

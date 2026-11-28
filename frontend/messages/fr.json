@@ -847,6 +847,7 @@
 	"locked_photo_text": "Le dossier est fermé : ouvrez-le avec votre code PIN d’Immich pour voir cette photo.",
 	"module_details": "Comparaison des détails",
 	"module_orientation": "Orientation",
+	"module_objects": "Personnes et animaux",
 	"details_compare": "Comparer les détails",
 	"details_compare_hint": "Compare la photo point par point avec les photos les plus ressemblantes. Assez de détails communs confirment une suggestion.",
 	"details_status_queued": "Détails : en file d’attente",

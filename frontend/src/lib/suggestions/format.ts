@@ -96,6 +96,8 @@ export function moduleName(id: string): string {
 			return m.module_details();
 		case 'orientation':
 			return m.module_orientation();
+		case 'objects':
+			return m.module_objects();
 		case 'street':
 			return m.module_street();
 		case 'selection':

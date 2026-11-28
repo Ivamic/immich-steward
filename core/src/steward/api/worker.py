@@ -7,6 +7,8 @@ from the core, which fetches it from Immich with the key of the photo's owner.
 """
 
 import asyncio
+import base64
+import binascii
 import secrets
 from datetime import timedelta
 from typing import Annotated, Any, Literal, NoReturn
@@ -149,6 +151,26 @@ class OrientationIn(BaseModel):
     looks: int = Field(default=1, ge=1, le=4)
 
 
+class ObjectGroupIn(BaseModel):
+    count: int = Field(ge=0, le=300)
+    cover: float = Field(ge=0, le=1)
+
+
+class FoundIn(BaseModel):
+    class_: int = Field(alias="class", ge=0, le=79)
+    confidence: float = Field(ge=0, le=1)
+    box: list[float] = Field(min_length=4, max_length=4)
+
+
+class ObjectsIn(BaseModel):
+    """What is in the photo (the `objects` module, D-248)."""
+
+    groups: dict[Literal["person", "animal", "vehicle"], ObjectGroupIn]
+    found: list[FoundIn] = Field(max_length=300)
+    # Base64 of the label map, a PNG (a few hundred bytes; at most 64 KB).
+    labels: str = Field(max_length=90_000)
+
+
 class ResultRequest(BaseModel):
     module_version: str = Field(min_length=1, max_length=32)
     candidates: list[CandidateIn] = Field(max_length=MAX_CANDIDATES)
@@ -160,6 +182,8 @@ class ResultRequest(BaseModel):
     )
     # From the `orientation` module instead of candidates.
     orientation: OrientationIn | None = None
+    # From the `objects` module instead of candidates.
+    objects: ObjectsIn | None = None
 
 
 class FailRequest(BaseModel):
@@ -413,13 +437,32 @@ async def result(job_id: UUID, body: ResultRequest, worker: WorkerDep, db: DbDep
         except embeddings.InvalidEmbedding as exc:
             raise ApiError(422, "embedding_invalid", expected=expected) from exc
     orientation = None
-    if leased.job.module_id in worker_queue.WHOLE_LIBRARY_MODULES:
+    if leased.job.module_id == "orientation":
         probs = body.orientation.probs if body.orientation else None
         if probs is None or not all(0 <= p <= 1 for p in probs):
             raise ApiError(422, "orientation_invalid")
         orientation = probs
+    objects = None
+    if leased.job.module_id == "objects":
+        if body.objects is None:
+            raise ApiError(422, "objects_invalid")
+        try:
+            labels = base64.b64decode(body.objects.labels, validate=True)
+        except binascii.Error as exc:
+            raise ApiError(422, "objects_invalid") from exc
+        objects = {
+            "groups": {g: v.model_dump() for g, v in body.objects.groups.items()},
+            "found": [f.model_dump(by_alias=True) for f in body.objects.found],
+            "labels": labels,
+        }
     await worker_queue.complete(
-        db, leased, body.module_version, candidates, vector, orientation=orientation
+        db,
+        leased,
+        body.module_version,
+        candidates,
+        vector,
+        orientation=orientation,
+        objects=objects,
     )
 
 

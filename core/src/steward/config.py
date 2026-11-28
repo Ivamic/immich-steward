@@ -114,8 +114,9 @@ class Settings(BaseSettings):
     # similar photos, on the photos with one too (its search index), comma-separated; empty turns
     # automatic runs off. Runs started by hand are always allowed. `details` (matching details,
     # D-225) compares the photos without a location with their most similar photos, by itself
-    # only on workers with a GPU; `orientation` (turned photos, D-237) looks at every photo.
-    auto_modules: str = "geoclip,similar,details,orientation"
+    # only on workers with a GPU; `orientation` (turned photos, D-237) looks at every photo, and
+    # `objects` (people, animals, vehicles, D-248) at every photo and video.
+    auto_modules: str = "geoclip,similar,details,orientation,objects"
     # Turned photos (D-237): offered when the module is at least this sure (it tops out near
     # 0.93). Measured on 15 516 photos: from 0.91 about 98 % of the clear cases are really turned.
     orientation_min_confidence: float = Field(default=0.91, ge=0, le=1)

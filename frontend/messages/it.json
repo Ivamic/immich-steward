@@ -847,6 +847,7 @@
 	"locked_photo_text": "La cartella è chiusa: aprila con il PIN di Immich per vedere questa foto.",
 	"module_details": "Confronto dei dettagli",
 	"module_orientation": "Orientamento",
+	"module_objects": "Persone e animali",
 	"details_compare": "Confronta i dettagli",
 	"details_compare_hint": "Confronta la foto punto per punto con le foto più simili. Abbastanza dettagli in comune confermano un suggerimento.",
 	"details_status_queued": "Dettagli: in coda",

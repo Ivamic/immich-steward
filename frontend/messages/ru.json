@@ -847,6 +847,7 @@
 	"locked_photo_text": "Папка закрыта: откройте её PIN-кодом Immich, чтобы увидеть это фото.",
 	"module_details": "Сверка деталей",
 	"module_orientation": "Ориентация",
+	"module_objects": "Люди и животные",
 	"details_compare": "Сверить детали",
 	"details_compare_hint": "Сравнивает фото с самыми похожими по точкам. Достаточно общих деталей — подсказка подтверждена.",
 	"details_status_queued": "Детали: в очереди",

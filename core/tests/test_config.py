@@ -58,7 +58,13 @@ def test_unset_values_keep_their_defaults(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert settings.geocoder_url == "https://photon.komoot.io"
     assert settings.estimated_tag == "steward/estimated"
-    assert settings.auto_module_ids == ["geoclip", "similar", "details", "orientation"]
+    assert settings.auto_module_ids == [
+        "geoclip",
+        "similar",
+        "details",
+        "orientation",
+        "objects",
+    ]
 
 
 def test_unknown_settings_are_reported_once() -> None:

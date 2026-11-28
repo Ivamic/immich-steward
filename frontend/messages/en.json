@@ -847,6 +847,7 @@
 	"locked_photo_text": "The folder is closed: open it with your Immich PIN code to see this photo.",
 	"module_details": "Matching details",
 	"module_orientation": "Orientation",
+	"module_objects": "People and animals",
 	"details_compare": "Compare details",
 	"details_compare_hint": "Compares the photo with its most similar photos point by point. Enough shared details confirm a suggestion.",
 	"details_status_queued": "Details: in the queue",

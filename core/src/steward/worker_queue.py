@@ -22,6 +22,7 @@ from steward.errors import ApiError
 from steward.models import (
     Account,
     Asset,
+    AssetObjects,
     AssetOrientation,
     DetailMatch,
     Job,
@@ -314,11 +315,12 @@ async def give_back(db: AsyncSession, leased: Lease, error: str) -> None:
 # with a location are what similar photos (M3) are searched among.
 INDEXING_MODULES = ("similar",)
 # Modules about the photo itself, not its place: they run on every photo alike (D-237).
-WHOLE_LIBRARY_MODULES = ("orientation",)
+WHOLE_LIBRARY_MODULES = ("orientation", "objects")
 # Modules that run on videos too, by their preview (the cover frame Immich makes, 0.15): similar
 # photos, whose videos with a location are samples like the photos (D-251), and the details
-# (`steward.details`). GeoCLIP and the orientation stay with the photos.
-VIDEO_MODULES = ("similar", "details")
+# (`steward.details`), and what is in them (`objects`, D-248). GeoCLIP and the orientation stay
+# with the photos.
+VIDEO_MODULES = ("similar", "details", "objects")
 
 
 def asset_types(module_id: str) -> tuple[str, ...]:
@@ -745,6 +747,7 @@ async def complete(
     candidates: list[dict[str, Any]],
     embedding: list[float] | None = None,
     orientation: list[float] | None = None,
+    objects: dict[str, Any] | None = None,
 ) -> None:
     leased.run.module_version = module_version
     leased.run.candidates = candidates
@@ -763,6 +766,18 @@ async def complete(
                 probs=orientation,
                 module_version=module_version,
                 kept=False,
+                created_at=datetime.now(UTC),
+            )
+        )
+    if objects is not None:
+        await db.merge(
+            AssetObjects(
+                asset_id=leased.run.asset_id,
+                run_id=leased.run.id,
+                groups=objects["groups"],
+                found=objects["found"],
+                labels=objects["labels"],
+                module_version=module_version,
                 created_at=datetime.now(UTC),
             )
         )

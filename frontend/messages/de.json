@@ -847,6 +847,7 @@
 	"locked_photo_text": "Der Ordner ist geschlossen: Öffnen Sie ihn mit Ihrer Immich-PIN, um dieses Foto zu sehen.",
 	"module_details": "Detailabgleich",
 	"module_orientation": "Ausrichtung",
+	"module_objects": "Menschen und Tiere",
 	"details_compare": "Details abgleichen",
 	"details_compare_hint": "Vergleicht das Foto Punkt für Punkt mit den ähnlichsten Fotos. Genug gemeinsame Details bestätigen einen Vorschlag.",
 	"details_status_queued": "Details: in der Warteschlange",

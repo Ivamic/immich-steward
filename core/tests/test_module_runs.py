@@ -179,12 +179,19 @@ def test_workers_overview(library: dict[str, str], signed_in: TestClient) -> Non
     [seen] = overview["workers"]
     assert (seen["name"], seen["device"], seen["active"]) == ("laptop", "cuda", True)
     assert overview["runs"] == {"geoclip": {"done": 1, "queued": 1}}
-    assert overview["auto_modules"] == ["geoclip", "similar", "details", "orientation"]
+    assert overview["auto_modules"] == [
+        "geoclip",
+        "similar",
+        "details",
+        "orientation",
+        "objects",
+    ]
     assert [m["id"] for m in overview["modules"]] == [
         "geoclip",
         "similar",
         "details",
         "orientation",
+        "objects",
         "street",
     ]
 

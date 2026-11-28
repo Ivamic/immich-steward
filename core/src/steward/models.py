@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -497,6 +498,33 @@ class DetailMatch(Base):
     lines: Mapped[list[list[float]]] = mapped_column(
         JSON().with_variant(JSONB(), "postgresql"), default=list
     )
+    module_version: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    # Masks (D-248): points on people, animals or vehicles were left out of either photo (None:
+    # no masks were asked for), and with which groups and growth ("off" without masks; None:
+    # compared before masks existed). A pair compared with other masks than the account's now
+    # is compared again when one of its photos has any of the groups (`steward.masks`).
+    masked: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    mask_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class AssetObjects(Base):
+    """What is in a photo, by the `objects` module of a worker (D-248): people, animals and
+    vehicles with their share of the photo, every object found, and a small label map to show the
+    masks. Goes with its run: when the image changes, the runs are dropped and this with them."""
+
+    __tablename__ = "asset_objects"
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("asset.id", ondelete="CASCADE"), primary_key=True
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("module_run.id", ondelete="CASCADE"))
+    # {"person": {"count": 2, "cover": 0.31}, ...}: the groups found only.
+    groups: Mapped[dict[str, Any]]
+    # [{"class": 0, "confidence": 0.9, "box": [x1, y1, x2, y2]}, ...]: the 80 classes of COCO.
+    found: Mapped[list[dict[str, Any]]] = mapped_column(JSON().with_variant(JSONB(), "postgresql"))
+    # The label map as a PNG (0 nothing, 1 person, 2 animal, 3 vehicle), its long side 96 px.
+    labels: Mapped[bytes] = mapped_column(LargeBinary)
     module_version: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(default=utcnow)
 

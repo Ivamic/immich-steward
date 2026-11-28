@@ -89,6 +89,7 @@ def test_filter_options_and_camera_album_filters(signed_in: TestClient) -> None:
         "similar",
         "details",
         "orientation",
+        "objects",
         "street",
     }
 

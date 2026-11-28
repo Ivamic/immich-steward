@@ -3,7 +3,7 @@
      third-party components, AI assistance and support. Open without signing in too: the workers
      are listed only for a signed-in user. -->
 <script lang="ts">
-	import { fileUrl, REPOSITORY, releaseTag, sourceUrl } from '#lib/about.js';
+	import { fileUrl, PROJECTS_SITE, REPOSITORY, releaseTag, sourceUrl } from '#lib/about.js';
 	import { getHealth, getWorkers, type Health, type WorkerInfo } from '#lib/api.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import { session } from '#lib/session.svelte.js';
@@ -166,6 +166,7 @@
 	<p class="links">
 		<a href="{REPOSITORY}#support-the-project" target="_blank" rel="noopener">{m.about_donate()}</a>
 		<a href="{REPOSITORY}/issues" target="_blank" rel="noopener">{m.about_report()}</a>
+		<a href={PROJECTS_SITE} target="_blank" rel="noopener">{m.about_other_projects()}</a>
 	</p>
 </section>
 

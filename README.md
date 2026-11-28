@@ -310,6 +310,9 @@ later commit than the translation.
 - **Pull requests** are welcome. For anything bigger than a small fix, please discuss it in an
   issue or a discussion first, so that your work fits the plans of the project.
 - **Security issues** — please report them privately, see [SECURITY.md](SECURITY.md).
+- **Private matters** — for anything you'd rather not discuss in public, write to
+  [ivamic@proton.me](mailto:ivamic@proton.me). Bugs and questions are better in issues and discussions:
+  the answer helps others too.
 
 ## Support the project
 

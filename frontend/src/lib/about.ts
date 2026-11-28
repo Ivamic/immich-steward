@@ -5,6 +5,9 @@ import { displayVersion } from './versions.js';
 
 export const REPOSITORY = 'https://github.com/Ivamic/immich-steward';
 
+/** The page with all open-source projects of the author. */
+export const PROJECTS_SITE = 'https://ivamic.github.io';
+
 /** The tag of a release or pre-release ("v0.10.0", "v0.10.0-rc.1"); null for any other build
  * (a development one, or 0.0.0 when the package is not installed), whose code is on the main
  * branch. */

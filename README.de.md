@@ -251,6 +251,9 @@ Die [Dokumentation](docs/README.md) (auf Englisch) erklärt alles Schritt für S
   besprich es bitte zuerst in einem Issue oder einer Diskussion, damit deine Arbeit zu den Plänen
   des Projekts passt.
 - **Sicherheitsprobleme** — bitte vertraulich melden, siehe [SECURITY.md](SECURITY.md).
+- **Vertrauliches** — für alles, was du nicht öffentlich besprechen möchtest, schreib an
+  [ivamic@proton.me](mailto:ivamic@proton.me). Fehler und Fragen gehören besser in Issues und Diskussionen:
+  Die Antwort hilft dann auch anderen.
 
 Schreib am besten auf Englisch; wenn das schwerfällt, geht auch Deutsch.
 

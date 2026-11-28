@@ -251,6 +251,9 @@ La [documentation](docs/README.md) (en anglais) explique tout pas à pas :
   parlez-en d'abord dans une issue ou une discussion, afin que votre travail s'inscrive dans les
   projets du dépôt.
 - **Problèmes de sécurité** — merci de les signaler en privé, voir [SECURITY.md](SECURITY.md).
+- **Questions privées** — pour tout ce que vous préférez ne pas aborder publiquement, écrivez à
+  [ivamic@proton.me](mailto:ivamic@proton.me). Pour les bugs et les questions, les issues et les discussions
+  sont préférables : la réponse sert aussi aux autres.
 
 Écrivez de préférence en anglais ; si c'est difficile, le français convient aussi.
 

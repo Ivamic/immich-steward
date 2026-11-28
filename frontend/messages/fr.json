@@ -780,6 +780,7 @@
 	"about_support_text": "Steward est gratuit et développé sur du temps libre. Un don, une étoile sur GitHub, un rapport de bug ou un mot sur le projet, tout aide.",
 	"about_donate": "Comment faire un don",
 	"about_report": "Signaler un problème",
+	"about_other_projects": "Autres projets open source",
 	"locked_heading": "Dossier verrouillé",
 	"locked_hint": "Les photos que vous avez placées dans le dossier verrouillé d’Immich peuvent aussi être traitées et aider à trouver des lieux, tant que vous ouvrez le dossier ici avec votre code PIN. Immich ne l’ouvre qu’à une session connectée, pas à la clé API de l’application : l’application a donc besoin une fois de votre mot de passe Immich.",
 	"locked_password_note": "Le mot de passe n’est pas conservé : l’application garde la session Immich qu’il ouvre, visible et révocable dans Immich (Paramètres du compte → Appareils autorisés). Sans mot de passe dans Immich (connexion uniquement par OAuth), le dossier ne peut pas être connecté.",

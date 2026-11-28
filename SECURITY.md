@@ -12,6 +12,8 @@ Report it privately through GitHub:
 [Report a vulnerability](https://github.com/Ivamic/immich-steward/security/advisories/new)
 (the **Security** tab of the repository → **Report a vulnerability**).
 
+If you can't use the GitHub form, email [ivamic@proton.me](mailto:ivamic@proton.me) instead.
+
 Please include:
 
 - the version of immich-steward and of Immich;

@@ -7,6 +7,11 @@ between releases.
 
 ## [Unreleased]
 
+### Added
+
+- **Other open-source projects**: a link on the About page to [ivamic.github.io](https://ivamic.github.io),
+  the page with all the projects of the author.
+
 ## [0.14.0] - 2026-11-25
 
 Street-level images next to the photo: compare them with it on a worker, and keep which way the

@@ -780,6 +780,7 @@
 	"about_support_text": "Steward è gratuito e sviluppato nel tempo libero. Una donazione, una stella su GitHub, la segnalazione di un errore o una parola sul progetto: tutto aiuta.",
 	"about_donate": "Come donare",
 	"about_report": "Segnala un problema",
+	"about_other_projects": "Altri progetti open source",
 	"locked_heading": "Cartella bloccata",
 	"locked_hint": "Le foto che hai spostato nella cartella bloccata di Immich possono essere elaborate e aiutare a trovare i luoghi, finché apri qui la cartella con il tuo PIN. Immich la apre solo a una sessione con accesso, non alla chiave API dell’app: per questo l’app ha bisogno una volta della tua password di Immich.",
 	"locked_password_note": "La password non viene salvata: l’app conserva la sessione di Immich che apre, visibile e revocabile in Immich (Impostazioni account → Dispositivi autorizzati). Senza una password in Immich (accesso solo tramite OAuth) la cartella non si può collegare.",

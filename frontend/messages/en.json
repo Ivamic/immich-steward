@@ -780,6 +780,7 @@
 	"about_support_text": "Steward is free and developed in spare time. A donation, a star on GitHub, a bug report or a word about the project all help.",
 	"about_donate": "How to donate",
 	"about_report": "Report a problem",
+	"about_other_projects": "Other open-source projects",
 	"locked_heading": "Locked folder",
 	"locked_hint": "Photos you moved to the locked folder in Immich can be processed and help find places too, while you open the folder here with your PIN code. Immich opens it only for a signed-in session, not for the API key of the app, so the app needs your Immich password once.",
 	"locked_password_note": "The password is not stored: the app keeps the Immich session it opens, which you see and can end in Immich (Account settings → Authorized devices). Without a password in Immich (sign-in through OAuth only) the folder cannot be connected.",

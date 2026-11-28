@@ -17,7 +17,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, Field
 
-from steward import __version__, embeddings, locked, street, worker_queue, worker_refusals
+from steward import (
+    __version__,
+    account_settings,
+    embeddings,
+    locked,
+    masks,
+    street,
+    worker_queue,
+    worker_refusals,
+)
 from steward.deps import DbDep, SecretBoxDep, SettingsDep
 from steward.errors import ApiError
 from steward.images import MAX_SIDE, UnreadableImage, crop, turned
@@ -110,6 +119,8 @@ class LeasedJob(BaseModel):
     # (`details`) or street-level images, "mapillary:123" (`street`). The worker asks for each
     # with `image?other=`.
     others: list[str] = Field(default_factory=list)
+    # `details` (D-248): what to leave out of both photos, {"groups": [...], "grow": pixels}.
+    masks: dict[str, Any] | None = None
 
 
 class CandidateIn(BaseModel):
@@ -142,6 +153,8 @@ class PairIn(BaseModel):
     spread: float | None = Field(default=None, ge=0, le=180)
     # The width of view of the photo the offset was worked out with (found from the points).
     fov: float | None = Field(default=None, ge=1, le=180)
+    # `details` with masks (D-248): points on the groups were left out of either photo.
+    masked: bool | None = None
 
 
 class OrientationIn(BaseModel):
@@ -244,10 +257,21 @@ async def lease(
     body: LeaseRequest, worker: WorkerDep, db: DbDep, settings: SettingsDep
 ) -> LeasedJob | Response:
     """The next job for the worker's modules, or 204 when there is nothing to do."""
-    leased = await worker_queue.lease(db, worker, body.modules, settings.worker_lease_seconds)
+    modules = body.modules
+    # A worker before 0.15 cannot mask: while masks are on, it compares no details (D-256).
+    if masks.DETAILS in modules and not masks.masking_worker(worker) and await masks.any_on(db):
+        modules = [m for m in modules if m != masks.DETAILS]
+    leased = await worker_queue.lease(db, worker, modules, settings.worker_lease_seconds)
     if leased is None:
         return Response(status_code=204)
     assert leased.job.module_id is not None
+    mask = None
+    if leased.job.module_id == masks.DETAILS and leased.job.account_id is not None:
+        personal = await account_settings.get_all(db, leased.job.account_id)
+        mask = masks.param_of(personal)
+        # The answers keep with which masks they were made.
+        leased.job.payload = {**leased.job.payload, "mask_key": masks.key_of(personal)}
+        await db.commit()
     return LeasedJob(
         job_id=leased.job.id,
         module=leased.job.module_id,
@@ -255,6 +279,7 @@ async def lease(
         attempt=leased.job.attempts,
         lease_seconds=settings.worker_lease_seconds,
         others=worker_queue.others_of(leased.job),
+        masks=mask,
     )
 
 

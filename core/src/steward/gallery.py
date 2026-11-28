@@ -23,7 +23,7 @@ from sqlalchemy.dialects.postgresql import JSONPATH, aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from steward import locked
+from steward import locked, masks
 from steward.embeddings import located
 from steward.marks import is_marked
 from steward.models import (
@@ -87,7 +87,9 @@ class GalleryFilter:
     similar_confidence: float | None = None
     # Only photos without a location that share at least this many details with a located
     # photo (`details_confirmed`).
-    details_shared: int | None = None
+    # The personal settings that say from how many shared points a place is confirmed
+    # (`masks.enough`); None: no such filter.
+    details_shared: dict[str, Any] | None = None
     # Only photos without a location with a located one this many minutes before or after.
     nearby_minutes: float | None = None
     # Only photos whose latest run of this module (`ANY_MODULE`: of any module) failed (with
@@ -186,9 +188,10 @@ def similar_confident(min_score: float) -> ColumnElement[bool]:
     )
 
 
-def details_confirmed(min_shared: int) -> ColumnElement[bool]:
-    """A photo with a location shares at least this many details with the photo (the `details`
-    module of workers, D-225): the suggestion of similar photos the card shows as confirmed. The
+def details_confirmed(personal: dict[str, Any]) -> ColumnElement[bool]:
+    """A photo with a location shares enough details with the photo (the `details` module of
+    workers, D-225; from fewer when people and animals were left out first, `masks.enough`): the
+    suggestion of similar photos the card shows as confirmed. The
     comparison counts whichever of the two it was asked about; a photo marked as showing nothing
     of the place is left out, as for `similar_confident`."""
     other = aliased(Asset)
@@ -197,13 +200,13 @@ def details_confirmed(min_shared: int) -> ColumnElement[bool]:
     )
     asked = exists().where(
         DetailMatch.asset_id == Asset.id,
-        DetailMatch.inliers >= min_shared,
+        masks.enough(personal),
         other.id == DetailMatch.other_id,
         has_place,
     )
     named = exists().where(
         DetailMatch.other_id == Asset.id,
-        DetailMatch.inliers >= min_shared,
+        masks.enough(personal),
         other.id == DetailMatch.asset_id,
         has_place,
     )
@@ -325,13 +328,13 @@ async def geoclip_confident_ids(
 
 
 async def details_confirmed_ids(
-    db: AsyncSession, asset_ids: list[UUID], min_shared: int
+    db: AsyncSession, asset_ids: list[UUID], personal: dict[str, Any]
 ) -> set[UUID]:
     """Of the given assets, those without a location confirmed by details."""
     if not asset_ids:
         return set()
     rows = await db.scalars(
-        select(Asset.id).where(Asset.id.in_(asset_ids), ~located(), details_confirmed(min_shared))
+        select(Asset.id).where(Asset.id.in_(asset_ids), ~located(), details_confirmed(personal))
     )
     return set(rows)
 

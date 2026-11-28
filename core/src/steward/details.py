@@ -14,7 +14,7 @@ from uuid import UUID
 from sqlalchemy import bindparam, exists, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from steward import account_settings, worker_queue
+from steward import account_settings, masks, worker_queue
 from steward.config import Settings
 from steward.models import EMBEDDING_DIM, Asset, Embedding, Job, ModuleRun
 from steward.modules import similar
@@ -163,7 +163,7 @@ async def auto_enqueue(db: AsyncSession, settings: Settings) -> int:
         if asset.account_id not in personal:
             personal[asset.account_id] = await account_settings.get_all(db, asset.account_id)
         mine = personal[asset.account_id]
-        confirmed = await is_confirmed(db, asset, settings, mine["details_confirmed_from"])
+        confirmed = await is_confirmed(db, asset, settings, mine)
         queued_run = (
             None
             if confirmed
@@ -253,7 +253,7 @@ async def look_again_near(db: AsyncSession, settings: Settings, located: list[As
             if asset.account_id not in personal:
                 personal[asset.account_id] = await account_settings.get_all(db, asset.account_id)
             mine = personal[asset.account_id]
-            if await is_confirmed(db, asset, settings, mine["details_confirmed_from"]):
+            if await is_confirmed(db, asset, settings, mine):
                 continue
             if await enqueue(db, asset, settings, mine["details_candidates_auto"]) is not None:
                 count += 1
@@ -283,7 +283,7 @@ def _waits(asset: Asset) -> bool:
 
 
 async def is_confirmed(
-    db: AsyncSession, asset: Asset, settings: Settings, confirmed_from: int
+    db: AsyncSession, asset: Asset, settings: Settings, personal: dict[str, Any]
 ) -> bool:
     """One of the photos similar to the photo shares enough details with it already: comparing
     it with more of them would change nothing."""
@@ -292,4 +292,4 @@ async def is_confirmed(
         return False
     found = await similar.neighbors(db, run, asset.account_id, settings.similar_include_estimated)
     shared = await similar.detail_inliers(db, asset.id, [n.asset_id for n in found])
-    return any(count >= confirmed_from for count in shared.values())
+    return any(masks.is_confirmed(pair, personal) for pair in shared.values())

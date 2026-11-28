@@ -22,6 +22,9 @@ class AccountSettings(BaseModel):
     trash_auto_marks: int
     trash_auto_similarity: float
     details_confirmed_from: int
+    details_masked_from: int
+    masks_enabled: bool
+    masks_groups: list[Literal["person", "animal", "vehicle"]]
     details_first: bool
     details_candidates_auto: int
     details_candidates_manual: int
@@ -42,6 +45,11 @@ class AccountSettingsIn(BaseModel):
     trash_auto_similarity: float | None = Field(default=None, ge=0.1, le=0.95)
     # Fewer than 8 shared points fit any geometry.
     details_confirmed_from: int | None = Field(default=None, ge=8, le=2000)
+    details_masked_from: int | None = Field(default=None, ge=8, le=2000)
+    masks_enabled: bool | None = None
+    masks_groups: list[Literal["person", "animal", "vehicle"]] | None = Field(
+        default=None, max_length=3
+    )
     details_first: bool | None = None
     details_candidates_auto: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
     details_candidates_manual: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
@@ -59,6 +67,8 @@ async def set_settings(
     body: AccountSettingsIn, account: CurrentAccount, db: DbDep
 ) -> AccountSettings:
     values = body.model_dump(exclude_none=True)
+    if "masks_groups" in values:
+        values["masks_groups"] = list(dict.fromkeys(values["masks_groups"]))
     before = await account_settings.get_all(db, account.id)
     after = await account_settings.set_many(db, account.id, values)
     if any(before[key] != after[key] for key in account_settings.GROUP_RULE):

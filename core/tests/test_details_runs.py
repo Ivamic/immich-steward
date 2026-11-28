@@ -24,7 +24,8 @@ def worker_on(client: TestClient, device: str, name: str = "w-details") -> dict[
         "name": name,
         "modules": ["details"],
         "device": device,
-        "version": "0.11.0",
+        # Masks are on by default: only workers from 0.15 compare details (D-256).
+        "version": "0.15.0",
         "protocol_version": PROTOCOL_VERSION,
     }
     worker_id = client.post("/api/worker/register", json=body, headers=AUTH).json()["worker_id"]

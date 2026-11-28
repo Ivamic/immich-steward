@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import account_settings
 from steward.config import Settings
+from steward.masks import Shared, is_confirmed
 from steward.models import EMBEDDING_DIM, DetailMatch, Embedding, ModuleRun
 from steward.modules.base import Candidate
 from steward.modules.time_neighbors import distance_m
@@ -213,23 +214,28 @@ async def search(
     return [n for n in found if include_estimated or not n.estimated]
 
 
-async def detail_inliers(db: AsyncSession, asset_id: UUID, others: list[UUID]) -> dict[UUID, int]:
-    """Photo -> the points it shares with the given photo, of the photos compared with it (in
-    either direction: the answer is about the pair)."""
+async def detail_inliers(
+    db: AsyncSession, asset_id: UUID, others: list[UUID]
+) -> dict[UUID, Shared]:
+    """Photo -> what it shares with the given photo (the points and whether masks were used), of
+    the photos compared with it (in either direction: the answer is about the pair)."""
     if not others:
         return {}
     rows = await db.execute(
-        select(DetailMatch.asset_id, DetailMatch.other_id, DetailMatch.inliers).where(
+        select(
+            DetailMatch.asset_id, DetailMatch.other_id, DetailMatch.inliers, DetailMatch.masked
+        ).where(
             or_(
                 and_(DetailMatch.asset_id == asset_id, DetailMatch.other_id.in_(others)),
                 and_(DetailMatch.other_id == asset_id, DetailMatch.asset_id.in_(others)),
             )
         )
     )
-    found: dict[UUID, int] = {}
-    for first, second, inliers in rows:
+    found: dict[UUID, Shared] = {}
+    for first, second, inliers, masked in rows:
         other = second if first == asset_id else first
-        found[other] = max(found.get(other, 0), inliers)
+        if other not in found or inliers > found[other].inliers:
+            found[other] = Shared(inliers, bool(masked))
     return found
 
 
@@ -237,16 +243,18 @@ def candidates(
     found: list[Neighbor],
     taken_at: datetime,
     settings: Settings,
-    details: Mapping[UUID, int] | None = None,
-    confirmed_from: int = account_settings.DEFAULTS["details_confirmed_from"],
+    details: Mapping[UUID, Shared] | None = None,
+    personal: Mapping[str, Any] | None = None,
 ) -> list[Candidate]:
     """Groups the neighbors by place, best first; drops the groups below the display minimum.
 
-    `details`: the points the photo shares with the neighbors it was compared with. A group with
-    a neighbor that shares `confirmed_from` of them or more is confirmed: it is placed at that
-    neighbor, scored `CONFIRMED_SCORE` at least, and goes before the groups that are not.
+    `details`: what the photo shares with the neighbors it was compared with. A group with a
+    neighbor that shares enough points (`masks.is_confirmed`: 100 by default, 80 when people and
+    animals were left out first) is confirmed: it is placed at that neighbor, scored
+    `CONFIRMED_SCORE` at least, and goes before the groups that are not.
     """
     details = details or {}
+    personal = dict(account_settings.DEFAULTS) | dict(personal or {})
     groups: list[list[Neighbor]] = []
     for neighbor in found:  # most similar first
         for group in groups:
@@ -265,9 +273,14 @@ def candidates(
         score = calibrated(group[0].similarity, apart)
         seed = group[0]
         # Stable: among equals the more similar stays first.
-        closest = max(group, key=lambda n: details.get(n.asset_id, 0))
-        shared = details.get(closest.asset_id)
-        confirmed = shared is not None and shared >= confirmed_from
+        closest = max(
+            group,
+            key=lambda n: (
+                is_confirmed(details.get(n.asset_id), personal),
+                details[n.asset_id].inliers if n.asset_id in details else 0,
+            ),
+        )
+        confirmed = is_confirmed(details.get(closest.asset_id), personal)
         if confirmed:
             score = max(score, CONFIRMED_SCORE)
             seed = closest
@@ -286,7 +299,7 @@ def candidates(
                 kind="similar",
                 evidence={
                     "neighbors": [
-                        _evidence(n, taken_at, details.get(n.asset_id))
+                        _evidence(n, taken_at, details.get(n.asset_id), personal)
                         for n in group[:MAX_EVIDENCE]
                     ],
                     # The photo shares enough points with the first neighbor (`details`).
@@ -301,10 +314,15 @@ def candidates(
     return result[:MAX_CANDIDATES]
 
 
-def _evidence(neighbor: Neighbor, taken_at: datetime, details: int | None) -> dict[str, object]:
+def _evidence(
+    neighbor: Neighbor, taken_at: datetime, shared: Shared | None, personal: Mapping[str, Any]
+) -> dict[str, object]:
     return {
-        # Points shared with the photo; None when the two were not compared.
-        "details": details,
+        # Points shared with the photo; None when the two were not compared. Whether people,
+        # animals or vehicles were left out first, and whether that confirms the place.
+        "details": shared.inliers if shared else None,
+        "masked": shared.masked if shared else None,
+        "confirmed": is_confirmed(shared, personal),
         "asset_id": str(neighbor.asset_id),
         "file_name": neighbor.file_name,
         "similarity": round(neighbor.similarity, 3),
@@ -326,10 +344,4 @@ async def suggest(
         else None
     )
     personal = await account_settings.get_all(db, account_id)
-    return candidates(
-        found,
-        taken_at,
-        settings,
-        details,
-        personal["details_confirmed_from"],
-    )
+    return candidates(found, taken_at, settings, details, personal)

@@ -128,11 +128,7 @@ async def gallery_filter(
     order: Literal["newest", "oldest"] = "newest",
 ) -> GalleryFilter:
     # From how many shared details a suggestion is confirmed is a personal setting.
-    shared = (
-        (await account_settings.get_all(db, account.id))["details_confirmed_from"]
-        if details_confirmed
-        else None
-    )
+    shared = await account_settings.get_all(db, account.id) if details_confirmed else None
     return GalleryFilter(
         show=frozenset(show or ()),
         type=type,
@@ -530,9 +526,7 @@ async def list_month(
         db, [a.id for a in assets], settings.similar_confident_from
     )
     personal = await account_settings.get_all(db, account.id)
-    confirmed = await details_confirmed_ids(
-        db, [a.id for a in assets], personal["details_confirmed_from"]
-    )
+    confirmed = await details_confirmed_ids(db, [a.id for a in assets], personal)
     return [
         AssetItem.of(
             asset,

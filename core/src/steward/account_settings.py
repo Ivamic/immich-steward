@@ -34,6 +34,14 @@ DEFAULTS: dict[str, Any] = {
     # their 20 most similar): from 100 points the place is right within 1 km 95 % of the time,
     # with 50-99 about half the time. Applies when the suggestions are shown.
     "details_confirmed_from": 100,
+    # The same for a pair compared with masks (D-248, D-256): points on people, animals or
+    # vehicles left out of both photos first. Measured: from 80 such points 2 wrong of 475
+    # (without masks, from 100: 32 wrong of 486).
+    "details_masked_from": 80,
+    # Masks before matching details (D-248): on, and what is left out ("person", "animal",
+    # "vehicle"). Vehicles are off by default: they made no wrong "confirmed" in the measure.
+    "masks_enabled": True,
+    "masks_groups": ["person", "animal"],
     # Similar photos with a confirmed suggestion go before every other module in the card; off:
     # the block stays where the account put it. Within the block the confirmed suggestion is
     # always first.

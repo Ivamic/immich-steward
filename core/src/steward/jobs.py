@@ -22,6 +22,7 @@ from steward import (
     backup,
     details,
     locked,
+    masks,
     orientation,
     rotation,
     similar_hints,
@@ -515,6 +516,14 @@ class JobRunner:
         async with self._sessionmaker() as db:
             await updates.check_if_due(db, self._update_transport)
 
+    async def remask(self) -> None:
+        """Comparisons of details made with other masks than their accounts' now are compared
+        again where it changes anything (`steward.masks`); only while details run by themselves."""
+        if "details" not in self._settings.auto_module_ids:
+            return
+        async with self._sessionmaker() as db:
+            await masks.requeue(db)
+
     async def back_up(self) -> None:
         """Writes the nightly backup of what the users decided, when its folder is there."""
         async with self._sessionmaker() as db:
@@ -552,6 +561,7 @@ class JobRunner:
                     await self.schedule_view_groups()
                     await self.forget_old_workers()
                     await self.check_updates()
+                    await self.remask()
                     await self.back_up()
                     await self.close_idle_locked()
                     next_schedule = loop.time() + SCHEDULE_EVERY_S

@@ -833,6 +833,9 @@ async def complete_pairs(
                 lines=[list(line) for line in pair["lines"]],
                 module_version=module_version,
                 created_at=datetime.now(UTC),
+                # With which masks (D-248): the key the job was leased with ("off" before 0.15).
+                masked=pair.get("masked"),
+                mask_key=leased.job.payload.get("mask_key", "off"),
             )
         )
     leased.run.module_version = module_version

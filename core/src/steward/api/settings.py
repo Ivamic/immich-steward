@@ -6,7 +6,7 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from steward import account_settings, jobs, view_groups, worker_queue
+from steward import account_settings, jobs, masks, view_groups, worker_queue
 from steward.deps import CurrentAccount, DbDep
 
 router = APIRouter(prefix="/settings")
@@ -74,3 +74,10 @@ async def set_settings(
     if any(before[key] != after[key] for key in account_settings.GROUP_RULE):
         await jobs.enqueue(db, view_groups.JOB_KIND, account.id, {"rebuild": True})
     return AccountSettings(**after)
+
+
+@router.get("/masks")
+async def masks_state(account: CurrentAccount, db: DbDep) -> dict[str, int]:
+    """Comparisons of details not made with the masks of the settings yet: they are compared
+    again by themselves (or only take the new key), so the settings can say it is under way."""
+    return {"pending": await masks.pending(db, account.id)}

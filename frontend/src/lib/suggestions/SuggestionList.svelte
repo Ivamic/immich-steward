@@ -53,6 +53,7 @@
 		loading,
 		onchoose,
 		onrun,
+		oncompareagain,
 		unfolded,
 		ontoggle,
 		highlight,
@@ -70,6 +71,8 @@
 		loading: boolean;
 		onchoose: (candidate: Candidate) => void;
 		onrun: (module: string) => void;
+		/** Forget the comparisons of the photo and compare it again now (with the masks of now). */
+		oncompareagain?: () => void;
 		/** Modules whose weak suggestions are shown. */
 		unfolded: string[];
 		ontoggle: (module: string) => void;
@@ -103,6 +106,10 @@
 	/** The comparison of details can be asked for: the suggestions are on the whole photo. */
 	const canCompare = (module: ModuleSuggestions) =>
 		module.details != null && module.status === 'done' && module.candidates.length > 0;
+
+	/** Compared already: it can be compared again from scratch. */
+	const compared = (module: ModuleSuggestions) =>
+		module.candidates.some((c) => (c.evidence.neighbors ?? []).some((n) => n.details != null));
 
 	/** Nothing to ask for: the comparison runs, or waits at the head of the queue already. A
 	 * comparison the app queued itself can be moved ahead. */
@@ -280,6 +287,19 @@
 										: m.details_compare()}
 								</button>
 							</Tooltip>
+							{#if oncompareagain && compared(module)}
+								<Tooltip text={m.details_again_hint()}>
+									<button
+										type="button"
+										class="st-btn st-btn--ghost st-btn--sm"
+										disabled={compareBusy(module)}
+										onclick={oncompareagain}
+									>
+										<Icon name="refresh-cw" size={14} />
+										{m.details_again()}
+									</button>
+								</Tooltip>
+							{/if}
 						{/if}
 						{#if !module.region}
 							<Tooltip text={m.module_part_hint()}>

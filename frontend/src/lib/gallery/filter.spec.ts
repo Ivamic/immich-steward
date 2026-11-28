@@ -91,3 +91,16 @@ describe('the modes of the app (D-254)', () => {
 		expect(archived.show).toEqual([...SHOW_CATEGORIES]);
 	});
 });
+
+describe('little background (D-248)', () => {
+	it('is a filter of the work, kept in the URL', () => {
+		const filter = { ...defaultFilter, little_background: true };
+		expect(filterToUrl(filter)).toContain('little_background=true');
+		expect(filterFromUrl(new URLSearchParams(filterToUrl(filter)))).toEqual(filter);
+		expect(activeFilters(filter)).toBe(1);
+		// Looking at the library: not offered, so not applied either.
+		expect(filterFromUrl(new URLSearchParams(filterToUrl(filter)), 'view').little_background).toBe(
+			false
+		);
+	});
+});

@@ -20,7 +20,7 @@ from collections.abc import Mapping
 from typing import Any, NamedTuple
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, exists, func, literal, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import ColumnElement
 
@@ -40,6 +40,16 @@ MASKING_WORKER = (0, 15, 0)
 DETAILS = "details"
 # Photos whose pairs are queued again in one pass, at most.
 REQUEUE_BATCH = 50
+# From this share of the photo under the groups there is next to no background: no place to
+# find on it (D-248; 44 photos of 15 516 in the measure).
+LITTLE_BACKGROUND = 0.75
+# The colors of the groups in the picture of the masks (RGBA): the people red, the animals blue,
+# the vehicles yellow, as in the measure; half transparent.
+MASK_COLORS = {
+    "person": (229, 62, 62, 120),
+    "animal": (49, 120, 230, 120),
+    "vehicle": (230, 180, 0, 120),
+}
 
 
 class Shared(NamedTuple):
@@ -54,6 +64,44 @@ def groups_of(personal: Mapping[str, Any]) -> list[str]:
     if not personal["masks_enabled"]:
         return []
     return [g for g in GROUPS if g in (personal["masks_groups"] or [])]
+
+
+def shown_groups(personal: Mapping[str, Any]) -> list[str]:
+    """The groups that count for "little background": the ones chosen, people and animals when
+    none is."""
+    chosen = [g for g in GROUPS if g in (personal["masks_groups"] or [])]
+    return chosen or ["person", "animal"]
+
+
+def cover(groups: Mapping[str, Any], chosen: list[str]) -> float:
+    """The share of the photo under the chosen groups (their masks do not overlap)."""
+    return float(sum(float(groups.get(g, {}).get("cover", 0)) for g in chosen))
+
+
+def little_background_sql(chosen: list[str]) -> ColumnElement[bool]:
+    """SQL: the photo has next to no background (see LITTLE_BACKGROUND)."""
+    share: ColumnElement[float] = literal(0.0)
+    for group in chosen:
+        share = share + func.coalesce(AssetObjects.groups[group]["cover"].as_float(), 0.0)
+    return exists().where(AssetObjects.asset_id == Asset.id, share >= LITTLE_BACKGROUND)
+
+
+def picture(labels: bytes, chosen: list[str]) -> bytes:
+    """The masks of the chosen groups as a half transparent PNG, the size of the label map."""
+    import io
+
+    import numpy as np
+    from PIL import Image
+
+    values = {"person": 1, "animal": 2, "vehicle": 3}
+    with Image.open(io.BytesIO(labels)) as opened:
+        label = np.asarray(opened.convert("L"))
+    out = np.zeros((*label.shape, 4), dtype=np.uint8)
+    for group in chosen:
+        out[label == values[group]] = MASK_COLORS[group]
+    buffer = io.BytesIO()
+    Image.fromarray(out, mode="RGBA").save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
 
 
 def key_of(personal: Mapping[str, Any]) -> str:

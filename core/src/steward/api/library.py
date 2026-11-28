@@ -389,6 +389,19 @@ async def set_worker_schedule(
     await db.commit()
 
 
+@router.get("/details/reset")
+async def details_reset_count(account: CurrentAccount, db: DbDep) -> dict[str, int]:
+    """How many photos the details module would compare again after a reset."""
+    return {"photos": await details.reset_count(db, account.id)}
+
+
+@router.post("/details/reset")
+async def reset_details(account: CurrentAccount, db: DbDep) -> dict[str, int]:
+    """Forgets every comparison of details: the module compares the photos again by itself, with
+    the masks of the settings now (D-250)."""
+    return {"photos": await details.reset(db, account.id)}
+
+
 @router.get("/pause")
 async def get_pause(account: CurrentAccount, db: DbDep) -> Pause:
     """Paused modules; the pause is for the whole installation, as the workers are."""

@@ -32,7 +32,8 @@
 		type ModuleSuggestions,
 		type Region,
 		type ReviewStatus,
-		type Turn
+		type Turn,
+		compareDetailsAgain
 	} from '#lib/api.js';
 	import AlbumPicker from '#lib/albums/AlbumPicker.svelte';
 	import { albumGalleryQuery, takeOutOfAlbum } from '#lib/albums/albums.js';
@@ -348,6 +349,17 @@
 		// are, so that polling does not redraw the map (and close an open preview).
 		if (assetId === id && JSON.stringify(result) !== JSON.stringify(suggestions)) {
 			suggestions = result;
+		}
+	}
+
+	/** Forgets the comparisons of details of the photo and compares it again now. */
+	async function compareAgain() {
+		if (!asset) return;
+		const assetId = asset.id;
+		try {
+			setSuggestions(assetId, await compareDetailsAgain(assetId));
+		} catch (e) {
+			error = errorMessage(e);
 		}
 	}
 
@@ -1010,6 +1022,7 @@
 					loading={suggestionsLoading}
 					onchoose={choose}
 					onrun={run}
+					oncompareagain={compareAgain}
 					{highlight}
 					onhighlight={(h) => (highlight = h)}
 					{unfolded}
@@ -1067,6 +1080,13 @@
 						<Icon name={factsOpen ? 'chevron-up' : 'chevron-down'} />
 					</button>
 					<div class="facts" class:open={factsOpen}>
+						{#if asset.little_background}
+							<!-- People or animals cover most of it (D-248): no place to find on it. -->
+							<p class="little-background">
+								<Icon name="users" size={14} />
+								{m.photo_little_background()}
+							</p>
+						{/if}
 						<dl class="details">
 							<dt>{m.photo_camera()}</dt>
 							<dd>{camera}</dd>
@@ -1446,6 +1466,14 @@
 	}
 	.facts-toggle {
 		display: none;
+	}
+	.little-background {
+		display: flex;
+		gap: var(--space-2);
+		align-items: center;
+		margin: 0 0 var(--space-2);
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
 	}
 	/* Small screens: everything stacked, the page scrolls. The photo comes first, right under the
 	   buttons to the previous and next one, then the map and the place; the details of the photo

@@ -147,6 +147,8 @@ export interface GalleryFilter {
 	details_confirmed: boolean;
 	/** Only photos without a location with a located one taken close in time. */
 	nearby: boolean;
+	/** Only photos with next to no background: people or animals cover most of them (D-248). */
+	little_background: boolean;
 	/** Only photos whose latest run of this module failed... */
 	failed_module: string | null;
 	/** ...for this reason (a failure code); null: any reason. */
@@ -220,6 +222,7 @@ export function filterQuery(filter: GalleryFilter, extra: Record<string, string>
 	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.details_confirmed) params.set('details_confirmed', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
+	if (filter.little_background) params.set('little_background', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);
 		if (filter.failure) params.set('failure', filter.failure);
@@ -277,6 +280,11 @@ export interface Direction {
 export interface AssetDetail {
 	/** Which way the camera looked, if known. Absent: an older core. */
 	direction?: Direction | null;
+	/** What is in the photo (D-248): the groups found and their share of it; absent or null: not
+	 * looked at yet (or an older core). */
+	objects?: Partial<Record<MaskGroup, { count: number; cover: number }>> | null;
+	/** People or animals cover most of the photo: next to no background to find a place on. */
+	little_background?: boolean;
 	id: string;
 	type: string;
 	file_name: string;
@@ -575,7 +583,25 @@ export interface DetailPair {
 	inliers: number;
 	/** x, y in the photo and x, y in the other one, 0..1 of the sides of the previews. */
 	lines: [number, number, number, number][];
+	/** People, animals or vehicles were left out of both photos first (D-248); null: no masks. */
+	masked?: boolean | null;
 }
+
+/** The masks of a photo as a half transparent picture to lay over it (D-248). */
+export const maskUrl = (id: string, groups: MaskGroup[] = []) =>
+	`/api/assets/${id}/mask.png${groups.length ? `?${groups.map((g) => `groups=${g}`).join('&')}` : ''}`;
+
+/** Forgets the comparisons of the photo and compares it again now, with the masks of now. */
+export const compareDetailsAgain = (id: string) =>
+	request<ModuleSuggestions[]>('POST', `/api/assets/${id}/details/again`);
+
+/** How many photos the details module would compare again after a reset; the reset. */
+export const getDetailsReset = () =>
+	request<{ photos: number }>('GET', '/api/library/details/reset');
+export const resetDetails = () => request<{ photos: number }>('POST', '/api/library/details/reset');
+
+/** Comparisons of details not made with the masks of the settings yet. */
+export const getMasksState = () => request<{ pending: number }>('GET', '/api/settings/masks');
 
 export const getDetailPair = (assetId: string, otherId: string) =>
 	request<DetailPair>('GET', `/api/assets/${assetId}/details/${otherId}`);
@@ -755,6 +781,10 @@ export const getHeatmap = (level: 'coarse' | 'fine') =>
 /** Personal settings of the signed-in account. */
 export type UiMode = 'work' | 'view';
 
+/** What masks leave out of the photos before matching details (D-248). */
+export type MaskGroup = 'person' | 'animal' | 'vehicle';
+export const MASK_GROUPS: MaskGroup[] = ['person', 'animal', 'vehicle'];
+
 export interface AccountSettings {
 	/** Its own tooltip over a gallery tile (name, time taken, camera, size). */
 	gallery_tooltip: boolean;
@@ -778,6 +808,11 @@ export interface AccountSettings {
 	/** Photos a photo is compared with: by itself, and when started by hand. */
 	details_candidates_auto: number;
 	details_candidates_manual: number;
+	/** The same as `details_confirmed_from` for a pair compared with masks (D-256). */
+	details_masked_from: number;
+	/** Masks before matching details (D-248): on, and what they leave out. */
+	masks_enabled: boolean;
+	masks_groups: MaskGroup[];
 	/** Street-level images near the point in the photo card (D-244). */
 	street_shown: boolean;
 	/** How the app is used (D-254): finding places, or looking at the library. */

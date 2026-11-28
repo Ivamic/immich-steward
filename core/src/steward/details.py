@@ -11,12 +11,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import bindparam, exists, func, select, text
+from sqlalchemy import and_, bindparam, delete, exists, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from steward import account_settings, masks, worker_queue
 from steward.config import Settings
-from steward.models import EMBEDDING_DIM, Asset, Embedding, Job, ModuleRun
+from steward.models import EMBEDDING_DIM, Asset, DetailMatch, Embedding, Job, ModuleRun
 from steward.modules import similar
 
 log = logging.getLogger(__name__)
@@ -59,6 +59,49 @@ async def enqueue(
     if not others:
         return None
     return await worker_queue.enqueue_pairs(db, asset, MODULE_ID, others, priority)
+
+
+async def again(db: AsyncSession, asset: Asset, settings: Settings, limit: int) -> ModuleRun | None:
+    """Forgets what the photo was compared with and compares it again with its most similar
+    photos, ahead of the background (to see the masks of the settings now at work)."""
+    await db.execute(
+        delete(DetailMatch).where(
+            or_(DetailMatch.asset_id == asset.id, DetailMatch.other_id == asset.id)
+        )
+    )
+    await db.commit()
+    return await enqueue(db, asset, settings, limit, worker_queue.PRIORITY_USER)
+
+
+def _runs_of(account_id: UUID) -> Any:
+    return and_(
+        ModuleRun.module_id == MODULE_ID,
+        ModuleRun.status.not_in(worker_queue.ACTIVE),
+        ModuleRun.asset_id.in_(select(Asset.id).where(Asset.account_id == account_id)),
+    )
+
+
+async def reset_count(db: AsyncSession, account_id: UUID) -> int:
+    """How many photos of the account were compared (or looked at) by the module."""
+    count = await db.scalar(
+        select(func.count(func.distinct(ModuleRun.asset_id))).where(_runs_of(account_id))
+    )
+    return int(count or 0)
+
+
+async def reset(db: AsyncSession, account_id: UUID) -> int:
+    """Forgets every comparison of the account: the module compares the photos again by itself
+    (on a worker with a GPU), with the masks of the settings now. Comparisons under way finish."""
+    photos = await reset_count(db, account_id)
+    mine = select(Asset.id).where(Asset.account_id == account_id)
+    await db.execute(
+        delete(DetailMatch).where(
+            or_(DetailMatch.asset_id.in_(mine), DetailMatch.other_id.in_(mine))
+        )
+    )
+    await db.execute(delete(ModuleRun).where(_runs_of(account_id)))
+    await db.commit()
+    return photos
 
 
 async def rerun_failed(

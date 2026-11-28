@@ -232,6 +232,8 @@ def test_the_shared_points_of_a_pair_from_either_photo(
         "matches": 300,
         "inliers": 150,
         "lines": [[0.1, 0.2, 0.3, 0.4]],
+        # Compared before masks existed.
+        "masked": None,
     }
     assert signed_in.get(f"/api/assets/{budva}/details/{query}").json()["lines"] == [
         [0.3, 0.4, 0.1, 0.2]

@@ -4,7 +4,7 @@
   lines between the details both show (the answer of the `details` module of a worker).
 -->
 <script lang="ts">
-	import { getDetailPair, thumbnailUrl, type DetailPair } from '#lib/api.js';
+	import { getDetailPair, thumbnailUrl, type DetailPair, maskUrl } from '#lib/api.js';
 	import { errorMessage } from '#lib/errors.js';
 	import { m } from '#lib/paraglide/messages.js';
 	import Dialog from '#lib/ui/Dialog.svelte';
@@ -38,12 +38,14 @@
 		first={{
 			src: thumbnailUrl(assetId, 'preview'),
 			alt: m.details_dialog_this(),
-			caption: m.details_dialog_this()
+			caption: m.details_dialog_this(),
+			mask: pair?.masked ? maskUrl(assetId) : null
 		}}
 		second={{
 			src: thumbnailUrl(other.asset_id, 'preview', 0, other.version ?? null),
 			alt: other.file_name,
-			caption: `${m.details_dialog_other()} · ${other.file_name}`
+			caption: `${m.details_dialog_other()} · ${other.file_name}`,
+			mask: pair?.masked ? maskUrl(other.asset_id) : null
 		}}
 		lines={pair?.lines ?? []}
 	>
@@ -53,6 +55,9 @@
 					shown: String(pair.lines.length),
 					count: String(pair.inliers)
 				})}
+				{#if pair.masked}
+					{m.details_dialog_masked()}
+				{/if}
 			{:else if !error}
 				{m.details_dialog_loading()}
 			{/if}

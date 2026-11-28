@@ -207,6 +207,17 @@
 				{m.filter_nearby()}
 			</button>
 		</Tooltip>
+
+		<Tooltip text={m.filter_little_background_hint()} below>
+			<button
+				type="button"
+				class="st-chip"
+				aria-pressed={filter.little_background}
+				onclick={() => set({ little_background: !filter.little_background })}
+			>
+				{m.filter_little_background()}
+			</button>
+		</Tooltip>
 	{/if}
 
 	<div class="st-seg" role="radiogroup" aria-label={m.filter_type()}>

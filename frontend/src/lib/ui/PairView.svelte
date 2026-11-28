@@ -16,8 +16,9 @@
 		secondCaption,
 		note
 	}: {
-		first: { src: string; alt: string; caption: string };
-		second: { src: string; alt: string; caption?: string };
+		/** `mask`: a half transparent picture laid over the image (the masks of the details). */
+		first: { src: string; alt: string; caption: string; mask?: string | null };
+		second: { src: string; alt: string; caption?: string; mask?: string | null };
 		/** x, y in the first image and x, y in the second, 0..1 of their sides. */
 		lines?: [number, number, number, number][];
 		/** The caption of the second image, when it is more than text (links of a source). */
@@ -31,6 +32,9 @@
 	let zoom = $state(1);
 	// The pair of details under the pointer: it stands out, the others fade.
 	let active = $state<number | null>(null);
+
+	/** A photo the module `objects` has not looked at yet has no masks to show. */
+	const hide = (event: Event) => ((event.currentTarget as HTMLImageElement).hidden = true);
 
 	let frame = $state<HTMLElement>();
 	let firstImage = $state<HTMLImageElement>();
@@ -96,10 +100,12 @@
 	<div class="frame" bind:this={frame} style:width="{zoom * 100}%">
 		<figure>
 			<img bind:this={firstImage} src={first.src} alt={first.alt} onload={measure} />
+			{#if first.mask}<img class="mask" src={first.mask} alt="" onerror={hide} />{/if}
 			<figcaption>{first.caption}</figcaption>
 		</figure>
 		<figure>
 			<img bind:this={secondImage} src={second.src} alt={second.alt} onload={measure} />
+			{#if second.mask}<img class="mask" src={second.mask} alt="" onerror={hide} />{/if}
 			<figcaption>
 				{#if secondCaption}{@render secondCaption()}{:else}{second.caption}{/if}
 			</figcaption>
@@ -178,7 +184,16 @@
 		align-items: start;
 	}
 	figure {
+		position: relative;
 		margin: 0;
+	}
+	/* The masks of the details over the image, the same size (D-248). */
+	img.mask {
+		position: absolute;
+		top: 0;
+		left: 0;
+		background: none;
+		pointer-events: none;
 	}
 	img {
 		display: block;

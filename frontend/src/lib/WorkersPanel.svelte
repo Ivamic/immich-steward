@@ -18,6 +18,7 @@
 	import AddDeviceDialog from '#lib/AddDeviceDialog.svelte';
 	import ScheduleDialog from '#lib/ScheduleDialog.svelte';
 	import TurnedReset from '#lib/groups/TurnedReset.svelte';
+	import DetailsReset from '#lib/DetailsReset.svelte';
 	import { serverTime } from '#lib/workers/schedule.js';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { formatUntil, pause } from '#lib/pause.svelte.js';
@@ -46,6 +47,9 @@
 	let rerunNotice = $state<{ module: string; text: string } | null>(null);
 	// The reset of the turns found by the orientation module: its window, and what it did.
 	let resettingTurns = $state(false);
+	// The same for the comparisons of details (D-250).
+	let resettingDetails = $state(false);
+	let detailsNotice = $state<string | null>(null);
 	let resetNotice = $state<string | null>(null);
 	let pausing = $state(false);
 	let forgetting = $state<string | null>(null);
@@ -135,6 +139,12 @@
 		} finally {
 			rerunning = null;
 		}
+	}
+
+	async function afterDetailsReset(photos: number) {
+		resettingDetails = false;
+		detailsNotice = m.details_reset_done({ count: number.format(photos) });
+		await load();
 	}
 
 	async function afterTurnsReset(photos: number) {
@@ -459,6 +469,23 @@
 						</div>
 					{/if}
 
+					{#if module.id === 'details' && sum}
+						<div class="reset-turns">
+							<button
+								type="button"
+								class="st-btn st-btn--sm"
+								title={m.details_reset_button_hint()}
+								onclick={() => (resettingDetails = true)}
+							>
+								<Icon name="rotate-ccw" size={14} />
+								{m.details_reset_button()}
+							</button>
+							{#if detailsNotice}
+								<p class="muted" role="status">{detailsNotice}</p>
+							{/if}
+						</div>
+					{/if}
+
 					{#if module.id === 'orientation' && sum}
 						<div class="reset-turns">
 							<button
@@ -480,6 +507,10 @@
 		</div>
 	{/if}
 </section>
+
+{#if resettingDetails}
+	<DetailsReset onclose={() => (resettingDetails = false)} ondone={afterDetailsReset} />
+{/if}
 
 {#if resettingTurns}
 	<TurnedReset onclose={() => (resettingTurns = false)} ondone={afterTurnsReset} />

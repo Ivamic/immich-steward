@@ -90,6 +90,8 @@ class GalleryFilter:
     # The personal settings that say from how many shared points a place is confirmed
     # (`masks.enough`); None: no such filter.
     details_shared: dict[str, Any] | None = None
+    # Only photos with next to no background (`masks.LITTLE_BACKGROUND`) under these groups.
+    little_background: list[str] | None = None
     # Only photos without a location with a located one this many minutes before or after.
     nearby_minutes: float | None = None
     # Only photos whose latest run of this module (`ANY_MODULE`: of any module) failed (with
@@ -142,6 +144,8 @@ class GalleryFilter:
         if self.similar_confidence is not None:
             result.append(~located())
             result.append(similar_confident(self.similar_confidence))
+        if self.little_background is not None:
+            result.append(masks.little_background_sql(self.little_background))
         if self.details_shared is not None:
             result.append(~located())
             result.append(details_confirmed(self.details_shared))

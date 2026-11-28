@@ -24,6 +24,7 @@ from steward import (
     directions,
     locations,
     locked,
+    masks,
     module_display,
     rotation,
     view_groups,
@@ -76,6 +77,7 @@ from steward.models import (
     Album,
     Asset,
     AssetAlbum,
+    AssetObjects,
     DetailMatch,
     Job,
     LocationChange,
@@ -123,12 +125,16 @@ async def gallery_filter(
     similar_confident: bool = False,
     details_confirmed: bool = False,
     nearby: bool = False,
+    little_background: bool = False,
     failed_module: Annotated[str | None, Query(max_length=32)] = None,
     failure: Annotated[str | None, Query(max_length=32)] = None,
     order: Literal["newest", "oldest"] = "newest",
 ) -> GalleryFilter:
-    # From how many shared details a suggestion is confirmed is a personal setting.
-    shared = await account_settings.get_all(db, account.id) if details_confirmed else None
+    # From how many shared details a suggestion is confirmed is a personal setting, as the
+    # groups that leave next to no background.
+    personal = await account_settings.get_all(db, account.id)
+    shared = personal if details_confirmed else None
+    little = masks.shown_groups(personal) if little_background else None
     return GalleryFilter(
         show=frozenset(show or ()),
         type=type,
@@ -141,6 +147,7 @@ async def gallery_filter(
         geoclip_confidence=settings.geoclip_confident_from if geoclip_confident else None,
         similar_confidence=settings.similar_confident_from if similar_confident else None,
         details_shared=shared,
+        little_background=little,
         nearby_minutes=settings.time_neighbors_nearby_minutes if nearby else None,
         failed_module=failed_module,
         failure=failure if failed_module else None,
@@ -329,6 +336,11 @@ class AssetDetail(BaseModel):
     locked: bool = False
     # In the archive of Immich: "Show in the timeline" takes the archive in (D-254).
     archived: bool = False
+    # What is in the photo (the module `objects`, D-248): the groups found with their share of
+    # the photo, and whether next to nothing else is (under the groups of the settings); None:
+    # not looked at yet.
+    objects: dict[str, Any] | None = None
+    little_background: bool = False
     # Which way the camera looked, as the app keeps it (D-245); None: not known.
     direction: DirectionOut | None = None
 
@@ -657,6 +669,8 @@ class DetailPair(BaseModel):
     inliers: int
     # x, y in the photo and x, y in the other photo, 0..1 of the sides of the previews.
     lines: list[tuple[float, float, float, float]]
+    # People, animals or vehicles were left out of both photos first (D-248); None: no masks.
+    masked: bool | None = None
 
 
 @router.get("/{asset_id}/details/{other_id}")
@@ -675,7 +689,39 @@ async def detail_pair(
         if found is None:
             raise ApiError(404, "details_not_compared")
         lines = [(c, d, a, b) for a, b, c, d in found.lines]
-    return DetailPair(matches=found.matches, inliers=found.inliers, lines=lines)
+    return DetailPair(
+        matches=found.matches, inliers=found.inliers, lines=lines, masked=found.masked
+    )
+
+
+@router.get("/{asset_id}/mask.png")
+async def mask_picture(
+    asset_id: UUID,
+    account: CurrentAccount,
+    db: DbDep,
+    groups: Annotated[list[Literal["person", "animal", "vehicle"]] | None, Query()] = None,
+) -> Response:
+    """The masks of the photo (the groups asked for; else those of the settings) as a half
+    transparent picture to lay over it, the size of the label map (96 px long)."""
+    asset = await _own_asset(db, account, asset_id)
+    found = await db.get(AssetObjects, asset.id)
+    if found is None:
+        raise ApiError(404, "objects_not_found")
+    chosen = list(groups or masks.shown_groups(await account_settings.get_all(db, account.id)))
+    png = await asyncio.to_thread(masks.picture, found.labels, chosen)
+    return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=600"})
+
+
+@router.post("/{asset_id}/details/again")
+async def compare_again(
+    asset_id: UUID, account: CurrentAccount, db: DbDep, settings: SettingsDep
+) -> list[ModuleSuggestions]:
+    """Forgets the comparisons of the photo and compares it again now, with the masks of the
+    settings (D-250)."""
+    asset = await _own_asset(db, account, asset_id)
+    personal = await account_settings.get_all(db, account.id)
+    await details.again(db, asset, settings, personal["details_candidates_manual"])
+    return await _suggestions(db, account, asset, settings, frozenset(), False)
 
 
 async def _own_asset(db: DbDep, account: CurrentAccount, asset_id: UUID) -> Asset:
@@ -699,6 +745,8 @@ async def _detail(
     history = await locations.history(db, asset)
     last_applied = next((c for c in history if c.status == "applied"), None)
     direction = await directions.get(db, asset.id)
+    found = await db.get(AssetObjects, asset.id)
+    chosen = masks.shown_groups(await account_settings.get_all(db, account.id))
     return AssetDetail(
         id=asset.id,
         type=asset.type,
@@ -732,6 +780,9 @@ async def _detail(
         version=asset.thumbhash,
         locked=asset.visibility == "locked",
         archived=asset.visibility == "archive",
+        objects=found.groups if found else None,
+        little_background=found is not None
+        and masks.cover(found.groups, chosen) >= masks.LITTLE_BACKGROUND,
         direction=(
             DirectionOut(
                 heading=direction.heading,

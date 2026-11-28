@@ -15,6 +15,9 @@ const DEFAULTS: AccountSettings = {
 	details_first: true,
 	details_candidates_auto: 20,
 	details_candidates_manual: 5,
+	details_masked_from: 80,
+	masks_enabled: true,
+	masks_groups: ['person', 'animal'],
 	street_shown: false,
 	ui_mode: 'work'
 };

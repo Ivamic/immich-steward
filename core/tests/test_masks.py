@@ -76,6 +76,12 @@ def pair(client: TestClient, photo: str, other: str) -> DetailMatch:
     return result
 
 
+def alpha(image: Any, at: tuple[int, int]) -> int:
+    value = image.getpixel(at)
+    assert isinstance(value, tuple)
+    return int(value[3])
+
+
 def requeue(client: TestClient) -> int:
     async def work(db: Any) -> int:
         return await masks.requeue(db)
@@ -224,3 +230,100 @@ def test_masks_turned_off_compare_again_only_the_masked_pairs(
     assert queued_others(signed_in, query) == [kotor]
     budva_pair = pair(signed_in, query, budva)
     assert (budva_pair.mask_key, budva_pair.masked) == ("off", None)
+
+
+def test_a_photo_compared_again_forgets_its_comparisons(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    query = library["query.jpg"]
+    compared(signed_in, query, library["kotor.jpg"], 150)
+    compared(signed_in, library["budva.jpg"], query, 120)
+    response = signed_in.post(f"/api/assets/{query}/details/again")
+    assert response.status_code == 200
+
+    async def left(db: Any) -> int:
+        return len((await db.scalars(select(DetailMatch))).all())
+
+    assert db_call(signed_in, left) == 0
+    # Queued ahead of the background, with its most similar photos (5 by default).
+    assert len(queued_others(signed_in, query)) == 5
+
+
+def test_every_comparison_can_be_forgotten(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    compared(signed_in, library["query.jpg"], library["kotor.jpg"], 150)
+
+    async def ran(db: Any) -> None:
+        db.add(ModuleRun(asset_id=UUID(library["query.jpg"]), module_id="details", status="done"))
+        await db.commit()
+
+    db_call(signed_in, ran)
+    assert signed_in.get("/api/library/details/reset").json() == {"photos": 1}
+    assert signed_in.post("/api/library/details/reset").json() == {"photos": 1}
+    assert signed_in.get("/api/library/details/reset").json() == {"photos": 0}
+    assert signed_in.get("/api/settings/masks").json() == {"pending": 0}
+
+
+def test_little_background_and_the_mask_picture(
+    signed_in: TestClient,
+    library: Library,  # noqa: F811
+) -> None:
+    import io
+
+    from PIL import Image
+
+    labels = io.BytesIO()
+    Image.fromarray(__import__("numpy").array([[1, 2], [0, 3]], dtype="uint8")).save(
+        labels, format="PNG"
+    )
+
+    async def store(db: Any, photo: str, groups: dict[str, Any]) -> None:
+        run = ModuleRun(asset_id=UUID(photo), module_id="objects", status="done")
+        db.add(run)
+        await db.flush()
+        db.add(
+            AssetObjects(
+                asset_id=UUID(photo),
+                run_id=run.id,
+                groups=groups,
+                found=[],
+                labels=labels.getvalue(),
+                module_version="1",
+            )
+        )
+        await db.commit()
+
+    close_up = {"person": {"count": 1, "cover": 0.6}, "animal": {"count": 1, "cover": 0.2}}
+    db_call(signed_in, lambda db: store(db, library["query.jpg"], close_up))
+    db_call(
+        signed_in,
+        lambda db: store(db, library["kotor.jpg"], {"person": {"count": 1, "cover": 0.3}}),
+    )
+
+    detail = signed_in.get(f"/api/assets/{library['query.jpg']}").json()
+    assert detail["little_background"] is True
+    assert detail["objects"] == close_up
+    assert signed_in.get(f"/api/assets/{library['kotor.jpg']}").json()["little_background"] is False
+    items = signed_in.get(
+        "/api/assets",
+        params={"month": "2024-05", "show": ["todo", "with"], "little_background": True},
+    ).json()
+    assert [item["file_name"] for item in items] == ["query.jpg"]
+    # Without the animals 0.6 is not enough.
+    assert signed_in.put("/api/settings", json={"masks_groups": ["person"]}).is_success
+    assert signed_in.get(f"/api/assets/{library['query.jpg']}").json()["little_background"] is False
+
+    picture = signed_in.get(f"/api/assets/{library['query.jpg']}/mask.png")
+    assert picture.headers["content-type"] == "image/png"
+    pixels = Image.open(io.BytesIO(picture.content))
+    assert pixels.mode == "RGBA"
+    assert alpha(pixels, (0, 0)) > 0  # the person
+    assert alpha(pixels, (1, 0)) == 0  # the animal: not chosen now
+    both = signed_in.get(
+        f"/api/assets/{library['query.jpg']}/mask.png", params={"groups": ["person", "animal"]}
+    )
+    assert alpha(Image.open(io.BytesIO(both.content)), (1, 0)) > 0
+    assert signed_in.get(f"/api/assets/{library['budva.jpg']}/mask.png").status_code == 404

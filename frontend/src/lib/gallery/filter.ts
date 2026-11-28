@@ -22,6 +22,7 @@ export const defaultFilter: GalleryFilter = {
 	similar_confident: false,
 	details_confirmed: false,
 	nearby: false,
+	little_background: false,
 	failed_module: null,
 	failure: null,
 	order: 'newest'
@@ -44,6 +45,7 @@ export function forMode(filter: GalleryFilter, mode: UiMode): GalleryFilter {
 		similar_confident: false,
 		details_confirmed: false,
 		nearby: false,
+		little_background: false,
 		failed_module: null,
 		failure: null
 	};
@@ -78,6 +80,7 @@ function fromUrl(
 		similar_confident: params.get('similar_confident') === 'true',
 		details_confirmed: params.get('details_confirmed') === 'true',
 		nearby: params.get('nearby') === 'true',
+		little_background: params.get('little_background') === 'true',
 		failed_module: params.get('failed_module'),
 		failure: params.get('failed_module') ? params.get('failure') : null,
 		order: oneOf(params.get('order'), ['newest', 'oldest'] as const, defaultFilter.order)
@@ -116,6 +119,7 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	if (filter.similar_confident) params.set('similar_confident', 'true');
 	if (filter.details_confirmed) params.set('details_confirmed', 'true');
 	if (filter.nearby) params.set('nearby', 'true');
+	if (filter.little_background) params.set('little_background', 'true');
 	if (filter.failed_module) {
 		params.set('failed_module', filter.failed_module);
 		if (filter.failure) params.set('failure', filter.failure);
@@ -151,6 +155,7 @@ export function activeFilters(filter: GalleryFilter, mode: UiMode = 'work'): num
 		'similar_confident',
 		'details_confirmed',
 		'nearby',
+		'little_background',
 		'failed_module'
 	];
 	const changed = fields.filter((field) => filter[field] !== defaults[field]).length;

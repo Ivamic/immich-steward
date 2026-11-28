@@ -5,7 +5,25 @@ look at the suggestions in the photo card, and save the right place. The app is 
 mostly with the keyboard, but everything works with the mouse too.
 
 The pages are at the top: **Gallery**, **Map**, **Albums**, **Groups**, **Processing** and **Settings**. On the right are the
-language and the theme (light, dark, or as in your system).
+mode, the language and the theme (light, dark, or as in your system).
+
+## View and Work
+
+The switch **View / Work** in the header (in the menu on a phone) says what you are doing; the
+app remembers it for your account.
+
+- **Work** — finding and checking places, as described on this page: the gallery starts with the
+  photos without a location, with the filters and the badges of the suggestions; the card has the
+  map, the suggestions and the actions.
+- **View** — looking at the library: the gallery shows all the photos (the pin of a photo with a
+  location stays), without the filters and badges of the work; the card shows the photo or video
+  large, with its details and a small map of its place beside it. Turning photos, albums and the
+  actions on several photos stay. **Groups** and **Processing** leave the menu (a link still
+  opens them).
+
+In both modes, **Show in the timeline** (the calendar button in the card) opens the gallery at
+this photo with the whole library shown, also when the card was opened from the map, an album or
+a group.
 
 ## The gallery
 

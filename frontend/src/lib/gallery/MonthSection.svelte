@@ -37,6 +37,7 @@
 		query,
 		selection,
 		nearbyMinutes = 15,
+		hints = true,
 		onitems,
 		tooltip = false,
 		onpick,
@@ -49,6 +50,8 @@
 		query: FilterQuery;
 		/** For the tooltip of the "nearby" marker. */
 		nearbyMinutes?: number;
+		/** The markers of the hints on the tiles (off in the mode "view", D-254). */
+		hints?: boolean;
 		selection: Selection;
 		/** The photos of the month, once fetched: for choosing a range across months. */
 		onitems: (month: string, items: AssetItem[]) => void;
@@ -202,7 +205,7 @@
 												<Icon name="map-pin" size={14} strokeWidth={2.25} />
 											</span>
 										</span>
-									{:else if item.nearby || item.geoclip_confident || item.similar_confident || item.details_confirmed}
+									{:else if hints && (item.nearby || item.geoclip_confident || item.similar_confident || item.details_confirmed)}
 										<span class="st-tile-markers">
 											{#if item.nearby}
 												<!-- Clock in the color of time neighbors: filled for the same camera

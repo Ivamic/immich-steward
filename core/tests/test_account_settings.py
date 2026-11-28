@@ -15,6 +15,7 @@ DEFAULTS = {
     "details_candidates_auto": 20,
     "details_candidates_manual": 5,
     "street_shown": False,
+    "ui_mode": "work",
 }
 
 
@@ -29,6 +30,12 @@ def test_defaults_then_changed(signed_in: TestClient) -> None:
     assert signed_in.put("/api/settings", json={}).json() == DEFAULTS | {"gallery_tooltip": False}
     both = {"gallery_tooltip": True, "video_sound": True}
     assert signed_in.put("/api/settings", json=both).json() == DEFAULTS | both
+
+
+def test_the_mode_of_the_app(signed_in: TestClient) -> None:
+    assert signed_in.put("/api/settings", json={"ui_mode": "view"}).json()["ui_mode"] == "view"
+    assert signed_in.get("/api/settings").json()["ui_mode"] == "view"
+    assert signed_in.put("/api/settings", json={"ui_mode": "edit"}).status_code == 422
 
 
 def test_signed_out_gets_nothing(client: TestClient) -> None:

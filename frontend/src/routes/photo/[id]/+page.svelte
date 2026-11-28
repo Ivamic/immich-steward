@@ -46,7 +46,8 @@
 	import { directionText } from '#lib/direction.js';
 	import StreetStrip from '#lib/street/StreetStrip.svelte';
 	import type { StreetMark } from '#lib/map/markers.js';
-	import { atPhoto, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import { atPhoto, filterFromUrl, filterToUrl, timelineAt } from '#lib/gallery/filter.js';
+	import { mode } from '#lib/mode.svelte.js';
 	import { galleryChanges } from '#lib/gallery/selection.svelte.js';
 	import KeysDialog from '#lib/KeysDialog.svelte';
 	import GeocoderSearch from '#lib/map/GeocoderSearch.svelte';
@@ -79,7 +80,7 @@
 	import { page } from '$app/state';
 
 	const id = $derived(page.params.id ?? '');
-	const filter = $derived(filterFromUrl(page.url.searchParams));
+	const filter = $derived(filterFromUrl(page.url.searchParams, mode.current));
 	const query = $derived(filterToUrl(filter));
 	// Opened from a group: the way back goes there, also after stepping through other photos.
 	const fromGroup = $derived(page.url.searchParams.get('group'));
@@ -601,8 +602,12 @@
 			']': () => rotate(90),
 			'?': () => (keysOpen = true)
 		};
+		// Looking at the library (D-254): the keys of the work on the place do nothing.
+		if (mode.viewing) {
+			for (const work of ['enter', 'n', 's', 'u', 'r']) delete actions[work];
+		}
 		const key = shortcutKey(event);
-		const suggestion = numbered.find((item) => String(item.key) === key);
+		const suggestion = mode.viewing ? undefined : numbered.find((item) => String(item.key) === key);
 		if (suggestion) {
 			event.preventDefault();
 			// Shift + number: show the suggestion on the map (and its row in the list), without
@@ -664,6 +669,15 @@
 				<Icon name="chevron-right" />
 			</button>
 		</Tooltip>
+		<Tooltip text={m.photo_timeline()} below>
+			<a
+				class="st-iconbtn"
+				href={resolve(`/${timelineAt(id, { archived: asset?.archived, locked: asset?.locked })}`)}
+				aria-label={m.photo_timeline()}
+			>
+				<Icon name="calendar" size={18} />
+			</a>
+		</Tooltip>
 		<Tooltip text={m.photo_keys()} keys="?" below>
 			<button
 				type="button"
@@ -705,7 +719,94 @@
 			<p class="error" role="alert">{error}</p>
 		{/if}
 
-		<div class="card" class:show-info={tab === 'info'}>
+		{#snippet preview()}
+			<figure class="preview">
+				{#if playable}
+					{#key id}
+						<!-- Videos of a library have no captions to offer. -->
+						<!-- svelte-ignore a11y_media_has_caption -->
+						<video
+							class="player"
+							controls
+							playsinline
+							preload="metadata"
+							poster={thumbnailUrl(id, 'preview', 0, version)}
+							src={videoUrl(id)}
+						></video>
+					{/key}
+				{:else}
+					<button
+						type="button"
+						class="zoom"
+						aria-label={m.photo_zoom()}
+						onclick={() => (viewerOpen = true)}
+					>
+						<span class="framed">
+							<!-- Re-created for each photo and turn, so that the new one fades in. -->
+							{#key `${id}:${turn}`}
+								<img
+									src={thumbnailUrl(id, 'preview', turn, version)}
+									alt={asset?.file_name ?? ''}
+								/>
+							{/key}
+							{#if shownPart}
+								<span
+									class="part"
+									style:left="{shownPart.x * 100}%"
+									style:top="{shownPart.y * 100}%"
+									style:width="{shownPart.w * 100}%"
+									style:height="{shownPart.h * 100}%"
+								></span>
+							{/if}
+						</span>
+					</button>
+				{/if}
+				{#if !playable}
+					<div class="tools">
+						<div class="st-glass group">
+							<Tooltip text={m.photo_turn_left()} keys="[">
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_turn_left()}
+									onclick={() => rotate(-90)}
+								>
+									<Icon name="rotate-ccw" />
+								</button>
+							</Tooltip>
+							<Tooltip text={m.photo_turn_right()} keys="]">
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_turn_right()}
+									onclick={() => rotate(90)}
+								>
+									<Icon name="rotate-cw" />
+								</button>
+							</Tooltip>
+						</div>
+						<div class="st-glass group">
+							<Tooltip text={m.photo_zoom()} keys="Z">
+								<button
+									type="button"
+									class="st-iconbtn st-iconbtn--sm"
+									aria-label={m.photo_zoom()}
+									onclick={() => (viewerOpen = true)}
+								>
+									<Icon name="maximize-2" />
+								</button>
+							</Tooltip>
+						</div>
+					</div>
+				{/if}
+			</figure>
+		{/snippet}
+
+		<div class="card" class:show-info={tab === 'info'} class:view={mode.viewing}>
+			{#if mode.viewing}
+				<!-- Looking at the library (D-254): the photo first and large. -->
+				<div class="photo">{@render preview()}</div>
+			{/if}
 			<!-- The map with the street-level images under it, in one cell of the card. -->
 			<div class="map-area">
 				<div class="map">
@@ -719,7 +820,9 @@
 							{current}
 							{picked}
 							suggestions={shown}
-							onpick={pick}
+							onpick={(point) => {
+								if (!mode.viewing) pick(point);
+							}}
 							{highlight}
 							onhighlight={(h) => (highlight = h)}
 							scrollingPage
@@ -729,19 +832,21 @@
 						/>
 					{/if}
 				</div>
-				<StreetStrip
-					assetId={asset?.id ?? null}
-					point={picked ?? current}
-					photo={asset ? thumbnailUrl(id, 'preview', turn, version) : null}
-					bind:active={streetActive}
-					bind:marks={streetMarks}
-					ondirection={takeTheDirection}
-					onpick={(point, direction) => {
-						pick(point);
-						pendingDirection = direction;
-						mapView?.flyTo(point);
-					}}
-				/>
+				{#if !mode.viewing}
+					<StreetStrip
+						assetId={asset?.id ?? null}
+						point={picked ?? current}
+						photo={asset ? thumbnailUrl(id, 'preview', turn, version) : null}
+						bind:active={streetActive}
+						bind:marks={streetMarks}
+						ondirection={takeTheDirection}
+						onpick={(point, direction) => {
+							pick(point);
+							pendingDirection = direction;
+							mapView?.flyTo(point);
+						}}
+					/>
+				{/if}
 			</div>
 
 			<div class="tabs st-tabs" role="tablist">
@@ -920,86 +1025,7 @@
 			</section>
 
 			<aside class="info">
-				<figure class="preview">
-					{#if playable}
-						{#key id}
-							<!-- Videos of a library have no captions to offer. -->
-							<!-- svelte-ignore a11y_media_has_caption -->
-							<video
-								class="player"
-								controls
-								playsinline
-								preload="metadata"
-								poster={thumbnailUrl(id, 'preview', 0, version)}
-								src={videoUrl(id)}
-							></video>
-						{/key}
-					{:else}
-						<button
-							type="button"
-							class="zoom"
-							aria-label={m.photo_zoom()}
-							onclick={() => (viewerOpen = true)}
-						>
-							<span class="framed">
-								<!-- Re-created for each photo and turn, so that the new one fades in. -->
-								{#key `${id}:${turn}`}
-									<img
-										src={thumbnailUrl(id, 'preview', turn, version)}
-										alt={asset?.file_name ?? ''}
-									/>
-								{/key}
-								{#if shownPart}
-									<span
-										class="part"
-										style:left="{shownPart.x * 100}%"
-										style:top="{shownPart.y * 100}%"
-										style:width="{shownPart.w * 100}%"
-										style:height="{shownPart.h * 100}%"
-									></span>
-								{/if}
-							</span>
-						</button>
-					{/if}
-					{#if !playable}
-						<div class="tools">
-							<div class="st-glass group">
-								<Tooltip text={m.photo_turn_left()} keys="[">
-									<button
-										type="button"
-										class="st-iconbtn st-iconbtn--sm"
-										aria-label={m.photo_turn_left()}
-										onclick={() => rotate(-90)}
-									>
-										<Icon name="rotate-ccw" />
-									</button>
-								</Tooltip>
-								<Tooltip text={m.photo_turn_right()} keys="]">
-									<button
-										type="button"
-										class="st-iconbtn st-iconbtn--sm"
-										aria-label={m.photo_turn_right()}
-										onclick={() => rotate(90)}
-									>
-										<Icon name="rotate-cw" />
-									</button>
-								</Tooltip>
-							</div>
-							<div class="st-glass group">
-								<Tooltip text={m.photo_zoom()} keys="Z">
-									<button
-										type="button"
-										class="st-iconbtn st-iconbtn--sm"
-										aria-label={m.photo_zoom()}
-										onclick={() => (viewerOpen = true)}
-									>
-										<Icon name="maximize-2" />
-									</button>
-								</Tooltip>
-							</div>
-						</div>
-					{/if}
-				</figure>
+				{#if !mode.viewing}{@render preview()}{/if}
 				{#if turn}
 					<div class="st-banner st-banner--info rotation" role="status">
 						<Icon name="rotate-cw" />
@@ -1355,6 +1381,40 @@
 		border-radius: var(--radius-lg);
 		background: var(--color-surface);
 	}
+	/* Looking at the library (D-254): the photo large on the left; the details and a small map of
+	   the place on the right; the place panel is of the work. */
+	.card.view {
+		grid-template-columns: minmax(0, 1fr) 22rem;
+		grid-template-rows: minmax(0, 1fr) 16rem;
+		grid-template-areas: 'photo info' 'photo map';
+	}
+	.card.view .photo {
+		grid-area: photo;
+		display: flex;
+		min-width: 0;
+		min-height: 0;
+	}
+	.card.view .photo .preview {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	/* As large as the card lets it be (the card fills the window under the toolbar). */
+	.card.view .zoom img,
+	.card.view .player {
+		max-height: calc(100dvh - var(--header-height) - 9rem);
+	}
+	.card.view .map-area {
+		grid-area: map;
+	}
+	.card.view .info {
+		grid-area: info;
+	}
+	.card.view .panel,
+	.card.view .tabs {
+		display: none;
+	}
 	/* Medium screens: one side column, with tabs. */
 	@media (max-width: 80rem) {
 		.card {
@@ -1372,6 +1432,11 @@
 		.card:not(.show-info) .info,
 		.card.show-info .panel {
 			display: none;
+		}
+		/* Looking at the library: no tabs, the details always shown. */
+		.card.view .info {
+			display: flex;
+			grid-area: info;
 		}
 	}
 	.facts {

@@ -15,7 +15,8 @@ const DEFAULTS: AccountSettings = {
 	details_first: true,
 	details_candidates_auto: 20,
 	details_candidates_manual: 5,
-	street_shown: false
+	street_shown: false,
+	ui_mode: 'work'
 };
 
 class AccountSettingsState {

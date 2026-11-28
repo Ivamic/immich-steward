@@ -26,7 +26,8 @@
 	import Icon from '#lib/ui/Icon.svelte';
 	import Tooltip from '#lib/ui/Tooltip.svelte';
 	import Dialog from '#lib/ui/Dialog.svelte';
-	import { activeFilters, defaultFilter, filterToUrl } from './filter.js';
+	import { mode } from '#lib/mode.svelte.js';
+	import { activeFilters, defaultFilter, defaultFilterOf, filterToUrl } from './filter.js';
 
 	let {
 		filter,
@@ -110,11 +111,15 @@
 		const reason = filter.failure ? ` · ${failureReason(filter.failure)}` : '';
 		return `${m.filter_failed()}: ${module}${reason}`;
 	});
+	// In the mode "view" (D-254), what to show, the hints and the failed runs are of the work: not
+	// offered, and the default is the whole library.
+	const work = $derived(!placesOnly && !mode.viewing);
+	const defaults = $derived(placesOnly ? defaultFilter : defaultFilterOf(mode.current));
 	// The order is not a filter: resetting keeps it.
 	const isDefault = $derived(
-		filterToUrl({ ...filter, order: defaultFilter.order }) === filterToUrl(defaultFilter)
+		filterToUrl({ ...filter, order: defaults.order }) === filterToUrl(defaults)
 	);
-	const active = $derived(activeFilters(filter));
+	const active = $derived(activeFilters(filter, placesOnly ? 'work' : mode.current));
 	let sheet = $state(false);
 
 	// A click goes on to the next state: left out, with the timeline, alone.
@@ -139,7 +144,7 @@
 
 <!-- On a phone the chips take the whole screen: one button opens them in a window instead. -->
 {#snippet controls()}
-	{#if !placesOnly}
+	{#if work}
 		<div class="group" role="group" aria-label={m.filter_view()}>
 			{#each SHOW_CATEGORIES as category (category)}
 				{@const checked = filter.show.includes(category)}
@@ -270,7 +275,7 @@
 		</label>
 	</ChipPopover>
 
-	{#if !placesOnly}
+	{#if work}
 		<ChipPopover
 			label={failedLabel}
 			icon="triangle-alert"
@@ -347,7 +352,7 @@
 		<button
 			type="button"
 			class="st-btn st-btn--ghost st-btn--sm"
-			onclick={() => onchange({ ...defaultFilter, order: filter.order })}
+			onclick={() => onchange({ ...defaults, order: filter.order })}
 		>
 			<Icon name="rotate-ccw" size={14} />
 			{m.filter_reset()}

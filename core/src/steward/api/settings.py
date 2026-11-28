@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Personal settings of the signed-in account (`steward.account_settings`)."""
 
+from typing import Literal
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -24,6 +26,7 @@ class AccountSettings(BaseModel):
     details_candidates_auto: int
     details_candidates_manual: int
     street_shown: bool
+    ui_mode: Literal["work", "view"]
 
 
 class AccountSettingsIn(BaseModel):
@@ -43,6 +46,7 @@ class AccountSettingsIn(BaseModel):
     details_candidates_auto: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
     details_candidates_manual: int | None = Field(default=None, ge=1, le=worker_queue.MAX_OTHERS)
     street_shown: bool | None = None
+    ui_mode: Literal["work", "view"] | None = None
 
 
 @router.get("")

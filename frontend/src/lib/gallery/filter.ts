@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The gallery filter lives in the page URL, so that a filtered view can be bookmarked and
 // survives going to a photo and back.
-import { inclusionOf, inclusionParam, SHOW_CATEGORIES, type GalleryFilter } from '#lib/api.js';
+import {
+	inclusionOf,
+	inclusionParam,
+	SHOW_CATEGORIES,
+	type GalleryFilter,
+	type UiMode
+} from '#lib/api.js';
 
 export const defaultFilter: GalleryFilter = {
 	show: ['todo'],
@@ -21,14 +27,46 @@ export const defaultFilter: GalleryFilter = {
 	order: 'newest'
 };
 
+/** The gallery of the mode "view" (D-254): the whole library, without the filters of the work. */
+export const viewFilter: GalleryFilter = { ...defaultFilter, show: [...SHOW_CATEGORIES] };
+
+export const defaultFilterOf = (mode: UiMode): GalleryFilter =>
+	mode === 'view' ? viewFilter : defaultFilter;
+
+/** The filter as the mode shows it: in "view", what only the work filters by (what to show, the
+ * hints, the failed runs) is off, also when the URL came from the mode "work". */
+export function forMode(filter: GalleryFilter, mode: UiMode): GalleryFilter {
+	if (mode === 'work') return filter;
+	return {
+		...filter,
+		show: [...SHOW_CATEGORIES],
+		geoclip_confident: false,
+		similar_confident: false,
+		details_confirmed: false,
+		nearby: false,
+		failed_module: null,
+		failure: null
+	};
+}
+
 const oneOf = <T extends string>(value: string | null, allowed: readonly T[], fallback: T): T =>
 	allowed.includes(value as T) ? (value as T) : fallback;
 
-export function filterFromUrl(params: Pick<URLSearchParams, 'get' | 'getAll'>): GalleryFilter {
+export function filterFromUrl(
+	params: Pick<URLSearchParams, 'get' | 'getAll'>,
+	mode: UiMode = 'work'
+): GalleryFilter {
 	// Kept in a fixed order, so that equal filters give equal URLs.
 	const show = SHOW_CATEGORIES.filter((category) => params.getAll('show').includes(category));
+	return forMode(fromUrl(params, show.length ? show : defaultFilterOf(mode).show), mode);
+}
+
+function fromUrl(
+	params: Pick<URLSearchParams, 'get' | 'getAll'>,
+	show: GalleryFilter['show']
+): GalleryFilter {
 	return {
-		show: show.length ? show : defaultFilter.show,
+		show,
 		type: oneOf(params.get('type'), ['all', 'image', 'video'] as const, defaultFilter.type),
 		camera: params.get('camera'),
 		album: params.get('album'),
@@ -86,8 +124,23 @@ export function filterToUrl(filter: GalleryFilter): FilterQuery {
 	return `?${params}`;
 }
 
+/** The gallery at a photo with the whole library shown ("Show in the timeline", like Immich): the
+ * archive and the locked folder taken in when the photo is there. */
+export function timelineAt(
+	id: string,
+	place: { archived?: boolean; locked?: boolean } = {}
+): FilterQuery {
+	const filter: GalleryFilter = {
+		...viewFilter,
+		archived: place.archived ? 'with' : 'off',
+		locked_folder: place.locked ? 'with' : 'off'
+	};
+	return atPhoto(filterToUrl(filter), id);
+}
+
 /** How many filters differ from the default ones: the count on the filter button of a phone. */
-export function activeFilters(filter: GalleryFilter): number {
+export function activeFilters(filter: GalleryFilter, mode: UiMode = 'work'): number {
+	const defaults = defaultFilterOf(mode);
 	const fields: (keyof GalleryFilter)[] = [
 		'type',
 		'camera',
@@ -100,8 +153,8 @@ export function activeFilters(filter: GalleryFilter): number {
 		'nearby',
 		'failed_module'
 	];
-	const changed = fields.filter((field) => filter[field] !== defaultFilter[field]).length;
-	const shown = filter.show.join() !== defaultFilter.show.join() ? 1 : 0;
+	const changed = fields.filter((field) => filter[field] !== defaults[field]).length;
+	const shown = filter.show.join() !== defaults.show.join() ? 1 : 0;
 	const period = filter.date_from || filter.date_to ? 1 : 0;
 	return changed + shown + period;
 }

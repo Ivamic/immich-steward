@@ -16,7 +16,14 @@
 	import Scrubber from '#lib/gallery/Scrubber.svelte';
 	import SelectionBar from '#lib/gallery/SelectionBar.svelte';
 	import SelectionLocation from '#lib/gallery/SelectionLocation.svelte';
-	import { defaultFilter, filterFromUrl, filterToUrl } from '#lib/gallery/filter.js';
+	import {
+		atPhoto,
+		defaultFilter,
+		defaultFilterOf,
+		filterFromUrl,
+		filterToUrl
+	} from '#lib/gallery/filter.js';
+	import { mode } from '#lib/mode.svelte.js';
 	import { bulkNotices } from '#lib/gallery/bulk.svelte.js';
 	import { galleryChanged, galleryChanges, Selection } from '#lib/gallery/selection.svelte.js';
 	import Icon from '#lib/ui/Icon.svelte';
@@ -57,11 +64,30 @@
 	const loaded = new SvelteMap<string, AssetItem[]>();
 	let locationOpen = $state(false);
 
-	const filter = $derived(filterFromUrl(page.url.searchParams));
+	const filter = $derived(filterFromUrl(page.url.searchParams, mode.current));
 	const query = $derived(filterToUrl(filter));
 	const total = $derived(months?.reduce((sum, b) => sum + b.count, 0) ?? null);
 	// Nothing left to do, rather than nothing matching a narrowed filter.
-	const allDone = $derived(query === filterToUrl(defaultFilter));
+	const allDone = $derived(!mode.viewing && query === filterToUrl(defaultFilter));
+
+	// The mode switched (D-254): the gallery of that mode, at the photo at the top of the screen.
+	let seenMode = mode.current;
+	$effect(() => {
+		const now = mode.current;
+		if (now === seenMode) return;
+		seenMode = now;
+		const at = untrack(topPhoto);
+		const next = filterToUrl(defaultFilterOf(now));
+		goto(resolve(`/${at ? atPhoto(next, at) : next}`), { replace: true, reset: false });
+	});
+
+	/** The first photo whose tile is in view under the filter bar. */
+	function topPhoto(): string | null {
+		for (const tile of timeline?.querySelectorAll<HTMLElement>('[data-asset]') ?? []) {
+			if (tile.getBoundingClientRect().bottom > filterHeight) return tile.dataset.asset ?? null;
+		}
+		return null;
+	}
 
 	// Only a change of the filter reloads the months, not `at` added to the URL.
 	/** Marks the chosen photos as showing no sign of a place: other photos get their place from
@@ -191,7 +217,11 @@
 		/>
 	{:else}
 		<EmptyState icon="filter" title={m.gallery_empty()} text={m.gallery_empty_text()}>
-			<button type="button" class="st-btn st-btn--sm" onclick={() => changeFilter(defaultFilter)}>
+			<button
+				type="button"
+				class="st-btn st-btn--sm"
+				onclick={() => changeFilter(defaultFilterOf(mode.current))}
+			>
 				{m.filter_reset()}
 			</button>
 		</EmptyState>
@@ -209,6 +239,7 @@
 						{query}
 						{selection}
 						{nearbyMinutes}
+						hints={!mode.viewing}
 						onpeek={(item) => {
 							tip = null;
 							peek = item;

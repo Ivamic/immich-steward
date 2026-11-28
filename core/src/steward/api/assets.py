@@ -331,6 +331,8 @@ class AssetDetail(BaseModel):
     version: str | None = None
     # In the Immich locked folder (reached only while it is open).
     locked: bool = False
+    # In the archive of Immich: "Show in the timeline" takes the archive in (D-254).
+    archived: bool = False
     # Which way the camera looked, as the app keeps it (D-245); None: not known.
     direction: DirectionOut | None = None
 
@@ -735,6 +737,7 @@ async def _detail(
         ),
         version=asset.thumbhash,
         locked=asset.visibility == "locked",
+        archived=asset.visibility == "archive",
         direction=(
             DirectionOut(
                 heading=direction.heading,

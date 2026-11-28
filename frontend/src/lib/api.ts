@@ -308,6 +308,8 @@ export interface AssetDetail {
 	version: string | null;
 	/** In the Immich locked folder (absent: older core). */
 	locked?: boolean;
+	/** In the archive of Immich (absent: older core). */
+	archived?: boolean;
 }
 
 export interface MapConfig {
@@ -751,6 +753,8 @@ export const getHeatmap = (level: 'coarse' | 'fine') =>
 	request<number[]>('GET', `/api/assets/heatmap?level=${level}`);
 
 /** Personal settings of the signed-in account. */
+export type UiMode = 'work' | 'view';
+
 export interface AccountSettings {
 	/** Its own tooltip over a gallery tile (name, time taken, camera, size). */
 	gallery_tooltip: boolean;
@@ -776,6 +780,8 @@ export interface AccountSettings {
 	details_candidates_manual: number;
 	/** Street-level images near the point in the photo card (D-244). */
 	street_shown: boolean;
+	/** How the app is used (D-254): finding places, or looking at the library. */
+	ui_mode: UiMode;
 }
 
 export const DETAILS_MODULE = 'details';

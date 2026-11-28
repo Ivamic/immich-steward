@@ -8,6 +8,7 @@
 	import { m } from '#lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale, type Locale } from '#lib/paraglide/runtime.js';
 	import { locked } from '#lib/locked.svelte.js';
+	import ModeSwitcher from '#lib/ModeSwitcher.svelte';
 	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
 	import Icon from '#lib/ui/Icon.svelte';
 	import { resolve } from '$app/paths';
@@ -82,6 +83,10 @@
 				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				<div class="st-menu__sep"></div>
 			</nav>
+			<div class="st-menu__heading">{m.mode()}</div>
+			<div class="st-headmenu__row">
+				<ModeSwitcher />
+			</div>
 			<label class="st-menu__heading" for="st-headmenu-language">{m.language()}</label>
 			<div class="st-input st-input--sm st-headmenu__row">
 				<Icon name="languages" size={14} />

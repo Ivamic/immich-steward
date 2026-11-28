@@ -47,6 +47,10 @@ DEFAULTS: dict[str, Any] = {
     # so asked from the switched-on sources, only while this is on. Off by default: nothing
     # leaves the server until the user turns it on.
     "street_shown": False,
+    # How the app is used (D-253, D-254): "work" — finding and checking places, everything shown;
+    # "view" — looking at the library, the tools of the work out of the way (the gallery shows
+    # all the photos without the hints, the card the photo first).
+    "ui_mode": "work",
 }
 # Settings whose change rebuilds the groups.
 GROUP_RULE = (

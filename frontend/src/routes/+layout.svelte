@@ -9,6 +9,8 @@
 	import LanguageSwitcher from '#lib/LanguageSwitcher.svelte';
 	import LockedButton from '#lib/LockedButton.svelte';
 	import LockedPinDialog from '#lib/LockedPinDialog.svelte';
+	import ModeSwitcher from '#lib/ModeSwitcher.svelte';
+	import { mode } from '#lib/mode.svelte.js';
 	import { locked } from '#lib/locked.svelte.js';
 	import SaveNotices from '#lib/SaveNotices.svelte';
 	import ThemeSwitcher from '#lib/ThemeSwitcher.svelte';
@@ -59,22 +61,36 @@
 		}
 	});
 
-	const pages = $derived([
-		{ href: resolve('/'), label: m.nav_gallery(), current: page.route.id === '/' },
-		{ href: resolve('/map'), label: m.nav_map(), current: page.route.id === '/map' },
-		{ href: resolve('/albums'), label: m.nav_albums(), current: page.route.id === '/albums' },
-		{
-			href: resolve('/groups'),
-			label: m.nav_groups(),
-			current: page.route.id?.startsWith('/groups') ?? false
-		},
-		{
-			href: resolve('/processing'),
-			label: m.nav_processing(),
-			current: page.route.id === '/processing'
-		},
-		{ href: resolve('/settings'), label: m.nav_settings(), current: page.route.id === '/settings' }
-	]);
+	// The pages of the work (groups, processing) are not in the menu while looking at the library
+	// (D-254); a link still opens them.
+	const pages = $derived(
+		[
+			{ href: resolve('/'), label: m.nav_gallery(), current: page.route.id === '/' },
+			{ href: resolve('/map'), label: m.nav_map(), current: page.route.id === '/map' },
+			{ href: resolve('/albums'), label: m.nav_albums(), current: page.route.id === '/albums' },
+			{
+				href: resolve('/groups'),
+				label: m.nav_groups(),
+				current: page.route.id?.startsWith('/groups') ?? false
+			},
+			{
+				href: resolve('/processing'),
+				label: m.nav_processing(),
+				current: page.route.id === '/processing'
+			},
+			{
+				href: resolve('/settings'),
+				label: m.nav_settings(),
+				current: page.route.id === '/settings'
+			}
+		].filter((item) => !mode.viewing || !WORK_PAGES.includes(item.href))
+	);
+	const WORK_PAGES = [resolve('/groups'), resolve('/processing')];
+
+	// The mode of the account, while signed in.
+	$effect(() => {
+		if (session.user) mode.load();
+	});
 
 	// The locked folder, while signed in.
 	$effect(() => {
@@ -122,6 +138,11 @@
 				<Icon name="log-out" size={14} />
 				{m.auth_sign_out()}
 			</button>
+		{/if}
+		{#if session.user}
+			<div class="st-header__wide">
+				<ModeSwitcher />
+			</div>
 		{/if}
 		<div class="st-header__wide">
 			<LanguageSwitcher />

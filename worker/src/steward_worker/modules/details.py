@@ -19,6 +19,7 @@ import hashlib
 import io
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +45,39 @@ SIDE = 1024
 MAX_KEYPOINTS = 2048
 # Matched pairs returned for drawing; the count is returned in full.
 MAX_LINES = 80
+# Masks (D-248): grown by this many pixels of the copy SIDE long; fewer points than this left on
+# a photo outside its mask match nothing.
+MASK_GROW = 6
+MIN_POINTS = 8
+
+
+def read(image: bytes) -> Any:
+    """A photo as a PIL image in RGB."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(io.BytesIO(image), formats=IMAGE_FORMATS) as opened:
+            return opened.convert("RGB")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise PermanentError(f"cannot read the image: {exc}") from exc
+
+
+def keep_points(features: dict[str, Any], mask: Any) -> dict[str, Any]:
+    """The features without the points that lie in the mask (in the pixels of the features'
+    image): every per-point tensor cut alike."""
+    import torch
+
+    points = features["keypoints"][0]
+    n = len(points)
+    h, w = mask.shape
+    x = points[:, 0].round().long().clamp(0, w - 1).cpu()
+    y = points[:, 1].round().long().clamp(0, h - 1).cpu()
+    keep = ~torch.from_numpy(mask)[y, x]
+    kept: dict[str, Any] = {}
+    for key, value in features.items():
+        per_point = torch.is_tensor(value) and value.dim() >= 2 and value.shape[:2] == (1, n)
+        kept[key] = value[:, keep.to(value.device)] if key != "image_size" and per_point else value
+    return kept
 
 
 def sha256(path: Path) -> str:
@@ -65,6 +99,8 @@ class DetailsModule:
         self._device = resolve_device(options.device)
         self._extractor: Any = None
         self._matcher: Any = None
+        # YOLO26-seg for the masks, loaded on the first job that asks for them.
+        self._objects: Any = None
 
     @staticmethod
     def _weights_dir() -> Path:
@@ -106,6 +142,9 @@ class DetailsModule:
     def unload(self) -> None:
         self._extractor = None
         self._matcher = None
+        if self._objects is not None:
+            self._objects.unload()
+            self._objects = None
         gc.collect()
         if self._device == "cuda":
             import torch
@@ -114,14 +153,7 @@ class DetailsModule:
 
     def features(self, image: bytes) -> dict[str, Any]:
         """The distinctive points of a photo, in the pixels of its copy SIDE long."""
-        from PIL import Image, UnidentifiedImageError
-
-        try:
-            with Image.open(io.BytesIO(image), formats=IMAGE_FORMATS) as opened:
-                rgb = opened.convert("RGB")
-        except (UnidentifiedImageError, OSError) as exc:
-            raise PermanentError(f"cannot read the image: {exc}") from exc
-        return self.features_of(rgb)
+        return self.features_of(read(image))
 
     def features_of(self, rgb: Any) -> dict[str, Any]:
         """The distinctive points of an image already read (a PIL image in RGB)."""
@@ -169,13 +201,49 @@ class DetailsModule:
         ]
         return PairMatch(matches=len(a), inliers=int(agree.sum()), lines=lines)
 
-    def compare(self, image: bytes, others: Sequence[bytes]) -> list[PairMatch | None]:
-        """The photo against each of the others; None where the other photo cannot be read."""
-        photo = self.features(image)
+    def compare(
+        self, image: bytes, others: Sequence[bytes], masks: dict[str, Any] | None = None
+    ) -> list[PairMatch | None]:
+        """The photo against each of the others; None where the other photo cannot be read.
+
+        With `masks` ({"groups": [...], "grow": pixels}, D-248) the points on those groups are
+        left out of both photos before the matching; a pair where neither photo has any of them
+        is matched exactly as without masks."""
+        groups = list((masks or {}).get("groups") or [])
+        grow = int((masks or {}).get("grow", MASK_GROW))
+        photo_rgb = read(image)
+        photo = self.features_of(photo_rgb)
+        photo_kept = self._masked(photo_rgb, photo, groups, grow) if groups else None
         results: list[PairMatch | None] = []
         for other in others:
             try:
-                results.append(self.match(photo, self.features(other)))
+                other_rgb = read(other)
+                found = self.features_of(other_rgb)
+                if not groups:
+                    results.append(self.match(photo, found))
+                    continue
+                other_kept = self._masked(other_rgb, found, groups, grow)
+                if photo_kept is None and other_kept is None:
+                    results.append(replace(self.match(photo, found), masked=False))
+                    continue
+                first, second = photo_kept or photo, other_kept or found
+                if min(len(first["keypoints"][0]), len(second["keypoints"][0])) < MIN_POINTS:
+                    # Next to nothing left outside the masks: no sign of one place.
+                    results.append(PairMatch(matches=0, inliers=0, masked=True))
+                    continue
+                results.append(replace(self.match(first, second), masked=True))
             except PermanentError:
                 results.append(None)
         return results
+
+    def _masked(
+        self, rgb: Any, features: dict[str, Any], groups: list[str], grow: int
+    ) -> dict[str, Any] | None:
+        """The features without the points on the groups; None when none of them is there."""
+        from steward_worker.modules.objects import ObjectsModule
+
+        if self._objects is None:
+            self._objects = ObjectsModule(self._options)
+        w, h = (int(v) for v in features["image_size"][0].tolist())
+        mask = self._objects.mask_of(rgb, (w, h), groups, grow)
+        return keep_points(features, mask) if mask is not None else None

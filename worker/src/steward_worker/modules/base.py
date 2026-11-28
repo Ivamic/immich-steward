@@ -44,6 +44,9 @@ class PairMatch:
     # Some of those pairs for drawing: x, y in the first photo and x, y in the second, 0..1 of
     # the width and the height.
     lines: list[tuple[float, float, float, float]] = field(default_factory=list)
+    # Points on people, animals or vehicles (the groups the core asked for) were left out of
+    # either photo before the matching (D-248); None: no masks were asked for.
+    masked: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,21 @@ class Orientation:
     looks: int = 1
 
 
+@dataclass(frozen=True)
+class Objects:
+    """What is in the photo (the `objects` module, D-248): people, animals and vehicles as
+    groups, every object found, and where they are."""
+
+    # By group ("person", "animal", "vehicle"), the ones found only: how many and the share of
+    # the photo they cover (0..1).
+    groups: dict[str, dict[str, float]]
+    # Every object of the 80 classes of COCO: class, confidence, box (x1, y1, x2, y2, 0..1).
+    found: list[dict[str, Any]]
+    # The label map, its long side `objects.KEEP_SIDE`, as a PNG: 0 nothing, then the groups
+    # (`objects.LABEL`); for showing the masks.
+    labels: bytes
+
+
 class PermanentError(Exception):
     """Running the job again cannot help (e.g. the image cannot be decoded)."""
 
@@ -95,7 +113,7 @@ class WorkerModule(Protocol):
     def unload(self) -> None:
         """Frees the memory of the model when the worker has been idle for a while."""
 
-    def run(self, image: bytes) -> list[Candidate] | Embedding | Orientation:
+    def run(self, image: bytes) -> list[Candidate] | Embedding | Orientation | Objects:
         """Candidate locations for one image (JPEG or WebP), its vector, or how it is turned.
         Runs in a thread."""
         ...
@@ -115,5 +133,6 @@ class PairModule(Protocol):
 
     def compare(self, image: bytes, others: Sequence[bytes]) -> Sequence[PairMatch | None]:
         """The photo against each of the others, in their order; None where the other photo
-        cannot be read. Runs in a thread."""
+        cannot be read. Runs in a thread. A module may take `masks` too (`details`, D-248): the
+        groups the core asks to leave out, given when the job names them."""
         ...

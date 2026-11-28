@@ -6,6 +6,7 @@ from collections.abc import Callable
 from steward_worker.modules.base import (
     Candidate,
     Embedding,
+    Objects,
     Orientation,
     PairMatch,
     PairModule,
@@ -15,6 +16,7 @@ from steward_worker.modules.base import (
 )
 from steward_worker.modules.details import DetailsModule
 from steward_worker.modules.geoclip import GeoClipModule, ModuleOptions
+from steward_worker.modules.objects import ObjectsModule
 from steward_worker.modules.orientation import OrientationModule
 from steward_worker.modules.similar import SimilarModule
 from steward_worker.modules.street import StreetModule
@@ -22,12 +24,13 @@ from steward_worker.modules.street import StreetModule
 # A factory per module: models are heavy, so only the modules a worker is asked to run are
 # created, and they load their models (and import PyTorch) only on their first job. The order is
 # the default priority of their background jobs: the index of similar photos first, without it
-# they have nothing to suggest; the details only confirm what the others found; the turned
-# photos are no location at all, so they come last.
+# they have nothing to suggest; the details only confirm what the others found; what is in the
+# photos (people, animals) and the turned photos are no location at all, so they come last.
 AVAILABLE: dict[str, Callable[[ModuleOptions], WorkerModule | PairModule]] = {
     SimilarModule.id: SimilarModule,
     GeoClipModule.id: GeoClipModule,
     DetailsModule.id: DetailsModule,
+    ObjectsModule.id: ObjectsModule,
     OrientationModule.id: OrientationModule,
     # Only by hand, for the street-level images shown in a card (D-244).
     StreetModule.id: StreetModule,
@@ -38,6 +41,7 @@ __all__ = [
     "Candidate",
     "Embedding",
     "ModuleOptions",
+    "Objects",
     "Orientation",
     "PairMatch",
     "PairModule",

@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import httpx2
 
-from steward_worker.modules import Candidate, Embedding, Orientation, PairMatch
+from steward_worker.modules import Candidate, Embedding, Objects, Orientation, PairMatch
 
 # Version of the worker API this worker speaks, and the oldest one of the core it works with.
 # Within a major version of the app the protocol only grows by additions both sides can do
@@ -75,6 +75,9 @@ class LeasedJob:
     lease_seconds: int
     # Photos to compare the job's photo with (jobs of pair modules): the core's names for them.
     others: tuple[str, ...] = ()
+    # `details` (D-248): what to leave out of both photos, {"groups": [...], "grow": pixels};
+    # None: nothing (cores before 0.15 never say).
+    masks: dict[str, Any] | None = None
 
 
 class CoreClient:
@@ -144,6 +147,7 @@ class CoreClient:
             attempt=int(data["attempt"]),
             lease_seconds=int(data["lease_seconds"]),
             others=tuple(str(other) for other in data.get("others") or ()),
+            masks=data.get("masks") or None,
         )
 
     async def image(self, job_id: UUID, other: str | None = None) -> bytes:
@@ -158,13 +162,24 @@ class CoreClient:
         self,
         job_id: UUID,
         version: str,
-        output: list[Candidate] | Embedding | Orientation | dict[str, PairMatch],
+        output: list[Candidate] | Embedding | Orientation | Objects | dict[str, PairMatch],
     ) -> None:
         body: dict[str, Any] = {"module_version": version, "candidates": []}
-        if isinstance(output, Orientation):
+        if isinstance(output, Objects):
+            body["objects"] = {
+                "groups": output.groups,
+                "found": output.found,
+                "labels": base64.b64encode(output.labels).decode("ascii"),
+            }
+        elif isinstance(output, Orientation):
             body["orientation"] = {"probs": list(output.probs), "looks": output.looks}
         elif isinstance(output, dict):
-            body["pairs"] = [{"other": other, **asdict(pair)} for other, pair in output.items()]
+            # `masked` only when masks were asked for: older cores do not know it.
+            body["pairs"] = [
+                {"other": other, **{k: v for k, v in asdict(pair).items() if k != "masked"}}
+                | ({"masked": pair.masked} if pair.masked is not None else {})
+                for other, pair in output.items()
+            ]
         elif isinstance(output, Embedding):
             data = base64.b64encode(output.data).decode("ascii")
             body["embedding"] = {"dim": output.dim, "data": data}

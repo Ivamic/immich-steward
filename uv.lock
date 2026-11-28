@@ -2180,10 +2180,10 @@ requires-dist = [
     { name = "pillow", marker = "extra == 'street'", specifier = ">=13" },
     { name = "safetensors", marker = "extra == 'similar'", specifier = ">=0.4" },
     { name = "safetensors", marker = "extra == 'street'", specifier = ">=0.4" },
-    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.5", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "steward-worker", extra = "cpu" } },
-    { name = "torch", marker = "extra == 'cuda'", specifier = ">=2.5", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "steward-worker", extra = "cuda" } },
-    { name = "torchvision", marker = "extra == 'cpu'", specifier = ">=0.20", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "steward-worker", extra = "cpu" } },
-    { name = "torchvision", marker = "extra == 'cuda'", specifier = ">=0.20", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "steward-worker", extra = "cuda" } },
+    { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.14", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "steward-worker", extra = "cpu" } },
+    { name = "torch", marker = "extra == 'cuda'", specifier = ">=2.14", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "steward-worker", extra = "cuda" } },
+    { name = "torchvision", marker = "extra == 'cpu'", specifier = ">=0.29", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "steward-worker", extra = "cpu" } },
+    { name = "torchvision", marker = "extra == 'cuda'", specifier = ">=0.29", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "steward-worker", extra = "cuda" } },
 ]
 provides-extras = ["geoclip", "similar", "details", "street", "orientation", "cpu", "cuda"]
 

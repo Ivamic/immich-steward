@@ -17,14 +17,17 @@ dependencies = [
 geoclip = ["geoclip>=1.2.3", "pillow>=13"]
 # M3 similar photos (MegaLoc); the weights come from Hugging Face on first use.
 similar = ["huggingface-hub>=0.25", "safetensors>=0.4", "pillow>=13"]
-# Matching details (ALIKED + LightGlue); the weights come from GitHub on first use.
+# Matching details (ALIKED + LightGlue, and YOLO26-seg for the masks of people and animals); the
+# weights come from GitHub on first use. The module `objects` needs the same.
 details = ["numpy>=2", "pillow>=13"]
 # Street-level images against the photo: MegaLoc and ALIKED + LightGlue, as the two above.
 street = ["huggingface-hub>=0.25", "safetensors>=0.4", "numpy>=2", "pillow>=13"]
 # Turned photos (EfficientNetV2-S); the weights come from Hugging Face on first use.
 orientation = ["huggingface-hub>=0.25", "pillow>=13"]
-cpu = ["torch>=2.5", "torchvision>=0.20"]
-cuda = ["torch>=2.5", "torchvision>=0.20"]
+# 2.14: the export of YOLO26-seg (`objects`, the masks of `details`) is TorchScript made with it, and
+# an older PyTorch may not load it.
+cpu = ["torch>=2.14", "torchvision>=0.29"]
+cuda = ["torch>=2.14", "torchvision>=0.29"]
 
 [tool.uv]
 conflicts = [[{ extra = "cpu" }, { extra = "cuda" }]]

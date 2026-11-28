@@ -7,6 +7,8 @@ a job it took and never finished returns to the queue when the lease runs out.
 
 import asyncio
 import contextlib
+import functools
+import inspect
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -32,6 +34,7 @@ from steward_worker.client import (
 from steward_worker.load import system_busy
 from steward_worker.modules import (
     Embedding,
+    Objects,
     Orientation,
     PairMatch,
     PairModule,
@@ -263,7 +266,7 @@ class Worker:
             self._loaded[job.module] = time.monotonic()
             await self._report(WORKING, job.module)
             started = time.monotonic()
-            output: list[Any] | Embedding | Orientation | dict[str, PairMatch]
+            output: list[Any] | Embedding | Orientation | Objects | dict[str, PairMatch]
             if isinstance(module, PairModule):
                 output = await self._compare(job, module, image)
             else:
@@ -278,6 +281,8 @@ class Worker:
                 if isinstance(output, Embedding)
                 else f"turn {max(range(4), key=lambda c: output.probs[c]) * 90} deg ccw"
                 if isinstance(output, Orientation)
+                else f"{sum(int(g['count']) for g in output.groups.values())} objects found"
+                if isinstance(output, Objects)
                 else f"compared with {len(output)} photos"
                 if isinstance(output, dict)
                 else f"{len(output)} candidates",
@@ -340,7 +345,14 @@ class Worker:
             len(job.others),
             time.monotonic() - started,
         )
-        pairs = await asyncio.to_thread(module.compare, image, list(others.values()))
+        # Masks only for a module that takes them (`details`, D-248).
+        compare: Any = module.compare
+        if job.masks and "masks" in inspect.signature(compare).parameters:
+            pairs = await asyncio.to_thread(
+                functools.partial(compare, masks=job.masks), image, list(others.values())
+            )
+        else:
+            pairs = await asyncio.to_thread(module.compare, image, list(others.values()))
         return {other: pair for other, pair in zip(others, pairs, strict=True) if pair is not None}
 
     async def _heartbeat(self, job: LeasedJob) -> None:

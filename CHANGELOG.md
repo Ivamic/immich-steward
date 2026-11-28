@@ -16,6 +16,16 @@ between releases.
   with its details and a small map; **Work** is the app as before. Remembered for each account.
 - **Show in the timeline**: a button in the photo card opens the gallery at this photo, with the
   whole library shown (as in Immich).
+- **People and animals in the details**: before two photos are compared point by point, the
+  people and animals of both are left out (masks of YOLO26s-seg, AGPL-3.0): the same person or dog
+  on two photos made most wrong "confirmed by details" (all 32 of 486 in a family library; with
+  masks 2 of 475). A pair compared with masks is confirmed from 80 shared points, one without from
+  100; both are settings. The masks are drawn in the window of the shared details. Settings,
+  **Compare again** in the card and **Forget the comparisons** on Processing. See
+  [usage](docs/usage.md#people-and-animals-in-the-details).
+- **People and animals** (worker module `objects`): what is in every photo and video, found once,
+  in the background. A photo with next to no background says so, and the gallery (Work) has the
+  filter **Little background**.
 - **Hints for videos**: similar photos and matching details now look at videos too, by their
   preview (the cover frame of Immich); a video with a location is a sample for the photos like it.
   Measured on 1754 videos with GPS: at equal similarity as reliable as photos. GeoCLIP and the
@@ -30,6 +40,19 @@ between releases.
 
 - **Map, close up**: the picture of a place stood on the average of its photos, which could be
   tens of metres from where the photo shown was taken. It now stands where that photo was taken.
+
+### Upgrade notes
+
+- `compose.yaml` and `.env` need no change: `docker compose pull && docker compose up -d`. A
+  `compose.yaml` from 0.15.0 also mounts the folder `backups` for the nightly backups; with an
+  older one, Settings → Backups says how to add it.
+- **Update the workers.** While the masks are on (the default), a worker before 0.15 compares no
+  details. The worker module `objects` downloads its weights (40 MB) from GitHub on first use. A
+  worker installed from source needs `uv sync` after the update (PyTorch 2.14 or newer).
+- If `STEWARD_AUTO_MODULES` is set in `.env`, add `objects` to it; the default has it.
+- After the update the pairs compared before are compared again where a photo shows people or
+  animals, the ones with the most points first (on a worker with a GPU); until then they confirm
+  as before, from 100 points.
 
 ## [0.14.0] - 2026-11-25
 

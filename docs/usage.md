@@ -236,6 +236,26 @@ button. Undo puts back the location the photo had before (or none).
 Every location the app writes gets the tag `steward/estimated` in Immich, so you can always tell
 them from the ones recorded by a camera.
 
+### People and animals in the details
+
+The same person or dog on two photos shares many points with itself, wherever the photos were
+taken. So before the details of two photos are compared, the points on the people and animals of
+both are left out (masks of the module **People and animals** of the worker): what is compared is
+the place. A pair compared so is confirmed from fewer shared points (80 instead of 100).
+
+- **Settings → Suggestions → Matching details**: **Leave out people and animals** (on), what to
+  leave out (people, animals; vehicles too if you like), from how many points a pair with masks
+  is confirmed. While the comparisons made with other masks are made again, the panel says how
+  many are left. A pair without people or animals in it keeps its answer: it is the same.
+- In the window of the shared details of a pair compared with masks, the masks are drawn over
+  both photos (people red, animals blue, vehicles yellow).
+- **Compare again** in the block of similar photos forgets the comparisons of the photo and makes
+  them again now, with the settings of now. **Processing → Matching details → Forget the
+  comparisons** does that for every photo.
+- A photo that people or animals cover for the most part (75 % or more) says so in its details:
+  there is next to no background to find a place on. The filter **Little background** of the
+  gallery (mode Work) lists them.
+
 ### Suggestions
 
 Below the actions the modules list where they think the photo was taken. Every module has its

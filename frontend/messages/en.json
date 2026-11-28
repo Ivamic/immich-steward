@@ -795,6 +795,7 @@
 	"about_components_heading": "Third-party components",
 	"about_role_geoclip": "location by the look of a photo",
 	"about_role_megaloc": "similar photos",
+	"about_role_yolo": "people and animals in the photos",
 	"about_role_tiles": "map tiles",
 	"about_role_map_data": "map data",
 	"about_role_geocoder": "address search",

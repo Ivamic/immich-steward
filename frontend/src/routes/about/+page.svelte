@@ -50,6 +50,12 @@
 			license: 'MIT'
 		},
 		{
+			name: 'YOLO26',
+			url: 'https://github.com/ultralytics/ultralytics',
+			role: m.about_role_yolo,
+			license: 'AGPL-3.0'
+		},
+		{
 			name: 'OpenFreeMap',
 			url: 'https://openfreemap.org',
 			role: m.about_role_tiles,

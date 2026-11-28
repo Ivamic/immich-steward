@@ -795,6 +795,7 @@
 	"about_components_heading": "Composants tiers",
 	"about_role_geoclip": "lieu d’après l’aspect de la photo",
 	"about_role_megaloc": "photos similaires",
+	"about_role_yolo": "personnes et animaux sur les photos",
 	"about_role_tiles": "tuiles de la carte",
 	"about_role_map_data": "données de la carte",
 	"about_role_geocoder": "recherche d’adresses",

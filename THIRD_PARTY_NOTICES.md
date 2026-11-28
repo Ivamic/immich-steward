@@ -64,6 +64,11 @@ worker downloads them from Hugging Face on first use. The same goes for the weig
 [cvg/LightGlue](https://github.com/cvg/LightGlue)), downloaded from GitHub, and of the orientation
 model (MIT, [DuarteBarbosa/deep-image-orientation-detection](https://huggingface.co/DuarteBarbosa/deep-image-orientation-detection),
 an EfficientNetV2-S of torchvision fine-tuned by Duarte Barbosa), downloaded from Hugging Face.
+The people, animals and vehicles in the photos are found with YOLO26s-seg of
+[Ultralytics](https://github.com/ultralytics/ultralytics) (AGPL-3.0, the code and the weights), run
+from a TorchScript export without the `ultralytics` package: the worker downloads the file from
+the release [models-1](https://github.com/Ivamic/immich-steward/releases/tag/models-1) of this
+repository; `worker/tools/export_yolo26_seg.py` makes it from the original weights.
 
 ## Full list
 

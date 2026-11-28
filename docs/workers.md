@@ -1,7 +1,7 @@
 # Workers
 
-Five modules are neural networks: **GeoCLIP**, **similar photos**, **matching details**,
-**orientation** and **street-level images**. They run in a
+Six modules are neural networks: **GeoCLIP**, **similar photos**, **matching details**,
+**people and animals**, **orientation** and **street-level images**. They run in a
 separate program, the *worker*, which takes photos one by one in the background and sends the
 results to the app. The worker is optional: without it the app still suggests places from the
 photos taken shortly before and after, and you can pick points on the map yourself.
@@ -17,7 +17,15 @@ photos taken shortly before and after, and you can pick points on the map yourse
 - **Matching details** confirms what similar photos found: it compares a photo with its most
   similar photos point by point ([usage](usage.md#confirmed-by-details)). It suggests no
   places itself. By itself it runs only on a worker with a graphics card; a comparison
-  started from a photo card runs on any worker.
+  started from a photo card runs on any worker. Before it compares, it leaves out the people and
+  animals of both photos ([usage](usage.md#people-and-animals-in-the-details)): it needs a worker
+  from 0.15 while that is on, an older one gets no comparisons.
+- **People and animals** finds the people, animals and vehicles in every photo and video once
+  (YOLO26s-seg of Ultralytics, AGPL-3.0): for the masks of the details and the filter **Little
+  background**. About 0.3 s per photo on a server CPU (a library of 90,000 photos in about seven
+  hours, in the background), a few minutes per thousand on a graphics card. Its weights (40 MB)
+  are downloaded once from the [releases of the app](https://github.com/Ivamic/immich-steward/releases/tag/models-1),
+  with the extra `details`.
 - **Orientation** finds the photos that lie on their side, for the tab **Turned photos** of the
   Groups page ([usage](usage.md#turned-photos)). It looks at every photo once and is light: a
   fraction of a second per photo, also on a CPU.
@@ -243,7 +251,7 @@ Start the worker (every time; it runs while the window is open):
 ```powershell
 cd D:\steward-worker
 $env:STEWARD_WORKER_TOKEN = "your-token"
-.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details,street --name laptop
+.\.venv\Scripts\steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details,objects,street --name laptop
 ```
 
 ### GPU worker on Linux (bash)
@@ -263,7 +271,7 @@ Start the worker (every time; it runs while the terminal is open):
 ```sh
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
-.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details,street --name desktop
+.venv/bin/steward-worker --core http://192.168.1.10:8780 --modules similar,geoclip,details,objects,street --name desktop
 ```
 
 ### Start the GPU worker with one file
@@ -279,7 +287,7 @@ On Windows, create `D:\steward-worker\start-worker.cmd` (e.g. in Notepad, saved 
 cd /d D:\steward-worker
 set STEWARD_WORKER_TOKEN=your-token
 set STEWARD_CORE_URL=http://192.168.1.10:8780
-set STEWARD_WORKER_MODULES=similar,geoclip,details,orientation
+set STEWARD_WORKER_MODULES=similar,geoclip,details,objects,orientation
 set STEWARD_WORKER_NAME=laptop
 .venv\Scripts\steward-worker.exe
 pause
@@ -298,7 +306,7 @@ On Linux, create `~/steward-worker/start-worker.sh`:
 cd ~/steward-worker
 export STEWARD_WORKER_TOKEN=your-token
 export STEWARD_CORE_URL=http://192.168.1.10:8780
-export STEWARD_WORKER_MODULES=similar,geoclip,details,orientation
+export STEWARD_WORKER_MODULES=similar,geoclip,details,objects,orientation
 export STEWARD_WORKER_NAME=desktop
 exec .venv/bin/steward-worker
 ```
